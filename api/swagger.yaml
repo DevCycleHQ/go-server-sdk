@@ -1,0 +1,412 @@
+openapi: 3.0.0
+info:
+  title: DevCycle Bucketing API
+  description: Documents the DevCycle Bucketing API which provides and API interface
+    to User Bucketing and for generated SDKs.
+  version: 1.0.0
+servers:
+- url: https://bucketing-api.devcycle.com/
+tags:
+- name: devcycle
+paths:
+  /v1/variables/{key}:
+    post:
+      tags:
+      - devcycle
+      summary: Get variable by key for user data
+      operationId: getVariableByKey
+      parameters:
+      - name: key
+        in: path
+        description: Variable key
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        $ref: '#/components/requestBodies/UserRequestBody'
+      responses:
+        "200":
+          description: Variable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Variable'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing 'envKey' query parameter or 'Authorization' header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /v1/variables:
+    post:
+      tags:
+      - devcycle
+      summary: Get all variables by key for user data
+      operationId: getVariables
+      requestBody:
+        $ref: '#/components/requestBodies/UserRequestBody'
+      responses:
+        "200":
+          description: Variables response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/Variable'
+                x-content-type: application/json
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing 'envKey' query parameter or 'Authorization' header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /v1/features:
+    post:
+      tags:
+      - devcycle
+      summary: Get all features by key for user data
+      operationId: getFeatures
+      requestBody:
+        $ref: '#/components/requestBodies/UserRequestBody'
+      responses:
+        "200":
+          description: Feature response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/Feature'
+                x-content-type: application/json
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing 'envKey' query parameter or 'Authorization' header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /v1/track:
+    post:
+      tags:
+      - devcycle
+      summary: Post events to DevCycle for user
+      operationId: postEvents
+      requestBody:
+        $ref: '#/components/requestBodies/TrackRequestBody'
+      responses:
+        "201":
+          description: Feature response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/inline_response_201'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing 'envKey' query parameter or 'Authorization' header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+components:
+  schemas:
+    UserData:
+      required:
+      - user_id
+      type: object
+      properties:
+        user_id:
+          type: string
+          description: Unique id to identify the user
+        email:
+          type: string
+          description: User's email used to identify the user on the dashboard / target
+            audiences
+        name:
+          type: string
+          description: User's name used to identify the user on the dashboard / target
+            audiences
+        language:
+          maxLength: 2
+          type: string
+          description: User's language in ISO 639-1 format
+        country:
+          maxLength: 2
+          type: string
+          description: User's country in ISO 3166 alpha-2 format
+        appVersion:
+          type: string
+          description: App Version of the running application
+        appBuild:
+          type: string
+          description: App Build number of the running application
+        customData:
+          type: object
+          description: "User's custom data to target the user with, data will be logged\
+            \ to DevCycle for use in dashboard."
+        privateCustomData:
+          type: object
+          description: "User's custom data to target the user with, data will not\
+            \ be logged to DevCycle only used for feature bucketing."
+        createdDate:
+          type: number
+          description: "Date the user was created, Unix epoch timestamp format"
+        lastSeenDate:
+          type: number
+          description: "Date the user was created, Unix epoch timestamp format"
+        platform:
+          type: string
+          description: Platform the Client SDK is running on
+        platformVersion:
+          type: string
+          description: Version of the platform the Client SDK is running on
+        deviceModel:
+          type: string
+          description: User's device model
+        sdkType:
+          type: string
+          description: DevCycle SDK type
+          enum:
+          - api
+          - server
+        sdkVersion:
+          type: string
+          description: DevCycle SDK Version
+    UserDataAndEventsBody:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        user:
+          $ref: '#/components/schemas/UserData'
+    Feature:
+      required:
+      - _id
+      - _variation
+      - key
+      - type
+      type: object
+      properties:
+        _id:
+          type: string
+          description: unique database id
+        key:
+          type: string
+          description: "Unique key by Project, can be used in the SDK / API to reference\
+            \ by 'key' rather than _id."
+        type:
+          type: string
+          description: Feature type
+          enum:
+          - release
+          - experiment
+          - permission
+          - ops
+        _variation:
+          type: string
+          description: Bucketed feature variation
+        evalReason:
+          type: string
+          description: Evaluation reasoning
+      example:
+        evalReason: evalReason
+        _variation: _variation
+        _id: _id
+        type: release
+        key: key
+    Variable:
+      required:
+      - _id
+      - key
+      - type
+      - value
+      type: object
+      properties:
+        _id:
+          type: string
+          description: unique database id
+        key:
+          type: string
+          description: "Unique key by Project, can be used in the SDK / API to reference\
+            \ by 'key' rather than _id."
+        type:
+          type: string
+          description: Variable type
+          enum:
+          - String
+          - Boolean
+          - Number
+          - JSON
+        value:
+          type: object
+          description: "Variable value can be a string, number, boolean, or JSON"
+      example:
+        _id: _id
+        type: String
+        value: {}
+        key: key
+    Event:
+      required:
+      - type
+      type: object
+      properties:
+        type:
+          type: string
+          description: Custom event type
+        target:
+          type: string
+          description: Custom event target / subject of event. Contextual to event
+            type
+        date:
+          type: number
+          description: Unix epoch time the event occurred according to client
+        value:
+          type: number
+          description: Value for numerical events. Contextual to event type
+        metaData:
+          type: object
+          description: Extra JSON metadata for event. Contextual to event type
+    ErrorResponse:
+      required:
+      - message
+      type: object
+      properties:
+        message:
+          type: string
+          description: Error message
+        data:
+          type: object
+          description: Additional error information detailing the error reasoning
+    inline_response_201:
+      type: object
+      properties:
+        message:
+          type: string
+      example:
+        message: message
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnauthorizedError:
+      description: Missing 'envKey' query parameter or 'Authorization' header
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  requestBodies:
+    UserRequestBody:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UserData'
+      required: true
+    TrackRequestBody:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UserDataAndEventsBody'
+      required: true
+  securitySchemes:
+    bearerAuth:
+      type: apiKey
+      description: Enter your DevCycle SDK token
+      name: Authorization
+      in: header
