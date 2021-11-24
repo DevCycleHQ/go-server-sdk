@@ -1,7 +1,7 @@
 package main
 
 import (
-    "github.com/taplytics/devcycle-go-sdk"
+    "github.com/devcyclehq/go-server-sdk"
     "context"
     "log"
 )

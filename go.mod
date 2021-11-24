@@ -1,4 +1,4 @@
-module github.com/taplytics/devcycle-go-sdk
+module github.com/devcyclehq/go-server-sdk
 
 go 1.17
 
