@@ -12,7 +12,6 @@ package devcycle
 import (
 	"context"
 	"io/ioutil"
-	"net/http"
 	"net/url"
 	"strings"
 	"fmt"
@@ -23,14 +22,14 @@ var (
 	_ context.Context
 )
 
-type DevcycleApiService service
+type DVCClientService service
 /*
-DevcycleApiService Get all features by key for user data
+DVCClientService Get all features by key for user data
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param body
 @return map[string]Feature
 */
-func (a *DevcycleApiService) GetFeatures(ctx context.Context, body UserData) (map[string]Feature, *http.Response, error) {
+func (a *DVCClientService) GetFeatures(ctx context.Context, body UserData) (map[string]Feature, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Post")
 		localVarPostBody   interface{}
@@ -80,25 +79,25 @@ func (a *DevcycleApiService) GetFeatures(ctx context.Context, body UserData) (ma
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
-		return localVarReturnValue, nil, err
+		return localVarReturnValue, err
 	}
 
 	localVarHttpResponse, err := a.client.callAPI(r)
 	if err != nil || localVarHttpResponse == nil {
-		return localVarReturnValue, localVarHttpResponse, err
+		return localVarReturnValue, err
 	}
 
 	localVarBody, err := ioutil.ReadAll(localVarHttpResponse.Body)
 	localVarHttpResponse.Body.Close()
 	if err != nil {
-		return localVarReturnValue, localVarHttpResponse, err
+		return localVarReturnValue, err
 	}
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
 		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 		if err == nil {
-			return localVarReturnValue, localVarHttpResponse, err
+			return localVarReturnValue, err
 		}
 	}
 
@@ -107,69 +106,59 @@ func (a *DevcycleApiService) GetFeatures(ctx context.Context, body UserData) (ma
 			body: localVarBody,
 			error: localVarHttpResponse.Status,
 		}
-		if localVarHttpResponse.StatusCode == 200 {
-			var v map[string]Feature
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
-				}
-				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
-		}
 		if localVarHttpResponse.StatusCode == 400 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
+					return localVarReturnValue, newErr
 				}
 				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
+				return localVarReturnValue, newErr
 		}
 		if localVarHttpResponse.StatusCode == 401 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
+					return localVarReturnValue, newErr
 				}
 				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
+				return localVarReturnValue, newErr
 		}
 		if localVarHttpResponse.StatusCode == 404 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
+					return localVarReturnValue, newErr
 				}
 				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
+				return localVarReturnValue, newErr
 		}
 		if localVarHttpResponse.StatusCode == 500 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
+					return localVarReturnValue, newErr
 				}
 				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
+				return localVarReturnValue, newErr
 		}
-		return localVarReturnValue, localVarHttpResponse, newErr
+		return localVarReturnValue, newErr
 	}
 
-	return localVarReturnValue, localVarHttpResponse, nil
+	return localVarReturnValue, nil
 }
 /*
-DevcycleApiService Get variable by key for user data
+DVCClientService Get variable by key for user data
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param body
  * @param key Variable key
 @return Variable
 */
-func (a *DevcycleApiService) GetVariableByKey(ctx context.Context, body UserData, key string) (Variable, *http.Response, error) {
+func (a *DVCClientService) GetVariableByKey(ctx context.Context, body UserData, key string, defaultValue interface{}) (Variable, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Post")
 		localVarPostBody   interface{}
@@ -177,6 +166,7 @@ func (a *DevcycleApiService) GetVariableByKey(ctx context.Context, body UserData
 		localVarFileBytes  []byte
 		localVarReturnValue Variable
 	)
+     defaultRetVal := Variable{Value: &defaultValue, Key: key}
 
 	// create path and map variables
 	localVarPath := a.client.cfg.BasePath + "/v1/variables/{key}"
@@ -220,25 +210,25 @@ func (a *DevcycleApiService) GetVariableByKey(ctx context.Context, body UserData
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
-		return localVarReturnValue, nil, err
+		return localVarReturnValue, err
 	}
 
 	localVarHttpResponse, err := a.client.callAPI(r)
 	if err != nil || localVarHttpResponse == nil {
-		return localVarReturnValue, localVarHttpResponse, err
+		return defaultRetVal, err
 	}
 
 	localVarBody, err := ioutil.ReadAll(localVarHttpResponse.Body)
 	localVarHttpResponse.Body.Close()
 	if err != nil {
-		return localVarReturnValue, localVarHttpResponse, err
+		return localVarReturnValue, err
 	}
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
 		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 		if err == nil {
-			return localVarReturnValue, localVarHttpResponse, err
+			return localVarReturnValue, err
 		}
 	}
 
@@ -252,63 +242,63 @@ func (a *DevcycleApiService) GetVariableByKey(ctx context.Context, body UserData
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
+					return defaultRetVal, newErr
 				}
 				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
+				return defaultRetVal, newErr
 		}
 		if localVarHttpResponse.StatusCode == 400 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
+					return defaultRetVal, newErr
 				}
 				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
+				return defaultRetVal, newErr
 		}
 		if localVarHttpResponse.StatusCode == 401 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
+					return defaultRetVal, newErr
 				}
 				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
+				return defaultRetVal, newErr
 		}
 		if localVarHttpResponse.StatusCode == 404 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
+					return defaultRetVal, newErr
 				}
 				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
+				return defaultRetVal, newErr
 		}
 		if localVarHttpResponse.StatusCode == 500 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
+					return defaultRetVal, newErr
 				}
 				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
+				return defaultRetVal, newErr
 		}
-		return localVarReturnValue, localVarHttpResponse, newErr
+		return defaultRetVal, newErr
 	}
 
-	return localVarReturnValue, localVarHttpResponse, nil
+	return localVarReturnValue, nil
 }
 /*
-DevcycleApiService Get all variables by key for user data
+DVCClientService Get all variables by key for user data
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param body
 @return map[string]Variable
 */
-func (a *DevcycleApiService) GetVariables(ctx context.Context, body UserData) (map[string]Variable, *http.Response, error) {
+func (a *DVCClientService) GetVariables(ctx context.Context, body UserData) (map[string]Variable, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Post")
 		localVarPostBody   interface{}
@@ -358,25 +348,25 @@ func (a *DevcycleApiService) GetVariables(ctx context.Context, body UserData) (m
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
-		return localVarReturnValue, nil, err
+		return localVarReturnValue, err
 	}
 
 	localVarHttpResponse, err := a.client.callAPI(r)
 	if err != nil || localVarHttpResponse == nil {
-		return localVarReturnValue, localVarHttpResponse, err
+		return localVarReturnValue, err
 	}
 
 	localVarBody, err := ioutil.ReadAll(localVarHttpResponse.Body)
 	localVarHttpResponse.Body.Close()
 	if err != nil {
-		return localVarReturnValue, localVarHttpResponse, err
+		return localVarReturnValue, err
 	}
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
 		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 		if err == nil {
-			return localVarReturnValue, localVarHttpResponse, err
+			return localVarReturnValue, err
 		}
 	}
 
@@ -390,63 +380,63 @@ func (a *DevcycleApiService) GetVariables(ctx context.Context, body UserData) (m
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
+					return localVarReturnValue, newErr
 				}
 				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
+				return localVarReturnValue, newErr
 		}
 		if localVarHttpResponse.StatusCode == 400 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
+					return localVarReturnValue, newErr
 				}
 				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
+				return localVarReturnValue, newErr
 		}
 		if localVarHttpResponse.StatusCode == 401 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
+					return localVarReturnValue, newErr
 				}
 				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
+				return localVarReturnValue, newErr
 		}
 		if localVarHttpResponse.StatusCode == 404 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
+					return localVarReturnValue, newErr
 				}
 				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
+				return localVarReturnValue, newErr
 		}
 		if localVarHttpResponse.StatusCode == 500 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 				if err != nil {
 					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
+					return localVarReturnValue, newErr
 				}
 				newErr.model = v
-				return localVarReturnValue, localVarHttpResponse, newErr
+				return localVarReturnValue, newErr
 		}
-		return localVarReturnValue, localVarHttpResponse, newErr
+		return localVarReturnValue, newErr
 	}
 
-	return localVarReturnValue, localVarHttpResponse, nil
+	return localVarReturnValue, nil
 }
 /*
-DevcycleApiService Post events to DevCycle for user
+DVCClientService Post events to DevCycle for user
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param body
 @return InlineResponse201
 */
-func (a *DevcycleApiService) PostEvents(ctx context.Context, body UserDataAndEventsBody) (InlineResponse201, *http.Response, error) {
+func (a *DVCClientService) PostEvent(ctx context.Context, user UserData, event Event) (InlineResponse201, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Post")
 		localVarPostBody   interface{}
@@ -454,7 +444,8 @@ func (a *DevcycleApiService) PostEvents(ctx context.Context, body UserDataAndEve
 		localVarFileBytes  []byte
 		localVarReturnValue InlineResponse201
 	)
-
+	events := []Event{event}
+    body := UserDataAndEventsBody{User: &user, Events: events}
 	// create path and map variables
 	localVarPath := a.client.cfg.BasePath + "/v1/track"
 
@@ -496,37 +487,28 @@ func (a *DevcycleApiService) PostEvents(ctx context.Context, body UserDataAndEve
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
-		return localVarReturnValue, nil, err
+		return localVarReturnValue, err
 	}
 
 	localVarHttpResponse, err := a.client.callAPI(r)
 	if err != nil || localVarHttpResponse == nil {
-		return localVarReturnValue, localVarHttpResponse, err
+		return localVarReturnValue, err
 	}
 
 	localVarBody, err := ioutil.ReadAll(localVarHttpResponse.Body)
 	localVarHttpResponse.Body.Close()
 	if err != nil {
-		return localVarReturnValue, localVarHttpResponse, err
+		return localVarReturnValue, err
 	}
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
 		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
 		if err == nil {
-			return localVarReturnValue, localVarHttpResponse, err
+			return localVarReturnValue, err
 		}
-	}
-
-	else if localVarHttpResponse.StatusCode >= 300 {
-		handleError()
-	}
-
-	return localVarReturnValue, localVarHttpResponse, nil
-}
-
-func handleError() {
-    newErr := GenericSwaggerError{
+	} else if localVarHttpResponse.StatusCode >= 300 {
+        newErr := GenericSwaggerError{
         body: localVarBody,
         error: localVarHttpResponse.Status,
     }
@@ -535,40 +517,42 @@ func handleError() {
         err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
             if err != nil {
                 newErr.error = err.Error()
-                return localVarReturnValue, localVarHttpResponse, newErr
+                return localVarReturnValue, newErr
             }
             newErr.model = v
-            return localVarReturnValue, localVarHttpResponse, newErr
+            return localVarReturnValue, newErr
     }
     if localVarHttpResponse.StatusCode == 401 {
         var v ErrorResponse
         err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
             if err != nil {
                 newErr.error = err.Error()
-                return localVarReturnValue, localVarHttpResponse, newErr
+                return localVarReturnValue, newErr
             }
             newErr.model = v
-            return localVarReturnValue, localVarHttpResponse, newErr
+            return localVarReturnValue, newErr
     }
     if localVarHttpResponse.StatusCode == 404 {
         var v ErrorResponse
         err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
             if err != nil {
                 newErr.error = err.Error()
-                return localVarReturnValue, localVarHttpResponse, newErr
+                return localVarReturnValue, newErr
             }
             newErr.model = v
-            return localVarReturnValue, localVarHttpResponse, newErr
+            return localVarReturnValue, newErr
     }
     if localVarHttpResponse.StatusCode == 500 {
         var v ErrorResponse
         err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
             if err != nil {
                 newErr.error = err.Error()
-                return localVarReturnValue, localVarHttpResponse, newErr
+                return localVarReturnValue, newErr
             }
             newErr.model = v
-            return localVarReturnValue, localVarHttpResponse, newErr
+            return localVarReturnValue, newErr
     }
-    return localVarReturnValue, localVarHttpResponse, newErr
+    return localVarReturnValue, newErr	}
+
+	return localVarReturnValue, nil
 }

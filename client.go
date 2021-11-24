@@ -44,7 +44,7 @@ type APIClient struct {
 
 	// API Services
 
-	DevcycleApi *DevcycleApiService
+	DevcycleApi *DVCClientService
 }
 
 type service struct {
@@ -63,7 +63,7 @@ func NewAPIClient(cfg *Configuration) *APIClient {
 	c.common.client = c
 
 	// API Services
-	c.DevcycleApi = (*DevcycleApiService)(&c.common)
+	c.DevcycleApi = (*DVCClientService)(&c.common)
 
 	return c
 }
