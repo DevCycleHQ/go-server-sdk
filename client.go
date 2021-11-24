@@ -36,9 +36,9 @@ var (
 	xmlCheck  = regexp.MustCompile("(?i:[application|text]/xml)")
 )
 
-// APIClient manages communication with the DevCycle Bucketing API API v1.0.0
-// In most cases there should be only one, shared, APIClient.
-type APIClient struct {
+// DVCClient manages communication with the DevCycle Bucketing API API v1.0.0
+// In most cases there should be only one, shared, DVCClient.
+type DVCClient struct {
 	cfg    *Configuration
 	common service // Reuse a single struct instead of allocating one for each service on the heap.
 
@@ -48,17 +48,17 @@ type APIClient struct {
 }
 
 type service struct {
-	client *APIClient
+	client *DVCClient
 }
 
-// NewAPIClient creates a new API client. Requires a userAgent string describing your application.
+// NewDVCClient creates a new API client. Requires a userAgent string describing your application.
 // optionally a custom http.Client to allow for advanced features such as caching.
-func NewAPIClient(cfg *Configuration) *APIClient {
+func NewDVCClient(cfg *Configuration) *DVCClient {
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = http.DefaultClient
 	}
 
-	c := &APIClient{}
+	c := &DVCClient{}
 	c.cfg = cfg
 	c.common.client = c
 
@@ -143,17 +143,17 @@ func parameterToString(obj interface{}, collectionFormat string) string {
 }
 
 // callAPI do the request.
-func (c *APIClient) callAPI(request *http.Request) (*http.Response, error) {
+func (c *DVCClient) callAPI(request *http.Request) (*http.Response, error) {
 	return c.cfg.HTTPClient.Do(request)
 }
 
 // Change base path to allow switching to mocks
-func (c *APIClient) ChangeBasePath(path string) {
+func (c *DVCClient) ChangeBasePath(path string) {
 	c.cfg.BasePath = path
 }
 
 // prepareRequest build the request
-func (c *APIClient) prepareRequest(
+func (c *DVCClient) prepareRequest(
 	ctx context.Context,
 	path string, method string,
 	postBody interface{},
@@ -308,7 +308,7 @@ func (c *APIClient) prepareRequest(
 	return localVarRequest, nil
 }
 
-func (c *APIClient) decode(v interface{}, b []byte, contentType string) (err error) {
+func (c *DVCClient) decode(v interface{}, b []byte, contentType string) (err error) {
 		if strings.Contains(contentType, "application/xml") {
 			if err = xml.Unmarshal(b, v); err != nil {
 				return err

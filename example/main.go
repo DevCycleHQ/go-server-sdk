@@ -14,7 +14,7 @@ func main() {
     })
 
     conf := devcycle.NewConfiguration()
-    client := devcycle.NewAPIClient(conf)
+    client := devcycle.NewDVCClient(conf)
     features, _ := client.DevcycleApi.GetFeatures(auth, user)
 	for key, feature := range features {
         log.Printf("Key:%s, feature:%s", key, feature)
