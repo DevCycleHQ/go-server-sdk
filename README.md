@@ -1,4 +1,4 @@
-# Go API client for devcycle
+# Go API client for DevCycle
 
 Documents the DevCycle Bucketing API which provides and API interface to User Bucketing and for generated SDKs.
 
