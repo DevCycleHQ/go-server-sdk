@@ -3,7 +3,7 @@ info:
   title: DevCycle Bucketing API
   description: Documents the DevCycle Bucketing API which provides and API interface
     to User Bucketing and for generated SDKs.
-  version: 1.0.0
+  version: 1.0.1
 servers:
 - url: https://bucketing-api.devcycle.com/
 tags:
@@ -267,6 +267,8 @@ components:
       - _variation
       - key
       - type
+      - variationKey
+      - variationName
       type: object
       properties:
         _id:
@@ -287,6 +289,12 @@ components:
         _variation:
           type: string
           description: Bucketed feature variation
+        variationKey:
+          type: string
+          description: Bucketed feature variation key
+        variationName:
+          type: string
+          description: Bucketed feature variation name
         evalReason:
           type: string
           description: Evaluation reasoning
@@ -296,6 +304,8 @@ components:
         _id: _id
         type: release
         key: key
+        variationKey: variationKey
+        variationName: variationName
     Variable:
       required:
       - _id
