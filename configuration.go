@@ -69,3 +69,7 @@ func NewConfiguration() *Configuration {
 func (c *Configuration) AddDefaultHeader(key string, value string) {
 	c.DefaultHeader[key] = value
 }
+
+type DVCOptions struct {
+	EnableEdgeDB bool `json:"enableEdgeDb,omitempty"`
+}
