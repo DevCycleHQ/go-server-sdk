@@ -22,8 +22,10 @@ import (
 auth := context.WithValue(context.Background(), devcycle.ContextAPIKey, devcycle.APIKey{
     Key: "your_server_key_here",
 })
+dvcOptions := devcycle.DVCOptions{EnableEdgeDB: false}
 
 client := devcycle.NewDVCClient()
+client.SetOptions(dvcOptions)
 ```
 
 ## Usage

@@ -44,7 +44,8 @@ type DVCClient struct {
 
 	// API Services
 
-	DevcycleApi *DVCClientService
+	DevcycleApi     *DVCClientService
+	DevcycleOptions *DVCOptions
 }
 
 type service struct {
@@ -153,6 +154,10 @@ func (c *DVCClient) ChangeBasePath(path string) {
 	c.cfg.BasePath = path
 }
 
+func (c *DVCClient) SetOptions(dvcOptions DVCOptions) {
+	c.DevcycleOptions = &dvcOptions
+}
+
 // prepareRequest build the request
 func (c *DVCClient) prepareRequest(
 	ctx context.Context,
@@ -242,6 +247,10 @@ func (c *DVCClient) prepareRequest(
 		for _, iv := range v {
 			query.Add(k, iv)
 		}
+	}
+
+	if c.DevcycleOptions.EnableEdgeDB {
+		query.Add("enableEdgeDB", "true")
 	}
 
 	// Encode the parameters.
