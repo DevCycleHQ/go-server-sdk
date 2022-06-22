@@ -61,7 +61,7 @@ func NewConfiguration() *Configuration {
 	cfg := &Configuration{
 		BasePath:      "https://bucketing-api.devcycle.com/",
 		DefaultHeader: make(map[string]string),
-		UserAgent:     "Swagger-Codegen/1.0.1/go",
+		UserAgent:     "Swagger-Codegen/1.1.0/go",
 	}
 	return cfg
 }
