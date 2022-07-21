@@ -48,6 +48,11 @@ type APIKey struct {
 	Prefix string
 }
 
+type DVCOptions struct {
+	EnableEdgeDB         bool `json:"enableEdgeDb,omitempty"`
+	EnableLocalBucketing bool `json:"enable_local_bucketing,omitempty"`
+}
+
 type Configuration struct {
 	BasePath      string            `json:"basePath,omitempty"`
 	Host          string            `json:"host,omitempty"`
@@ -61,15 +66,11 @@ func NewConfiguration() *Configuration {
 	cfg := &Configuration{
 		BasePath:      "https://bucketing-api.devcycle.com/",
 		DefaultHeader: make(map[string]string),
-		UserAgent:     "Swagger-Codegen/1.1.0/go",
+		UserAgent:     "Swagger-Codegen/1.2.0/go",
 	}
 	return cfg
 }
 
 func (c *Configuration) AddDefaultHeader(key string, value string) {
 	c.DefaultHeader[key] = value
-}
-
-type DVCOptions struct {
-	EnableEdgeDB bool `json:"enableEdgeDb,omitempty"`
 }
