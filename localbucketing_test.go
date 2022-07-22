@@ -96,7 +96,7 @@ func TestDevCycleLocalBucketing_SetPlatformData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = localBucketing.SetPlatformData("{}")
+	err = localBucketing.SetPlatformData(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`)
 	if err != nil {
 		t.Fatal(err)
 	}
