@@ -24,9 +24,9 @@ type UserData struct {
 	// App Build number of the running application
 	AppBuild string `json:"appBuild,omitempty"`
 	// User's custom data to target the user with, data will be logged to DevCycle for use in dashboard.
-	CustomData *interface{} `json:"customData,omitempty"`
+	CustomData map[string]interface{} `json:"customData,omitempty"`
 	// User's custom data to target the user with, data will not be logged to DevCycle only used for feature bucketing.
-	PrivateCustomData *interface{} `json:"privateCustomData,omitempty"`
+	PrivateCustomData map[string]interface{} `json:"privateCustomData,omitempty"`
 	// Date the user was created, Unix epoch timestamp format
 	CreatedDate float64 `json:"createdDate,omitempty"`
 	// Date the user was created, Unix epoch timestamp format

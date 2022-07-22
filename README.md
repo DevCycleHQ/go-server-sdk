@@ -9,12 +9,14 @@ go get "github.com/devcyclehq/go-server-sdk"
 ```
 Put the package under your project folder and add the following in import:
 ```golang
+package main
 import "github.com/devcyclehq/go-server-sdk"
 ```
 
 ## Getting Started
 
 ```golang
+package main 
 import (
     "github.com/devcyclehq/go-server-sdk"
     "context"

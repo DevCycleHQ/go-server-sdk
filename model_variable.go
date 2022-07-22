@@ -16,7 +16,7 @@ type Variable struct {
 	// Variable type
 	Type_ string `json:"type"`
 	// Variable value can be a string, number, boolean, or JSON
-	Value *interface{} `json:"value"`
+	Value interface{} `json:"value"`
 	// Identifies if variable was returned with the default value
 	IsDefaulted bool `json:"isDefaulted,omitempty"`
 }

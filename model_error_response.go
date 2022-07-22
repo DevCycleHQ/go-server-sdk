@@ -12,5 +12,5 @@ type ErrorResponse struct {
 	// Error message
 	Message string `json:"message"`
 	// Additional error information detailing the error reasoning
-	Data *interface{} `json:"data,omitempty"`
+	Data interface{} `json:"data,omitempty"`
 }

@@ -18,5 +18,5 @@ type Event struct {
 	// Value for numerical events. Contextual to event type
 	Value float64 `json:"value,omitempty"`
 	// Extra JSON metadata for event. Contextual to event type
-	MetaData *interface{} `json:"metaData,omitempty"`
+	MetaData map[string]interface{} `json:"metaData,omitempty"`
 }
