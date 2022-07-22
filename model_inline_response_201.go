@@ -11,3 +11,7 @@ package devcycle
 type InlineResponse201 struct {
 	Message string `json:"message,omitempty"`
 }
+
+type InlineResponse200 struct {
+	Message string `json:"message,omitempty"`
+}

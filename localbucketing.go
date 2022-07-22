@@ -1,10 +1,11 @@
 package devcycle
 
 import (
-	"encoding/binary"
 	"fmt"
 	"github.com/bytecodealliance/wasmtime-go"
 	"time"
+	"unicode/utf16"
+	"unsafe"
 )
 
 type DevCycleLocalBucketing struct {
@@ -17,8 +18,7 @@ type DevCycleLocalBucketing struct {
 	wasmMemory   *wasmtime.Memory
 }
 
-func (d *DevCycleLocalBucketing) Initialize() {
-	var err error
+func (d *DevCycleLocalBucketing) Initialize() (err error) {
 
 	d.wasiConfig = wasmtime.NewWasiConfig()
 	d.wasiConfig.InheritEnv()
@@ -34,21 +34,22 @@ func (d *DevCycleLocalBucketing) Initialize() {
 
 	d.wasmModule, err = wasmtime.NewModule(d.wasmStore.Engine, d.wasm)
 	if err != nil {
+		return
 	}
 
-	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "Date.now", func() int64 { return time.Now().UnixMilli() })
+	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "Date.now", func() float64 { return float64(time.Now().UnixMilli()) })
 	if err != nil {
 		return
 	}
 
-	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int) {
+	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
 		panic(readAssemblyScriptString(messagePtr, d.wasmMemory, d.wasmStore))
 	})
 	if err != nil {
 		return
 	}
 
-	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int) {
+	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
 		fmt.Println(readAssemblyScriptString(messagePtr, d.wasmMemory, d.wasmStore))
 	})
 	if err != nil {
@@ -57,9 +58,11 @@ func (d *DevCycleLocalBucketing) Initialize() {
 
 	d.wasmInstance, err = d.wasmLinker.Instantiate(d.wasmStore, d.wasmModule)
 	if err != nil {
-		panic(err)
+		return
 	}
 	d.wasmMemory = d.wasmInstance.GetExport(d.wasmStore, "memory").Memory()
+
+	return nil
 }
 
 func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(token, user string) (string, error) {
@@ -76,16 +79,21 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(token, user strin
 	if err != nil {
 		return "", err
 	}
-	return readAssemblyScriptString(configPtr.(int), d.wasmMemory, d.wasmStore), nil
+	return readAssemblyScriptString(configPtr.(int32), d.wasmMemory, d.wasmStore), nil
 }
 
-func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
+func (d *DevCycleLocalBucketing) StoreConfig(token, config string) error {
+
+	tokenAddr, err := d.newWASMString(token)
+	if err != nil {
+		return err
+	}
 	configAddr, err := d.newWASMString(config)
 	if err != nil {
 		return err
 	}
 	_setConfigData := d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
-	_, err = _setConfigData.Call(d.wasmStore, configAddr)
+	_, err = _setConfigData.Call(d.wasmStore, tokenAddr, configAddr)
 	if err != nil {
 		return err
 	}
@@ -105,18 +113,45 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 	return nil
 }
 
-func (d *DevCycleLocalBucketing) newWASMString(param string) (int, error) {
-	const objectIdString = 1
+// This has a horrible hack because of utf16 - We're double-allocating because utf8->utf16 doesn't zero-padded
+// after the first character byte, so we do that manually.
+func (d *DevCycleLocalBucketing) newWASMString(param string) (int32, error) {
+	const objectIdString int32 = 1
+	encoded := utf16.Encode([]rune(param))
+
 	__new := d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
-	ptr, err := __new.Call(d.wasmStore, len(param), param)
+
+	ptr, err := __new.Call(d.wasmStore, int32(len(encoded)*2), objectIdString)
 	if err != nil {
 		return -1, err
 	}
-	return ptr.(int), nil
+	addr := ptr.(int32)
+	var i int32 = 0
+	for i = 0; i < int32(len(encoded)); i++ {
+		d.wasmMemory.UnsafeData(d.wasmStore)[addr+(i*2)] = byte(encoded[i])
+	}
+	return ptr.(int32), nil
 }
 
 // https://www.assemblyscript.org/runtime.html#memory-layout
-func readAssemblyScriptString(pointer int, memory *wasmtime.Memory, store *wasmtime.Store) string {
-	stringLength := binary.BigEndian.Uint32(memory.UnsafeData(store)[pointer-4 : pointer])
-	return string(memory.UnsafeData(store)[pointer : pointer+int(stringLength)])
+// This has a horrible hack of skipping every other index in the resulting array because
+// there isn't a great way to parse UTF-16 cleanly that matches the WTF-16 format that WASM uses.
+func readAssemblyScriptString(pointer int32, memory *wasmtime.Memory, store *wasmtime.Store) (ret string) {
+	stringLength := byteArrayToInt(memory.UnsafeData(store)[pointer-4 : pointer])
+	rawData := memory.UnsafeData(store)[pointer : pointer+int32(stringLength)]
+
+	for i := 0; i < len(rawData); i += 2 {
+		ret += string(rawData[i])
+	}
+
+	return
+}
+
+func byteArrayToInt(arr []byte) int64 {
+	val := int64(0)
+	size := len(arr)
+	for i := 0; i < size; i++ {
+		*(*uint8)(unsafe.Pointer(uintptr(unsafe.Pointer(&val)) + uintptr(i))) = arr[i]
+	}
+	return val
 }

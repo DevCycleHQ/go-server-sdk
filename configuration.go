@@ -54,19 +54,21 @@ type DVCOptions struct {
 }
 
 type Configuration struct {
-	BasePath      string            `json:"basePath,omitempty"`
-	Host          string            `json:"host,omitempty"`
-	Scheme        string            `json:"scheme,omitempty"`
-	DefaultHeader map[string]string `json:"defaultHeader,omitempty"`
-	UserAgent     string            `json:"userAgent,omitempty"`
-	HTTPClient    *http.Client
+	BasePath          string            `json:"basePath,omitempty"`
+	ConfigCDNBasePath string            `json:"configCDNBasePath,omitempty"`
+	Host              string            `json:"host,omitempty"`
+	Scheme            string            `json:"scheme,omitempty"`
+	DefaultHeader     map[string]string `json:"defaultHeader,omitempty"`
+	UserAgent         string            `json:"userAgent,omitempty"`
+	HTTPClient        *http.Client
 }
 
 func NewConfiguration() *Configuration {
 	cfg := &Configuration{
-		BasePath:      "https://bucketing-api.devcycle.com/",
-		DefaultHeader: make(map[string]string),
-		UserAgent:     "Swagger-Codegen/1.2.0/go",
+		BasePath:          "https://bucketing-api.devcycle.com/",
+		ConfigCDNBasePath: "https://config-cdn.devcycle.com/",
+		DefaultHeader:     make(map[string]string),
+		UserAgent:         "Swagger-Codegen/1.2.0/go",
 	}
 	return cfg
 }
