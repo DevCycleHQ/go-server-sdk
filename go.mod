@@ -2,7 +2,11 @@ module github.com/devcyclehq/go-server-sdk
 
 go 1.17
 
-require golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
+require (
+	github.com/bytecodealliance/wasmtime-go v0.39.0
+	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
+	golang.org/x/text v0.3.3
+)
 
 require (
 	github.com/golang/protobuf v1.4.2 // indirect
