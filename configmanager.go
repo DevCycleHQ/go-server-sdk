@@ -1,24 +1,15 @@
 package devcycle
 
 import (
-	"context"
 	"fmt"
-	"google.golang.org/appengine/log"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
 )
 
-var configMap map[string]Configuration
 var pollingStop = make(chan bool)
-
-type SDKEvent struct {
-	Success             bool   `json:"success"`
-	Message             string `json:"message"`
-	Error               error  `json:"error"`
-	FirstInitialization bool   `json:"firstInitialization"`
-}
 
 type EnvironmentConfigManager struct {
 	environmentKey string
@@ -42,12 +33,13 @@ func (e *EnvironmentConfigManager) Initialize(environmentKey string, options *DV
 	ticker := time.NewTicker(options.PollingInterval)
 	e.firstLoad = true
 
+	e.fetchConfig()
 	go func() {
 		for {
 			select {
 			case <-pollingStop:
 				ticker.Stop()
-				log.Criticalf(context.Background(), "Stopping config polling.")
+				log.Fatal("Stopping config polling.")
 				return
 			case <-ticker.C:
 				e.fetchConfig()
@@ -70,24 +62,24 @@ func (e *EnvironmentConfigManager) fetchConfig() {
 		}
 		break
 	case http.StatusNotModified:
-		log.Infof(context.Background(), "Config not modified. Using cached config. %s", e.configETag)
+		log.Println("Config not modified. Using cached config. %s", e.configETag)
 		break
 	case http.StatusForbidden:
-		log.Errorf(context.Background(), "403 Forbidden - SDK key is likely incorrect. Aborting polling.")
 		pollingStop <- true
+		log.Println("403 Forbidden - SDK key is likely incorrect. Aborting polling.")
 		return
 	case http.StatusInternalServerError:
 	case http.StatusBadGateway:
 	case http.StatusServiceUnavailable:
 		// Retryable Errors. Continue polling.
-		log.Warningf(context.Background(), "Retrying config fetch. Status: %s", resp.Status)
+		log.Println("Retrying config fetch. Status:" + resp.Status)
 		break
 	default:
-		log.Errorf(context.Background(), "Unexpected response code: %d", resp.StatusCode)
-		log.Errorf(context.Background(), "Body: %s", resp.Body)
-		log.Errorf(context.Background(), "URL: %s", e.getConfigURL())
-		log.Errorf(context.Background(), "Headers: %s", resp.Header)
-		log.Errorf(context.Background(), "Could not download configuration. Using cached version if available %s", resp.Header.Get("ETag"))
+		log.Println("Unexpected response code: %d", resp.StatusCode)
+		log.Println("Body: %s", resp.Body)
+		log.Println("URL: %s", e.getConfigURL())
+		log.Println("Headers: %s", resp.Header)
+		log.Println("Could not download configuration. Using cached version if available %s", resp.Header.Get("ETag"))
 		e.SDKEvents <- SDKEvent{Success: false,
 			Message: "Unexpected response code - Aborting Polling. Code: " + strconv.Itoa(resp.StatusCode), Error: nil}
 		pollingStop <- true
@@ -105,11 +97,11 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 		return err
 	}
 	e.configETag = response.Header.Get("ETag")
-	log.Infof(context.Background(), "Config set. ETag: %s", e.configETag)
+	log.Println("Config set. ETag: %s", e.configETag)
 	e.SDKEvents <- SDKEvent{Success: true, Message: "Config set. ETag: " + e.configETag, Error: nil}
 	if e.firstLoad {
 		e.firstLoad = false
-		log.Infof(context.Background(), "DevCycle SDK Initialized.")
+		log.Println("DevCycle SDK Initialized.")
 		e.SDKEvents <- SDKEvent{Success: true, Message: "DevCycle SDK Initialized.", Error: nil, FirstInitialization: true}
 	}
 	return nil

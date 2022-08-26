@@ -36,7 +36,7 @@ var (
 	xmlCheck  = regexp.MustCompile("(?i:[application|text]/xml)")
 )
 
-// DVCClient manages communication with the DevCycle Bucketing API API v1.0.0
+// DVCClient
 // In most cases there should be only one, shared, DVCClient.
 type DVCClient struct {
 	cfg    *Configuration
@@ -48,6 +48,14 @@ type DVCClient struct {
 	environmentKey  string
 	localBucketing  *DevCycleLocalBucketing
 	configManager   *EnvironmentConfigManager
+	SDKEventChannel chan SDKEvent
+}
+
+type SDKEvent struct {
+	Success             bool   `json:"success"`
+	Message             string `json:"message"`
+	Error               error  `json:"error"`
+	FirstInitialization bool   `json:"firstInitialization"`
 }
 
 type service struct {
@@ -84,6 +92,7 @@ func NewDVCClient(environmentKey string, options *DVCOptions) *DVCClient {
 			return nil
 		}
 		c.configManager = c.localBucketing.configManager
+		c.SDKEventChannel = c.configManager.SDKEvents
 
 		go func() {
 			msg := <-c.configManager.SDKEvents

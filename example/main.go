@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/devcyclehq/go-server-sdk"
 	"log"
 )
@@ -15,7 +16,14 @@ func main() {
 	dvcOptions := devcycle.DVCOptions{EnableEdgeDB: false}
 
 	client := devcycle.NewDVCClient("server-key-here", &dvcOptions)
-
+	go func() {
+		for {
+			select {
+			case e := <-client.SDKEventChannel:
+				fmt.Println(e)
+			}
+		}
+	}()
 	features, _ := client.DevCycleApi.AllFeatures(auth, user)
 	for key, feature := range features {
 		log.Printf("Key:%s, feature:%s", key, feature)
