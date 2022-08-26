@@ -16,7 +16,7 @@ func TestDevCycleLocalBucketing_Initialize(t *testing.T) {
 	}
 	localBucketing.wasm = wasmFile
 
-	err = localBucketing.Initialize("dvc_server_token_hash")
+	err = localBucketing.Initialize("dvc_server_token_hash", &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 	}
 	localBucketing.wasm = wasmFile
 
-	err = localBucketing.Initialize(environmentKey)
+	err = localBucketing.Initialize(environmentKey, &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
 	}
 	localBucketing.wasm = wasmFile
 
-	err = localBucketing.Initialize(environmentKey)
+	err = localBucketing.Initialize(environmentKey, &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 	}
 	localBucketing.wasm = wasmFile
 
-	err = localBucketing.Initialize(environmentKey)
+	err = localBucketing.Initialize(environmentKey, &DVCOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestDevCycleLocalBucketing_SetPlatformData(t *testing.T) {
 	}
 	localBucketing.wasm = wasmFile
 
-	err = localBucketing.Initialize("dvc_server_token_hash")
+	err = localBucketing.Initialize("dvc_server_token_hash", &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 	}
 	localBucketing.wasm = wasmFile
 
-	err = localBucketing.Initialize(environmentKey)
+	err = localBucketing.Initialize(environmentKey, &DVCOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}

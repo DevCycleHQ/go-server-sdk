@@ -33,7 +33,7 @@ DVCClientService Get all features by key for user data
 */
 func (a *DVCClientService) AllFeatures(ctx context.Context, body UserData) (map[string]Feature, error) {
 
-	if a.client.DevCycleOptions.EnableLocalBucketing {
+	if !a.client.DevCycleOptions.DisableLocalBucketing {
 		userJSON, err := json.Marshal(body)
 		if err != nil {
 			return nil, err

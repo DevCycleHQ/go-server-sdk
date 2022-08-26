@@ -20,7 +20,7 @@ type DevCycleLocalBucketing struct {
 	configManager *EnvironmentConfigManager
 }
 
-func (d *DevCycleLocalBucketing) Initialize(environmentKey string) (err error) {
+func (d *DevCycleLocalBucketing) Initialize(environmentKey string, options *DVCOptions) (err error) {
 
 	d.wasiConfig = wasmtime.NewWasiConfig()
 	d.wasiConfig.InheritEnv()
@@ -64,8 +64,9 @@ func (d *DevCycleLocalBucketing) Initialize(environmentKey string) (err error) {
 	}
 	d.wasmMemory = d.wasmInstance.GetExport(d.wasmStore, "memory").Memory()
 
-	d.configManager = &EnvironmentConfigManager{LocalBucketing: d, EnvironmentKey: environmentKey}
-	d.configManager.Initialize()
+	d.configManager = &EnvironmentConfigManager{}
+	d.configManager.Initialize(environmentKey, options)
+
 	return nil
 }
 

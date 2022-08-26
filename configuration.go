@@ -50,10 +50,10 @@ type APIKey struct {
 }
 
 type DVCOptions struct {
-	EnableEdgeDB         bool          `json:"enableEdgeDb,omitempty"`
-	EnableLocalBucketing bool          `json:"enableLocalBucketing,omitempty"`
-	PollingInterval      time.Duration `json:"pollingInterval,omitempty"`
-	RequestTimeout       time.Duration `json:"requestTimeout,omitempty"`
+	EnableEdgeDB          bool          `json:"enableEdgeDb,omitempty"`
+	DisableLocalBucketing bool          `json:"disableLocalBucketing,omitempty"`
+	PollingInterval       time.Duration `json:"pollingInterval,omitempty"`
+	RequestTimeout        time.Duration `json:"requestTimeout,omitempty"`
 }
 
 type Configuration struct {

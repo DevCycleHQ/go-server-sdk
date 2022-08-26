@@ -23,7 +23,7 @@ func main() {
 
 	variables, _ := client.DevCycleApi.AllVariables(auth, user)
 	for key, variable := range variables {
-		log.Printf("Key:%s, feature:%s", key, variable)
+		log.Printf("Key:%s, feature:%v", key, variable)
 	}
 
 	event := devcycle.Event{
@@ -32,11 +32,11 @@ func main() {
 
 	vara, _ := client.DevCycleApi.Variable(auth, user, "elliot-test", "test")
 	if !vara.IsDefaulted {
-		log.Printf("vara not defaulted:%b", vara.IsDefaulted)
+		log.Printf("vara not defaulted:%v", vara.IsDefaulted)
 	}
 	varaDefaulted, _ := client.DevCycleApi.Variable(auth, user, "elliot-asdasd", "test")
 	if varaDefaulted.IsDefaulted {
-		log.Printf("vara defaulted:%b", varaDefaulted.IsDefaulted)
+		log.Printf("vara defaulted:%v", varaDefaulted.IsDefaulted)
 	}
 
 	response, _ := client.DevCycleApi.Track(auth, user, event)

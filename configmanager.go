@@ -21,22 +21,25 @@ type SDKEvent struct {
 }
 
 type EnvironmentConfigManager struct {
-	EnvironmentKey string
+	environmentKey string
 	configETag     string
-	LocalBucketing *DevCycleLocalBucketing
+	localBucketing *DevCycleLocalBucketing
 	firstLoad      bool
 	SDKEvents      chan SDKEvent
 }
 
-func (e *EnvironmentConfigManager) Initialize() {
-	//if e.LocalBucketing.po == 0 {
-	//	e.PollingInterval = time.Second * 30
-	//}
-	//if e.RequestTimeout == 0 {
-	//	e.RequestTimeout = time.Second * 10
-	//}
+func (e *EnvironmentConfigManager) Initialize(environmentKey string, options *DVCOptions) {
+	e.environmentKey = environmentKey
+	e.SDKEvents = make(chan SDKEvent)
 
-	ticker := time.NewTicker(10 * time.Second)
+	if options.PollingInterval == 0 {
+		options.PollingInterval = time.Second * 30
+	}
+	if options.RequestTimeout == 0 {
+		options.RequestTimeout = time.Second * 10
+	}
+
+	ticker := time.NewTicker(options.PollingInterval)
 	e.firstLoad = true
 
 	go func() {
@@ -97,7 +100,7 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 	if err != nil {
 		return err
 	}
-	err = e.LocalBucketing.StoreConfig(e.EnvironmentKey, string(raw))
+	err = e.localBucketing.StoreConfig(e.environmentKey, string(raw))
 	if err != nil {
 		return err
 	}
@@ -113,5 +116,5 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 }
 
 func (e *EnvironmentConfigManager) getConfigURL() string {
-	return fmt.Sprintf("https://config-cdn.devcycle.com/config/v1/server/%s.json", e.EnvironmentKey)
+	return fmt.Sprintf("https://config-cdn.devcycle.com/config/v1/server/%s.json", e.environmentKey)
 }
