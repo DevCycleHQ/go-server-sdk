@@ -1,6 +1,7 @@
 package devcycle
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/bytecodealliance/wasmtime-go"
 	"time"
@@ -9,16 +10,17 @@ import (
 )
 
 type DevCycleLocalBucketing struct {
-	wasm         []byte
-	wasmStore    *wasmtime.Store
-	wasmModule   *wasmtime.Module
-	wasmInstance *wasmtime.Instance
-	wasmLinker   *wasmtime.Linker
-	wasiConfig   *wasmtime.WasiConfig
-	wasmMemory   *wasmtime.Memory
+	wasm          []byte
+	wasmStore     *wasmtime.Store
+	wasmModule    *wasmtime.Module
+	wasmInstance  *wasmtime.Instance
+	wasmLinker    *wasmtime.Linker
+	wasiConfig    *wasmtime.WasiConfig
+	wasmMemory    *wasmtime.Memory
+	configManager *EnvironmentConfigManager
 }
 
-func (d *DevCycleLocalBucketing) Initialize() (err error) {
+func (d *DevCycleLocalBucketing) Initialize(environmentKey string) (err error) {
 
 	d.wasiConfig = wasmtime.NewWasiConfig()
 	d.wasiConfig.InheritEnv()
@@ -62,33 +64,39 @@ func (d *DevCycleLocalBucketing) Initialize() (err error) {
 	}
 	d.wasmMemory = d.wasmInstance.GetExport(d.wasmStore, "memory").Memory()
 
+	d.configManager = &EnvironmentConfigManager{LocalBucketing: d, EnvironmentKey: environmentKey}
+	d.configManager.Initialize()
 	return nil
 }
 
-func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(token, user string) (string, error) {
-	tokenAddr, err := d.newWASMString(token)
+func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(token, user string) (ret BucketedUserConfig, err error) {
+	tokenAddr, err := d.newAssemblyScriptString(token)
 	if err != nil {
-		return "", err
+		return
 	}
-	userAddr, err := d.newWASMString(user)
+	userAddr, err := d.newAssemblyScriptString(user)
 	if err != nil {
-		return "", err
+		return
 	}
 	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "generateBucketedConfigForUser").Func()
 	configPtr, err := _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr, userAddr)
 	if err != nil {
-		return "", err
+		return
 	}
-	return readAssemblyScriptString(configPtr.(int32), d.wasmMemory, d.wasmStore), nil
+	err = json.Unmarshal([]byte(readAssemblyScriptString(configPtr.(int32), d.wasmMemory, d.wasmStore)), &ret)
+	if err != nil {
+		return
+	}
+	return ret, nil
 }
 
 func (d *DevCycleLocalBucketing) StoreConfig(token, config string) error {
 
-	tokenAddr, err := d.newWASMString(token)
+	tokenAddr, err := d.newAssemblyScriptString(token)
 	if err != nil {
 		return err
 	}
-	configAddr, err := d.newWASMString(config)
+	configAddr, err := d.newAssemblyScriptString(config)
 	if err != nil {
 		return err
 	}
@@ -101,7 +109,7 @@ func (d *DevCycleLocalBucketing) StoreConfig(token, config string) error {
 }
 
 func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
-	configAddr, err := d.newWASMString(platformData)
+	configAddr, err := d.newAssemblyScriptString(platformData)
 	if err != nil {
 		return err
 	}
@@ -115,7 +123,7 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 
 // This has a horrible hack because of utf16 - We're double-allocating because utf8->utf16 doesn't zero-padded
 // after the first character byte, so we do that manually.
-func (d *DevCycleLocalBucketing) newWASMString(param string) (int32, error) {
+func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, error) {
 	const objectIdString int32 = 1
 	encoded := utf16.Encode([]rune(param))
 

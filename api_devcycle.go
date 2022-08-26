@@ -10,6 +10,7 @@ package devcycle
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -25,11 +26,34 @@ type DVCClientService service
 
 /*
 DVCClientService Get all features by key for user data
- * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- * @param body
+  - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+  - @param body
+
 @return map[string]Feature
 */
 func (a *DVCClientService) AllFeatures(ctx context.Context, body UserData) (map[string]Feature, error) {
+
+	if a.client.DevCycleOptions.EnableLocalBucketing {
+		userJSON, err := json.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		platformData := PlatformData{}
+		platformData.FromUser(body)
+		platformJSON, err := json.Marshal(platformData)
+		if err != nil {
+			return nil, err
+		}
+		err = a.client.localBucketing.SetPlatformData(string(platformJSON))
+		if err != nil {
+			return nil, err
+		}
+		user, err := a.client.localBucketing.GenerateBucketedConfigForUser(a.client.environmentKey, string(userJSON))
+		if err != nil {
+			return nil, err
+		}
+		return user.Features, nil
+	}
 	var (
 		localVarHttpMethod  = strings.ToUpper("Post")
 		localVarPostBody    interface{}
@@ -154,9 +178,10 @@ func (a *DVCClientService) AllFeatures(ctx context.Context, body UserData) (map[
 
 /*
 DVCClientService Get variable by key for user data
- * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- * @param body
- * @param key Variable key
+  - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+  - @param body
+  - @param key Variable key
+
 @return Variable
 */
 func (a *DVCClientService) Variable(ctx context.Context, body UserData, key string, defaultValue interface{}) (Variable, error) {
@@ -296,8 +321,9 @@ func (a *DVCClientService) Variable(ctx context.Context, body UserData, key stri
 
 /*
 DVCClientService Get all variables by key for user data
- * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- * @param body
+  - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+  - @param body
+
 @return map[string]Variable
 */
 func (a *DVCClientService) AllVariables(ctx context.Context, body UserData) (map[string]Variable, error) {
@@ -435,8 +461,9 @@ func (a *DVCClientService) AllVariables(ctx context.Context, body UserData) (map
 
 /*
 DVCClientService Post events to DevCycle for user
- * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- * @param body
+  - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+  - @param body
+
 @return InlineResponse201
 */
 func (a *DVCClientService) Track(ctx context.Context, user UserData, event Event) (InlineResponse201, error) {

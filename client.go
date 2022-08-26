@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -23,7 +24,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -43,9 +43,11 @@ type DVCClient struct {
 	common service // Reuse a single struct instead of allocating one for each service on the heap.
 
 	// API Services
-
-	DevcycleApi     *DVCClientService
-	DevcycleOptions *DVCOptions
+	DevCycleApi     *DVCClientService
+	DevCycleOptions *DVCOptions
+	environmentKey  string
+	localBucketing  *DevCycleLocalBucketing
+	configManager   *EnvironmentConfigManager
 }
 
 type service struct {
@@ -54,24 +56,40 @@ type service struct {
 
 // NewDVCClient creates a new API client. Requires a userAgent string describing your application.
 // optionally a custom http.Client to allow for advanced features such as caching.
-func NewDVCClient() *DVCClient {
+func NewDVCClient(environmentKey string, options *DVCOptions) *DVCClient {
 	cfg := NewConfiguration()
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = http.DefaultClient
 	}
 
-	c := &DVCClient{}
+	c := &DVCClient{environmentKey: environmentKey}
 	c.cfg = cfg
 	c.common.client = c
 
 	// API Services
-	c.DevcycleApi = (*DVCClientService)(&c.common)
+	c.DevCycleApi = (*DVCClientService)(&c.common)
 
+	c.DevCycleOptions = options
+
+	if c.DevCycleOptions.EnableLocalBucketing {
+		rawWasm, _ := os.ReadFile("bucketing-lib.release.wasm")
+		c.localBucketing = &DevCycleLocalBucketing{wasm: rawWasm}
+		err := c.localBucketing.Initialize(environmentKey)
+		if err != nil {
+			log.Fatalln(err)
+			return nil
+		}
+		c.configManager = c.localBucketing.configManager
+
+		go func() {
+			msg := <-c.configManager.SDKEvents
+			for {
+				msg = <-c.configManager.SDKEvents
+				fmt.Println(msg)
+			}
+		}()
+	}
 	return c
-}
-
-func atoi(in string) (int, error) {
-	return strconv.Atoi(in)
 }
 
 // selectHeaderContentType select a content type from the available list.
@@ -155,7 +173,7 @@ func (c *DVCClient) ChangeBasePath(path string) {
 }
 
 func (c *DVCClient) SetOptions(dvcOptions DVCOptions) {
-	c.DevcycleOptions = &dvcOptions
+	c.DevCycleOptions = &dvcOptions
 }
 
 // prepareRequest build the request
@@ -249,7 +267,7 @@ func (c *DVCClient) prepareRequest(
 		}
 	}
 
-	if c.DevcycleOptions.EnableEdgeDB {
+	if c.DevCycleOptions.EnableEdgeDB {
 		query.Add("enableEdgeDB", "true")
 	}
 

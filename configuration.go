@@ -10,6 +10,7 @@ package devcycle
 
 import (
 	"net/http"
+	"time"
 )
 
 // contextKeys are used to identify the type of value in the context.
@@ -49,8 +50,10 @@ type APIKey struct {
 }
 
 type DVCOptions struct {
-	EnableEdgeDB         bool `json:"enableEdgeDb,omitempty"`
-	EnableLocalBucketing bool `json:"enable_local_bucketing,omitempty"`
+	EnableEdgeDB         bool          `json:"enableEdgeDb,omitempty"`
+	EnableLocalBucketing bool          `json:"enableLocalBucketing,omitempty"`
+	PollingInterval      time.Duration `json:"pollingInterval,omitempty"`
+	RequestTimeout       time.Duration `json:"requestTimeout,omitempty"`
 }
 
 type Configuration struct {
