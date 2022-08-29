@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/devcyclehq/go-server-sdk"
 	"log"
+	"time"
 )
 
 func main() {
@@ -13,7 +14,13 @@ func main() {
 	auth := context.WithValue(context.Background(), devcycle.ContextAPIKey, devcycle.APIKey{
 		Key: "server-key-here",
 	})
-	dvcOptions := devcycle.DVCOptions{EnableEdgeDB: false}
+	dvcOptions := devcycle.DVCOptions{
+		EnableEdgeDB:          false,
+		DisableLocalBucketing: false,
+		PollingInterval:       10 * time.Second,
+		RequestTimeout:        10 * time.Second,
+		SDKEventsReceiver:     make(chan devcycle.SDKEvent, 100),
+	}
 
 	client := devcycle.NewDVCClient("server-key-here", &dvcOptions)
 	go func() {

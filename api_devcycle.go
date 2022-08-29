@@ -24,6 +24,28 @@ var (
 
 type DVCClientService service
 
+func (a *DVCClientService) generateBucketedConfig(body UserData) (user BucketedUserConfig, err error) {
+	userJSON, err := json.Marshal(body)
+	if err != nil {
+		return BucketedUserConfig{}, err
+	}
+	platformData := PlatformData{}
+	platformData.FromUser(body)
+	platformJSON, err := json.Marshal(platformData)
+	if err != nil {
+		return BucketedUserConfig{}, err
+	}
+	err = a.client.localBucketing.SetPlatformData(string(platformJSON))
+	if err != nil {
+		return BucketedUserConfig{}, err
+	}
+	user, err = a.client.localBucketing.GenerateBucketedConfigForUser(a.client.environmentKey, string(userJSON))
+	if err != nil {
+		return BucketedUserConfig{}, err
+	}
+	return
+}
+
 /*
 DVCClientService Get all features by key for user data
   - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
@@ -34,25 +56,8 @@ DVCClientService Get all features by key for user data
 func (a *DVCClientService) AllFeatures(ctx context.Context, body UserData) (map[string]Feature, error) {
 
 	if !a.client.DevCycleOptions.DisableLocalBucketing {
-		userJSON, err := json.Marshal(body)
-		if err != nil {
-			return nil, err
-		}
-		platformData := PlatformData{}
-		platformData.FromUser(body)
-		platformJSON, err := json.Marshal(platformData)
-		if err != nil {
-			return nil, err
-		}
-		err = a.client.localBucketing.SetPlatformData(string(platformJSON))
-		if err != nil {
-			return nil, err
-		}
-		user, err := a.client.localBucketing.GenerateBucketedConfigForUser(a.client.environmentKey, string(userJSON))
-		if err != nil {
-			return nil, err
-		}
-		return user.Features, nil
+		user, err := a.generateBucketedConfig(body)
+		return user.Features, err
 	}
 	var (
 		localVarHttpMethod  = strings.ToUpper("Post")
@@ -185,6 +190,11 @@ DVCClientService Get variable by key for user data
 @return Variable
 */
 func (a *DVCClientService) Variable(ctx context.Context, body UserData, key string, defaultValue interface{}) (Variable, error) {
+	if !a.client.DevCycleOptions.DisableLocalBucketing {
+		user, err := a.generateBucketedConfig(body)
+		return user.Variables[key], err
+	}
+
 	var (
 		localVarHttpMethod  = strings.ToUpper("Post")
 		localVarPostBody    interface{}
@@ -192,6 +202,7 @@ func (a *DVCClientService) Variable(ctx context.Context, body UserData, key stri
 		localVarFileBytes   []byte
 		localVarReturnValue Variable
 	)
+
 	defaultRetVal := Variable{Value: &defaultValue, Key: key, IsDefaulted: true}
 
 	// create path and map variables
@@ -327,6 +338,10 @@ DVCClientService Get all variables by key for user data
 @return map[string]Variable
 */
 func (a *DVCClientService) AllVariables(ctx context.Context, body UserData) (map[string]Variable, error) {
+	if !a.client.DevCycleOptions.DisableLocalBucketing {
+		user, err := a.generateBucketedConfig(body)
+		return user.Variables, err
+	}
 	var (
 		localVarHttpMethod  = strings.ToUpper("Post")
 		localVarPostBody    interface{}

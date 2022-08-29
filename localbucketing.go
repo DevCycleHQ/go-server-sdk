@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/bytecodealliance/wasmtime-go"
+	"log"
 	"time"
 	"unicode/utf16"
 	"unsafe"
@@ -20,7 +21,7 @@ type DevCycleLocalBucketing struct {
 	configManager *EnvironmentConfigManager
 }
 
-func (d *DevCycleLocalBucketing) Initialize(environmentKey string, options *DVCOptions) (err error) {
+func (d *DevCycleLocalBucketing) Initialize() (err error) {
 
 	d.wasiConfig = wasmtime.NewWasiConfig()
 	d.wasiConfig.InheritEnv()
@@ -64,10 +65,15 @@ func (d *DevCycleLocalBucketing) Initialize(environmentKey string, options *DVCO
 	}
 	d.wasmMemory = d.wasmInstance.GetExport(d.wasmStore, "memory").Memory()
 
-	d.configManager = &EnvironmentConfigManager{}
-	d.configManager.Initialize(environmentKey, options)
+	log.Println("Initializing DevCycle LocalBucketing")
+	d.configManager = &EnvironmentConfigManager{localBucketing: d}
 
 	return nil
+}
+
+func (d *DevCycleLocalBucketing) InitializeConfigManager(environmentKey string, options *DVCOptions) error {
+	err := d.configManager.Initialize(environmentKey, options)
+	return err
 }
 
 func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(token, user string) (ret BucketedUserConfig, err error) {

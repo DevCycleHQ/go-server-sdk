@@ -54,6 +54,7 @@ type DVCOptions struct {
 	DisableLocalBucketing bool          `json:"disableLocalBucketing,omitempty"`
 	PollingInterval       time.Duration `json:"pollingInterval,omitempty"`
 	RequestTimeout        time.Duration `json:"requestTimeout,omitempty"`
+	SDKEventsReceiver     chan SDKEvent `json:"sdkEventsReceiver,omitempty"`
 }
 
 type Configuration struct {

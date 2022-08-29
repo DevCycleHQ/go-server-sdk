@@ -86,12 +86,16 @@ func NewDVCClient(environmentKey string, options *DVCOptions) *DVCClient {
 			return nil
 		}
 		c.localBucketing = &DevCycleLocalBucketing{wasm: rawWasm}
-		err = c.localBucketing.Initialize(environmentKey, options)
+		err = c.localBucketing.Initialize()
 		if err != nil {
 			log.Fatalln(err)
 			return nil
 		}
 		c.configManager = c.localBucketing.configManager
+		err = c.configManager.Initialize(environmentKey, options)
+		if err != nil {
+			return nil
+		}
 		c.SDKEventChannel = c.configManager.SDKEvents
 
 		go func() {
