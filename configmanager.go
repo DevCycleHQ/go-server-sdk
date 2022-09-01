@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -20,19 +19,21 @@ type EnvironmentConfigManager struct {
 	SDKEvents      chan SDKEvent
 	context        context.Context
 	cancel         context.CancelFunc
+	httpClient     *http.Client
 }
 
 func (e *EnvironmentConfigManager) Initialize(environmentKey string, options *DVCOptions) (err error) {
-	e.environmentKey = environmentKey
-	e.context, e.cancel = context.WithCancel(context.Background())
-	e.SDKEvents = make(chan SDKEvent, 100)
-
 	if options.PollingInterval == 0 {
 		options.PollingInterval = time.Second * 30
 	}
 	if options.RequestTimeout == 0 {
 		options.RequestTimeout = time.Second * 10
 	}
+
+	e.environmentKey = environmentKey
+	e.httpClient = &http.Client{Timeout: options.RequestTimeout}
+	e.context, e.cancel = context.WithCancel(context.Background())
+	e.SDKEvents = make(chan SDKEvent, 100)
 
 	ticker := time.NewTicker(options.PollingInterval)
 	e.firstLoad = true
@@ -62,16 +63,30 @@ func (e *EnvironmentConfigManager) Initialize(environmentKey string, options *DV
 }
 
 func (e *EnvironmentConfigManager) fetchConfig() error {
-	resp, err := http.Get(e.getConfigURL())
+	req, err := http.NewRequest("GET", e.getConfigURL(), nil)
+	if e.configETag != "" {
+		req.Header.Set("If-None-Match", e.configETag)
+	}
+	resp, err := e.httpClient.Do(req)
 	if err != nil {
-		e.SDKEvents <- SDKEvent{Success: false, Message: "Could not make HTTP Request to CDN.", Error: err}
+		select {
+		case e.SDKEvents <- SDKEvent{Success: false, Message: "Error fetching config: " + err.Error(), Error: err, FirstInitialization: false}:
+			break
+		default:
+			break
+		}
 		return err
 	}
 	switch resp.StatusCode {
 	case http.StatusOK:
 		err = e.setConfig(resp)
 		if err != nil {
-			e.SDKEvents <- SDKEvent{Success: false, Message: "Failed to set config.", Error: err}
+			select {
+			case e.SDKEvents <- SDKEvent{Success: false, Message: "Error setting config: " + err.Error(), Error: err, FirstInitialization: false}:
+				break
+			default:
+				break
+			}
 			return err
 		}
 		break
@@ -95,8 +110,12 @@ func (e *EnvironmentConfigManager) fetchConfig() error {
 		log.Printf("URL: %s\n", e.getConfigURL())
 		log.Printf("Headers: %s\n", resp.Header)
 		log.Printf("Could not download configuration. Using cached version if available %s\n", resp.Header.Get("ETag"))
-		e.SDKEvents <- SDKEvent{Success: false,
-			Message: "Unexpected response code - Aborting Polling. Code: " + strconv.Itoa(resp.StatusCode), Error: nil}
+		select {
+		case e.SDKEvents <- SDKEvent{Success: false, Message: "Could not download configuration. Using cached version if available " + resp.Header.Get("ETag"), Error: nil, FirstInitialization: false}:
+			break
+		default:
+			break
+		}
 		e.context.Done()
 		e.cancel()
 		break
