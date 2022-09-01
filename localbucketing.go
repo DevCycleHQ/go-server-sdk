@@ -1,6 +1,7 @@
 package devcycle
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"github.com/bytecodealliance/wasmtime-go"
@@ -21,8 +22,11 @@ type DevCycleLocalBucketing struct {
 	configManager *EnvironmentConfigManager
 }
 
-func (d *DevCycleLocalBucketing) Initialize() (err error) {
+//go:embed bucketing-lib.release.wasm
+var wasmBinary []byte
 
+func (d *DevCycleLocalBucketing) Initialize() (err error) {
+	d.wasm = wasmBinary
 	d.wasiConfig = wasmtime.NewWasiConfig()
 	d.wasiConfig.InheritEnv()
 	d.wasiConfig.InheritStderr()
@@ -128,7 +132,7 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 	return nil
 }
 
-// This has a horrible hack because of utf16 - We're double-allocating because utf8->utf16 doesn't zero-padded
+// This has a horrible hack because of WTF-16 - We're double-allocating because utf8->utf16 doesn't zero-pad
 // after the first character byte, so we do that manually.
 func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, error) {
 	const objectIdString int32 = 1
@@ -136,6 +140,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, e
 
 	__new := d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
 
+	// malloc
 	ptr, err := __new.Call(d.wasmStore, int32(len(encoded)*2), objectIdString)
 	if err != nil {
 		return -1, err
@@ -150,7 +155,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, e
 
 // https://www.assemblyscript.org/runtime.html#memory-layout
 // This has a horrible hack of skipping every other index in the resulting array because
-// there isn't a great way to parse UTF-16 cleanly that matches the WTF-16 format that WASM uses.
+// there isn't a great way to parse UTF-16 cleanly that matches the WTF-16 format that ASC uses.
 func readAssemblyScriptString(pointer int32, memory *wasmtime.Memory, store *wasmtime.Store) (ret string) {
 	stringLength := byteArrayToInt(memory.UnsafeData(store)[pointer-4 : pointer])
 	rawData := memory.UnsafeData(store)[pointer : pointer+int32(stringLength)]

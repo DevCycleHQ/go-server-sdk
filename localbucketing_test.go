@@ -1,10 +1,10 @@
 package devcycle
 
 import (
+	_ "embed"
 	"fmt"
 	"github.com/jarcoal/httpmock"
 	"net/http"
-	"os"
 	"testing"
 	"time"
 )
@@ -12,12 +12,6 @@ import (
 func TestDevCycleLocalBucketing_Initialize(t *testing.T) {
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
-
-	wasmFile, err := os.ReadFile("bucketing-lib.release.wasm")
-	if err != nil {
-		t.Fatal(err)
-	}
-	localBucketing.wasm = wasmFile
 
 	err = localBucketing.Initialize()
 	if err != nil {
@@ -30,12 +24,6 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 	config := `{"project":{"_id":"6216420c2ea68943c8833c09","key":"default","a0_organization":"org_NszUFyWBFy7cr95J"},"environment":{"_id":"6216420c2ea68943c8833c0b","key":"development"},"features":[{"_id":"6216422850294da359385e8b","key":"test","type":"release","variations":[{"variables":[{"_var":"6216422850294da359385e8d","value":true}],"name":"Variation On","key":"variation-on","_id":"6216422850294da359385e8f"},{"variables":[{"_var":"6216422850294da359385e8d","value":false}],"name":"Variation Off","key":"variation-off","_id":"6216422850294da359385e90"}],"configuration":{"_id":"621642332ea68943c8833c4a","targets":[{"distribution":[{"percentage":0.5,"_variation":"6216422850294da359385e8f"},{"percentage":0.5,"_variation":"6216422850294da359385e90"}],"_audience":{"_id":"621642332ea68943c8833c4b","filters":{"operator":"and","filters":[{"values":[],"type":"all","filters":[]}]}},"_id":"621642332ea68943c8833c4d"}],"forcedUsers":{}}}],"variables":[{"_id":"6216422850294da359385e8d","key":"test","type":"Boolean"}],"variableHashes":{"test":2447239932}}`
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
-
-	wasmFile, err := os.ReadFile("bucketing-lib.release.wasm")
-	if err != nil {
-		t.Fatal(err)
-	}
-	localBucketing.wasm = wasmFile
 
 	err = localBucketing.Initialize()
 	if err != nil {
@@ -67,12 +55,6 @@ func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
 
-	wasmFile, err := os.ReadFile("bucketing-lib.release.wasm")
-	if err != nil {
-		t.Fatal(err)
-	}
-	localBucketing.wasm = wasmFile
-
 	err = localBucketing.Initialize()
 	if err != nil {
 		t.Fatal(err)
@@ -90,12 +72,6 @@ func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 	config := `{"project":{"_id":"6216420c2ea68943c8833c09","key":"default","a0_organization":"org_NszUFyWBFy7cr95J"},"environment":{"_id":"6216420c2ea68943c8833c0b","key":"development"},"features":[{"_id":"6216422850294da359385e8b","key":"test","type":"release","variations":[{"variables":[{"_var":"6216422850294da359385e8d","value":true}],"name":"Variation On","key":"variation-on","_id":"6216422850294da359385e8f"},{"variables":[{"_var":"6216422850294da359385e8d","value":false}],"name":"Variation Off","key":"variation-off","_id":"6216422850294da359385e90"}],"configuration":{"_id":"621642332ea68943c8833c4a","targets":[{"distribution":[{"percentage":0.5,"_variation":"6216422850294da359385e8f"},{"percentage":0.5,"_variation":"6216422850294da359385e90"}],"_audience":{"_id":"621642332ea68943c8833c4b","filters":{"operator":"and","filters":[{"values":[],"type":"all","filters":[]}]}},"_id":"621642332ea68943c8833c4d"}],"forcedUsers":{}}}],"variables":[{"_id":"6216422850294da359385e8d","key":"test","type":"Boolean"}],"variableHashes":{"test":2447239932}}`
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
-
-	wasmFile, err := os.ReadFile("bucketing-lib.release.wasm")
-	if err != nil {
-		b.Fatal(err)
-	}
-	localBucketing.wasm = wasmFile
 
 	err = localBucketing.Initialize()
 	if err != nil {
@@ -118,12 +94,6 @@ func TestDevCycleLocalBucketing_SetPlatformData(t *testing.T) {
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
 
-	wasmFile, err := os.ReadFile("bucketing-lib.release.wasm")
-	if err != nil {
-		t.Fatal(err)
-	}
-	localBucketing.wasm = wasmFile
-
 	err = localBucketing.Initialize()
 	if err != nil {
 		t.Fatal(err)
@@ -144,12 +114,6 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 	environmentKey := "dvc_server_token_hash"
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
-
-	wasmFile, err := os.ReadFile("bucketing-lib.release.wasm")
-	if err != nil {
-		b.Fatal(err)
-	}
-	localBucketing.wasm = wasmFile
 
 	err = localBucketing.Initialize()
 	if err != nil {
@@ -186,11 +150,7 @@ func TestEnvironmentConfigManager_Initialize(t *testing.T) {
 	environmentKey := "dvc_server_token_hash"
 	var err error
 
-	wasmFile, err := os.ReadFile("bucketing-lib.release.wasm")
-	if err != nil {
-		t.Fatal(err)
-	}
-	localBucketing := DevCycleLocalBucketing{wasm: wasmFile}
+	localBucketing := DevCycleLocalBucketing{}
 
 	err = localBucketing.Initialize()
 	if err != nil {
@@ -219,11 +179,7 @@ func TestEnvironmentConfigManager_LocalBucketing(t *testing.T) {
 	environmentKey := "dvc_server_token_hash"
 	var err error
 
-	wasmFile, err := os.ReadFile("bucketing-lib.release.wasm")
-	if err != nil {
-		t.Fatal(err)
-	}
-	localBucketing := DevCycleLocalBucketing{wasm: wasmFile}
+	localBucketing := DevCycleLocalBucketing{}
 
 	err = localBucketing.Initialize()
 	if err != nil {
