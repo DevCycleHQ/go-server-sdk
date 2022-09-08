@@ -1,6 +1,6 @@
 module github.com/devcyclehq/go-server-sdk
 
-go 1.17
+go 1.19
 
 require (
 	github.com/bytecodealliance/wasmtime-go v0.39.0

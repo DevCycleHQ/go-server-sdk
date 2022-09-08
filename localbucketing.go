@@ -80,6 +80,58 @@ func (d *DevCycleLocalBucketing) InitializeConfigManager(environmentKey string, 
 	return err
 }
 
+func (d *DevCycleLocalBucketing) initEventQueue(token, options string) (err error) {
+	tokenAddr, err := d.newAssemblyScriptString(token)
+	if err != nil {
+		return
+	}
+	optionsAddr, err := d.newAssemblyScriptString(options)
+	if err != nil {
+		return
+	}
+	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "initEventQueue").Func()
+	_, err = _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr, optionsAddr)
+	return
+}
+
+func (d *DevCycleLocalBucketing) flushEventQueue(token string) (err error) {
+	tokenAddr, err := d.newAssemblyScriptString(token)
+	if err != nil {
+		return
+	}
+	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "flushEventQueue").Func()
+	_, err = _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr)
+	return
+}
+
+func (d *DevCycleLocalBucketing) onPayloadSuccess(token, payloadId string) (err error) {
+	tokenAddr, err := d.newAssemblyScriptString(token)
+	if err != nil {
+		return
+	}
+	payloadIdAddr, err := d.newAssemblyScriptString(payloadId)
+	if err != nil {
+		return
+	}
+	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "onPayloadSuccess").Func()
+	_, err = _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr, payloadIdAddr)
+	return
+}
+
+func (d *DevCycleLocalBucketing) onPayloadFailure(token, payloadId string, retryable bool) (err error) {
+	tokenAddr, err := d.newAssemblyScriptString(token)
+	if err != nil {
+		return
+	}
+	payloadIdAddr, err := d.newAssemblyScriptString(payloadId)
+	if err != nil {
+		return
+	}
+	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "onPayloadFailure").Func()
+	_, err = _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr, payloadIdAddr)
+	return
+}
+
 func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(token, user string) (ret BucketedUserConfig, err error) {
 	tokenAddr, err := d.newAssemblyScriptString(token)
 	if err != nil {
@@ -149,6 +201,23 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, e
 	var i int32 = 0
 	for i = 0; i < int32(len(encoded)); i++ {
 		d.wasmMemory.UnsafeData(d.wasmStore)[addr+(i*2)] = byte(encoded[i])
+	}
+	return ptr.(int32), nil
+}
+
+func (d *DevCycleLocalBucketing) newAssemblyScriptBool(param bool) (int32, error) {
+	const objectIduint8 int32 = 0
+	__new := d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
+	// malloc
+	ptr, err := __new.Call(d.wasmStore, 1, objectIduint8)
+	if err != nil {
+		return -1, err
+	}
+	addr := ptr.(int32)
+	if param {
+		d.wasmMemory.UnsafeData(d.wasmStore)[addr] = 1
+	} else {
+		d.wasmMemory.UnsafeData(d.wasmStore)[addr] = 0
 	}
 	return ptr.(int32), nil
 }
