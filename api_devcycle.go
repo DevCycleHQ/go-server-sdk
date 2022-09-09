@@ -182,6 +182,23 @@ DVCClientService Get variable by key for user data
 func (a *DVCClientService) Variable(ctx context.Context, body UserData, key string, defaultValue interface{}) (Variable, error) {
 	if !a.client.DevCycleOptions.DisableLocalBucketing {
 		user, err := a.generateBucketedConfig(body)
+
+		variableEvaluationType := ""
+		if user.Variables[key].IsDefaulted {
+			variableEvaluationType = "variableDefaulted"
+		} else {
+			variableEvaluationType = "variableEvaluated"
+		}
+		eventstring, err := json.Marshal(Event{
+			Type_:  variableEvaluationType,
+			Target: key,
+		})
+		if !a.client.DevCycleOptions.DisableLocalBucketing && a.client.localBucketing != nil {
+			err = a.client.localBucketing.queueAggregateEvent(string(eventstring), user)
+		}
+		if err != nil {
+			return Variable{}, err
+		}
 		return user.Variables[key], err
 	}
 
@@ -472,6 +489,21 @@ DVCClientService Post events to DevCycle for user
 @return InlineResponse201
 */
 func (a *DVCClientService) Track(ctx context.Context, user UserData, event Event) (InlineResponse201, error) {
+	if !a.client.DevCycleOptions.DisableLocalBucketing {
+		userstring, err := json.Marshal(user)
+		if err != nil {
+			return InlineResponse201{}, err
+		}
+		eventstring, err := json.Marshal(event)
+		if err != nil {
+			return InlineResponse201{}, err
+		}
+		err = a.client.localBucketing.queueEvent(string(userstring), string(eventstring))
+		if err != nil {
+			return InlineResponse201{}, err
+		}
+		return InlineResponse201{}, nil
+	}
 	var (
 		localVarHttpMethod  = strings.ToUpper("Post")
 		localVarPostBody    interface{}

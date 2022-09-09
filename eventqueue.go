@@ -62,8 +62,7 @@ func (e *EventQueue) QueueEvent(user UserData, event Event) error {
 func (e *EventQueue) QueueAggregateEvent(event Event, bucketedConfig BucketedUserConfig) error {
 	if !e.options.DisableLocalBucketing {
 		eventstring, err := json.Marshal(event)
-		variationMap, err := json.Marshal(bucketedConfig.FeatureVariationMap)
-		err = e.localBucketing.queueAggregateEvent(string(eventstring), string(variationMap))
+		err = e.localBucketing.queueAggregateEvent(string(eventstring), bucketedConfig)
 		return err
 	}
 	e.aggregateQueue <- event
@@ -107,10 +106,6 @@ func (e *EventQueue) eventFlushPolling() {
 			e.flushEvents()
 		}
 	}
-}
-
-func (e *EventQueue) publishEvents() {
-
 }
 
 func (e *EventQueue) eventsPost(url string, body, envKey string) (resp *http.Response, err error) {

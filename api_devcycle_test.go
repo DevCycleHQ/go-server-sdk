@@ -79,6 +79,7 @@ func TestDVCClientService_Variable(t *testing.T) {
 			fmt.Println(v.Message, v.Error, v.FirstInitialization, v.Success)
 		}
 	}()
+
 	variable, err := c.DevCycleApi.Variable(auth,
 		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
 		"test", true)

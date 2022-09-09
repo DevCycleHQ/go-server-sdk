@@ -142,13 +142,10 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) 
 	if err != nil {
 		return
 	}
-	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "onPayloadSuccess").Func()
-	_, err = _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr, payloadIdAddr)
+	onPayloadSuccess := d.wasmInstance.GetExport(d.wasmStore, "onPayloadSuccess").Func()
+	_, err = onPayloadSuccess.Call(d.wasmStore, tokenAddr, payloadIdAddr)
 	return
 }
-
-//  queueEvent,
-//  queueAggregateEvent,
 
 func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
@@ -163,17 +160,22 @@ func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 	if err != nil {
 		return
 	}
-	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "onPayloadSuccess").Func()
-	_, err = _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr, userAddr, eventAddr)
+	queueEvent := d.wasmInstance.GetExport(d.wasmStore, "queueEvent").Func()
+	_, err = queueEvent.Call(d.wasmStore, tokenAddr, userAddr, eventAddr)
 	return
 }
 
-func (d *DevCycleLocalBucketing) queueAggregateEvent(event, variationMap string) (err error) {
+func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, user BucketedUserConfig) (err error) {
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
 	}
-	variationMapAddr, err := d.newAssemblyScriptString(variationMap)
+
+	variationMap, err := json.Marshal(user.FeatureVariationMap)
+	if err != nil {
+		return
+	}
+	variationMapAddr, err := d.newAssemblyScriptString(string(variationMap))
 	if err != nil {
 		return
 	}
@@ -181,8 +183,8 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event, variationMap string)
 	if err != nil {
 		return
 	}
-	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "onPayloadSuccess").Func()
-	_, err = _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr, eventAddr, variationMapAddr)
+	queueAggregateEvent := d.wasmInstance.GetExport(d.wasmStore, "queueAggregateEvent").Func()
+	_, err = queueAggregateEvent.Call(d.wasmStore, tokenAddr, eventAddr, variationMapAddr)
 	return
 }
 
@@ -199,8 +201,8 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 	if err != nil {
 		return
 	}
-	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "onPayloadFailure").Func()
-	_, err = _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr, payloadIdAddr, retryableAddr)
+	onPayloadFailure := d.wasmInstance.GetExport(d.wasmStore, "onPayloadFailure").Func()
+	_, err = onPayloadFailure.Call(d.wasmStore, tokenAddr, payloadIdAddr, retryableAddr)
 	return
 }
 
