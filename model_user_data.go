@@ -42,3 +42,8 @@ type UserData struct {
 	// DevCycle SDK Version
 	SdkVersion string `json:"sdkVersion,omitempty"`
 }
+
+type UserFeatureData struct {
+	User        UserData `json:"user"`
+	FeatureVars map[string]string
+}

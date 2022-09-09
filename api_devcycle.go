@@ -29,17 +29,7 @@ func (a *DVCClientService) generateBucketedConfig(body UserData) (user BucketedU
 	if err != nil {
 		return BucketedUserConfig{}, err
 	}
-	platformData := PlatformData{}
-	platformData.FromUser(body)
-	platformJSON, err := json.Marshal(platformData)
-	if err != nil {
-		return BucketedUserConfig{}, err
-	}
-	err = a.client.localBucketing.SetPlatformData(string(platformJSON))
-	if err != nil {
-		return BucketedUserConfig{}, err
-	}
-	user, err = a.client.localBucketing.GenerateBucketedConfigForUser(a.client.environmentKey, string(userJSON))
+	user, err = a.client.localBucketing.GenerateBucketedConfigForUser(string(userJSON))
 	if err != nil {
 		return BucketedUserConfig{}, err
 	}

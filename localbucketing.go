@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/bytecodealliance/wasmtime-go"
 	"log"
+	"math/rand"
 	"time"
 	"unicode/utf16"
 	"unsafe"
@@ -20,10 +21,15 @@ type DevCycleLocalBucketing struct {
 	wasiConfig    *wasmtime.WasiConfig
 	wasmMemory    *wasmtime.Memory
 	configManager *EnvironmentConfigManager
+	sdkKey        string
 }
 
 //go:embed bucketing-lib.release.wasm
 var wasmBinary []byte
+
+func (d *DevCycleLocalBucketing) SetSDKToken(token string) {
+	d.sdkKey = token
+}
 
 func (d *DevCycleLocalBucketing) Initialize() (err error) {
 	d.wasm = wasmBinary
@@ -63,25 +69,44 @@ func (d *DevCycleLocalBucketing) Initialize() (err error) {
 		return
 	}
 
+	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "seed", func() float64 {
+		return rand.Float64() * float64(time.Now().UnixMilli())
+	})
+	if err != nil {
+		return
+	}
+
 	d.wasmInstance, err = d.wasmLinker.Instantiate(d.wasmStore, d.wasmModule)
 	if err != nil {
 		return
 	}
 	d.wasmMemory = d.wasmInstance.GetExport(d.wasmStore, "memory").Memory()
 
-	log.Println("Initializing DevCycle LocalBucketing")
+	log.Println("Initialized DevCycle LocalBucketing")
 	d.configManager = &EnvironmentConfigManager{localBucketing: d}
+
+	platformData := PlatformData{}
+	platformData = *platformData.Default(true)
+	platformJSON, err := json.Marshal(platformData)
+	if err != nil {
+		return err
+	}
+	err = d.SetPlatformData(string(platformJSON))
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func (d *DevCycleLocalBucketing) InitializeConfigManager(environmentKey string, options *DVCOptions) error {
+	d.sdkKey = environmentKey
 	err := d.configManager.Initialize(environmentKey, options)
 	return err
 }
 
-func (d *DevCycleLocalBucketing) initEventQueue(token, options string) (err error) {
-	tokenAddr, err := d.newAssemblyScriptString(token)
+func (d *DevCycleLocalBucketing) initEventQueue(options string) (err error) {
+	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
 	}
@@ -94,18 +119,22 @@ func (d *DevCycleLocalBucketing) initEventQueue(token, options string) (err erro
 	return
 }
 
-func (d *DevCycleLocalBucketing) flushEventQueue(token string) (err error) {
-	tokenAddr, err := d.newAssemblyScriptString(token)
+func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err error) {
+	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
 	}
 	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "flushEventQueue").Func()
-	_, err = _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr)
+	addrResult, err := _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal([]byte(readAssemblyScriptString(addrResult.(int32), d.wasmMemory, d.wasmStore)), &payload)
 	return
 }
 
-func (d *DevCycleLocalBucketing) onPayloadSuccess(token, payloadId string) (err error) {
-	tokenAddr, err := d.newAssemblyScriptString(token)
+func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) {
+	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
 	}
@@ -118,8 +147,47 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(token, payloadId string) (err 
 	return
 }
 
-func (d *DevCycleLocalBucketing) onPayloadFailure(token, payloadId string, retryable bool) (err error) {
-	tokenAddr, err := d.newAssemblyScriptString(token)
+//  queueEvent,
+//  queueAggregateEvent,
+
+func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
+	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
+	if err != nil {
+		return
+	}
+	userAddr, err := d.newAssemblyScriptString(user)
+	if err != nil {
+		return
+	}
+	eventAddr, err := d.newAssemblyScriptString(event)
+	if err != nil {
+		return
+	}
+	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "onPayloadSuccess").Func()
+	_, err = _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr, userAddr, eventAddr)
+	return
+}
+
+func (d *DevCycleLocalBucketing) queueAggregateEvent(event, variationMap string) (err error) {
+	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
+	if err != nil {
+		return
+	}
+	variationMapAddr, err := d.newAssemblyScriptString(variationMap)
+	if err != nil {
+		return
+	}
+	eventAddr, err := d.newAssemblyScriptString(event)
+	if err != nil {
+		return
+	}
+	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "onPayloadSuccess").Func()
+	_, err = _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr, eventAddr, variationMapAddr)
+	return
+}
+
+func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bool) (err error) {
+	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
 	}
@@ -127,13 +195,17 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(token, payloadId string, retry
 	if err != nil {
 		return
 	}
+	retryableAddr, err := d.newAssemblyScriptBool(retryable)
+	if err != nil {
+		return
+	}
 	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "onPayloadFailure").Func()
-	_, err = _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr, payloadIdAddr)
+	_, err = _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr, payloadIdAddr, retryableAddr)
 	return
 }
 
-func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(token, user string) (ret BucketedUserConfig, err error) {
-	tokenAddr, err := d.newAssemblyScriptString(token)
+func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret BucketedUserConfig, err error) {
+	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
 	}

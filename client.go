@@ -39,7 +39,7 @@ var (
 // DVCClient
 // In most cases there should be only one, shared, DVCClient.
 type DVCClient struct {
-	cfg    *Configuration
+	cfg    *HTTPConfiguration
 	common service // Reuse a single struct instead of allocating one for each service on the heap.
 
 	// API Services

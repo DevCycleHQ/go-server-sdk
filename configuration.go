@@ -50,14 +50,15 @@ type APIKey struct {
 }
 
 type DVCOptions struct {
-	EnableEdgeDB          bool          `json:"enableEdgeDb,omitempty"`
-	DisableLocalBucketing bool          `json:"disableLocalBucketing,omitempty"`
-	PollingInterval       time.Duration `json:"pollingInterval,omitempty"`
-	RequestTimeout        time.Duration `json:"requestTimeout,omitempty"`
-	SDKEventsReceiver     chan SDKEvent `json:"sdkEventsReceiver,omitempty"`
+	EnableEdgeDB          bool `json:"enableEdgeDb,omitempty"`
+	DisableLocalBucketing bool `json:"disableLocalBucketing,omitempty"`
+
+	PollingInterval   time.Duration `json:"pollingInterval,omitempty"`
+	RequestTimeout    time.Duration `json:"requestTimeout,omitempty"`
+	SDKEventsReceiver chan SDKEvent `json:"sdkEventsReceiver,omitempty"`
 }
 
-type Configuration struct {
+type HTTPConfiguration struct {
 	BasePath          string            `json:"basePath,omitempty"`
 	ConfigCDNBasePath string            `json:"configCDNBasePath,omitempty"`
 	Host              string            `json:"host,omitempty"`
@@ -67,8 +68,8 @@ type Configuration struct {
 	HTTPClient        *http.Client
 }
 
-func NewConfiguration() *Configuration {
-	cfg := &Configuration{
+func NewConfiguration() *HTTPConfiguration {
+	cfg := &HTTPConfiguration{
 		BasePath:          "https://bucketing-api.devcycle.com/",
 		ConfigCDNBasePath: "https://config-cdn.devcycle.com/",
 		DefaultHeader:     make(map[string]string),
@@ -77,6 +78,6 @@ func NewConfiguration() *Configuration {
 	return cfg
 }
 
-func (c *Configuration) AddDefaultHeader(key string, value string) {
+func (c *HTTPConfiguration) AddDefaultHeader(key string, value string) {
 	c.DefaultHeader[key] = value
 }

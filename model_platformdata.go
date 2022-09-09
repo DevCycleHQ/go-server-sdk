@@ -16,3 +16,15 @@ func (pd *PlatformData) FromUser(user UserData) PlatformData {
 	pd.DeviceModel = user.DeviceModel
 	return *pd
 }
+
+func (pd *PlatformData) Default(isLocal bool) *PlatformData {
+	pd.Platform = "golang"
+	if isLocal {
+		pd.SdkType = "local"
+	} else {
+		pd.SdkType = "cloud"
+	}
+	pd.SdkVersion = "1.2.0"
+	pd.PlatformVersion = "1.2.0"
+	return pd
+}

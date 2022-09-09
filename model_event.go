@@ -9,14 +9,31 @@
 package devcycle
 
 type Event struct {
-	// Custom event type
-	Type_ string `json:"type"`
-	// Custom event target / subject of event. Contextual to event type
-	Target string `json:"target,omitempty"`
-	// Unix epoch time the event occurred according to client
-	Date float64 `json:"date,omitempty"`
-	// Value for numerical events. Contextual to event type
-	Value float64 `json:"value,omitempty"`
-	// Extra JSON metadata for event. Contextual to event type
-	MetaData map[string]interface{} `json:"metaData,omitempty"`
+	Type_       string                 `json:"type"`
+	Target      string                 `json:"target,omitempty"`
+	CustomType  string                 `json:"customType,omitempty"`
+	UserId      string                 `json:"user_id,omitempty"`
+	Date        float64                `json:"date,omitempty"`
+	ClientDate  float64                `json:"clientDate,omitempty"`
+	Value       float64                `json:"value,omitempty"`
+	FeatureVars map[string]string      `json:"featureVars,omitempty"`
+	MetaData    map[string]interface{} `json:"metaData,omitempty"`
+}
+
+type AggregateEvent struct {
+}
+
+type UserEventsBatchRecord struct {
+	User   UserData `json:"user"`
+	Events []Event  `json:"events"`
+}
+
+type FlushPayload struct {
+	PayloadId  string                  `json:"payloadId,omitempty"`
+	EventCount int                     `json:"eventCount,omitempty"`
+	Records    []UserEventsBatchRecord `json:"records,omitempty"`
+}
+
+type BatchEventsBody struct {
+	Records []UserEventsBatchRecord `json:"batch,omitempty"`
 }
