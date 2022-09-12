@@ -7,12 +7,17 @@ import (
 	"time"
 )
 
+func (e *EventQueue) initializeCloud(options *DVCOptions) error {
+	e.eventQueue = make(chan DVCEvent, 100)
+	e.httpClient = http.DefaultClient
+	e.aggregateQueue = make(chan DVCEvent, 100)
+	e.options = options
+	return nil
+}
 func (e *EventQueue) initialize(localBucketing *DevCycleLocalBucketing, options *DVCOptions) error {
 	e.httpClient = http.DefaultClient
 	e.localBucketing = localBucketing
 	e.options = options
-	e.eventQueue = make(chan Event, 100)
-	e.aggregateQueue = make(chan Event, 100)
 
 	if !e.options.DisableLocalBucketing {
 		str, err := json.Marshal(e.eventQueueOptions)
@@ -27,7 +32,7 @@ func (e *EventQueue) initialize(localBucketing *DevCycleLocalBucketing, options 
 	return nil
 }
 
-func (e *EventQueue) QueueEvent(user UserData, event Event) error {
+func (e *EventQueue) QueueEvent(user UserData, event DVCEvent) error {
 	if !e.options.DisableLocalBucketing {
 		userstring, err := json.Marshal(user)
 		if err != nil {
@@ -44,7 +49,7 @@ func (e *EventQueue) QueueEvent(user UserData, event Event) error {
 	return nil
 }
 
-func (e *EventQueue) QueueAggregateEvent(event Event, bucketedConfig BucketedUserConfig) error {
+func (e *EventQueue) QueueAggregateEvent(event DVCEvent, bucketedConfig BucketedUserConfig) error {
 	if !e.options.DisableLocalBucketing {
 		eventstring, err := json.Marshal(event)
 		err = e.localBucketing.queueAggregateEvent(string(eventstring), bucketedConfig)

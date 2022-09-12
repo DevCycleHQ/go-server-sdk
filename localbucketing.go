@@ -3,7 +3,6 @@ package devcycle
 import (
 	_ "embed"
 	"encoding/json"
-	"fmt"
 	"github.com/bytecodealliance/wasmtime-go"
 	"log"
 	"math/rand"
@@ -65,7 +64,7 @@ func (d *DevCycleLocalBucketing) Initialize(options *DVCOptions) (err error) {
 	}
 
 	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
-		fmt.Println(readAssemblyScriptString(messagePtr, d.wasmMemory, d.wasmStore))
+		log.Println(readAssemblyScriptString(messagePtr, d.wasmMemory, d.wasmStore))
 	})
 	if err != nil {
 		return

@@ -8,8 +8,8 @@ import (
 type EventQueue struct {
 	localBucketing    *DevCycleLocalBucketing
 	options           *DVCOptions
-	eventQueue        chan Event
-	aggregateQueue    chan Event
+	eventQueue        chan DVCEvent
+	aggregateQueue    chan DVCEvent
 	eventQueueOptions *EventQueueOptions
 	httpClient        *http.Client
 }

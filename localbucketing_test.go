@@ -51,6 +51,12 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 		return
 	}
 	fmt.Println(genConfig)
+	if genConfig.Variables["test"].Value.(bool) == true {
+		fmt.Println("Correctly bucketed user.")
+	} else {
+		t.Fatal("Incorrectly bucketed user.")
+	}
+
 }
 
 func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {

@@ -1,13 +1,13 @@
 # DevCycle Go Server SDK.
 
-Welcome to the the DevCycle Go SDK, initially generated via the [DevCycle Bucketing API](https://docs.devcycle.com/bucketing-api/#tag/devcycle).
+This SDK supports both cloud bucketing (requests outbound to https://bucketing-api.devcycle.com) as well as local bucketing (requests to a local bucketing engine self-contained in this SDK).
 
 ## Installation
 
 ```bash
 go get "github.com/devcyclehq/go-server-sdk"
 ```
-Put the package under your project folder and add the following in import:
+
 ```golang
 package main
 import "github.com/devcyclehq/go-server-sdk"

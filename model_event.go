@@ -8,7 +8,7 @@
  */
 package devcycle
 
-type Event struct {
+type DVCEvent struct {
 	Type_       string                 `json:"type"`
 	Target      string                 `json:"target,omitempty"`
 	CustomType  string                 `json:"customType,omitempty"`
@@ -20,12 +20,9 @@ type Event struct {
 	MetaData    map[string]interface{} `json:"metaData,omitempty"`
 }
 
-type AggregateEvent struct {
-}
-
 type UserEventsBatchRecord struct {
-	User   UserData `json:"user"`
-	Events []Event  `json:"events"`
+	User   UserData   `json:"user"`
+	Events []DVCEvent `json:"events"`
 }
 
 type FlushPayload struct {

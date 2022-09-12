@@ -40,7 +40,7 @@ func (e *EnvironmentConfigManager) Initialize(environmentKey string, options *DV
 
 	err = e.fetchConfig()
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return err
 	}
 
@@ -120,7 +120,6 @@ func (e *EnvironmentConfigManager) fetchConfig() error {
 		e.cancel()
 		break
 	}
-	fmt.Println("Config fetch complete.")
 	return nil
 }
 

@@ -80,14 +80,9 @@ func NewDVCClient(environmentKey string, options *DVCOptions) *DVCClient {
 	c.DevCycleOptions = options
 
 	if !c.DevCycleOptions.DisableLocalBucketing {
-		rawWasm, err := os.ReadFile("bucketing-lib.release.wasm")
-		if err != nil {
-			fmt.Println(err)
-			return nil
-		}
-		c.localBucketing = &DevCycleLocalBucketing{wasm: rawWasm}
+		c.localBucketing = &DevCycleLocalBucketing{}
 		c.localBucketing.SetSDKToken(environmentKey)
-		err = c.localBucketing.Initialize(options)
+		err := c.localBucketing.Initialize(options)
 		if err != nil {
 			log.Fatalln(err)
 			return nil
@@ -103,7 +98,7 @@ func NewDVCClient(environmentKey string, options *DVCOptions) *DVCClient {
 			msg := <-c.configManager.SDKEvents
 			for {
 				msg = <-c.configManager.SDKEvents
-				fmt.Println(msg)
+				log.Println(msg)
 			}
 		}()
 	}

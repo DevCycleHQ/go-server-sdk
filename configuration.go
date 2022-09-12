@@ -72,8 +72,8 @@ type HTTPConfiguration struct {
 
 func NewConfiguration() *HTTPConfiguration {
 	cfg := &HTTPConfiguration{
-		BasePath:          "https://bucketing-api.devcycle.com/",
-		ConfigCDNBasePath: "https://config-cdn.devcycle.com/",
+		BasePath:          "https://bucketing-api.devcycle.com",
+		ConfigCDNBasePath: "https://config-cdn.devcycle.com",
 		DefaultHeader:     make(map[string]string),
 		UserAgent:         "Swagger-Codegen/1.2.0/go",
 	}

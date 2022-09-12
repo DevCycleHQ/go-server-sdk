@@ -189,7 +189,7 @@ func (a *DVCClientService) Variable(ctx context.Context, body UserData, key stri
 		} else {
 			variableEvaluationType = "variableEvaluated"
 		}
-		eventstring, err := json.Marshal(Event{
+		eventstring, err := json.Marshal(DVCEvent{
 			Type_:  variableEvaluationType,
 			Target: key,
 		})
@@ -488,7 +488,7 @@ DVCClientService Post events to DevCycle for user
 
 @return InlineResponse201
 */
-func (a *DVCClientService) Track(ctx context.Context, user UserData, event Event) (InlineResponse201, error) {
+func (a *DVCClientService) Track(ctx context.Context, user UserData, event DVCEvent) (InlineResponse201, error) {
 	if !a.client.DevCycleOptions.DisableLocalBucketing {
 		userstring, err := json.Marshal(user)
 		if err != nil {
@@ -511,7 +511,7 @@ func (a *DVCClientService) Track(ctx context.Context, user UserData, event Event
 		localVarFileBytes   []byte
 		localVarReturnValue InlineResponse201
 	)
-	events := []Event{event}
+	events := []DVCEvent{event}
 	body := UserDataAndEventsBody{User: &user, Events: events}
 	// create path and map variables
 	localVarPath := a.client.cfg.BasePath + "/v1/track"

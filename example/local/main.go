@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/devcyclehq/go-server-sdk"
 	"log"
 	"time"
@@ -27,7 +26,7 @@ func main() {
 		for {
 			select {
 			case e := <-client.SDKEventChannel:
-				fmt.Println(e)
+				log.Println(e)
 			}
 		}
 	}()
@@ -41,7 +40,7 @@ func main() {
 		log.Printf("Key:%s, feature:%v", key, variable)
 	}
 
-	event := devcycle.Event{
+	event := devcycle.DVCEvent{
 		Type_:  "customEvent",
 		Target: "somevariable.key"}
 
