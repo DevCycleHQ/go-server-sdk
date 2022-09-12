@@ -14,13 +14,12 @@ func main() {
 	auth := context.WithValue(context.Background(), devcycle.ContextAPIKey, devcycle.APIKey{
 		Key: environmentKey,
 	})
-
 	dvcOptions := devcycle.DVCOptions{
 		EnableEdgeDB:                 false,
-		DisableLocalBucketing:        false,
-		EventsFlushInterval:          0,
-		PollingInterval:              10 * time.Second,
-		RequestTimeout:               10 * time.Second,
+		DisableLocalBucketing:        true,
+		EventsFlushInterval:          time.Second * 10,
+		PollingInterval:              time.Second * 10,
+		RequestTimeout:               time.Second * 10,
 		DisableAutomaticEventLogging: false,
 		DisableCustomEventLogging:    false,
 	}

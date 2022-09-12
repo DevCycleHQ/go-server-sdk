@@ -9,14 +9,13 @@ import (
 	"time"
 )
 
-var pollingStop = make(chan bool)
+var pollingStop = make(chan bool, 1)
 
 type EnvironmentConfigManager struct {
 	environmentKey string
 	configETag     string
 	localBucketing *DevCycleLocalBucketing
 	firstLoad      bool
-	SDKEvents      chan SDKEvent
 	context        context.Context
 	cancel         context.CancelFunc
 	httpClient     *http.Client
@@ -33,20 +32,19 @@ func (e *EnvironmentConfigManager) Initialize(environmentKey string, options *DV
 	e.environmentKey = environmentKey
 	e.httpClient = &http.Client{Timeout: options.RequestTimeout}
 	e.context, e.cancel = context.WithCancel(context.Background())
-	e.SDKEvents = make(chan SDKEvent, 100)
 
 	ticker := time.NewTicker(options.PollingInterval)
 	e.firstLoad = true
 
 	err = e.fetchConfig()
 	if err != nil {
-		log.Println(err)
 		return err
 	}
 
 	go func(ctx context.Context) {
 		for {
 			select {
+			case <-pollingStop:
 			case <-ctx.Done():
 				ticker.Stop()
 				log.Println("Stopping config polling.")
@@ -69,24 +67,12 @@ func (e *EnvironmentConfigManager) fetchConfig() error {
 	}
 	resp, err := e.httpClient.Do(req)
 	if err != nil {
-		select {
-		case e.SDKEvents <- SDKEvent{Success: false, Message: "Error fetching config: " + err.Error(), Error: err, FirstInitialization: false}:
-			break
-		default:
-			break
-		}
 		return err
 	}
 	switch resp.StatusCode {
 	case http.StatusOK:
 		err = e.setConfig(resp)
 		if err != nil {
-			select {
-			case e.SDKEvents <- SDKEvent{Success: false, Message: "Error setting config: " + err.Error(), Error: err, FirstInitialization: false}:
-				break
-			default:
-				break
-			}
 			return err
 		}
 		break
@@ -95,7 +81,6 @@ func (e *EnvironmentConfigManager) fetchConfig() error {
 		break
 	case http.StatusForbidden:
 		pollingStop <- true
-		log.Println("403 Forbidden - SDK key is likely incorrect. Aborting polling.")
 		return fmt.Errorf("403 Forbidden - SDK key is likely incorrect. Aborting polling")
 
 	case http.StatusInternalServerError:
@@ -110,12 +95,6 @@ func (e *EnvironmentConfigManager) fetchConfig() error {
 		log.Printf("URL: %s\n", e.getConfigURL())
 		log.Printf("Headers: %s\n", resp.Header)
 		log.Printf("Could not download configuration. Using cached version if available %s\n", resp.Header.Get("ETag"))
-		select {
-		case e.SDKEvents <- SDKEvent{Success: false, Message: "Could not download configuration. Using cached version if available " + resp.Header.Get("ETag"), Error: nil, FirstInitialization: false}:
-			break
-		default:
-			break
-		}
 		e.context.Done()
 		e.cancel()
 		break
@@ -136,16 +115,9 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 	}
 	e.configETag = response.Header.Get("Etag")
 	log.Printf("Config set. ETag: %s\n", e.configETag)
-	//e.SDKEvents <- SDKEvent{Success: true, Message: "Config set. ETag: " + e.configETag, Error: nil}
 	if e.firstLoad {
 		e.firstLoad = false
 		log.Println("DevCycle SDK Initialized.")
-		select {
-		case e.SDKEvents <- SDKEvent{Success: true, Message: "DevCycle SDK Initialized.", Error: nil, FirstInitialization: true}:
-			break
-		default:
-			log.Println("No listener for SDK Events. Not sending events.")
-		}
 	}
 	return nil
 }

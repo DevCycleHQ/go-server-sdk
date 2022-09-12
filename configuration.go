@@ -55,7 +55,6 @@ type DVCOptions struct {
 	EventsFlushInterval          time.Duration `json:"eventsFlushInterval,omitempty"`
 	PollingInterval              time.Duration `json:"pollingInterval,omitempty"`
 	RequestTimeout               time.Duration `json:"requestTimeout,omitempty"`
-	SDKEventsReceiver            chan SDKEvent `json:"sdkEventsReceiver,omitempty"`
 	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging,omitempty"`
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging,omitempty"`
 }
@@ -75,7 +74,7 @@ func NewConfiguration() *HTTPConfiguration {
 		BasePath:          "https://bucketing-api.devcycle.com",
 		ConfigCDNBasePath: "https://config-cdn.devcycle.com",
 		DefaultHeader:     make(map[string]string),
-		UserAgent:         "Swagger-Codegen/1.2.0/go",
+		UserAgent:         "DevCycle-Server-SDK/1.2.0/go",
 	}
 	return cfg
 }

@@ -13,8 +13,7 @@ type DVCEvent struct {
 	Target      string                 `json:"target,omitempty"`
 	CustomType  string                 `json:"customType,omitempty"`
 	UserId      string                 `json:"user_id,omitempty"`
-	Date        float64                `json:"date,omitempty"`
-	ClientDate  float64                `json:"clientDate,omitempty"`
+	ClientDate  int64                  `json:"clientDate,omitempty"`
 	Value       float64                `json:"value,omitempty"`
 	FeatureVars map[string]string      `json:"featureVars,omitempty"`
 	MetaData    map[string]interface{} `json:"metaData,omitempty"`

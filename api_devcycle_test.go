@@ -15,17 +15,10 @@ func TestDVCClientService_AllFeatures_Local(t *testing.T) {
 	})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock()
+	httpConfigMock(200)
 
-	c := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
 
-	c.configManager.SDKEvents = make(chan SDKEvent, 100)
-	go func() {
-		for {
-			v := <-c.configManager.SDKEvents
-			fmt.Println(v.Message, v.Error, v.FirstInitialization, v.Success)
-		}
-	}()
 	features, err := c.DevCycleApi.AllFeatures(auth,
 		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"})
 	if err != nil {
@@ -42,17 +35,10 @@ func TestDVCClientService_AllVariablesLocal(t *testing.T) {
 	})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock()
+	httpConfigMock(200)
 
-	c := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
 
-	c.configManager.SDKEvents = make(chan SDKEvent, 100)
-	go func() {
-		for {
-			v := <-c.configManager.SDKEvents
-			fmt.Println(v.Message, v.Error, v.FirstInitialization, v.Success)
-		}
-	}()
 	variables, err := c.DevCycleApi.AllVariables(auth,
 		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"})
 	if err != nil {
@@ -71,7 +57,7 @@ func TestDVCClientService_VariableCloud(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpBucketingAPIMock()
 
-	c := NewDVCClient("dvc_server_token_hash", &DVCOptions{DisableLocalBucketing: true, PollingInterval: 10 * time.Second})
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{DisableLocalBucketing: true, PollingInterval: 10 * time.Second})
 
 	variable, err := c.DevCycleApi.Variable(auth,
 		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
@@ -90,17 +76,9 @@ func TestDVCClientService_VariableLocal(t *testing.T) {
 	})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock()
+	httpConfigMock(200)
 
-	c := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
-
-	c.configManager.SDKEvents = make(chan SDKEvent, 100)
-	go func() {
-		for {
-			v := <-c.configManager.SDKEvents
-			fmt.Println(v.Message, v.Error, v.FirstInitialization, v.Success)
-		}
-	}()
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
 
 	variable, err := c.DevCycleApi.Variable(auth,
 		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
@@ -113,23 +91,33 @@ func TestDVCClientService_VariableLocal(t *testing.T) {
 	fmt.Println(variable)
 }
 
+func TestDVCClientService_VariableLocal_403(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(403)
+
+	_, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
+	if err == nil {
+		t.Fatal("Expected error from configmanager")
+	}
+}
+
 func TestDVCClientService_TrackLocal_QueueEvent(t *testing.T) {
 	auth := context.WithValue(context.Background(), ContextAPIKey, APIKey{
 		Key: "dvc_server_token_hash",
 	})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock()
+	httpConfigMock(200)
 
-	c := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
 
 	track, err := c.DevCycleApi.Track(auth, UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"}, DVCEvent{
 		Type_:       "customEvent",
 		Target:      "",
 		CustomType:  "",
-		UserId:      "",
-		Date:        0,
-		ClientDate:  0,
+		UserId:      "text",
+		ClientDate:  time.Now().UnixMilli(),
 		Value:       0,
 		FeatureVars: nil,
 		MetaData:    nil,

@@ -18,7 +18,7 @@ func TestDevCycleLocalBucketing_Initialize(t *testing.T) {
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
 	localBucketing.SetSDKToken("dvc_server_token_hash")
-	err = localBucketing.Initialize(&DVCOptions{})
+	err = localBucketing.Initialize(environmentKey, &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 
 	localBucketing.SetSDKToken(environmentKey)
 
-	err = localBucketing.Initialize(&DVCOptions{})
+	err = localBucketing.Initialize(environmentKey, &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
 	var err error
 	localBucketing.SetSDKToken(environmentKey)
 
-	err = localBucketing.Initialize(&DVCOptions{})
+	err = localBucketing.Initialize(environmentKey, &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,9 +79,8 @@ func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
-	localBucketing.SetSDKToken(environmentKey)
 
-	err = localBucketing.Initialize(&DVCOptions{})
+	err = localBucketing.Initialize(environmentKey, &DVCOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -96,13 +95,12 @@ func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 func TestDevCycleLocalBucketing_SetPlatformData(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock()
+	httpConfigMock(200)
 
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
-	localBucketing.SetSDKToken(environmentKey)
 
-	err = localBucketing.Initialize(&DVCOptions{})
+	err = localBucketing.Initialize(environmentKey, &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,14 +115,14 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock()
+	httpConfigMock(200)
 
 	environmentKey := "dvc_server_token_hash"
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
 
 	localBucketing.SetSDKToken(environmentKey)
-	err = localBucketing.Initialize(&DVCOptions{})
+	err = localBucketing.Initialize(environmentKey, &DVCOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -152,14 +150,14 @@ func TestEnvironmentConfigManager_Initialize(t *testing.T) {
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock()
+	httpConfigMock(200)
 
 	var err error
 
 	localBucketing := DevCycleLocalBucketing{}
 	localBucketing.SetSDKToken(environmentKey)
 
-	err = localBucketing.Initialize(&DVCOptions{})
+	err = localBucketing.Initialize(environmentKey, &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,14 +179,14 @@ func TestEnvironmentConfigManager_LocalBucketing(t *testing.T) {
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock()
+	httpConfigMock(200)
 
 	var err error
 
 	localBucketing := DevCycleLocalBucketing{}
 	localBucketing.SetSDKToken(environmentKey)
 
-	err = localBucketing.Initialize(&DVCOptions{})
+	err = localBucketing.Initialize(environmentKey, &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,11 +215,11 @@ func TestEnvironmentConfigManager_LocalBucketing(t *testing.T) {
 	fmt.Println("done")
 }
 
-func httpConfigMock() {
+func httpConfigMock(respcode int) {
 	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/dvc_server_token_hash.json",
 		func(req *http.Request) (*http.Response, error) {
 
-			resp := httpmock.NewStringResponse(200, config)
+			resp := httpmock.NewStringResponse(respcode, config)
 			resp.Header.Set("Etag", "TESTING")
 			return resp, nil
 		},

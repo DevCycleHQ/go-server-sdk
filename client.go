@@ -48,7 +48,7 @@ type DVCClient struct {
 	environmentKey  string
 	localBucketing  *DevCycleLocalBucketing
 	configManager   *EnvironmentConfigManager
-	SDKEventChannel chan SDKEvent
+	eventQueue      *EventQueue
 }
 
 type SDKEvent struct {
@@ -64,7 +64,7 @@ type service struct {
 
 // NewDVCClient creates a new API client. Requires a userAgent string describing your application.
 // optionally a custom http.Client to allow for advanced features such as caching.
-func NewDVCClient(environmentKey string, options *DVCOptions) *DVCClient {
+func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error) {
 	cfg := NewConfiguration()
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = http.DefaultClient
@@ -81,28 +81,17 @@ func NewDVCClient(environmentKey string, options *DVCOptions) *DVCClient {
 
 	if !c.DevCycleOptions.DisableLocalBucketing {
 		c.localBucketing = &DevCycleLocalBucketing{}
-		c.localBucketing.SetSDKToken(environmentKey)
-		err := c.localBucketing.Initialize(options)
+		err := c.localBucketing.Initialize(environmentKey, options)
 		if err != nil {
 			log.Fatalln(err)
-			return nil
+			return nil, err
 		}
 		c.configManager = c.localBucketing.configManager
-		err = c.configManager.Initialize(environmentKey, options)
 		if err != nil {
-			return nil
+			return nil, err
 		}
-		c.SDKEventChannel = c.configManager.SDKEvents
-
-		go func() {
-			msg := <-c.configManager.SDKEvents
-			for {
-				msg = <-c.configManager.SDKEvents
-				log.Println(msg)
-			}
-		}()
 	}
-	return c
+	return c, nil
 }
 
 // selectHeaderContentType select a content type from the available list.

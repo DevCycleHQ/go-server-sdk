@@ -31,7 +31,8 @@ func (d *DevCycleLocalBucketing) SetSDKToken(token string) {
 	d.sdkKey = token
 }
 
-func (d *DevCycleLocalBucketing) Initialize(options *DVCOptions) (err error) {
+func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions) (err error) {
+	d.sdkKey = sdkToken
 	d.options = options
 	d.wasm = wasmBinary
 	d.wasiConfig = wasmtime.NewWasiConfig()
@@ -110,12 +111,8 @@ func (d *DevCycleLocalBucketing) Initialize(options *DVCOptions) (err error) {
 	if err != nil {
 		return err
 	}
-	return nil
-}
 
-func (d *DevCycleLocalBucketing) InitializeConfigManager(environmentKey string) error {
-	d.sdkKey = environmentKey
-	err := d.configManager.Initialize(environmentKey, d.options)
+	err = d.configManager.Initialize(sdkToken, d.options)
 	return err
 }
 
