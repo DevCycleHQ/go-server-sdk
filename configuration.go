@@ -50,12 +50,14 @@ type APIKey struct {
 }
 
 type DVCOptions struct {
-	EnableEdgeDB          bool `json:"enableEdgeDb,omitempty"`
-	DisableLocalBucketing bool `json:"disableLocalBucketing,omitempty"`
-
-	PollingInterval   time.Duration `json:"pollingInterval,omitempty"`
-	RequestTimeout    time.Duration `json:"requestTimeout,omitempty"`
-	SDKEventsReceiver chan SDKEvent `json:"sdkEventsReceiver,omitempty"`
+	EnableEdgeDB                 bool          `json:"enableEdgeDb,omitempty"`
+	DisableLocalBucketing        bool          `json:"disableLocalBucketing,omitempty"`
+	EventsFlushInterval          time.Duration `json:"eventsFlushInterval,omitempty"`
+	PollingInterval              time.Duration `json:"pollingInterval,omitempty"`
+	RequestTimeout               time.Duration `json:"requestTimeout,omitempty"`
+	SDKEventsReceiver            chan SDKEvent `json:"sdkEventsReceiver,omitempty"`
+	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging,omitempty"`
+	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging,omitempty"`
 }
 
 type HTTPConfiguration struct {

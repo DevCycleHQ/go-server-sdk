@@ -7,21 +7,6 @@ import (
 	"time"
 )
 
-type EventQueue struct {
-	localBucketing    *DevCycleLocalBucketing
-	options           *DVCOptions
-	eventQueue        chan Event
-	aggregateQueue    chan Event
-	eventQueueOptions *EventQueueOptions
-	httpClient        *http.Client
-}
-
-type EventQueueOptions struct {
-	FlushEventsInterval          time.Duration `json:"flushEventsMS"`
-	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging"`
-	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging"`
-}
-
 func (e *EventQueue) initialize(localBucketing *DevCycleLocalBucketing, options *DVCOptions) error {
 	e.httpClient = http.DefaultClient
 	e.localBucketing = localBucketing

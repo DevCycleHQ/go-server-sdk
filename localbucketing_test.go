@@ -9,23 +9,28 @@ import (
 	"time"
 )
 
+var (
+	config         = `{"project":{"settings":{"edgeDB":{"enabled":false},"optIn":{"enabled":true,"title":"Beta Feature Access","description":"Get early access to new features below","imageURL":"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR68cgQT_BTgnhWTdfjUXSN8zM9Vpxgq82dhw&usqp=CAU","colors":{"primary":"#0042f9","secondary":"#facc15"}}},"a0_organization":"org_NszUFyWBFy7cr95J","_id":"6216420c2ea68943c8833c09","key":"default"},"environment":{"_id":"6216420c2ea68943c8833c0b","key":"development"},"features":[{"_id":"6216422850294da359385e8b","key":"test","type":"release","variations":[{"variables":[{"_var":"6216422850294da359385e8d","value":true}],"name":"Variation On","key":"variation-on","_id":"6216422850294da359385e8f"},{"variables":[{"_var":"6216422850294da359385e8d","value":false}],"name":"Variation Off","key":"variation-off","_id":"6216422850294da359385e90"}],"configuration":{"_id":"621642332ea68943c8833c4a","targets":[{"distribution":[{"percentage":0.5,"_variation":"6216422850294da359385e8f"},{"percentage":0.5,"_variation":"6216422850294da359385e90"}],"_audience":{"_id":"621642332ea68943c8833c4b","filters":{"operator":"and","filters":[{"values":[],"type":"all","filters":[]}]}},"_id":"621642332ea68943c8833c4d"}],"forcedUsers":{}}}],"variables":[{"_id":"6216422850294da359385e8d","key":"test","type":"Boolean"}],"variableHashes":{"test":2447239932}}`
+	environmentKey = "dvc_server_token_hash"
+)
+
 func TestDevCycleLocalBucketing_Initialize(t *testing.T) {
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
-
-	err = localBucketing.Initialize()
+	localBucketing.SetSDKToken("dvc_server_token_hash")
+	err = localBucketing.Initialize(&DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
-	environmentKey := "dvc_server_token_hash"
-	config := `{"project":{"_id":"6216420c2ea68943c8833c09","key":"default","a0_organization":"org_NszUFyWBFy7cr95J"},"environment":{"_id":"6216420c2ea68943c8833c0b","key":"development"},"features":[{"_id":"6216422850294da359385e8b","key":"test","type":"release","variations":[{"variables":[{"_var":"6216422850294da359385e8d","value":true}],"name":"Variation On","key":"variation-on","_id":"6216422850294da359385e8f"},{"variables":[{"_var":"6216422850294da359385e8d","value":false}],"name":"Variation Off","key":"variation-off","_id":"6216422850294da359385e90"}],"configuration":{"_id":"621642332ea68943c8833c4a","targets":[{"distribution":[{"percentage":0.5,"_variation":"6216422850294da359385e8f"},{"percentage":0.5,"_variation":"6216422850294da359385e90"}],"_audience":{"_id":"621642332ea68943c8833c4b","filters":{"operator":"and","filters":[{"values":[],"type":"all","filters":[]}]}},"_id":"621642332ea68943c8833c4d"}],"forcedUsers":{}}}],"variables":[{"_id":"6216422850294da359385e8d","key":"test","type":"Boolean"}],"variableHashes":{"test":2447239932}}`
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
 
-	err = localBucketing.Initialize()
+	localBucketing.SetSDKToken(environmentKey)
+
+	err = localBucketing.Initialize(&DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,13 +54,11 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 }
 
 func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
-
-	environmentKey := "dvc_server_token_hash"
-	config := `{"project":{"_id":"6216420c2ea68943c8833c09","key":"default","a0_organization":"org_NszUFyWBFy7cr95J"},"environment":{"_id":"6216420c2ea68943c8833c0b","key":"development"},"features":[{"_id":"6216422850294da359385e8b","key":"test","type":"release","variations":[{"variables":[{"_var":"6216422850294da359385e8d","value":true}],"name":"Variation On","key":"variation-on","_id":"6216422850294da359385e8f"},{"variables":[{"_var":"6216422850294da359385e8d","value":false}],"name":"Variation Off","key":"variation-off","_id":"6216422850294da359385e90"}],"configuration":{"_id":"621642332ea68943c8833c4a","targets":[{"distribution":[{"percentage":0.5,"_variation":"6216422850294da359385e8f"},{"percentage":0.5,"_variation":"6216422850294da359385e90"}],"_audience":{"_id":"621642332ea68943c8833c4b","filters":{"operator":"and","filters":[{"values":[],"type":"all","filters":[]}]}},"_id":"621642332ea68943c8833c4d"}],"forcedUsers":{}}}],"variables":[{"_id":"6216422850294da359385e8d","key":"test","type":"Boolean"}],"variableHashes":{"test":2447239932}}`
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
+	localBucketing.SetSDKToken(environmentKey)
 
-	err = localBucketing.Initialize()
+	err = localBucketing.Initialize(&DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,12 +71,11 @@ func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
 
 func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 
-	environmentKey := "dvc_server_token_hash"
-	config := `{"project":{"_id":"6216420c2ea68943c8833c09","key":"default","a0_organization":"org_NszUFyWBFy7cr95J"},"environment":{"_id":"6216420c2ea68943c8833c0b","key":"development"},"features":[{"_id":"6216422850294da359385e8b","key":"test","type":"release","variations":[{"variables":[{"_var":"6216422850294da359385e8d","value":true}],"name":"Variation On","key":"variation-on","_id":"6216422850294da359385e8f"},{"variables":[{"_var":"6216422850294da359385e8d","value":false}],"name":"Variation Off","key":"variation-off","_id":"6216422850294da359385e90"}],"configuration":{"_id":"621642332ea68943c8833c4a","targets":[{"distribution":[{"percentage":0.5,"_variation":"6216422850294da359385e8f"},{"percentage":0.5,"_variation":"6216422850294da359385e90"}],"_audience":{"_id":"621642332ea68943c8833c4b","filters":{"operator":"and","filters":[{"values":[],"type":"all","filters":[]}]}},"_id":"621642332ea68943c8833c4d"}],"forcedUsers":{}}}],"variables":[{"_id":"6216422850294da359385e8d","key":"test","type":"Boolean"}],"variableHashes":{"test":2447239932}}`
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
+	localBucketing.SetSDKToken(environmentKey)
 
-	err = localBucketing.Initialize()
+	err = localBucketing.Initialize(&DVCOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -86,15 +88,15 @@ func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 }
 
 func TestDevCycleLocalBucketing_SetPlatformData(t *testing.T) {
-
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock()
 
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
+	localBucketing.SetSDKToken(environmentKey)
 
-	err = localBucketing.Initialize()
+	err = localBucketing.Initialize(&DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,12 +118,10 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 	var err error
 
 	localBucketing.SetSDKToken(environmentKey)
-	err = localBucketing.Initialize()
+	err = localBucketing.Initialize(&DVCOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}
-
-	config := `{"project":{"_id":"6216420c2ea68943c8833c09","key":"default","a0_organization":"org_NszUFyWBFy7cr95J"},"environment":{"_id":"6216420c2ea68943c8833c0b","key":"development"},"features":[{"_id":"6216422850294da359385e8b","key":"test","type":"release","variations":[{"variables":[{"_var":"6216422850294da359385e8d","value":true}],"name":"Variation On","key":"variation-on","_id":"6216422850294da359385e8f"},{"variables":[{"_var":"6216422850294da359385e8d","value":false}],"name":"Variation Off","key":"variation-off","_id":"6216422850294da359385e90"}],"configuration":{"_id":"621642332ea68943c8833c4a","targets":[{"distribution":[{"percentage":0.5,"_variation":"6216422850294da359385e8f"},{"percentage":0.5,"_variation":"6216422850294da359385e90"}],"_audience":{"_id":"621642332ea68943c8833c4b","filters":{"operator":"and","filters":[{"values":[],"type":"all","filters":[]}]}},"_id":"621642332ea68943c8833c4d"}],"forcedUsers":{}}}],"variables":[{"_id":"6216422850294da359385e8d","key":"test","type":"Boolean"}],"variableHashes":{"test":2447239932}}`
 
 	err = localBucketing.StoreConfig(environmentKey, config)
 	if err != nil {
@@ -148,13 +148,12 @@ func TestEnvironmentConfigManager_Initialize(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock()
 
-	environmentKey := "dvc_server_token_hash"
 	var err error
 
 	localBucketing := DevCycleLocalBucketing{}
 	localBucketing.SetSDKToken(environmentKey)
 
-	err = localBucketing.Initialize()
+	err = localBucketing.Initialize(&DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,13 +177,12 @@ func TestEnvironmentConfigManager_LocalBucketing(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock()
 
-	environmentKey := "dvc_server_token_hash"
 	var err error
 
 	localBucketing := DevCycleLocalBucketing{}
 	localBucketing.SetSDKToken(environmentKey)
 
-	err = localBucketing.Initialize()
+	err = localBucketing.Initialize(&DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,21 +215,7 @@ func httpConfigMock() {
 	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/dvc_server_token_hash.json",
 		func(req *http.Request) (*http.Response, error) {
 
-			resp := httpmock.NewStringResponse(200, `{"project":{"settings": {
-      "edgeDB": {
-        "enabled": false
-      },
-      "optIn": {
-        "enabled": true,
-        "title": "Beta Feature Access",
-        "description": "Get early access to new features below",
-        "imageURL": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR68cgQT_BTgnhWTdfjUXSN8zM9Vpxgq82dhw&usqp=CAU",
-        "colors": {
-          "primary": "#0042f9",
-          "secondary": "#facc15"
-        }
-      }
-    },"a0_organization": "org_tPyJN5dvNNirKar7","_id":"6216420c2ea68943c8833c09","key":"default","a0_organization":"org_NszUFyWBFy7cr95J"},"environment":{"_id":"6216420c2ea68943c8833c0b","key":"development"},"features":[{"_id":"6216422850294da359385e8b","key":"test","type":"release","variations":[{"variables":[{"_var":"6216422850294da359385e8d","value":true}],"name":"Variation On","key":"variation-on","_id":"6216422850294da359385e8f"},{"variables":[{"_var":"6216422850294da359385e8d","value":false}],"name":"Variation Off","key":"variation-off","_id":"6216422850294da359385e90"}],"configuration":{"_id":"621642332ea68943c8833c4a","targets":[{"distribution":[{"percentage":0.5,"_variation":"6216422850294da359385e8f"},{"percentage":0.5,"_variation":"6216422850294da359385e90"}],"_audience":{"_id":"621642332ea68943c8833c4b","filters":{"operator":"and","filters":[{"values":[],"type":"all","filters":[]}]}},"_id":"621642332ea68943c8833c4d"}],"forcedUsers":{}}}],"variables":[{"_id":"6216422850294da359385e8d","key":"test","type":"Boolean"}],"variableHashes":{"test":2447239932}}`)
+			resp := httpmock.NewStringResponse(200, config)
 			resp.Header.Set("Etag", "TESTING")
 			return resp, nil
 		},

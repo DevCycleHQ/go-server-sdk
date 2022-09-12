@@ -87,7 +87,7 @@ func NewDVCClient(environmentKey string, options *DVCOptions) *DVCClient {
 		}
 		c.localBucketing = &DevCycleLocalBucketing{wasm: rawWasm}
 		c.localBucketing.SetSDKToken(environmentKey)
-		err = c.localBucketing.Initialize()
+		err = c.localBucketing.Initialize(options)
 		if err != nil {
 			log.Fatalln(err)
 			return nil

@@ -22,6 +22,7 @@ type DevCycleLocalBucketing struct {
 	wasmMemory    *wasmtime.Memory
 	configManager *EnvironmentConfigManager
 	sdkKey        string
+	options       *DVCOptions
 }
 
 //go:embed bucketing-lib.release.wasm
@@ -31,7 +32,8 @@ func (d *DevCycleLocalBucketing) SetSDKToken(token string) {
 	d.sdkKey = token
 }
 
-func (d *DevCycleLocalBucketing) Initialize() (err error) {
+func (d *DevCycleLocalBucketing) Initialize(options *DVCOptions) (err error) {
+	d.options = options
 	d.wasm = wasmBinary
 	d.wasiConfig = wasmtime.NewWasiConfig()
 	d.wasiConfig.InheritEnv()
@@ -96,12 +98,25 @@ func (d *DevCycleLocalBucketing) Initialize() (err error) {
 		return err
 	}
 
+	eventOptions := EventQueueOptions{
+		FlushEventsInterval:          d.options.EventsFlushInterval,
+		DisableAutomaticEventLogging: d.options.DisableAutomaticEventLogging,
+		DisableCustomEventLogging:    d.options.DisableCustomEventLogging,
+	}
+	eventOptionsJSON, err := json.Marshal(eventOptions)
+	if err != nil {
+		return err
+	}
+	err = d.initEventQueue(string(eventOptionsJSON))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func (d *DevCycleLocalBucketing) InitializeConfigManager(environmentKey string, options *DVCOptions) error {
+func (d *DevCycleLocalBucketing) InitializeConfigManager(environmentKey string) error {
 	d.sdkKey = environmentKey
-	err := d.configManager.Initialize(environmentKey, options)
+	err := d.configManager.Initialize(environmentKey, d.options)
 	return err
 }
 
