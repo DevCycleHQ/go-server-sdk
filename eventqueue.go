@@ -1,25 +1,18 @@
 package devcycle
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
-	"time"
 )
 
-func (e *EventQueue) initializeCloud(options *DVCOptions) error {
-	e.eventQueue = make(chan DVCEvent, 100)
+var ()
+
+func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing) error {
 	e.httpClient = http.DefaultClient
-	e.aggregateQueue = make(chan DVCEvent, 100)
-	e.options = options
-	return nil
-}
-func (e *EventQueue) initialize(localBucketing *DevCycleLocalBucketing, options *DVCOptions) error {
-	e.httpClient = http.DefaultClient
-	e.localBucketing = localBucketing
 	e.options = options
 
-	if !e.options.DisableLocalBucketing {
+	if !e.options.DisableLocalBucketing && localBucketing != nil {
+		e.localBucketing = localBucketing
 		str, err := json.Marshal(e.eventQueueOptions)
 		if err != nil {
 			return err
@@ -57,59 +50,6 @@ func (e *EventQueue) QueueAggregateEvent(event DVCEvent, bucketedConfig Bucketed
 	}
 	e.aggregateQueue <- event
 	return nil
-}
-
-func (e *EventQueue) flushEvents() error {
-	if !e.options.DisableLocalBucketing {
-		payload, err := e.localBucketing.flushEventQueue()
-		if err != nil {
-			return err
-		}
-		for _, p := range payload {
-			body := BatchEventsBody{Records: p.Records}
-			bodystring, err := json.Marshal(body)
-			resp, err := e.eventsPost("", string(bodystring), e.localBucketing.sdkKey)
-			if err != nil || resp.StatusCode != 201 {
-				// Could not post the event, or the status code is wrong.
-				// TODO: Add logging.
-				err := e.localBucketing.onPayloadFailure(p.PayloadId, isRetryable(resp))
-				if err != nil {
-					return err
-				}
-				continue
-			}
-			err = e.localBucketing.onPayloadSuccess(p.PayloadId)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (e *EventQueue) eventFlushPolling() {
-	ticker := time.NewTicker(e.options.PollingInterval)
-	for {
-		select {
-		case <-ticker.C:
-			e.flushEvents()
-		}
-	}
-}
-
-func (e *EventQueue) eventsPost(url string, body, envKey string) (resp *http.Response, err error) {
-
-	bodyBuf := &bytes.Buffer{}
-	bodyBuf.WriteString(body)
-	req, err := http.NewRequest("POST", url, bodyBuf)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("Authorization", envKey)
-
-	resp, err = e.httpClient.Do(req)
-	return
 }
 
 func isRetryable(resp *http.Response) bool {

@@ -36,6 +36,16 @@ func (a *DVCClientService) generateBucketedConfig(body UserData) (user BucketedU
 	return
 }
 
+func (a *DVCClientService) queueEvent(user UserData, event DVCEvent) (err error) {
+	err = a.client.eventQueue.QueueEvent(user, event)
+	return
+}
+
+func (a *DVCClientService) queueAggregateEvent(user UserData, bucketed BucketedUserConfig, event DVCEvent) (err error) {
+	//err = a.client.eventQueue.QueueAggregateEvent(user, event, bucketed)
+	return
+}
+
 /*
 DVCClientService Get all features by key for user data
   - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
@@ -179,27 +189,26 @@ DVCClientService Get variable by key for user data
 
 @return Variable
 */
-func (a *DVCClientService) Variable(ctx context.Context, body UserData, key string, defaultValue interface{}) (Variable, error) {
+func (a *DVCClientService) Variable(ctx context.Context, userdata UserData, key string, defaultValue interface{}) (Variable, error) {
 	if !a.client.DevCycleOptions.DisableLocalBucketing {
-		user, err := a.generateBucketedConfig(body)
+		bucketed, err := a.generateBucketedConfig(userdata)
 
 		variableEvaluationType := ""
-		if user.Variables[key].IsDefaulted {
+		if bucketed.Variables[key].IsDefaulted {
 			variableEvaluationType = "variableDefaulted"
 		} else {
 			variableEvaluationType = "variableEvaluated"
 		}
-		eventstring, err := json.Marshal(DVCEvent{
-			Type_:  variableEvaluationType,
-			Target: key,
-		})
-		if !a.client.DevCycleOptions.DisableLocalBucketing && a.client.localBucketing != nil {
-			err = a.client.localBucketing.queueAggregateEvent(string(eventstring), user)
+		if !a.client.DevCycleOptions.DisableAutomaticEventLogging {
+			a.queueAggregateEvent(userdata, bucketed, DVCEvent{
+				Type_:  variableEvaluationType,
+				Target: key,
+			})
 		}
 		if err != nil {
 			return Variable{}, err
 		}
-		return user.Variables[key], err
+		return bucketed.Variables[key], err
 	}
 
 	var (
@@ -237,8 +246,8 @@ func (a *DVCClientService) Variable(ctx context.Context, body UserData, key stri
 	if localVarHttpHeaderAccept != "" {
 		localVarHeaderParams["Accept"] = localVarHttpHeaderAccept
 	}
-	// body params
-	localVarPostBody = &body
+	// userdata params
+	localVarPostBody = &userdata
 	if ctx != nil {
 		// API Key Authentication
 		if auth, ok := ctx.Value(ContextAPIKey).(APIKey); ok {

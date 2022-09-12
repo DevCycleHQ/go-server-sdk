@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jarcoal/httpmock"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 )
@@ -137,4 +138,36 @@ func httpBucketingAPIMock() {
 			return resp, nil
 		},
 	)
+}
+
+func TestProduction_Local(t *testing.T) {
+	environmentKey := os.Getenv("DVC_SERVER_KEY")
+	user := UserData{UserId: "test"}
+	auth := context.WithValue(context.Background(), ContextAPIKey, APIKey{
+		Key: environmentKey,
+	})
+	if environmentKey == "" {
+		t.Skip("DVC_SERVER_KEY not set. Not using production tests.")
+	}
+	dvcOptions := DVCOptions{
+		EnableEdgeDB:                 false,
+		DisableLocalBucketing:        false,
+		EventsFlushInterval:          0,
+		PollingInterval:              10 * time.Second,
+		RequestTimeout:               10 * time.Second,
+		DisableAutomaticEventLogging: false,
+		DisableCustomEventLogging:    false,
+	}
+	client, err := NewDVCClient(environmentKey, &dvcOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	variables, err := client.DevCycleApi.AllVariables(auth, user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(variables) == 0 {
+		t.Fatal("No variables returned")
+	}
 }

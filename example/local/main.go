@@ -24,7 +24,7 @@ func main() {
 		DisableAutomaticEventLogging: false,
 		DisableCustomEventLogging:    false,
 	}
-	client := devcycle.NewDVCClient(environmentKey, &dvcOptions)
+	client, _ := devcycle.NewDVCClient(environmentKey, &dvcOptions)
 
 	features, _ := client.DevCycleApi.AllFeatures(auth, user)
 	for key, feature := range features {

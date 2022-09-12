@@ -73,7 +73,6 @@ func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error
 	c := &DVCClient{environmentKey: environmentKey}
 	c.cfg = cfg
 	c.common.client = c
-
 	// API Services
 	c.DevCycleApi = (*DVCClientService)(&c.common)
 
@@ -90,6 +89,11 @@ func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error
 		if err != nil {
 			return nil, err
 		}
+	}
+	c.eventQueue = &EventQueue{}
+	err := c.eventQueue.initialize(c.DevCycleOptions, c.localBucketing)
+	if err != nil {
+		return nil, err
 	}
 	return c, nil
 }
