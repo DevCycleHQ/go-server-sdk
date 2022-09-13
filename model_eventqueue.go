@@ -6,12 +6,12 @@ import (
 )
 
 type EventQueue struct {
-	localBucketing    *DevCycleLocalBucketing
-	options           *DVCOptions
-	eventQueue        chan DVCEvent
-	aggregateQueue    chan DVCEvent
-	eventQueueOptions *EventQueueOptions
-	httpClient        *http.Client
+	localBucketing      *DevCycleLocalBucketing
+	options             *DVCOptions
+	EventQueue          chan DVCEvent
+	AggregateEventQueue chan DVCEvent
+	eventQueueOptions   *EventQueueOptions
+	httpClient          *http.Client
 }
 
 type EventQueueOptions struct {

@@ -9,10 +9,13 @@
 package devcycle
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
+	"net/http"
 	"net/url"
 	"strings"
 )
@@ -41,8 +44,8 @@ func (a *DVCClientService) queueEvent(user UserData, event DVCEvent) (err error)
 	return
 }
 
-func (a *DVCClientService) queueAggregateEvent(user UserData, bucketed BucketedUserConfig, event DVCEvent) (err error) {
-	//err = a.client.eventQueue.QueueAggregateEvent(user, event, bucketed)
+func (a *DVCClientService) queueAggregateEvent(bucketed BucketedUserConfig, event DVCEvent) (err error) {
+	err = a.client.eventQueue.QueueAggregateEvent(event, bucketed)
 	return
 }
 
@@ -195,15 +198,18 @@ func (a *DVCClientService) Variable(ctx context.Context, userdata UserData, key 
 
 		variableEvaluationType := ""
 		if bucketed.Variables[key].IsDefaulted {
-			variableEvaluationType = "variableDefaulted"
+			variableEvaluationType = EventType_VariableEvaluated
 		} else {
-			variableEvaluationType = "variableEvaluated"
+			variableEvaluationType = EventType_VariableDefaulted
 		}
 		if !a.client.DevCycleOptions.DisableAutomaticEventLogging {
-			a.queueAggregateEvent(userdata, bucketed, DVCEvent{
+			err = a.queueAggregateEvent(bucketed, DVCEvent{
 				Type_:  variableEvaluationType,
 				Target: key,
 			})
+			if err != nil {
+				return Variable{}, err
+			}
 		}
 		if err != nil {
 			return Variable{}, err
@@ -498,6 +504,11 @@ DVCClientService Post events to DevCycle for user
 @return InlineResponse201
 */
 func (a *DVCClientService) Track(ctx context.Context, user UserData, event DVCEvent) (InlineResponse201, error) {
+	if a.client.DevCycleOptions.DisableCustomEventLogging {
+		err := a.client.eventQueue.QueueEvent(user, event)
+		return InlineResponse201{}, err
+	}
+
 	if !a.client.DevCycleOptions.DisableLocalBucketing {
 		userstring, err := json.Marshal(user)
 		if err != nil {
@@ -632,4 +643,52 @@ func (a *DVCClientService) Track(ctx context.Context, user UserData, event DVCEv
 	}
 
 	return localVarReturnValue, nil
+}
+
+func (a *DVCClientService) FlushEvents(ctx context.Context) error {
+
+	if a.client.DevCycleOptions.DisableLocalBucketing {
+		return nil
+	}
+
+	if a.client.DevCycleOptions.DisableCustomEventLogging && a.client.DevCycleOptions.DisableAutomaticEventLogging {
+		return nil
+	}
+
+	events, err := a.client.localBucketing.flushEventQueue()
+	if err != nil {
+		return err
+	}
+
+	for _, event := range events {
+		var req *http.Request
+		var resp *http.Response
+		var body []byte
+		body, err = json.Marshal(event)
+		req, err = http.NewRequestWithContext(ctx, "POST", "https://events.devcycle.com/v1/events/batch", bytes.NewReader(body))
+
+		req.Header.Set("Authorization", ctx.Value("APIKey").(string))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+
+		resp, err = a.client.callAPI(req)
+		if err != nil {
+			err = a.client.localBucketing.onPayloadFailure(event.PayloadId, resp.StatusCode >= 500 && resp.StatusCode < 600)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			log.Println(err)
+			continue
+		}
+
+		if resp.StatusCode == 201 {
+			err = a.client.localBucketing.onPayloadSuccess(event.PayloadId)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+		}
+	}
+	return nil
 }

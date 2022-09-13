@@ -5,8 +5,6 @@ import (
 	"net/http"
 )
 
-var ()
-
 func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing) error {
 	e.httpClient = http.DefaultClient
 	e.options = options
@@ -18,10 +16,11 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 			return err
 		}
 		err = e.localBucketing.initEventQueue(string(str))
-		if err != nil {
-			return err
-		}
+		return err
 	}
+
+	e.EventQueue = make(chan DVCEvent, 10000)
+	e.AggregateEventQueue = make(chan DVCEvent, 10000)
 	return nil
 }
 
@@ -38,7 +37,11 @@ func (e *EventQueue) QueueEvent(user UserData, event DVCEvent) error {
 		err = e.localBucketing.queueEvent(string(userstring), string(eventstring))
 		return err
 	}
-	e.eventQueue <- event
+	select {
+	case e.EventQueue <- event:
+	default:
+		break
+	}
 	return nil
 }
 
@@ -48,10 +51,10 @@ func (e *EventQueue) QueueAggregateEvent(event DVCEvent, bucketedConfig Bucketed
 		err = e.localBucketing.queueAggregateEvent(string(eventstring), bucketedConfig)
 		return err
 	}
-	e.aggregateQueue <- event
+	select {
+	case e.AggregateEventQueue <- event:
+	default:
+		break
+	}
 	return nil
-}
-
-func isRetryable(resp *http.Response) bool {
-	return resp.StatusCode >= 500 && resp.StatusCode < 600
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/bytecodealliance/wasmtime-go"
 	"log"
 	"math/rand"
+	"sync"
 	"time"
 	"unicode/utf16"
 	"unsafe"
@@ -22,6 +23,7 @@ type DevCycleLocalBucketing struct {
 	configManager *EnvironmentConfigManager
 	sdkKey        string
 	options       *DVCOptions
+	mu            sync.Mutex
 }
 
 //go:embed bucketing-lib.release.wasm
@@ -32,6 +34,8 @@ func (d *DevCycleLocalBucketing) SetSDKToken(token string) {
 }
 
 func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions) (err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	d.sdkKey = sdkToken
 	d.options = options
 	d.wasm = wasmBinary
@@ -117,6 +121,8 @@ func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions
 }
 
 func (d *DevCycleLocalBucketing) initEventQueue(options string) (err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
@@ -131,6 +137,8 @@ func (d *DevCycleLocalBucketing) initEventQueue(options string) (err error) {
 }
 
 func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
@@ -145,6 +153,8 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 }
 
 func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
@@ -159,6 +169,8 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) 
 }
 
 func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
@@ -177,6 +189,8 @@ func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 }
 
 func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, user BucketedUserConfig) (err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
@@ -200,6 +214,8 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, user Bucketed
 }
 
 func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bool) (err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
@@ -208,16 +224,22 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 	if err != nil {
 		return
 	}
-	retryableAddr, err := d.newAssemblyScriptBool(retryable)
+
 	if err != nil {
 		return
 	}
 	onPayloadFailure := d.wasmInstance.GetExport(d.wasmStore, "onPayloadFailure").Func()
-	_, err = onPayloadFailure.Call(d.wasmStore, tokenAddr, payloadIdAddr, retryableAddr)
+	if retryable {
+		_, err = onPayloadFailure.Call(d.wasmStore, tokenAddr, payloadIdAddr, 1)
+	} else {
+		_, err = onPayloadFailure.Call(d.wasmStore, tokenAddr, payloadIdAddr, 0)
+	}
 	return
 }
 
 func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret BucketedUserConfig, err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
@@ -239,7 +261,8 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 }
 
 func (d *DevCycleLocalBucketing) StoreConfig(token, config string) error {
-
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(token)
 	if err != nil {
 		return err
@@ -257,6 +280,8 @@ func (d *DevCycleLocalBucketing) StoreConfig(token, config string) error {
 }
 
 func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	configAddr, err := d.newAssemblyScriptString(platformData)
 	if err != nil {
 		return err
@@ -286,23 +311,6 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, e
 	var i int32 = 0
 	for i = 0; i < int32(len(encoded)); i++ {
 		d.wasmMemory.UnsafeData(d.wasmStore)[addr+(i*2)] = byte(encoded[i])
-	}
-	return ptr.(int32), nil
-}
-
-func (d *DevCycleLocalBucketing) newAssemblyScriptBool(param bool) (int32, error) {
-	const objectIduint8 int32 = 0
-	__new := d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
-	// malloc
-	ptr, err := __new.Call(d.wasmStore, 1, objectIduint8)
-	if err != nil {
-		return -1, err
-	}
-	addr := ptr.(int32)
-	if param {
-		d.wasmMemory.UnsafeData(d.wasmStore)[addr] = 1
-	} else {
-		d.wasmMemory.UnsafeData(d.wasmStore)[addr] = 0
 	}
 	return ptr.(int32), nil
 }
