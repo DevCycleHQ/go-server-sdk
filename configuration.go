@@ -57,6 +57,8 @@ type DVCOptions struct {
 	RequestTimeout               time.Duration `json:"requestTimeout,omitempty"`
 	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging,omitempty"`
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging,omitempty"`
+	MaxEventsPerFlush            int           `json:"maxEventsPerFlush,omitempty"`
+	MinEventsPerFlush            int           `json:"minEventsPerFlush,omitempty"`
 }
 
 type HTTPConfiguration struct {

@@ -1,7 +1,10 @@
 package devcycle
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 )
 
@@ -56,5 +59,46 @@ func (e *EventQueue) QueueAggregateEvent(event DVCEvent, bucketedConfig Bucketed
 	default:
 		break
 	}
+	return nil
+}
+
+func (e *EventQueue) FlushEvents(ctx context.Context, doReq func(request *http.Request) (*http.Response, error)) error {
+	e.localBucketing.startFlushEvents()
+	events, err := e.localBucketing.flushEventQueue()
+	if err != nil {
+		return err
+	}
+
+	for _, event := range events {
+		var req *http.Request
+		var resp *http.Response
+		var body []byte
+		body, err = json.Marshal(event)
+		req, err = http.NewRequestWithContext(ctx, "POST", "https://events.devcycle.com/v1/events/batch", bytes.NewReader(body))
+
+		req.Header.Set("Authorization", ctx.Value("APIKey").(string))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+
+		resp, err = doReq(req)
+		if err != nil {
+			err = e.localBucketing.onPayloadFailure(event.PayloadId, resp.StatusCode >= 500 && resp.StatusCode < 600)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			log.Println(err)
+			continue
+		}
+
+		if resp.StatusCode == 201 {
+			err = e.localBucketing.onPayloadSuccess(event.PayloadId)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+		}
+	}
+	e.localBucketing.finishFlushEvents()
 	return nil
 }

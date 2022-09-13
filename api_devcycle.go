@@ -9,13 +9,10 @@
 package devcycle
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
-	"net/http"
 	"net/url"
 	"strings"
 )
@@ -655,40 +652,6 @@ func (a *DVCClientService) FlushEvents(ctx context.Context) error {
 		return nil
 	}
 
-	events, err := a.client.localBucketing.flushEventQueue()
-	if err != nil {
-		return err
-	}
-
-	for _, event := range events {
-		var req *http.Request
-		var resp *http.Response
-		var body []byte
-		body, err = json.Marshal(event)
-		req, err = http.NewRequestWithContext(ctx, "POST", "https://events.devcycle.com/v1/events/batch", bytes.NewReader(body))
-
-		req.Header.Set("Authorization", ctx.Value("APIKey").(string))
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json")
-
-		resp, err = a.client.callAPI(req)
-		if err != nil {
-			err = a.client.localBucketing.onPayloadFailure(event.PayloadId, resp.StatusCode >= 500 && resp.StatusCode < 600)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-			log.Println(err)
-			continue
-		}
-
-		if resp.StatusCode == 201 {
-			err = a.client.localBucketing.onPayloadSuccess(event.PayloadId)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-		}
-	}
-	return nil
+	err := a.client.eventQueue.FlushEvents(ctx, a.client.callAPI)
+	return err
 }

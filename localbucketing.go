@@ -23,7 +23,8 @@ type DevCycleLocalBucketing struct {
 	configManager *EnvironmentConfigManager
 	sdkKey        string
 	options       *DVCOptions
-	mu            sync.Mutex
+	wasmMutex     sync.Mutex
+	flushMutex    sync.Mutex
 }
 
 //go:embed bucketing-lib.release.wasm
@@ -34,8 +35,8 @@ func (d *DevCycleLocalBucketing) SetSDKToken(token string) {
 }
 
 func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions) (err error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.wasmMutex.Lock()
+	defer d.wasmMutex.Unlock()
 	d.sdkKey = sdkToken
 	d.options = options
 	d.wasm = wasmBinary
@@ -121,8 +122,8 @@ func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions
 }
 
 func (d *DevCycleLocalBucketing) initEventQueue(options string) (err error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.wasmMutex.Lock()
+	defer d.wasmMutex.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
@@ -136,9 +137,16 @@ func (d *DevCycleLocalBucketing) initEventQueue(options string) (err error) {
 	return
 }
 
+func (d *DevCycleLocalBucketing) startFlushEvents() {
+	d.flushMutex.Lock()
+}
+
+func (d *DevCycleLocalBucketing) finishFlushEvents() {
+	d.flushMutex.Unlock()
+}
 func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.wasmMutex.Lock()
+	defer d.wasmMutex.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
@@ -152,9 +160,25 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 	return
 }
 
+func (d *DevCycleLocalBucketing) checkEventQueueSize() (canAdd bool, err error) {
+	d.wasmMutex.Lock()
+	defer d.wasmMutex.Unlock()
+	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
+	if err != nil {
+		return
+	}
+	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "eventQueueSize").Func()
+	result, err := _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr)
+	if err != nil {
+		return
+	}
+	return result.(int) < d.options.MaxEventsPerFlush, nil
+	return
+}
+
 func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.wasmMutex.Lock()
+	defer d.wasmMutex.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
@@ -169,8 +193,8 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) 
 }
 
 func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.wasmMutex.Lock()
+	defer d.wasmMutex.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
@@ -189,8 +213,8 @@ func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 }
 
 func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, user BucketedUserConfig) (err error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.wasmMutex.Lock()
+	defer d.wasmMutex.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
@@ -214,8 +238,8 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, user Bucketed
 }
 
 func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bool) (err error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.wasmMutex.Lock()
+	defer d.wasmMutex.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
@@ -238,8 +262,8 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 }
 
 func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret BucketedUserConfig, err error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.wasmMutex.Lock()
+	defer d.wasmMutex.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
@@ -261,8 +285,8 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 }
 
 func (d *DevCycleLocalBucketing) StoreConfig(token, config string) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.wasmMutex.Lock()
+	defer d.wasmMutex.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(token)
 	if err != nil {
 		return err
@@ -280,8 +304,8 @@ func (d *DevCycleLocalBucketing) StoreConfig(token, config string) error {
 }
 
 func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.wasmMutex.Lock()
+	defer d.wasmMutex.Unlock()
 	configAddr, err := d.newAssemblyScriptString(platformData)
 	if err != nil {
 		return err
