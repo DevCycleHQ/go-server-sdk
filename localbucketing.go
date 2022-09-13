@@ -160,7 +160,7 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 	return
 }
 
-func (d *DevCycleLocalBucketing) checkEventQueueSize() (canAdd bool, err error) {
+func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
@@ -172,8 +172,8 @@ func (d *DevCycleLocalBucketing) checkEventQueueSize() (canAdd bool, err error) 
 	if err != nil {
 		return
 	}
-	return result.(int) < d.options.MaxEventsPerFlush, nil
-	return
+	queueLen := result.(int)
+	return queueLen, nil
 }
 
 func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) {

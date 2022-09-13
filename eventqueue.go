@@ -2,8 +2,8 @@ package devcycle
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -28,6 +28,9 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 }
 
 func (e *EventQueue) QueueEvent(user UserData, event DVCEvent) error {
+	if q, err := e.checkEventQueueSize(); err != nil || q {
+		return fmt.Errorf("event queue is full. Dropping event")
+	}
 	if !e.options.DisableLocalBucketing {
 		userstring, err := json.Marshal(user)
 		if err != nil {
@@ -40,29 +43,39 @@ func (e *EventQueue) QueueEvent(user UserData, event DVCEvent) error {
 		err = e.localBucketing.queueEvent(string(userstring), string(eventstring))
 		return err
 	}
-	select {
-	case e.EventQueue <- event:
-	default:
-		break
-	}
 	return nil
 }
 
 func (e *EventQueue) QueueAggregateEvent(event DVCEvent, bucketedConfig BucketedUserConfig) error {
+	if q, err := e.checkEventQueueSize(); err != nil || q {
+		return fmt.Errorf("event queue is full. Dropping aggregate event")
+	}
 	if !e.options.DisableLocalBucketing {
 		eventstring, err := json.Marshal(event)
 		err = e.localBucketing.queueAggregateEvent(string(eventstring), bucketedConfig)
 		return err
 	}
-	select {
-	case e.AggregateEventQueue <- event:
-	default:
-		break
-	}
 	return nil
 }
 
-func (e *EventQueue) FlushEvents(ctx context.Context, doReq func(request *http.Request) (*http.Response, error)) error {
+func (e *EventQueue) checkEventQueueSize() (bool, error) {
+	queueSize, err := e.localBucketing.checkEventQueueSize()
+	if err != nil {
+		return false, err
+	}
+	if queueSize >= e.options.MinEventsPerFlush {
+		err = e.FlushEvents()
+		if err != nil {
+			return false, nil
+		}
+		if queueSize >= e.options.MaxEventsPerFlush {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (e *EventQueue) FlushEvents() error {
 	e.localBucketing.startFlushEvents()
 	events, err := e.localBucketing.flushEventQueue()
 	if err != nil {
@@ -74,13 +87,13 @@ func (e *EventQueue) FlushEvents(ctx context.Context, doReq func(request *http.R
 		var resp *http.Response
 		var body []byte
 		body, err = json.Marshal(event)
-		req, err = http.NewRequestWithContext(ctx, "POST", "https://events.devcycle.com/v1/events/batch", bytes.NewReader(body))
+		req, err = http.NewRequest("POST", "https://events.devcycle.com/v1/events/batch", bytes.NewReader(body))
 
-		req.Header.Set("Authorization", ctx.Value("APIKey").(string))
+		req.Header.Set("Authorization", e.localBucketing.sdkKey)
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
 
-		resp, err = doReq(req)
+		resp, err = e.httpClient.Do(req)
 		if err != nil {
 			err = e.localBucketing.onPayloadFailure(event.PayloadId, resp.StatusCode >= 500 && resp.StatusCode < 600)
 			if err != nil {
