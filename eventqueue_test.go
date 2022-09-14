@@ -19,7 +19,6 @@ func TestEventQueue_QueueEvent(t *testing.T) {
 		DVCEvent{Target: "customevent"})
 	if err != nil {
 		t.Fatal(err)
-		return
 	}
 }
 
