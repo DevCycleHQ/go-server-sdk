@@ -22,12 +22,6 @@ type EnvironmentConfigManager struct {
 }
 
 func (e *EnvironmentConfigManager) Initialize(environmentKey string, options *DVCOptions) (err error) {
-	if options.PollingInterval == 0 {
-		options.PollingInterval = time.Second * 30
-	}
-	if options.RequestTimeout == 0 {
-		options.RequestTimeout = time.Second * 10
-	}
 
 	e.environmentKey = environmentKey
 	e.httpClient = &http.Client{Timeout: options.RequestTimeout}

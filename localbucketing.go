@@ -21,6 +21,7 @@ type DevCycleLocalBucketing struct {
 	wasiConfig    *wasmtime.WasiConfig
 	wasmMemory    *wasmtime.Memory
 	configManager *EnvironmentConfigManager
+	eventQueue    *EventQueue
 	sdkKey        string
 	options       *DVCOptions
 	wasmMutex     sync.Mutex
@@ -35,11 +36,10 @@ func (d *DevCycleLocalBucketing) SetSDKToken(token string) {
 }
 
 func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions) (err error) {
-	d.wasmMutex.Lock()
-	defer d.wasmMutex.Unlock()
 	d.sdkKey = sdkToken
 	d.options = options
 	d.wasm = wasmBinary
+	d.eventQueue = &EventQueue{}
 	d.wasiConfig = wasmtime.NewWasiConfig()
 	d.wasiConfig.InheritEnv()
 	d.wasiConfig.InheritStderr()
@@ -103,16 +103,10 @@ func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions
 		return err
 	}
 
-	eventOptions := EventQueueOptions{
-		FlushEventsInterval:          d.options.EventsFlushInterval,
-		DisableAutomaticEventLogging: d.options.DisableAutomaticEventLogging,
-		DisableCustomEventLogging:    d.options.DisableCustomEventLogging,
-	}
-	eventOptionsJSON, err := json.Marshal(eventOptions)
 	if err != nil {
 		return err
 	}
-	err = d.initEventQueue(string(eventOptionsJSON))
+	err = d.eventQueue.initialize(options, d)
 	if err != nil {
 		return err
 	}
@@ -172,8 +166,8 @@ func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
 	if err != nil {
 		return
 	}
-	queueLen := result.(int)
-	return queueLen, nil
+	queueLen := result.(int32)
+	return int(queueLen), nil
 }
 
 func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) {

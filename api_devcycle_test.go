@@ -97,7 +97,7 @@ func TestDVCClientService_VariableLocal_403(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(403)
 
-	_, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
+	_, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 	if err == nil {
 		t.Fatal("Expected error from configmanager")
 	}

@@ -14,16 +14,13 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 
 	if !e.options.DisableLocalBucketing && localBucketing != nil {
 		e.localBucketing = localBucketing
-		str, err := json.Marshal(e.eventQueueOptions)
+		str, err := json.Marshal(e.eventQueueOptionsFromDVCOptions(options))
 		if err != nil {
 			return err
 		}
 		err = e.localBucketing.initEventQueue(string(str))
 		return err
 	}
-
-	e.EventQueue = make(chan DVCEvent, 10000)
-	e.AggregateEventQueue = make(chan DVCEvent, 10000)
 	return nil
 }
 

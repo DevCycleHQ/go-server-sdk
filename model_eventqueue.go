@@ -6,12 +6,18 @@ import (
 )
 
 type EventQueue struct {
-	localBucketing      *DevCycleLocalBucketing
-	options             *DVCOptions
-	EventQueue          chan DVCEvent
-	AggregateEventQueue chan DVCEvent
-	eventQueueOptions   *EventQueueOptions
-	httpClient          *http.Client
+	localBucketing    *DevCycleLocalBucketing
+	options           *DVCOptions
+	eventQueueOptions *EventQueueOptions
+	httpClient        *http.Client
+}
+
+func (e *EventQueue) eventQueueOptionsFromDVCOptions(options *DVCOptions) *EventQueueOptions {
+	return &EventQueueOptions{
+		FlushEventsInterval:          options.EventsFlushInterval,
+		DisableAutomaticEventLogging: options.DisableAutomaticEventLogging,
+		DisableCustomEventLogging:    options.DisableCustomEventLogging,
+	}
 }
 
 type EventQueueOptions struct {

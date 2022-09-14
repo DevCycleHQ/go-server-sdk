@@ -61,6 +61,24 @@ type DVCOptions struct {
 	MinEventsPerFlush            int           `json:"minEventsPerFlush,omitempty"`
 }
 
+func (o *DVCOptions) CheckDefaults() {
+	if o.EventsFlushInterval <= 0 {
+		o.EventsFlushInterval = time.Second * 15
+	}
+	if o.PollingInterval <= 0 {
+		o.PollingInterval = time.Second * 10
+	}
+	if o.RequestTimeout <= 0 {
+		o.RequestTimeout = time.Second * 10
+	}
+	if o.MaxEventsPerFlush <= 0 {
+		o.MaxEventsPerFlush = 10000
+	}
+	if o.MinEventsPerFlush <= 0 {
+		o.MinEventsPerFlush = 1000
+	}
+}
+
 type HTTPConfiguration struct {
 	BasePath          string            `json:"basePath,omitempty"`
 	ConfigCDNBasePath string            `json:"configCDNBasePath,omitempty"`

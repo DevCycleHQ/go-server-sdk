@@ -652,6 +652,6 @@ func (a *DVCClientService) FlushEvents(ctx context.Context) error {
 		return nil
 	}
 
-	err := a.client.eventQueue.FlushEvents(ctx, a.client.callAPI)
+	err := a.client.eventQueue.FlushEvents()
 	return err
 }

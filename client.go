@@ -70,6 +70,8 @@ func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error
 		cfg.HTTPClient = http.DefaultClient
 	}
 
+	options.CheckDefaults()
+
 	c := &DVCClient{environmentKey: environmentKey}
 	c.cfg = cfg
 	c.common.client = c
@@ -82,18 +84,14 @@ func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error
 		c.localBucketing = &DevCycleLocalBucketing{}
 		err := c.localBucketing.Initialize(environmentKey, options)
 		if err != nil {
-			log.Fatalln(err)
+			log.Println(err)
 			return nil, err
 		}
 		c.configManager = c.localBucketing.configManager
 		if err != nil {
 			return nil, err
 		}
-	}
-	c.eventQueue = &EventQueue{}
-	err := c.eventQueue.initialize(c.DevCycleOptions, c.localBucketing)
-	if err != nil {
-		return nil, err
+		c.eventQueue = c.localBucketing.eventQueue
 	}
 	return c, nil
 }
