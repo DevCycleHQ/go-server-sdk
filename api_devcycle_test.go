@@ -114,11 +114,7 @@ func TestDVCClientService_TrackLocal_QueueEvent(t *testing.T) {
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
 
 	track, err := c.DevCycleApi.Track(auth, UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"}, DVCEvent{
-		Type_:       "customEvent",
-		Target:      "",
-		CustomType:  "",
-		UserId:      "text",
-		ClientDate:  time.Now().UnixMilli(),
+		Target:      "customEvent",
 		Value:       0,
 		FeatureVars: nil,
 		MetaData:    nil,

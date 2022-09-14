@@ -7,4 +7,6 @@ type BucketedUserConfig struct {
 	FeatureVariationMap map[string]string   `json:"featureVariationMap"`
 	Variables           map[string]Variable `json:"variables"`
 	KnownVariableKeys   []float64           `json:"knownVariableKeys"`
+
+	user *UserData
 }

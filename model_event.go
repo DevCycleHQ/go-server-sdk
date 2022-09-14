@@ -8,12 +8,14 @@
  */
 package devcycle
 
+import "time"
+
 type DVCEvent struct {
 	Type_       string                 `json:"type"`
 	Target      string                 `json:"target,omitempty"`
 	CustomType  string                 `json:"customType,omitempty"`
 	UserId      string                 `json:"user_id,omitempty"`
-	ClientDate  int64                  `json:"clientDate,omitempty"`
+	ClientDate  time.Time              `json:"clientDate,omitempty"`
 	Value       float64                `json:"value,omitempty"`
 	FeatureVars map[string]string      `json:"featureVars,omitempty"`
 	MetaData    map[string]interface{} `json:"metaData,omitempty"`

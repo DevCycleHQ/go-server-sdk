@@ -150,7 +150,8 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal([]byte(readAssemblyScriptString(addrResult.(int32), d.wasmMemory, d.wasmStore)), &payload)
+	result := readAssemblyScriptString(addrResult.(int32), d.wasmMemory, d.wasmStore)
+	err = json.Unmarshal([]byte(result), &payload)
 	return
 }
 

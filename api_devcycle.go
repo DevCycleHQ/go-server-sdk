@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // Linger please
@@ -33,6 +34,7 @@ func (a *DVCClientService) generateBucketedConfig(body UserData) (user BucketedU
 	if err != nil {
 		return BucketedUserConfig{}, err
 	}
+	user.user = &body
 	return
 }
 
@@ -42,7 +44,7 @@ func (a *DVCClientService) queueEvent(user UserData, event DVCEvent) (err error)
 }
 
 func (a *DVCClientService) queueAggregateEvent(bucketed BucketedUserConfig, event DVCEvent) (err error) {
-	err = a.client.eventQueue.QueueAggregateEvent(event, bucketed)
+	err = a.client.eventQueue.QueueAggregateEvent(bucketed, event)
 	return
 }
 
@@ -500,27 +502,20 @@ DVCClientService Post events to DevCycle for user
 
 @return InlineResponse201
 */
+
 func (a *DVCClientService) Track(ctx context.Context, user UserData, event DVCEvent) (InlineResponse201, error) {
 	if a.client.DevCycleOptions.DisableCustomEventLogging {
+		return InlineResponse201{}, nil
+	}
+	event.ClientDate = time.Now()
+	event.Type_ = "customEvent"
+	event.UserId = user.UserId
+
+	if !a.client.DevCycleOptions.DisableLocalBucketing {
 		err := a.client.eventQueue.QueueEvent(user, event)
 		return InlineResponse201{}, err
 	}
 
-	if !a.client.DevCycleOptions.DisableLocalBucketing {
-		userstring, err := json.Marshal(user)
-		if err != nil {
-			return InlineResponse201{}, err
-		}
-		eventstring, err := json.Marshal(event)
-		if err != nil {
-			return InlineResponse201{}, err
-		}
-		err = a.client.localBucketing.queueEvent(string(userstring), string(eventstring))
-		if err != nil {
-			return InlineResponse201{}, err
-		}
-		return InlineResponse201{}, nil
-	}
 	var (
 		localVarHttpMethod  = strings.ToUpper("Post")
 		localVarPostBody    interface{}
@@ -642,7 +637,7 @@ func (a *DVCClientService) Track(ctx context.Context, user UserData, event DVCEv
 	return localVarReturnValue, nil
 }
 
-func (a *DVCClientService) FlushEvents(ctx context.Context) error {
+func (a *DVCClientService) FlushEvents() error {
 
 	if a.client.DevCycleOptions.DisableLocalBucketing {
 		return nil

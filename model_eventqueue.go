@@ -1,6 +1,7 @@
 package devcycle
 
 import (
+	"context"
 	"net/http"
 	"time"
 )
@@ -10,6 +11,7 @@ type EventQueue struct {
 	options           *DVCOptions
 	eventQueueOptions *EventQueueOptions
 	httpClient        *http.Client
+	context           context.Context
 }
 
 func (e *EventQueue) eventQueueOptionsFromDVCOptions(options *DVCOptions) *EventQueueOptions {
