@@ -36,6 +36,7 @@ func (d *DevCycleLocalBucketing) SetSDKToken(token string) {
 }
 
 func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions) (err error) {
+	options.CheckDefaults()
 	d.sdkKey = sdkToken
 	d.options = options
 	d.wasm = wasmBinary

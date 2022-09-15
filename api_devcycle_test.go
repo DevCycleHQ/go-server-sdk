@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/jarcoal/httpmock"
-	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -17,8 +16,8 @@ func TestDVCClientService_AllFeatures_Local(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
-
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
+	lb, err := InitializeLocalBucketing(test_environmentKey, &DVCOptions{})
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{}, lb)
 
 	features, err := c.DevCycleApi.AllFeatures(auth,
 		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"})
@@ -37,8 +36,8 @@ func TestDVCClientService_AllVariablesLocal(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
-
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
+	lb, err := InitializeLocalBucketing(test_environmentKey, &DVCOptions{})
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{}, lb)
 
 	variables, err := c.DevCycleApi.AllVariables(auth,
 		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"})
@@ -57,8 +56,7 @@ func TestDVCClientService_VariableCloud(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpBucketingAPIMock()
-
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{DisableLocalBucketing: true, PollingInterval: 10 * time.Second})
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{DisableLocalBucketing: true, PollingInterval: 10 * time.Second}, nil)
 
 	variable, err := c.DevCycleApi.Variable(auth,
 		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
@@ -78,8 +76,9 @@ func TestDVCClientService_VariableLocal(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
+	lb, err := InitializeLocalBucketing(test_environmentKey, &DVCOptions{})
 
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{}, lb)
 
 	variable, err := c.DevCycleApi.Variable(auth,
 		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
@@ -97,7 +96,8 @@ func TestDVCClientService_VariableLocal_403(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(403)
 
-	_, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	lb, err := InitializeLocalBucketing(test_environmentKey, &DVCOptions{})
+	_, err = NewDVCClient("dvc_server_token_hash", &DVCOptions{}, lb)
 	if err == nil {
 		t.Fatal("Expected error from configmanager")
 	}
@@ -105,13 +105,15 @@ func TestDVCClientService_VariableLocal_403(t *testing.T) {
 
 func TestDVCClientService_TrackLocal_QueueEvent(t *testing.T) {
 	auth := context.WithValue(context.Background(), ContextAPIKey, APIKey{
-		Key: "dvc_server_token_hash",
+		Key: test_environmentKey,
 	})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
+	dvcOptions := DVCOptions{PollingInterval: 10 * time.Second}
+	lb, err := InitializeLocalBucketing(test_environmentKey, &dvcOptions)
 
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{PollingInterval: 10 * time.Second})
+	c, err := NewDVCClient(test_environmentKey, &dvcOptions, lb)
 
 	track, err := c.DevCycleApi.Track(auth, UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"}, DVCEvent{
 		Target:      "customEvent",
@@ -123,17 +125,6 @@ func TestDVCClientService_TrackLocal_QueueEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Println(track)
-}
-
-func httpBucketingAPIMock() {
-	httpmock.RegisterResponder("POST", "https://bucketing-api.devcycle.com/v1/variables/test",
-		func(req *http.Request) (*http.Response, error) {
-
-			resp := httpmock.NewStringResponse(200, `{"value": true, "_id": "614ef6ea475129459160721a", "key": "test", "type": "Boolean"}`)
-			resp.Header.Set("Etag", "TESTING")
-			return resp, nil
-		},
-	)
 }
 
 func TestProduction_Local(t *testing.T) {
@@ -154,7 +145,8 @@ func TestProduction_Local(t *testing.T) {
 		DisableAutomaticEventLogging: false,
 		DisableCustomEventLogging:    false,
 	}
-	client, err := NewDVCClient(environmentKey, &dvcOptions)
+	lb, err := InitializeLocalBucketing(environmentKey, &dvcOptions)
+	client, err := NewDVCClient(environmentKey, &dvcOptions, lb)
 	if err != nil {
 		t.Fatal(err)
 	}

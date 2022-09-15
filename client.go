@@ -62,9 +62,20 @@ type service struct {
 	client *DVCClient
 }
 
+func InitializeLocalBucketing(environmentKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
+	options.CheckDefaults()
+	ret = &DevCycleLocalBucketing{}
+	err = ret.Initialize(environmentKey, options)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	return
+}
+
 // NewDVCClient creates a new API client. Requires a userAgent string describing your application.
 // optionally a custom http.Client to allow for advanced features such as caching.
-func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error) {
+func NewDVCClient(environmentKey string, options *DVCOptions, localBucketing *DevCycleLocalBucketing) (*DVCClient, error) {
 	cfg := NewConfiguration()
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = http.DefaultClient
@@ -81,16 +92,11 @@ func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error
 	c.DevCycleOptions = options
 
 	if !c.DevCycleOptions.DisableLocalBucketing {
-		c.localBucketing = &DevCycleLocalBucketing{}
-		err := c.localBucketing.Initialize(environmentKey, options)
-		if err != nil {
-			log.Println(err)
-			return nil, err
+		if localBucketing == nil {
+			return nil, fmt.Errorf("localBucketing cannot be nil when Local bucketing is enabled")
 		}
+		c.localBucketing = localBucketing
 		c.configManager = c.localBucketing.configManager
-		if err != nil {
-			return nil, err
-		}
 		c.eventQueue = c.localBucketing.eventQueue
 	}
 	return c, nil

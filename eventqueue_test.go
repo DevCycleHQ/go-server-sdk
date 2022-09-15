@@ -13,7 +13,8 @@ func TestEventQueue_QueueEvent(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	lb, err := InitializeLocalBucketing("dvc_server_token_hash", &DVCOptions{})
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{}, lb)
 
 	_, err = c.DevCycleApi.Track(context.Background(), UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
 		DVCEvent{Target: "customevent"})
@@ -28,7 +29,9 @@ func TestEventQueue_QueueEvent_100_DropEvent(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{MaxEventsPerFlush: 100, MinEventsPerFlush: 10})
+	lb, err := InitializeLocalBucketing("dvc_server_token_hash", &DVCOptions{MaxEventsPerFlush: 100, MinEventsPerFlush: 10})
+
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{MaxEventsPerFlush: 100, MinEventsPerFlush: 10}, lb)
 
 	errored := false
 	for i := 0; i < 1000; i++ {
@@ -52,8 +55,9 @@ func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	httpEventsApiMock()
+	lb, err := InitializeLocalBucketing("dvc_server_token_hash", &DVCOptions{MaxEventsPerFlush: 100, MinEventsPerFlush: 10})
 
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{MaxEventsPerFlush: 100, MinEventsPerFlush: 10})
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{MaxEventsPerFlush: 100, MinEventsPerFlush: 10}, lb)
 
 	for i := 0; i < 101; i++ {
 		log.Println(i)
@@ -67,9 +71,4 @@ func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
 	if httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"] != 10 {
 		t.Fatal("Expected 10 flushes to be forced. Got ", httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"])
 	}
-}
-
-func httpEventsApiMock() {
-	httpmock.RegisterResponder("POST", "https://events.devcycle.com/v1/events/batch",
-		httpmock.NewStringResponder(201, `{}`))
 }
