@@ -46,8 +46,8 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 func (e *EventQueue) QueueEvent(user UserData, event DVCEvent) error {
 	if q, err := e.checkEventQueueSize(); err != nil || q {
 		fmt.Println(err)
-		log.Println("event queue is full. Dropping event")
-		return fmt.Errorf("event queue is full. Dropping event")
+		log.Println("Max event queue size reached, dropping event")
+		return fmt.Errorf("Max event queue size reached, dropping event")
 	}
 	if !e.options.DisableLocalBucketing {
 		userstring, err := json.Marshal(user)
@@ -67,7 +67,8 @@ func (e *EventQueue) QueueEvent(user UserData, event DVCEvent) error {
 func (e *EventQueue) QueueAggregateEvent(user BucketedUserConfig, event DVCEvent) error {
 	if q, err := e.checkEventQueueSize(); err != nil || q {
 		fmt.Println(err)
-		return fmt.Errorf("event queue is full. Dropping aggregate event")
+		log.Println("Max event queue size reached, dropping aggregate event")
+		return fmt.Errorf("Max event queue size reached, dropping aggregate event")
 	}
 	if !e.options.DisableLocalBucketing {
 		eventstring, err := json.Marshal(event)
@@ -82,12 +83,12 @@ func (e *EventQueue) checkEventQueueSize() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if queueSize >= e.options.MinEventsPerFlush {
+	if queueSize >= e.options.FlushEventQueueSize {
 		err = e.FlushEvents()
 		if err != nil {
 			return true, err
 		}
-		if queueSize >= e.options.MaxEventsPerFlush {
+		if queueSize >= e.options.MaxEventQueueSize {
 			return true, nil
 		}
 	}

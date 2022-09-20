@@ -57,8 +57,8 @@ type DVCOptions struct {
 	RequestTimeout               time.Duration `json:"requestTimeout,omitempty"`
 	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging,omitempty"`
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging,omitempty"`
-	MaxEventsPerFlush            int           `json:"maxEventsPerFlush,omitempty"`
-	MinEventsPerFlush            int           `json:"minEventsPerFlush,omitempty"`
+	MaxEventQueueSize            int           `json:"maxEventsPerFlush,omitempty"`
+	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
 }
 
 func (o *DVCOptions) CheckDefaults() {
@@ -71,11 +71,11 @@ func (o *DVCOptions) CheckDefaults() {
 	if o.RequestTimeout <= 0 {
 		o.RequestTimeout = time.Second * 10
 	}
-	if o.MaxEventsPerFlush <= 0 {
-		o.MaxEventsPerFlush = 10000
+	if o.MaxEventQueueSize <= 0 {
+		o.MaxEventQueueSize = 10000
 	}
-	if o.MinEventsPerFlush <= 0 {
-		o.MinEventsPerFlush = 1000
+	if o.FlushEventQueueSize <= 0 {
+		o.FlushEventQueueSize = 1000
 	}
 }
 
