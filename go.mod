@@ -6,7 +6,6 @@ require (
 	github.com/bytecodealliance/wasmtime-go v0.39.0
 	github.com/jarcoal/httpmock v1.2.0
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
-	google.golang.org/appengine v1.6.6
 )
 
 require (
