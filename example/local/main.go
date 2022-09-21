@@ -24,7 +24,12 @@ func main() {
 		DisableAutomaticEventLogging: false,
 		DisableCustomEventLogging:    false,
 	}
-	client, _ := devcycle.NewDVCClient(environmentKey, &dvcOptions)
+
+	lb, err := devcycle.InitializeLocalBucketing(environmentKey, &dvcOptions)
+	if err != nil {
+		log.Fatal(err)
+	}
+	client, _ := devcycle.NewDVCClient(environmentKey, &dvcOptions, lb)
 
 	features, _ := client.DevCycleApi.AllFeatures(auth, user)
 	for key, feature := range features {
@@ -41,6 +46,7 @@ func main() {
 		Target: "somevariable.key"}
 
 	vara, _ := client.DevCycleApi.Variable(auth, user, "elliot-test", "test")
+
 	if !vara.IsDefaulted {
 		log.Printf("vara not defaulted:%v", vara.IsDefaulted)
 	}
