@@ -76,7 +76,7 @@ func InitializeLocalBucketing(environmentKey string, options *DVCOptions) (ret *
 // NewDVCClient creates a new API client. Requires a userAgent string describing your application.
 // optionally a custom http.Client to allow for advanced features such as caching.
 func NewDVCClient(environmentKey string, options *DVCOptions, localBucketing *DevCycleLocalBucketing) (*DVCClient, error) {
-	cfg := NewConfiguration()
+	cfg := NewConfiguration(options)
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = http.DefaultClient
 	}

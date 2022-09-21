@@ -1,11 +1,14 @@
 package devcycle
 
+import "os"
+
 type PlatformData struct {
 	SdkType         string `json:"sdkType"`
 	SdkVersion      string `json:"sdkVersion"`
 	PlatformVersion string `json:"platformVersion"`
 	DeviceModel     string `json:"deviceModel"`
 	Platform        string `json:"platform"`
+	Hostname        string `json:"hostname"`
 }
 
 func (pd *PlatformData) FromUser(user UserData) PlatformData {
@@ -14,6 +17,7 @@ func (pd *PlatformData) FromUser(user UserData) PlatformData {
 	pd.SdkVersion = user.SdkVersion
 	pd.PlatformVersion = user.PlatformVersion
 	pd.DeviceModel = user.DeviceModel
+	pd.Hostname, _ = os.Hostname()
 	return *pd
 }
 
@@ -26,5 +30,6 @@ func (pd *PlatformData) Default(isLocal bool) *PlatformData {
 	}
 	pd.SdkVersion = "1.2.0"
 	pd.PlatformVersion = "1.2.0"
+	pd.Hostname, _ = os.Hostname()
 	return pd
 }

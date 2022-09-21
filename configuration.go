@@ -59,17 +59,19 @@ type DVCOptions struct {
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging,omitempty"`
 	MaxEventQueueSize            int           `json:"maxEventsPerFlush,omitempty"`
 	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
+	ConfigCDNOverride            string
+	EventsAPIOverride            string
 }
 
 func (o *DVCOptions) CheckDefaults() {
-	if o.EventsFlushInterval <= 0 {
-		o.EventsFlushInterval = time.Second * 15
+	if o.EventsFlushInterval <= time.Second*1 {
+		o.EventsFlushInterval = time.Second * 1
 	}
-	if o.PollingInterval <= 0 {
+	if o.PollingInterval <= 1000 {
 		o.PollingInterval = time.Second * 10
 	}
-	if o.RequestTimeout <= 0 {
-		o.RequestTimeout = time.Second * 10
+	if o.RequestTimeout <= time.Second*5 {
+		o.RequestTimeout = time.Second * 5
 	}
 	if o.MaxEventQueueSize <= 0 {
 		o.MaxEventQueueSize = 10000
@@ -82,6 +84,7 @@ func (o *DVCOptions) CheckDefaults() {
 type HTTPConfiguration struct {
 	BasePath          string            `json:"basePath,omitempty"`
 	ConfigCDNBasePath string            `json:"configCDNBasePath,omitempty"`
+	EventsAPIBasePath string            `json:"eventsAPIBasePath,omitempty"`
 	Host              string            `json:"host,omitempty"`
 	Scheme            string            `json:"scheme,omitempty"`
 	DefaultHeader     map[string]string `json:"defaultHeader,omitempty"`
@@ -89,10 +92,21 @@ type HTTPConfiguration struct {
 	HTTPClient        *http.Client
 }
 
-func NewConfiguration() *HTTPConfiguration {
+func NewConfiguration(options *DVCOptions) *HTTPConfiguration {
+	configBasePath := "https://config-cdn.devcycle.com"
+	if options.ConfigCDNOverride != "" {
+		configBasePath = options.ConfigCDNOverride
+	}
+
+	eventsApiBasePath := "https://events.devcycle.com"
+	if options.EventsAPIOverride != "" {
+		eventsApiBasePath = options.EventsAPIOverride
+	}
+
 	cfg := &HTTPConfiguration{
 		BasePath:          "https://bucketing-api.devcycle.com",
-		ConfigCDNBasePath: "https://config-cdn.devcycle.com",
+		ConfigCDNBasePath: configBasePath,
+		EventsAPIBasePath: eventsApiBasePath,
 		DefaultHeader:     make(map[string]string),
 		UserAgent:         "DevCycle-Server-SDK/1.2.0/go",
 	}

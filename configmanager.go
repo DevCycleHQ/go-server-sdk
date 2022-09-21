@@ -19,10 +19,12 @@ type EnvironmentConfigManager struct {
 	context        context.Context
 	cancel         context.CancelFunc
 	httpClient     *http.Client
+	httpConfig     *HTTPConfiguration
+	options        *DVCOptions
 }
 
 func (e *EnvironmentConfigManager) Initialize(environmentKey string, options *DVCOptions) (err error) {
-
+	e.options = options
 	e.environmentKey = environmentKey
 	e.httpClient = &http.Client{Timeout: options.RequestTimeout}
 	e.context, e.cancel = context.WithCancel(context.Background())
@@ -117,5 +119,8 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 }
 
 func (e *EnvironmentConfigManager) getConfigURL() string {
+	if e.options.ConfigCDNOverride != "" {
+		return e.options.ConfigCDNOverride
+	}
 	return fmt.Sprintf("https://config-cdn.devcycle.com/config/v1/server/%s.json", e.environmentKey)
 }

@@ -493,25 +493,24 @@ DVCClientService Post events to DevCycle for user
 @return InlineResponse201
 */
 
-func (a *DVCClientService) Track(ctx context.Context, user UserData, event DVCEvent) (InlineResponse201, error) {
+func (a *DVCClientService) Track(ctx context.Context, user UserData, event DVCEvent) (bool, error) {
 	if a.client.DevCycleOptions.DisableCustomEventLogging {
-		return InlineResponse201{}, nil
+		return true, nil
 	}
 	if event.Type_ == "" {
-		return InlineResponse201{}, errors.New("event type is required")
+		return false, errors.New("event type is required")
 	}
 
 	if !a.client.DevCycleOptions.DisableLocalBucketing {
 		err := a.client.eventQueue.QueueEvent(user, event)
-		return InlineResponse201{}, err
+		return err == nil, err
 	}
 
 	var (
-		localVarHttpMethod  = strings.ToUpper("Post")
-		localVarPostBody    interface{}
-		localVarFileName    string
-		localVarFileBytes   []byte
-		localVarReturnValue InlineResponse201
+		localVarHttpMethod = strings.ToUpper("Post")
+		localVarPostBody   interface{}
+		localVarFileName   string
+		localVarFileBytes  []byte
 	)
 	events := []DVCEvent{event}
 	body := UserDataAndEventsBody{User: &user, Events: events}
@@ -556,25 +555,25 @@ func (a *DVCClientService) Track(ctx context.Context, user UserData, event DVCEv
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
-		return localVarReturnValue, err
+		return false, err
 	}
 
 	localVarHttpResponse, err := a.client.callAPI(r)
 	if err != nil || localVarHttpResponse == nil {
-		return localVarReturnValue, err
+		return false, err
 	}
 
 	localVarBody, err := ioutil.ReadAll(localVarHttpResponse.Body)
 	localVarHttpResponse.Body.Close()
 	if err != nil {
-		return localVarReturnValue, err
+		return false, err
 	}
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+		err = a.client.decode(nil, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 		if err == nil {
-			return localVarReturnValue, err
+			return false, err
 		}
 	} else if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
@@ -586,45 +585,45 @@ func (a *DVCClientService) Track(ctx context.Context, user UserData, event DVCEv
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()
-				return localVarReturnValue, newErr
+				return false, newErr
 			}
 			newErr.model = v
-			return localVarReturnValue, newErr
+			return false, newErr
 		}
 		if localVarHttpResponse.StatusCode == 401 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()
-				return localVarReturnValue, newErr
+				return false, newErr
 			}
 			newErr.model = v
-			return localVarReturnValue, newErr
+			return false, newErr
 		}
 		if localVarHttpResponse.StatusCode == 404 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()
-				return localVarReturnValue, newErr
+				return false, newErr
 			}
 			newErr.model = v
-			return localVarReturnValue, newErr
+			return false, newErr
 		}
 		if localVarHttpResponse.StatusCode == 500 {
 			var v ErrorResponse
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()
-				return localVarReturnValue, newErr
+				return false, newErr
 			}
 			newErr.model = v
-			return localVarReturnValue, newErr
+			return false, newErr
 		}
-		return localVarReturnValue, newErr
+		return false, newErr
 	}
 
-	return localVarReturnValue, nil
+	return true, nil
 }
 
 func (a *DVCClientService) FlushEvents() error {
