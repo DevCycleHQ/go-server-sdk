@@ -10,6 +10,7 @@ package devcycle
 
 import (
 	"net/http"
+	"time"
 )
 
 // contextKeys are used to identify the type of value in the context.
@@ -49,13 +50,41 @@ type APIKey struct {
 }
 
 type DVCOptions struct {
-	EnableEdgeDB         bool `json:"enableEdgeDb,omitempty"`
-	EnableLocalBucketing bool `json:"enable_local_bucketing,omitempty"`
+	EnableEdgeDB                 bool          `json:"enableEdgeDb,omitempty"`
+	DisableLocalBucketing        bool          `json:"disableLocalBucketing,omitempty"`
+	EventsFlushInterval          time.Duration `json:"eventsFlushInterval,omitempty"`
+	PollingInterval              time.Duration `json:"pollingInterval,omitempty"`
+	RequestTimeout               time.Duration `json:"requestTimeout,omitempty"`
+	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging,omitempty"`
+	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging,omitempty"`
+	MaxEventQueueSize            int           `json:"maxEventsPerFlush,omitempty"`
+	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
+	ConfigCDNOverride            string
+	EventsAPIOverride            string
 }
 
-type Configuration struct {
+func (o *DVCOptions) CheckDefaults() {
+	if o.EventsFlushInterval <= time.Second*1 {
+		o.EventsFlushInterval = time.Second * 1
+	}
+	if o.PollingInterval <= 1000 {
+		o.PollingInterval = time.Second * 10
+	}
+	if o.RequestTimeout <= time.Second*5 {
+		o.RequestTimeout = time.Second * 5
+	}
+	if o.MaxEventQueueSize <= 0 {
+		o.MaxEventQueueSize = 10000
+	}
+	if o.FlushEventQueueSize <= 0 {
+		o.FlushEventQueueSize = 1000
+	}
+}
+
+type HTTPConfiguration struct {
 	BasePath          string            `json:"basePath,omitempty"`
 	ConfigCDNBasePath string            `json:"configCDNBasePath,omitempty"`
+	EventsAPIBasePath string            `json:"eventsAPIBasePath,omitempty"`
 	Host              string            `json:"host,omitempty"`
 	Scheme            string            `json:"scheme,omitempty"`
 	DefaultHeader     map[string]string `json:"defaultHeader,omitempty"`
@@ -63,16 +92,27 @@ type Configuration struct {
 	HTTPClient        *http.Client
 }
 
-func NewConfiguration() *Configuration {
-	cfg := &Configuration{
-		BasePath:          "https://bucketing-api.devcycle.com/",
-		ConfigCDNBasePath: "https://config-cdn.devcycle.com/",
+func NewConfiguration(options *DVCOptions) *HTTPConfiguration {
+	configBasePath := "https://config-cdn.devcycle.com"
+	if options.ConfigCDNOverride != "" {
+		configBasePath = options.ConfigCDNOverride
+	}
+
+	eventsApiBasePath := "https://events.devcycle.com"
+	if options.EventsAPIOverride != "" {
+		eventsApiBasePath = options.EventsAPIOverride
+	}
+
+	cfg := &HTTPConfiguration{
+		BasePath:          "https://bucketing-api.devcycle.com",
+		ConfigCDNBasePath: configBasePath,
+		EventsAPIBasePath: eventsApiBasePath,
 		DefaultHeader:     make(map[string]string),
-		UserAgent:         "Swagger-Codegen/1.2.0/go",
+		UserAgent:         "DevCycle-Server-SDK/1.2.0/go",
 	}
 	return cfg
 }
 
-func (c *Configuration) AddDefaultHeader(key string, value string) {
+func (c *HTTPConfiguration) AddDefaultHeader(key string, value string) {
 	c.DefaultHeader[key] = value
 }

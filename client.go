@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -23,7 +24,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -36,42 +36,70 @@ var (
 	xmlCheck  = regexp.MustCompile("(?i:[application|text]/xml)")
 )
 
-// DVCClient manages communication with the DevCycle Bucketing API API v1.0.0
+// DVCClient
 // In most cases there should be only one, shared, DVCClient.
 type DVCClient struct {
-	cfg    *Configuration
+	cfg    *HTTPConfiguration
 	common service // Reuse a single struct instead of allocating one for each service on the heap.
 
 	// API Services
+	DevCycleApi     *DVCClientService
+	DevCycleOptions *DVCOptions
+	environmentKey  string
+	localBucketing  *DevCycleLocalBucketing
+	configManager   *EnvironmentConfigManager
+	eventQueue      *EventQueue
+}
 
-	DevcycleApi     *DVCClientService
-	DevcycleOptions *DVCOptions
+type SDKEvent struct {
+	Success             bool   `json:"success"`
+	Message             string `json:"message"`
+	Error               error  `json:"error"`
+	FirstInitialization bool   `json:"firstInitialization"`
 }
 
 type service struct {
 	client *DVCClient
 }
 
+func InitializeLocalBucketing(environmentKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
+	options.CheckDefaults()
+	ret = &DevCycleLocalBucketing{}
+	err = ret.Initialize(environmentKey, options)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	return
+}
+
 // NewDVCClient creates a new API client. Requires a userAgent string describing your application.
 // optionally a custom http.Client to allow for advanced features such as caching.
-func NewDVCClient() *DVCClient {
-	cfg := NewConfiguration()
+func NewDVCClient(environmentKey string, options *DVCOptions, localBucketing *DevCycleLocalBucketing) (*DVCClient, error) {
+	cfg := NewConfiguration(options)
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = http.DefaultClient
 	}
 
-	c := &DVCClient{}
+	options.CheckDefaults()
+
+	c := &DVCClient{environmentKey: environmentKey}
 	c.cfg = cfg
 	c.common.client = c
-
 	// API Services
-	c.DevcycleApi = (*DVCClientService)(&c.common)
+	c.DevCycleApi = (*DVCClientService)(&c.common)
 
-	return c
-}
+	c.DevCycleOptions = options
 
-func atoi(in string) (int, error) {
-	return strconv.Atoi(in)
+	if !c.DevCycleOptions.DisableLocalBucketing {
+		if localBucketing == nil {
+			return nil, fmt.Errorf("localBucketing cannot be nil when Local bucketing is enabled")
+		}
+		c.localBucketing = localBucketing
+		c.configManager = c.localBucketing.configManager
+		c.eventQueue = c.localBucketing.eventQueue
+	}
+	return c, nil
 }
 
 // selectHeaderContentType select a content type from the available list.
@@ -155,7 +183,7 @@ func (c *DVCClient) ChangeBasePath(path string) {
 }
 
 func (c *DVCClient) SetOptions(dvcOptions DVCOptions) {
-	c.DevcycleOptions = &dvcOptions
+	c.DevCycleOptions = &dvcOptions
 }
 
 // prepareRequest build the request
@@ -249,7 +277,7 @@ func (c *DVCClient) prepareRequest(
 		}
 	}
 
-	if c.DevcycleOptions.EnableEdgeDB {
+	if c.DevCycleOptions.EnableEdgeDB {
 		query.Add("enableEdgeDB", "true")
 	}
 

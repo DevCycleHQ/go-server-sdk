@@ -8,6 +8,8 @@
  */
 package devcycle
 
+import "time"
+
 type UserData struct {
 	// Unique id to identify the user
 	UserId string `json:"user_id"`
@@ -28,9 +30,9 @@ type UserData struct {
 	// User's custom data to target the user with, data will not be logged to DevCycle only used for feature bucketing.
 	PrivateCustomData map[string]interface{} `json:"privateCustomData,omitempty"`
 	// Date the user was created, Unix epoch timestamp format
-	CreatedDate float64 `json:"createdDate,omitempty"`
+	CreatedDate time.Time `json:"createdDate,omitempty"`
 	// Date the user was created, Unix epoch timestamp format
-	LastSeenDate float64 `json:"lastSeenDate,omitempty"`
+	LastSeenDate time.Time `json:"lastSeenDate,omitempty"`
 	// Platform the Client SDK is running on
 	Platform string `json:"platform,omitempty"`
 	// Version of the platform the Client SDK is running on
@@ -41,4 +43,9 @@ type UserData struct {
 	SdkType string `json:"sdkType,omitempty"`
 	// DevCycle SDK Version
 	SdkVersion string `json:"sdkVersion,omitempty"`
+}
+
+type UserFeatureData struct {
+	User        UserData `json:"user"`
+	FeatureVars map[string]string
 }
