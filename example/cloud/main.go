@@ -48,6 +48,5 @@ func main() {
 		log.Printf("vara defaulted:%v", varaDefaulted.IsDefaulted)
 	}
 
-	response, _ := client.DevCycleApi.Track(auth, user, event)
-	log.Printf(response.Message)
+	_, _ = client.DevCycleApi.Track(auth, user, event)
 }

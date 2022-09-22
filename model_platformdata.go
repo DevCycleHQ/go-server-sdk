@@ -1,6 +1,9 @@
 package devcycle
 
-import "os"
+import (
+	"os"
+	"runtime"
+)
 
 type PlatformData struct {
 	SdkType         string `json:"sdkType"`
@@ -28,8 +31,8 @@ func (pd *PlatformData) Default(isLocal bool) *PlatformData {
 	} else {
 		pd.SdkType = "cloud"
 	}
-	pd.SdkVersion = "1.2.0"
-	pd.PlatformVersion = "1.2.0"
+	pd.SdkVersion = VERSION
+	pd.PlatformVersion = runtime.Version()
 	pd.Hostname, _ = os.Hostname()
 	return pd
 }

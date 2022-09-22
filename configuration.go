@@ -108,7 +108,7 @@ func NewConfiguration(options *DVCOptions) *HTTPConfiguration {
 		ConfigCDNBasePath: configBasePath,
 		EventsAPIBasePath: eventsApiBasePath,
 		DefaultHeader:     make(map[string]string),
-		UserAgent:         "DevCycle-Server-SDK/1.2.0/go",
+		UserAgent:         "DevCycle-Server-SDK/" + VERSION + "/go",
 	}
 	return cfg
 }

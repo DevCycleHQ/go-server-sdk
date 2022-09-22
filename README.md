@@ -16,18 +16,27 @@ import "github.com/devcyclehq/go-server-sdk"
 ## Getting Started
 
 ```golang
-package main 
-import (
-    "github.com/devcyclehq/go-server-sdk"
-    "context"
-)
-auth := context.WithValue(context.Background(), devcycle.ContextAPIKey, devcycle.APIKey{
-    Key: "your_server_key_here",
-})
-dvcOptions := devcycle.DVCOptions{EnableEdgeDB: false}
+    environmentKey := os.Getenv("DVC_SERVER_KEY")
+	user := devcycle.UserData{UserId: "test"}
+	auth := context.WithValue(context.Background(), devcycle.ContextAPIKey, devcycle.APIKey{
+		Key: environmentKey,
+	})
 
-client := devcycle.NewDVCClient()
-client.SetOptions(dvcOptions)
+	dvcOptions := devcycle.DVCOptions{
+		EnableEdgeDB:                 false,
+		DisableLocalBucketing:        false,
+		EventsFlushInterval:          0,
+		PollingInterval:              10 * time.Second,
+		RequestTimeout:               10 * time.Second,
+		DisableAutomaticEventLogging: false,
+		DisableCustomEventLogging:    false,
+	}
+
+	lb, err := devcycle.InitializeLocalBucketing(environmentKey, &dvcOptions)
+	if err != nil {
+		log.Fatal(err)
+	}
+	client, _ := devcycle.NewDVCClient(environmentKey, &dvcOptions, lb)
 ```
 
 ## Usage
