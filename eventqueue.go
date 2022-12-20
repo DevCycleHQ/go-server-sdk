@@ -96,6 +96,7 @@ func (e *EventQueue) checkEventQueueSize() (bool, error) {
 }
 
 func (e *EventQueue) FlushEvents() (err error) {
+	eventsHost := e.options.EventsAPIOverride
 	e.localBucketing.startFlushEvents()
 	defer e.localBucketing.finishFlushEvents()
 	events, err := e.localBucketing.flushEventQueue()
@@ -108,7 +109,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 		var resp *http.Response
 		var body []byte
 		body, err = json.Marshal(event)
-		req, err = http.NewRequest("POST", "https://events.devcycle.com/v1/events/batch", bytes.NewReader(body))
+		req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(body))
 
 		req.Header.Set("Authorization", e.localBucketing.sdkKey)
 		req.Header.Set("Content-Type", "application/json")

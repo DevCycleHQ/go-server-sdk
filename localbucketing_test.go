@@ -21,6 +21,21 @@ func TestDevCycleLocalBucketing_Initialize(t *testing.T) {
 	}
 }
 
+func BenchmarkDevCycleLocalBucketing_Initialize(b *testing.B) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+	for i := 0; i < b.N; i++ {
+		localBucketing := DevCycleLocalBucketing{}
+		var err error
+		localBucketing.SetSDKToken(test_environmentKey)
+		err = localBucketing.Initialize(test_environmentKey, &DVCOptions{})
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
