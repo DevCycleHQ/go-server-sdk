@@ -3,7 +3,7 @@ package devcycle
 import (
 	_ "embed"
 	"encoding/json"
-	"github.com/bytecodealliance/wasmtime-go"
+	"github.com/bytecodealliance/wasmtime-go/v3"
 	"log"
 	"math/rand"
 	"sync"

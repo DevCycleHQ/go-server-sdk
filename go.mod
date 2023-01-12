@@ -3,7 +3,7 @@ module github.com/devcyclehq/go-server-sdk
 go 1.19
 
 require (
-	github.com/bytecodealliance/wasmtime-go v0.39.0
+	github.com/bytecodealliance/wasmtime-go/v3 v3.0.2
 	github.com/jarcoal/httpmock v1.2.0
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 )
