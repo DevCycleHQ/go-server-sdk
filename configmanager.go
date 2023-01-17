@@ -27,7 +27,7 @@ func (e *EnvironmentConfigManager) Initialize(environmentKey string, localBucket
 	e.httpClient = &http.Client{Timeout: localBucketing.options.RequestTimeout}
 	e.context, e.cancel = context.WithCancel(context.Background())
 
-	ticker := time.NewTicker(localBucketing.options.PollingInterval)
+	ticker := time.NewTicker(localBucketing.options.ConfigPollingIntervalMS)
 	e.firstLoad = true
 
 	err = e.fetchConfig()

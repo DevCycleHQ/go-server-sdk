@@ -24,7 +24,7 @@ type EventQueue struct {
 
 func (e *EventQueue) eventQueueOptionsFromDVCOptions(options *DVCOptions) *EventQueueOptions {
 	return &EventQueueOptions{
-		FlushEventsInterval:          options.EventsFlushInterval,
+		FlushEventsInterval:          options.EventFlushIntervalMS,
 		DisableAutomaticEventLogging: options.DisableAutomaticEventLogging,
 		DisableCustomEventLogging:    options.DisableCustomEventLogging,
 	}
@@ -47,7 +47,7 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 			return err
 		}
 		err = e.localBucketing.initEventQueue(string(str))
-		ticker := time.NewTicker(e.options.EventsFlushInterval)
+		ticker := time.NewTicker(e.options.EventFlushIntervalMS)
 
 		go func(ctx context.Context) {
 			for {

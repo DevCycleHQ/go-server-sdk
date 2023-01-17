@@ -52,8 +52,8 @@ type APIKey struct {
 type DVCOptions struct {
 	EnableEdgeDB                 bool          `json:"enableEdgeDb,omitempty"`
 	EnableCloudBucketing         bool          `json:"enableCloudBucketing,omitempty"`
-	EventsFlushInterval          time.Duration `json:"eventsFlushInterval,omitempty"`
-	PollingInterval              time.Duration `json:"pollingInterval,omitempty"`
+	EventFlushIntervalMS         time.Duration `json:"eventFlushIntervalMS,omitempty"`
+	ConfigPollingIntervalMS      time.Duration `json:"configPollingIntervalMS,omitempty"`
 	RequestTimeout               time.Duration `json:"requestTimeout,omitempty"`
 	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging,omitempty"`
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging,omitempty"`
@@ -64,11 +64,11 @@ type DVCOptions struct {
 }
 
 func (o *DVCOptions) CheckDefaults() {
-	if o.EventsFlushInterval <= time.Second*1 {
-		o.EventsFlushInterval = time.Second * 1
+	if o.EventFlushIntervalMS <= time.Second*1 {
+		o.EventFlushIntervalMS = time.Second * 1
 	}
-	if o.PollingInterval <= 1000 {
-		o.PollingInterval = time.Second * 10
+	if o.ConfigPollingIntervalMS <= 1000 {
+		o.ConfigPollingIntervalMS = time.Second * 10
 	}
 	if o.RequestTimeout <= time.Second*5 {
 		o.RequestTimeout = time.Second * 5

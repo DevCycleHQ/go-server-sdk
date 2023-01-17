@@ -57,7 +57,7 @@ func TestDVCClientService_VariableCloud(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpBucketingAPIMock()
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{EnableCloudBucketing: true, PollingInterval: 10 * time.Second}, nil)
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second}, nil)
 
 	variable, err := c.DevCycleApi.Variable(auth,
 		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
@@ -111,7 +111,7 @@ func TestDVCClientService_TrackLocal_QueueEvent(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
-	dvcOptions := DVCOptions{PollingInterval: 10 * time.Second}
+	dvcOptions := DVCOptions{ConfigPollingIntervalMS: 10 * time.Second}
 	lb, err := InitializeLocalBucketing(test_environmentKey, &dvcOptions)
 
 	c, err := NewDVCClient(test_environmentKey, &dvcOptions, lb)
@@ -140,8 +140,8 @@ func TestProduction_Local(t *testing.T) {
 	dvcOptions := DVCOptions{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         false,
-		EventsFlushInterval:          0,
-		PollingInterval:              10 * time.Second,
+		EventFlushIntervalMS:         0,
+		ConfigPollingIntervalMS:      10 * time.Second,
 		RequestTimeout:               10 * time.Second,
 		DisableAutomaticEventLogging: false,
 		DisableCustomEventLogging:    false,
