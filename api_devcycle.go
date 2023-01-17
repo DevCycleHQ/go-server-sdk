@@ -49,7 +49,7 @@ DVCClientService Get all features by key for user data
 */
 func (a *DVCClientService) AllFeatures(ctx context.Context, body UserData) (map[string]Feature, error) {
 
-	if !a.client.DevCycleOptions.DisableLocalBucketing {
+	if !a.client.DevCycleOptions.EnableCloudBucketing {
 		user, err := a.generateBucketedConfig(body)
 		return user.Features, err
 	}
@@ -186,7 +186,7 @@ DVCClientService Get variable by key for user data
 func (a *DVCClientService) Variable(ctx context.Context, userdata UserData, key string, defaultValue interface{}) (Variable, error) {
 	defaultRetVal := Variable{Value: defaultValue, Key: key, IsDefaulted: true}
 
-	if !a.client.DevCycleOptions.DisableLocalBucketing {
+	if !a.client.DevCycleOptions.EnableCloudBucketing {
 		bucketed, err := a.generateBucketedConfig(userdata)
 
 		variableEvaluationType := ""
@@ -353,7 +353,7 @@ func (a *DVCClientService) AllVariables(ctx context.Context, body UserData) (map
 		localVarFileBytes   []byte
 		localVarReturnValue map[string]Variable
 	)
-	if !a.client.DevCycleOptions.DisableLocalBucketing {
+	if !a.client.DevCycleOptions.EnableCloudBucketing {
 		user, err := a.generateBucketedConfig(body)
 		if err != nil {
 			return localVarReturnValue, err
@@ -501,7 +501,7 @@ func (a *DVCClientService) Track(ctx context.Context, user UserData, event DVCEv
 		return false, errors.New("event type is required")
 	}
 
-	if !a.client.DevCycleOptions.DisableLocalBucketing {
+	if !a.client.DevCycleOptions.EnableCloudBucketing {
 		err := a.client.eventQueue.QueueEvent(user, event)
 		return err == nil, err
 	}
@@ -628,7 +628,7 @@ func (a *DVCClientService) Track(ctx context.Context, user UserData, event DVCEv
 
 func (a *DVCClientService) FlushEvents() error {
 
-	if a.client.DevCycleOptions.DisableLocalBucketing {
+	if a.client.DevCycleOptions.EnableCloudBucketing {
 		return nil
 	}
 
@@ -644,7 +644,7 @@ func (a *DVCClientService) FlushEvents() error {
 Close the client and flush any pending events. Stop any ongoing tickers
 */
 func (a *DVCClientService) Close() (err error) {
-	if a.client.DevCycleOptions.DisableLocalBucketing {
+	if a.client.DevCycleOptions.EnableCloudBucketing {
 		return
 	}
 

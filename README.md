@@ -24,7 +24,7 @@ import "github.com/devcyclehq/go-server-sdk"
 
 	dvcOptions := devcycle.DVCOptions{
 		EnableEdgeDB:                 false,
-		DisableLocalBucketing:        false,
+		EnableCloudBucketing:        false,
 		EventsFlushInterval:          0,
 		PollingInterval:              10 * time.Second,
 		RequestTimeout:               10 * time.Second,

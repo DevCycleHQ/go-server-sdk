@@ -3,10 +3,11 @@ package devcycle
 import (
 	"context"
 	"fmt"
-	"github.com/jarcoal/httpmock"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/jarcoal/httpmock"
 )
 
 func TestDVCClientService_AllFeatures_Local(t *testing.T) {
@@ -56,7 +57,7 @@ func TestDVCClientService_VariableCloud(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpBucketingAPIMock()
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{DisableLocalBucketing: true, PollingInterval: 10 * time.Second}, nil)
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{EnableCloudBucketing: true, PollingInterval: 10 * time.Second}, nil)
 
 	variable, err := c.DevCycleApi.Variable(auth,
 		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
@@ -138,7 +139,7 @@ func TestProduction_Local(t *testing.T) {
 	}
 	dvcOptions := DVCOptions{
 		EnableEdgeDB:                 false,
-		DisableLocalBucketing:        false,
+		EnableCloudBucketing:         false,
 		EventsFlushInterval:          0,
 		PollingInterval:              10 * time.Second,
 		RequestTimeout:               10 * time.Second,

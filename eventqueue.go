@@ -40,7 +40,7 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 	e.context = context.Background()
 	e.httpClient = http.DefaultClient
 	e.options = options
-	if !e.options.DisableLocalBucketing && localBucketing != nil {
+	if !e.options.EnableCloudBucketing && localBucketing != nil {
 		e.localBucketing = localBucketing
 		str, err := json.Marshal(e.eventQueueOptionsFromDVCOptions(options))
 		if err != nil {
@@ -80,7 +80,7 @@ func (e *EventQueue) QueueEvent(user UserData, event DVCEvent) error {
 		log.Println("Max event queue size reached, dropping event")
 		return fmt.Errorf("Max event queue size reached, dropping event")
 	}
-	if !e.options.DisableLocalBucketing {
+	if !e.options.EnableCloudBucketing {
 		userstring, err := json.Marshal(user)
 		if err != nil {
 			return err
@@ -101,7 +101,7 @@ func (e *EventQueue) QueueAggregateEvent(user BucketedUserConfig, event DVCEvent
 		log.Println("Max event queue size reached, dropping aggregate event")
 		return fmt.Errorf("Max event queue size reached, dropping aggregate event")
 	}
-	if !e.options.DisableLocalBucketing {
+	if !e.options.EnableCloudBucketing {
 		eventstring, err := json.Marshal(event)
 		err = e.localBucketing.queueAggregateEvent(string(eventstring), user)
 		return err

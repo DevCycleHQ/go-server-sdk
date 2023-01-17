@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
-	"github.com/devcyclehq/go-server-sdk"
 	"log"
 	"os"
 	"time"
+
+	devcycle "github.com/devcyclehq/go-server-sdk"
 )
 
 func main() {
@@ -16,7 +17,7 @@ func main() {
 	})
 	dvcOptions := devcycle.DVCOptions{
 		EnableEdgeDB:                 false,
-		DisableLocalBucketing:        true,
+		EnableCloudBucketing:         true,
 		EventsFlushInterval:          time.Second * 10,
 		PollingInterval:              time.Second * 10,
 		RequestTimeout:               time.Second * 10,
