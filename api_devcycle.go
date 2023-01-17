@@ -17,7 +17,7 @@ var (
 
 type DVCClientService service
 
-func (a *DVCClientService) generateBucketedConfig(body UserData) (user BucketedUserConfig, err error) {
+func (a *DVCClientService) generateBucketedConfig(body DVCUser) (user BucketedUserConfig, err error) {
 	userJSON, err := json.Marshal(body)
 	if err != nil {
 		return BucketedUserConfig{}, err
@@ -30,7 +30,7 @@ func (a *DVCClientService) generateBucketedConfig(body UserData) (user BucketedU
 	return
 }
 
-func (a *DVCClientService) queueEvent(user UserData, event DVCEvent) (err error) {
+func (a *DVCClientService) queueEvent(user DVCUser, event DVCEvent) (err error) {
 	err = a.client.eventQueue.QueueEvent(user, event)
 	return
 }
@@ -47,7 +47,7 @@ DVCClientService Get all features by key for user data
 
 @return map[string]Feature
 */
-func (a *DVCClientService) AllFeatures(ctx context.Context, body UserData) (map[string]Feature, error) {
+func (a *DVCClientService) AllFeatures(ctx context.Context, body DVCUser) (map[string]Feature, error) {
 
 	if !a.client.DevCycleOptions.EnableCloudBucketing {
 		user, err := a.generateBucketedConfig(body)
@@ -183,7 +183,7 @@ DVCClientService Get variable by key for user data
 
 @return Variable
 */
-func (a *DVCClientService) Variable(ctx context.Context, userdata UserData, key string, defaultValue interface{}) (Variable, error) {
+func (a *DVCClientService) Variable(ctx context.Context, userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
 	defaultRetVal := Variable{Value: defaultValue, Key: key, IsDefaulted: true}
 
 	if !a.client.DevCycleOptions.EnableCloudBucketing {
@@ -344,7 +344,7 @@ func (a *DVCClientService) Variable(ctx context.Context, userdata UserData, key 
 	return localVarReturnValue, nil
 }
 
-func (a *DVCClientService) AllVariables(ctx context.Context, body UserData) (map[string]Variable, error) {
+func (a *DVCClientService) AllVariables(ctx context.Context, body DVCUser) (map[string]Variable, error) {
 
 	var (
 		localVarHttpMethod  = strings.ToUpper("Post")
@@ -493,7 +493,7 @@ DVCClientService Post events to DevCycle for user
 @return InlineResponse201
 */
 
-func (a *DVCClientService) Track(ctx context.Context, user UserData, event DVCEvent) (bool, error) {
+func (a *DVCClientService) Track(ctx context.Context, user DVCUser, event DVCEvent) (bool, error) {
 	if a.client.DevCycleOptions.DisableCustomEventLogging {
 		return true, nil
 	}

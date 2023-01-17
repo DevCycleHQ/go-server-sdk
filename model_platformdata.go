@@ -14,7 +14,7 @@ type PlatformData struct {
 	Hostname        string `json:"hostname"`
 }
 
-func (pd *PlatformData) FromUser(user UserData) PlatformData {
+func (pd *PlatformData) FromUser(user DVCUser) PlatformData {
 	pd.Platform = user.Platform
 	pd.SdkType = user.SdkType
 	pd.SdkVersion = user.SdkVersion
