@@ -22,7 +22,7 @@ type DVCEvent struct {
 }
 
 type UserEventsBatchRecord struct {
-	User   UserData   `json:"user"`
+	User   DVCUser    `json:"user"`
 	Events []DVCEvent `json:"events"`
 }
 

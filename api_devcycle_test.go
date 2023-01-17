@@ -21,7 +21,7 @@ func TestDVCClientService_AllFeatures_Local(t *testing.T) {
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{}, lb)
 
 	features, err := c.DevCycleApi.AllFeatures(auth,
-		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"})
+		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"})
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -41,7 +41,7 @@ func TestDVCClientService_AllVariablesLocal(t *testing.T) {
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{}, lb)
 
 	variables, err := c.DevCycleApi.AllVariables(auth,
-		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"})
+		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"})
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -60,7 +60,7 @@ func TestDVCClientService_VariableCloud(t *testing.T) {
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second}, nil)
 
 	variable, err := c.DevCycleApi.Variable(auth,
-		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
+		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
 		"test", true)
 	if err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestDVCClientService_VariableLocal(t *testing.T) {
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{}, lb)
 
 	variable, err := c.DevCycleApi.Variable(auth,
-		UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
+		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
 		"test", true)
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +116,7 @@ func TestDVCClientService_TrackLocal_QueueEvent(t *testing.T) {
 
 	c, err := NewDVCClient(test_environmentKey, &dvcOptions, lb)
 
-	track, err := c.DevCycleApi.Track(auth, UserData{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"}, DVCEvent{
+	track, err := c.DevCycleApi.Track(auth, DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"}, DVCEvent{
 		Target:      "customEvent",
 		Value:       0,
 		FeatureVars: nil,
@@ -130,7 +130,7 @@ func TestDVCClientService_TrackLocal_QueueEvent(t *testing.T) {
 
 func TestProduction_Local(t *testing.T) {
 	environmentKey := os.Getenv("DVC_SERVER_KEY")
-	user := UserData{UserId: "test"}
+	user := DVCUser{UserId: "test"}
 	auth := context.WithValue(context.Background(), ContextAPIKey, APIKey{
 		Key: environmentKey,
 	})

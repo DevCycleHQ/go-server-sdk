@@ -10,7 +10,7 @@ package devcycle
 
 import "time"
 
-type UserData struct {
+type DVCUser struct {
 	// Unique id to identify the user
 	UserId string `json:"user_id"`
 	// User's email used to identify the user on the dashboard / target audiences
@@ -46,6 +46,6 @@ type UserData struct {
 }
 
 type UserFeatureData struct {
-	User        UserData `json:"user"`
+	User        DVCUser `json:"user"`
 	FeatureVars map[string]string
 }
