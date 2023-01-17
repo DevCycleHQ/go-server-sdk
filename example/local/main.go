@@ -26,11 +26,7 @@ func main() {
 		DisableCustomEventLogging:    false,
 	}
 
-	lb, err := devcycle.InitializeLocalBucketing(environmentKey, &dvcOptions)
-	if err != nil {
-		log.Fatal(err)
-	}
-	client, _ := devcycle.NewDVCClient(environmentKey, &dvcOptions, lb)
+	client, _ := devcycle.NewDVCClient(environmentKey, &dvcOptions)
 
 	features, _ := client.DevCycleApi.AllFeatures(auth, user)
 	for key, feature := range features {

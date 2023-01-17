@@ -62,14 +62,7 @@ type service struct {
 	client *DVCClient
 }
 
-func InitializeLocalBucketing(environmentKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
-	if environmentKey == "" {
-		return nil, fmt.Errorf("Missing environment key! Call InitializeLocalBucketing with a valid environment key.")
-	}
-	if !environmentKeyIsValid(environmentKey) {
-		return nil, fmt.Errorf("Invalid environment key. Call InitializeLocalBucketing with a valid environment key.")
-	}
-
+func initializeLocalBucketing(environmentKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
 	cfg := NewConfiguration(options)
 
 	options.CheckDefaults()
@@ -84,11 +77,11 @@ func InitializeLocalBucketing(environmentKey string, options *DVCOptions) (ret *
 
 // NewDVCClient creates a new API client.
 // optionally pass a custom http.Client to allow for advanced features such as caching.
-func NewDVCClient(environmentKey string, options *DVCOptions, localBucketing *DevCycleLocalBucketing) (*DVCClient, error) {
-	if options.EnableCloudBucketing && environmentKey == "" {
+func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error) {
+	if environmentKey == "" {
 		return nil, fmt.Errorf("Missing environment key! Call NewDVCClient with a valid environment key.")
 	}
-	if options.EnableCloudBucketing && !environmentKeyIsValid(environmentKey) {
+	if !environmentKeyIsValid(environmentKey) {
 		return nil, fmt.Errorf("Invalid environment key. Call NewDVCClient with a valid environment key.")
 	}
 	cfg := NewConfiguration(options)
@@ -104,8 +97,10 @@ func NewDVCClient(environmentKey string, options *DVCOptions, localBucketing *De
 	c.DevCycleOptions = options
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
-		if localBucketing == nil {
-			return nil, fmt.Errorf("localBucketing cannot be nil when Local bucketing is enabled")
+		localBucketing, err := initializeLocalBucketing(environmentKey, options)
+
+		if err != nil {
+			return nil, err
 		}
 		c.localBucketing = localBucketing
 		c.configManager = c.localBucketing.configManager
