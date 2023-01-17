@@ -59,7 +59,7 @@ type DVCOptions struct {
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging,omitempty"`
 	MaxEventQueueSize            int           `json:"maxEventsPerFlush,omitempty"`
 	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
-	ConfigCDNOverride            string
+	ConfigCDNURI                 string
 	EventsAPIOverride            string
 }
 
@@ -94,8 +94,8 @@ type HTTPConfiguration struct {
 
 func NewConfiguration(options *DVCOptions) *HTTPConfiguration {
 	configBasePath := "https://config-cdn.devcycle.com"
-	if options.ConfigCDNOverride != "" {
-		configBasePath = options.ConfigCDNOverride
+	if options.ConfigCDNURI != "" {
+		configBasePath = options.ConfigCDNURI
 	}
 
 	eventsApiBasePath := "https://events.devcycle.com"
