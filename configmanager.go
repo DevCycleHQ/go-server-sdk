@@ -124,3 +124,7 @@ func (e *EnvironmentConfigManager) getConfigURL() string {
 	}
 	return fmt.Sprintf("https://config-cdn.devcycle.com/config/v1/server/%s.json", e.environmentKey)
 }
+
+func (e *EnvironmentConfigManager) Close() {
+	pollingStop <- true
+}
