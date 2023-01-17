@@ -19,17 +19,15 @@ type EnvironmentConfigManager struct {
 	context        context.Context
 	cancel         context.CancelFunc
 	httpClient     *http.Client
-	httpConfig     *HTTPConfiguration
-	options        *DVCOptions
 }
 
-func (e *EnvironmentConfigManager) Initialize(environmentKey string, options *DVCOptions) (err error) {
-	e.options = options
+func (e *EnvironmentConfigManager) Initialize(environmentKey string, localBucketing *DevCycleLocalBucketing) (err error) {
+	e.localBucketing = localBucketing
 	e.environmentKey = environmentKey
-	e.httpClient = &http.Client{Timeout: options.RequestTimeout}
+	e.httpClient = &http.Client{Timeout: localBucketing.options.RequestTimeout}
 	e.context, e.cancel = context.WithCancel(context.Background())
 
-	ticker := time.NewTicker(options.PollingInterval)
+	ticker := time.NewTicker(localBucketing.options.PollingInterval)
 	e.firstLoad = true
 
 	err = e.fetchConfig()
@@ -119,10 +117,8 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 }
 
 func (e *EnvironmentConfigManager) getConfigURL() string {
-	configBasePath := "https://config-cdn.devcycle.com"
-	if e.options.ConfigCDNOverride != "" {
-		configBasePath = e.options.ConfigCDNOverride
-	}
+	configBasePath := e.localBucketing.cfg.ConfigCDNBasePath
+
 	return fmt.Sprintf("%s/config/v1/server/%s.json", configBasePath, e.environmentKey)
 }
 

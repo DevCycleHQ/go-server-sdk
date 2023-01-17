@@ -63,9 +63,11 @@ type service struct {
 }
 
 func InitializeLocalBucketing(environmentKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
+	cfg := NewConfiguration(options)
+
 	options.CheckDefaults()
 	ret = &DevCycleLocalBucketing{}
-	err = ret.Initialize(environmentKey, options)
+	err = ret.Initialize(environmentKey, options, cfg)
 	if err != nil {
 		log.Println(err)
 		return nil, err
@@ -77,9 +79,6 @@ func InitializeLocalBucketing(environmentKey string, options *DVCOptions) (ret *
 // optionally pass a custom http.Client to allow for advanced features such as caching.
 func NewDVCClient(environmentKey string, options *DVCOptions, localBucketing *DevCycleLocalBucketing) (*DVCClient, error) {
 	cfg := NewConfiguration(options)
-	if cfg.HTTPClient == nil {
-		cfg.HTTPClient = http.DefaultClient
-	}
 
 	options.CheckDefaults()
 

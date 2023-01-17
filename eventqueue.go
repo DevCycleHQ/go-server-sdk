@@ -38,7 +38,7 @@ type EventQueueOptions struct {
 
 func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing) error {
 	e.context = context.Background()
-	e.httpClient = http.DefaultClient
+	e.httpClient = localBucketing.cfg.HTTPClient
 	e.options = options
 	if !e.options.EnableCloudBucketing && localBucketing != nil {
 		e.localBucketing = localBucketing
@@ -127,7 +127,7 @@ func (e *EventQueue) checkEventQueueSize() (bool, error) {
 }
 
 func (e *EventQueue) FlushEvents() (err error) {
-	eventsHost := e.options.EventsAPIOverride
+	eventsHost := e.localBucketing.cfg.EventsAPIBasePath
 	e.localBucketing.startFlushEvents()
 	defer e.localBucketing.finishFlushEvents()
 	events, err := e.localBucketing.flushEventQueue()
