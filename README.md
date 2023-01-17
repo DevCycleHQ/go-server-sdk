@@ -32,11 +32,7 @@ import "github.com/devcyclehq/go-server-sdk"
 		DisableCustomEventLogging:    false,
 	}
 
-	lb, err := devcycle.InitializeLocalBucketing(environmentKey, &dvcOptions)
-	if err != nil {
-		log.Fatal(err)
-	}
-	client, _ := devcycle.NewDVCClient(environmentKey, &dvcOptions, lb)
+	client, _ := devcycle.NewDVCClient(environmentKey, &dvcOptions)
 ```
 
 ## Usage

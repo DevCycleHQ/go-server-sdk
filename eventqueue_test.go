@@ -14,8 +14,7 @@ func TestEventQueue_QueueEvent(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
-	lb, err := InitializeLocalBucketing("dvc_server_token_hash", &DVCOptions{})
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{}, lb)
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 
 	_, err = c.DevCycleApi.Track(context.Background(), DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
 		DVCEvent{Target: "customevent"})
@@ -30,9 +29,7 @@ func TestEventQueue_QueueEvent_100_DropEvent(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
-	lb, err := InitializeLocalBucketing("dvc_server_token_hash", &DVCOptions{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
-
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{MaxEventQueueSize: 100, FlushEventQueueSize: 10}, lb)
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
 
 	errored := false
 	for i := 0; i < 1000; i++ {
@@ -56,9 +53,7 @@ func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	httpEventsApiMock()
-	lb, err := InitializeLocalBucketing("dvc_server_token_hash", &DVCOptions{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
-
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{MaxEventQueueSize: 100, FlushEventQueueSize: 10}, lb)
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
 
 	for i := 0; i < 101; i++ {
 		log.Println(i)
