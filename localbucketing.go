@@ -3,13 +3,14 @@ package devcycle
 import (
 	_ "embed"
 	"encoding/json"
-	"github.com/bytecodealliance/wasmtime-go/v3"
 	"log"
 	"math/rand"
 	"sync"
 	"time"
 	"unicode/utf16"
 	"unsafe"
+
+	"github.com/bytecodealliance/wasmtime-go/v3"
 )
 
 type DevCycleLocalBucketing struct {
@@ -24,6 +25,7 @@ type DevCycleLocalBucketing struct {
 	eventQueue    *EventQueue
 	sdkKey        string
 	options       *DVCOptions
+	cfg           *HTTPConfiguration
 	wasmMutex     sync.Mutex
 	flushMutex    sync.Mutex
 }
@@ -35,10 +37,11 @@ func (d *DevCycleLocalBucketing) SetSDKToken(token string) {
 	d.sdkKey = token
 }
 
-func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions) (err error) {
+func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions, cfg *HTTPConfiguration) (err error) {
 	options.CheckDefaults()
 	d.sdkKey = sdkToken
 	d.options = options
+	d.cfg = cfg
 	d.wasm = wasmBinary
 	d.eventQueue = &EventQueue{}
 	d.wasiConfig = wasmtime.NewWasiConfig()
@@ -111,7 +114,7 @@ func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions
 		return err
 	}
 
-	err = d.configManager.Initialize(sdkToken, d.options)
+	err = d.configManager.Initialize(sdkToken, d)
 	return err
 }
 
