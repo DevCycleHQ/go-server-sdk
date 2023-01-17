@@ -10,6 +10,32 @@ import (
 	"time"
 )
 
+var flushStop = make(chan bool, 1)
+
+type EventQueue struct {
+	localBucketing    *DevCycleLocalBucketing
+	options           *DVCOptions
+	eventQueueOptions *EventQueueOptions
+	httpClient        *http.Client
+	context           context.Context
+	closed            bool
+	ticker            *time.Ticker
+}
+
+func (e *EventQueue) eventQueueOptionsFromDVCOptions(options *DVCOptions) *EventQueueOptions {
+	return &EventQueueOptions{
+		FlushEventsInterval:          options.EventsFlushInterval,
+		DisableAutomaticEventLogging: options.DisableAutomaticEventLogging,
+		DisableCustomEventLogging:    options.DisableCustomEventLogging,
+	}
+}
+
+type EventQueueOptions struct {
+	FlushEventsInterval          time.Duration `json:"flushEventsMS"`
+	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging"`
+	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging"`
+}
+
 func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing) error {
 	e.context = context.Background()
 	e.httpClient = http.DefaultClient
@@ -26,6 +52,7 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 		go func(ctx context.Context) {
 			for {
 				select {
+				case <-flushStop:
 				case <-ctx.Done():
 					ticker.Stop()
 					log.Println("Stopping event flushing.")
@@ -44,6 +71,10 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 }
 
 func (e *EventQueue) QueueEvent(user UserData, event DVCEvent) error {
+	if e.closed {
+		log.Println("DevCycle client was closed, no more events can be tracked.")
+		return fmt.Errorf("DevCycle client was closed, no more events can be tracked.")
+	}
 	if q, err := e.checkEventQueueSize(); err != nil || q {
 		fmt.Println(err)
 		log.Println("Max event queue size reached, dropping event")
@@ -137,5 +168,12 @@ func (e *EventQueue) FlushEvents() (err error) {
 			log.Printf("Flushed %d events\n", event.EventCount)
 		}
 	}
+	return err
+}
+
+func (e *EventQueue) Close() (err error) {
+	flushStop <- true
+	e.closed = true
+	err = e.FlushEvents()
 	return err
 }

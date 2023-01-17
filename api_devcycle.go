@@ -639,3 +639,16 @@ func (a *DVCClientService) FlushEvents() error {
 	err := a.client.eventQueue.FlushEvents()
 	return err
 }
+
+/*
+Close the client and flush any pending events. Stop any ongoing tickers
+*/
+func (a *DVCClientService) Close() (err error) {
+	if a.client.DevCycleOptions.DisableLocalBucketing {
+		return
+	}
+
+	err = a.client.eventQueue.Close()
+	a.client.configManager.Close()
+	return err
+}

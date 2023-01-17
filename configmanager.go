@@ -125,3 +125,7 @@ func (e *EnvironmentConfigManager) getConfigURL() string {
 	}
 	return fmt.Sprintf("%s/config/v1/server/%s.json", configBasePath, e.environmentKey)
 }
+
+func (e *EnvironmentConfigManager) Close() {
+	pollingStop <- true
+}
