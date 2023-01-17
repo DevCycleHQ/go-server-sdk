@@ -119,8 +119,9 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 }
 
 func (e *EnvironmentConfigManager) getConfigURL() string {
+	configBasePath := "https://config-cdn.devcycle.com"
 	if e.options.ConfigCDNOverride != "" {
-		return e.options.ConfigCDNOverride
+		configBasePath = e.options.ConfigCDNOverride
 	}
-	return fmt.Sprintf("https://config-cdn.devcycle.com/config/v1/server/%s.json", e.environmentKey)
+	return fmt.Sprintf("%s/config/v1/server/%s.json", configBasePath, e.environmentKey)
 }
