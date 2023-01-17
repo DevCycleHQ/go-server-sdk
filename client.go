@@ -91,7 +91,7 @@ func NewDVCClient(environmentKey string, options *DVCOptions, localBucketing *De
 
 	c.DevCycleOptions = options
 
-	if !c.DevCycleOptions.DisableLocalBucketing {
+	if !c.DevCycleOptions.EnableCloudBucketing {
 		if localBucketing == nil {
 			return nil, fmt.Errorf("localBucketing cannot be nil when Local bucketing is enabled")
 		}
