@@ -17,7 +17,7 @@ func TestEventQueue_QueueEvent(t *testing.T) {
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 
 	_, err = c.DevCycleApi.Track(context.Background(), DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
-		DVCEvent{Target: "customevent"})
+		DVCEvent{Target: "customevent", Type_: "event"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
 	for i := 0; i < 101; i++ {
 		log.Println(i)
 		_, err = c.DevCycleApi.Track(context.Background(), DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
-			DVCEvent{Target: "customevent"})
+			DVCEvent{Target: "customevent", Type_: "event"})
 		if err != nil {
 			log.Println(err)
 			break
