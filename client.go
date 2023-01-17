@@ -63,6 +63,13 @@ type service struct {
 }
 
 func InitializeLocalBucketing(environmentKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
+	if environmentKey == "" {
+		return nil, fmt.Errorf("Missing environment key! Call InitializeLocalBucketing with a valid environment key.")
+	}
+	if !environmentKeyIsValid(environmentKey) {
+		return nil, fmt.Errorf("Invalid environment key. Call InitializeLocalBucketing with a valid environment key.")
+	}
+
 	cfg := NewConfiguration(options)
 
 	options.CheckDefaults()
@@ -78,6 +85,12 @@ func InitializeLocalBucketing(environmentKey string, options *DVCOptions) (ret *
 // NewDVCClient creates a new API client.
 // optionally pass a custom http.Client to allow for advanced features such as caching.
 func NewDVCClient(environmentKey string, options *DVCOptions, localBucketing *DevCycleLocalBucketing) (*DVCClient, error) {
+	if options.EnableCloudBucketing && environmentKey == "" {
+		return nil, fmt.Errorf("Missing environment key! Call NewDVCClient with a valid environment key.")
+	}
+	if options.EnableCloudBucketing && !environmentKeyIsValid(environmentKey) {
+		return nil, fmt.Errorf("Invalid environment key. Call NewDVCClient with a valid environment key.")
+	}
 	cfg := NewConfiguration(options)
 
 	options.CheckDefaults()
@@ -507,4 +520,8 @@ func (e GenericSwaggerError) Body() []byte {
 // Model returns the unpacked model of the error
 func (e GenericSwaggerError) Model() interface{} {
 	return e.model
+}
+
+func environmentKeyIsValid(key string) bool {
+	return strings.HasPrefix(key, "server") || strings.HasPrefix(key, "dvc_server")
 }
