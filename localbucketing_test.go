@@ -3,9 +3,10 @@ package devcycle
 import (
 	_ "embed"
 	"fmt"
-	"github.com/jarcoal/httpmock"
 	"testing"
 	"time"
+
+	"github.com/jarcoal/httpmock"
 )
 
 func TestDevCycleLocalBucketing_Initialize(t *testing.T) {
@@ -181,7 +182,7 @@ func TestEnvironmentConfigManager_Initialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = localBucketing.configManager.Initialize(test_environmentKey, &DVCOptions{PollingInterval: 500 * time.Millisecond})
+	err = localBucketing.configManager.Initialize(test_environmentKey, &DVCOptions{ConfigPollingIntervalMS: 500 * time.Millisecond})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +211,7 @@ func TestEnvironmentConfigManager_LocalBucketing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = localBucketing.configManager.Initialize(test_environmentKey, &DVCOptions{PollingInterval: 30 * time.Second})
+	err = localBucketing.configManager.Initialize(test_environmentKey, &DVCOptions{ConfigPollingIntervalMS: 30 * time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}
