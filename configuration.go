@@ -60,7 +60,7 @@ type DVCOptions struct {
 	MaxEventQueueSize            int           `json:"maxEventsPerFlush,omitempty"`
 	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
 	ConfigCDNURI                 string
-	EventsAPIOverride            string
+	EventsAPIURI                 string
 }
 
 func (o *DVCOptions) CheckDefaults() {
@@ -99,8 +99,8 @@ func NewConfiguration(options *DVCOptions) *HTTPConfiguration {
 	}
 
 	eventsApiBasePath := "https://events.devcycle.com"
-	if options.EventsAPIOverride != "" {
-		eventsApiBasePath = options.EventsAPIOverride
+	if options.EventsAPIURI != "" {
+		eventsApiBasePath = options.EventsAPIURI
 	}
 
 	cfg := &HTTPConfiguration{
