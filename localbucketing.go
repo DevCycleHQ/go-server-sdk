@@ -218,7 +218,7 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, user Bucketed
 		return
 	}
 
-	variationMap, err := json.Marshal(user.FeatureVariationMap)
+	variationMap, err := json.Marshal(user.VariableVariationMap)
 	if err != nil {
 		return
 	}

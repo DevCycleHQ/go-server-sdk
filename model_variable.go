@@ -16,6 +16,10 @@ type Variable struct {
 	IsDefaulted bool `json:"isDefaulted,omitempty"`
 }
 
+type FeatureVariation struct {
+	Feature   string `json:"_feature"`
+	Variation string `json:"_variation"`
+}
 
 type ReadOnlyVariable struct {
 	// unique database id
