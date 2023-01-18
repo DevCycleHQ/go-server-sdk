@@ -275,7 +275,8 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal([]byte(readAssemblyScriptString(configPtr.(int32), d.wasmMemory, d.wasmStore)), &ret)
+	rawConfig := readAssemblyScriptString(configPtr.(int32), d.wasmMemory, d.wasmStore)
+	err = json.Unmarshal([]byte(rawConfig), &ret)
 	if err != nil {
 		return
 	}

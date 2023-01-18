@@ -107,18 +107,23 @@ DVCClientService Get variable by key for user data
 @return Variable
 */
 func (a *DVCClientService) Variable(ctx context.Context, userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
-	readOnlyVariable := ReadOnlyVariable{Key: key, Value: convertDefaultValueType(defaultValue)}
-	variable := Variable{ReadOnlyVariable: readOnlyVariable, DefaultValue: defaultValue, IsDefaulted: true}
+	convertedDefaultValue := convertDefaultValueType(defaultValue)
+	readOnlyVariable := ReadOnlyVariable{Key: key, Value: convertedDefaultValue}
+	variable := Variable{ReadOnlyVariable: readOnlyVariable, DefaultValue: convertDefaultValueType, IsDefaulted: true}
 
 	if !a.client.DevCycleOptions.EnableCloudBucketing {
 		bucketed, err := a.generateBucketedConfig(userdata)
 
+		sameTypeAsDefault := compareTypes(bucketed.Variables[key].Value, convertedDefaultValue)
 		variableEvaluationType := ""
-		if bucketed.Variables[key].Value != nil && compareTypes(bucketed.Variables[key].Value, readOnlyVariable.Value) {
+		if bucketed.Variables[key].Value != nil && sameTypeAsDefault {
 			variable.Value = bucketed.Variables[key].Value
 			variable.IsDefaulted = false
 			variableEvaluationType = EventType_AggVariableEvaluated
 		} else {
+			if !sameTypeAsDefault {
+				log.Println("Type of Variable does not match DevCycle configuration. Using default value")
+			}
 			variableEvaluationType = EventType_AggVariableDefaulted
 		}
 		if !a.client.DevCycleOptions.DisableAutomaticEventLogging {
