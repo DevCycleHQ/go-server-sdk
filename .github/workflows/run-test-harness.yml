@@ -1,10 +1,10 @@
 name: Run Test Harness
+
 on:
-  [push]
-  # pull_request:
-  #   branches: [main]
-    # paths:
-    #   - "**.go"
+  pull_request:
+    branches: [main]
+    paths:
+      - "**.go"
 
 jobs:
   harness-tests:

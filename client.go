@@ -109,8 +109,6 @@ func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error
 	return c, nil
 }
 
-// this is a change
-
 // selectHeaderContentType select a content type from the available list.
 func selectHeaderContentType(contentTypes []string) string {
 	if len(contentTypes) == 0 {
