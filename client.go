@@ -74,7 +74,7 @@ func setLBClient(environmentKey string, options *DVCOptions, c *DVCClient) (*DVC
 	c.localBucketing = localBucketing
 	c.configManager = c.localBucketing.configManager
 	c.eventQueue = c.localBucketing.eventQueue
-	c.isInitialized = true
+	c.isInitialized = c.configManager.HasConfig()
 	if options.OnInitializedChannel != nil {
 		options.OnInitializedChannel <- true
 		close(options.OnInitializedChannel)
