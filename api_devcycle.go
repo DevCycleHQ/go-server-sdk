@@ -83,7 +83,7 @@ func (a *DVCClientService) AllFeatures(body DVCUser) (map[string]Feature, error)
 
 	if r.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, rBody, r.Header.Get("Content-Type"))
+		err = decode(&localVarReturnValue, rBody, r.Header.Get("Content-Type"))
 		return localVarReturnValue, err
 	}
 
@@ -164,14 +164,14 @@ func (a *DVCClientService) Variable(userdata DVCUser, key string, defaultValue i
 
 	if r.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, body, r.Header.Get("Content-Type"))
+		err = decode(&localVarReturnValue, body, r.Header.Get("Content-Type"))
 		if err == nil {
 			return localVarReturnValue, err
 		}
 	}
 
 	var v ErrorResponse
-	err = a.client.decode(&v, body, r.Header.Get("Content-Type"))
+	err = decode(&v, body, r.Header.Get("Content-Type"))
 	if err != nil {
 		log.Println(err.Error())
 		return variable, nil
@@ -216,7 +216,7 @@ func (a *DVCClientService) AllVariables(body DVCUser) (map[string]ReadOnlyVariab
 
 	if r.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, rBody, r.Header.Get("Content-Type"))
+		err = decode(&localVarReturnValue, rBody, r.Header.Get("Content-Type"))
 		return localVarReturnValue, err
 	}
 
@@ -271,7 +271,7 @@ func (a *DVCClientService) Track(user DVCUser, event DVCEvent) (bool, error) {
 
 	if r.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(nil, rBody, r.Header.Get("Content-Type"))
+		err = decode(nil, rBody, r.Header.Get("Content-Type"))
 		if err == nil {
 			return false, err
 		} else {
@@ -347,13 +347,13 @@ func (a *DVCClientService) performRequest(
 }
 
 func (a *DVCClientService) handleError(r *http.Response, body []byte) (err error) {
-	newErr := GenericSwaggerError{
+	newErr := GenericError{
 		body:  body,
 		error: r.Status,
 	}
 
 	var v ErrorResponse
-	err = a.client.decode(&v, body, r.Header.Get("Content-Type"))
+	err = decode(&v, body, r.Header.Get("Content-Type"))
 	if err != nil {
 		newErr.error = err.Error()
 		return newErr
