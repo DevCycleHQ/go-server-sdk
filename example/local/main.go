@@ -15,7 +15,7 @@ func main() {
 	auth := context.WithValue(context.Background(), devcycle.ContextAPIKey, devcycle.APIKey{
 		Key: environmentKey,
 	})
-
+	onInitialized := make(chan bool)
 	dvcOptions := devcycle.DVCOptions{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         false,
@@ -24,6 +24,7 @@ func main() {
 		RequestTimeout:               10 * time.Second,
 		DisableAutomaticEventLogging: false,
 		DisableCustomEventLogging:    false,
+		OnInitializedChannel:         onInitialized,
 	}
 
 	client, _ := devcycle.NewDVCClient(environmentKey, &dvcOptions)
@@ -32,6 +33,9 @@ func main() {
 	for key, feature := range features {
 		log.Printf("Key:%s, feature:%s", key, feature)
 	}
+
+	<-onInitialized
+	log.Printf("client initialized")
 
 	variables, _ := client.DevCycleApi.AllVariables(auth, user)
 	for key, variable := range variables {

@@ -9,8 +9,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strings"
 	"reflect"
+	"strings"
 )
 
 var (
@@ -52,8 +52,14 @@ DVCClientService Get all features by key for user data
 func (a *DVCClientService) AllFeatures(ctx context.Context, body DVCUser) (map[string]Feature, error) {
 
 	if !a.client.DevCycleOptions.EnableCloudBucketing {
-		user, err := a.generateBucketedConfig(body)
-		return user.Features, err
+		if a.client.isInitialized {
+			user, err := a.generateBucketedConfig(body)
+			return user.Features, err
+		} else {
+			log.Println("AllFeatures called before client initialized")
+			return map[string]Feature{}, nil
+		}
+
 	}
 	var (
 		httpMethod          = strings.ToUpper("Post")
@@ -112,6 +118,10 @@ func (a *DVCClientService) Variable(ctx context.Context, userdata DVCUser, key s
 	variable := Variable{ReadOnlyVariable: readOnlyVariable, DefaultValue: convertDefaultValueType, IsDefaulted: true}
 
 	if !a.client.DevCycleOptions.EnableCloudBucketing {
+		if !a.client.isInitialized {
+			log.Println("Variable called before client initialized, returning default value")
+			return variable, nil
+		}
 		bucketed, err := a.generateBucketedConfig(userdata)
 
 		sameTypeAsDefault := compareTypes(bucketed.Variables[key].Value, convertedDefaultValue)
@@ -121,7 +131,7 @@ func (a *DVCClientService) Variable(ctx context.Context, userdata DVCUser, key s
 			variable.IsDefaulted = false
 			variableEvaluationType = EventType_AggVariableEvaluated
 		} else {
-			if !sameTypeAsDefault {
+			if !sameTypeAsDefault && bucketed.Variables[key].Value != nil {
 				log.Printf("Type mismatch for variable %s. Expected type %s, got %s", key, reflect.TypeOf(defaultValue).String(), reflect.TypeOf(bucketed.Variables[key].Value).String())
 			}
 			variableEvaluationType = EventType_AggVariableDefaulted
@@ -187,11 +197,16 @@ func (a *DVCClientService) AllVariables(ctx context.Context, body DVCUser) (map[
 		localVarReturnValue map[string]ReadOnlyVariable
 	)
 	if !a.client.DevCycleOptions.EnableCloudBucketing {
-		user, err := a.generateBucketedConfig(body)
-		if err != nil {
-			return localVarReturnValue, err
+		if a.client.isInitialized {
+			user, err := a.generateBucketedConfig(body)
+			if err != nil {
+				return localVarReturnValue, err
+			}
+			return user.Variables, err
+		} else {
+			log.Println("AllFeatures called before client initialized")
+			return map[string]ReadOnlyVariable{}, nil
 		}
-		return user.Variables, err
 	}
 
 	// create path and map variables
@@ -234,10 +249,14 @@ func (a *DVCClientService) Track(ctx context.Context, user DVCUser, event DVCEve
 	}
 
 	if !a.client.DevCycleOptions.EnableCloudBucketing {
-		err := a.client.eventQueue.QueueEvent(user, event)
-		return err == nil, err
+		if a.client.isInitialized {
+			err := a.client.eventQueue.QueueEvent(user, event)
+			return err == nil, err
+		} else {
+			log.Println("Track called before client initialized")
+			return true, nil
+		}
 	}
-
 	var (
 		httpMethod = strings.ToUpper("Post")
 		postBody   interface{}
@@ -274,7 +293,7 @@ func (a *DVCClientService) Track(ctx context.Context, user DVCUser, event DVCEve
 
 func (a *DVCClientService) FlushEvents() error {
 
-	if a.client.DevCycleOptions.EnableCloudBucketing {
+	if a.client.DevCycleOptions.EnableCloudBucketing || !a.client.isInitialized {
 		return nil
 	}
 
@@ -290,7 +309,7 @@ func (a *DVCClientService) FlushEvents() error {
 Close the client and flush any pending events. Stop any ongoing tickers
 */
 func (a *DVCClientService) Close() (err error) {
-	if a.client.DevCycleOptions.EnableCloudBucketing {
+	if a.client.DevCycleOptions.EnableCloudBucketing || !a.client.isInitialized {
 		return
 	}
 

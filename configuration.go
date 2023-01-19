@@ -62,6 +62,7 @@ type DVCOptions struct {
 	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
 	ConfigCDNURI                 string
 	EventsAPIURI                 string
+	OnInitializedChannel         chan bool
 	BucketingAPIURI              string
 }
 
