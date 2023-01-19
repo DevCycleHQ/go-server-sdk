@@ -25,6 +25,6 @@ _testmain.go
 
 .idea/*
 .DS_STORE
-
+.vscode/*
 
 *.wat
