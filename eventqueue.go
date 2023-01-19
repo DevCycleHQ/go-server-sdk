@@ -49,11 +49,10 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 		err = e.localBucketing.initEventQueue(string(str))
 		ticker := time.NewTicker(e.options.EventFlushIntervalMS)
 
-		go func(ctx context.Context) {
+		go func() {
 			for {
 				select {
 				case <-flushStop:
-				case <-ctx.Done():
 					ticker.Stop()
 					log.Println("Stopping event flushing.")
 					return
@@ -64,7 +63,7 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 					}
 				}
 			}
-		}(e.context)
+		}()
 		return err
 	}
 	return nil

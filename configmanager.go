@@ -35,13 +35,12 @@ func (e *EnvironmentConfigManager) Initialize(environmentKey string, localBucket
 		return err
 	}
 
-	go func(ctx context.Context) {
+	go func() {
 		for {
 			select {
 			case <-pollingStop:
-			case <-ctx.Done():
+				log.Printf("Stopping config polling.")
 				ticker.Stop()
-				log.Println("Stopping config polling.")
 				return
 			case <-ticker.C:
 				err = e.fetchConfig()
@@ -50,7 +49,8 @@ func (e *EnvironmentConfigManager) Initialize(environmentKey string, localBucket
 				}
 			}
 		}
-	}(e.context)
+	}()
+
 	return nil
 }
 
