@@ -115,7 +115,7 @@ DVCClientService Get variable by key for user data
 func (a *DVCClientService) Variable(ctx context.Context, userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
 	convertedDefaultValue := convertDefaultValueType(defaultValue)
 	readOnlyVariable := ReadOnlyVariable{Key: key, Value: convertedDefaultValue}
-	variable := Variable{ReadOnlyVariable: readOnlyVariable, DefaultValue: convertDefaultValueType, IsDefaulted: true}
+	variable := Variable{ReadOnlyVariable: readOnlyVariable, DefaultValue: convertedDefaultValue, IsDefaulted: true}
 
 	if !a.client.DevCycleOptions.EnableCloudBucketing {
 		if !a.client.isInitialized {
