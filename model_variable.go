@@ -8,21 +8,29 @@
  */
 package devcycle
 
-type Variable struct {
-	ReadOnlyVariable
-	// Default variable value can be a string, number, boolean, or JSON
-	DefaultValue interface{} `json:"defaultValue"`
-	// Identifies if variable was returned with the default value
-	IsDefaulted bool `json:"isDefaulted,omitempty"`
-}
-
-type ReadOnlyVariable struct {
-	// unique database id
-	Id string `json:"_id"`
+type baseVariable struct {
 	// Unique key by Project, can be used in the SDK / API to reference by 'key' rather than _id.
 	Key string `json:"key"`
 	// Variable type
 	Type_ string `json:"type"`
 	// Variable value can be a string, number, boolean, or JSON
 	Value interface{} `json:"value"`
+}
+
+type Variable struct {
+	baseVariable
+	// Default variable value can be a string, number, boolean, or JSON
+	DefaultValue interface{} `json:"defaultValue"`
+	// Identifies if variable was returned with the default value
+	IsDefaulted bool `json:"isDefaulted"`
+}
+
+type readOnlyVariable struct {
+	ReadOnlyVariable
+}
+
+type ReadOnlyVariable struct {
+	baseVariable
+	// unique database id
+	Id string `json:"_id"`
 }

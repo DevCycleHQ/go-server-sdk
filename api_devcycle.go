@@ -112,8 +112,14 @@ DVCClientService Get variable by key for user data
 */
 func (a *DVCClientService) Variable(userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
 	convertedDefaultValue := convertDefaultValueType(defaultValue)
-	readOnlyVariable := ReadOnlyVariable{Key: key, Value: convertedDefaultValue}
-	variable := Variable{ReadOnlyVariable: readOnlyVariable, DefaultValue: convertedDefaultValue, IsDefaulted: true}
+	variableType, err := variableTypeFromValue(key, convertedDefaultValue)
+
+	if err != nil {
+		return Variable{}, err
+	}
+
+	baseVar := baseVariable{Key: key, Value: convertedDefaultValue, Type_: variableType}
+	variable := Variable{baseVariable: baseVar, DefaultValue: convertedDefaultValue, IsDefaulted: true}
 
 	if !a.client.DevCycleOptions.EnableCloudBucketing {
 		if !a.client.isInitialized {
@@ -415,4 +421,19 @@ func convertDefaultValueType(value interface{}) interface{} {
 	default:
 		return value
 	}
+}
+
+func variableTypeFromValue(key string, value interface{}) (varType string, err error) {
+	switch value.(type) {
+	case float64:
+		return "Number", nil
+	case string:
+		return "String", nil
+	case bool:
+		return "Boolean", nil
+	case map[string]any:
+		return "JSON", nil
+	}
+
+	return "", fmt.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
 }
