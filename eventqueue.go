@@ -129,17 +129,16 @@ func (e *EventQueue) FlushEvents() (err error) {
 	eventsHost := e.localBucketing.cfg.EventsAPIBasePath
 	e.localBucketing.startFlushEvents()
 	defer e.localBucketing.finishFlushEvents()
-	events, err := e.localBucketing.flushEventQueue()
+	payloads, err := e.localBucketing.flushEventQueue()
 	if err != nil {
 		return err
 	}
 
-	for _, event := range events {
+	for _, payload := range payloads {
 		var req *http.Request
 		var resp *http.Response
-		var body []byte
-		body, err = json.Marshal(event)
-		req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(body))
+		requestBody, err := json.Marshal(BatchEventsBody{Batch: payload.Records})
+		req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(requestBody))
 
 		req.Header.Set("Authorization", e.localBucketing.sdkKey)
 		req.Header.Set("Content-Type", "application/json")
@@ -148,7 +147,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 		resp, err = e.httpClient.Do(req)
 		if err != nil {
 			if resp != nil {
-				err = e.localBucketing.onPayloadFailure(event.PayloadId, resp.StatusCode >= 500 && resp.StatusCode < 600)
+				err = e.localBucketing.onPayloadFailure(payload.PayloadId, resp.StatusCode >= 500 && resp.StatusCode < 600)
 				if err != nil {
 					log.Println(err)
 					continue
@@ -159,12 +158,12 @@ func (e *EventQueue) FlushEvents() (err error) {
 		}
 
 		if resp.StatusCode == 201 {
-			err = e.localBucketing.onPayloadSuccess(event.PayloadId)
+			err = e.localBucketing.onPayloadSuccess(payload.PayloadId)
 			if err != nil {
 				log.Println(err)
 				continue
 			}
-			log.Printf("Flushed %d events\n", event.EventCount)
+			log.Printf("Flushed %d events\n", payload.EventCount)
 		}
 	}
 	return err
