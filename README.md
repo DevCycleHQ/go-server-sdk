@@ -18,9 +18,6 @@ import "github.com/devcyclehq/go-server-sdk"
 ```golang
     environmentKey := os.Getenv("DVC_SERVER_KEY")
 	user := devcycle.DVCUser{UserId: "test"}
-	auth := context.WithValue(context.Background(), devcycle.ContextAPIKey, devcycle.APIKey{
-		Key: environmentKey,
-	})
 
 	dvcOptions := devcycle.DVCOptions{
 		EnableEdgeDB:                 false,

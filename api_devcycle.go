@@ -74,21 +74,8 @@ func (a *DVCClientService) AllFeatures(body DVCUser) (map[string]Feature, error)
 
 	// body params
 	postBody = &body
-	if a.client.auth != nil {
-		// API Key Authentication
-		if auth, ok := a.client.auth.Value(ContextAPIKey).(APIKey); ok {
-			var key string
-			if auth.Prefix != "" {
-				key = auth.Prefix + " " + auth.Key
-			} else {
-				key = auth.Key
-			}
-			headers["Authorization"] = key
 
-		}
-	}
-
-	r, rBody, err := a.performRequest(a.client.auth, path, httpMethod, postBody, headers, queryParams)
+	r, rBody, err := a.performRequest(path, httpMethod, postBody, headers, queryParams)
 
 	if err != nil {
 		return nil, err
@@ -169,7 +156,7 @@ func (a *DVCClientService) Variable(userdata DVCUser, key string, defaultValue i
 	// userdata params
 	postBody = &userdata
 
-	r, body, err := a.performRequest(a.client.auth, path, httpMethod, postBody, headers, queryParams)
+	r, body, err := a.performRequest(path, httpMethod, postBody, headers, queryParams)
 
 	if err != nil {
 		return localVarReturnValue, err
@@ -222,7 +209,7 @@ func (a *DVCClientService) AllVariables(body DVCUser) (map[string]ReadOnlyVariab
 	// body params
 	postBody = &body
 
-	r, rBody, err := a.performRequest(a.client.auth, path, httpMethod, postBody, headers, queryParams)
+	r, rBody, err := a.performRequest(path, httpMethod, postBody, headers, queryParams)
 	if err != nil {
 		return localVarReturnValue, err
 	}
@@ -277,7 +264,7 @@ func (a *DVCClientService) Track(user DVCUser, event DVCEvent) (bool, error) {
 	// body params
 	postBody = &body
 
-	r, rBody, err := a.performRequest(a.client.auth, path, httpMethod, postBody, headers, queryParams)
+	r, rBody, err := a.performRequest(path, httpMethod, postBody, headers, queryParams)
 	if err != nil {
 		return false, err
 	}
@@ -323,7 +310,6 @@ func (a *DVCClientService) Close() (err error) {
 }
 
 func (a *DVCClientService) performRequest(
-	ctx context.Context,
 	path string, method string,
 	postBody interface{},
 	headerParams map[string]string,
@@ -331,23 +317,9 @@ func (a *DVCClientService) performRequest(
 ) (response *http.Response, body []byte, err error) {
 	headerParams["Content-Type"] = "application/json"
 	headerParams["Accept"] = "application/json"
-
-	if ctx != nil {
-		// API Key Authentication
-		if auth, ok := ctx.Value(ContextAPIKey).(APIKey); ok {
-			var key string
-			if auth.Prefix != "" {
-				key = auth.Prefix + " " + auth.Key
-			} else {
-				key = auth.Key
-			}
-			headerParams["Authorization"] = key
-
-		}
-	}
+	headerParams["Authorization"] = a.client.environmentKey
 
 	r, err := a.client.prepareRequest(
-		ctx,
 		path,
 		method,
 		postBody,
