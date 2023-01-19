@@ -19,6 +19,7 @@ type EnvironmentConfigManager struct {
 	context        context.Context
 	cancel         context.CancelFunc
 	httpClient     *http.Client
+	hasConfig      bool
 }
 
 func (e *EnvironmentConfigManager) Initialize(environmentKey string, localBucketing *DevCycleLocalBucketing) (err error) {
@@ -107,6 +108,7 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 	if err != nil {
 		return err
 	}
+	e.hasConfig = true
 	e.configETag = response.Header.Get("Etag")
 	log.Printf("Config set. ETag: %s\n", e.configETag)
 	if e.firstLoad {
@@ -120,6 +122,10 @@ func (e *EnvironmentConfigManager) getConfigURL() string {
 	configBasePath := e.localBucketing.cfg.ConfigCDNBasePath
 
 	return fmt.Sprintf("%s/config/v1/server/%s.json", configBasePath, e.environmentKey)
+}
+
+func (e *EnvironmentConfigManager) HasConfig() bool {
+	return e.hasConfig
 }
 
 func (e *EnvironmentConfigManager) Close() {
