@@ -122,7 +122,7 @@ func (a *DVCClientService) Variable(ctx context.Context, userdata DVCUser, key s
 			variableEvaluationType = EventType_AggVariableEvaluated
 		} else {
 			if !sameTypeAsDefault {
-				log.Println("Type of Variable does not match DevCycle configuration. Using default value")
+				log.Printf("Type mismatch for variable %s. Expected type %s, got %s", key, reflect.TypeOf(defaultValue).String(), reflect.TypeOf(bucketed.Variables[key].Value).String())
 			}
 			variableEvaluationType = EventType_AggVariableDefaulted
 		}
