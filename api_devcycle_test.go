@@ -1,7 +1,6 @@
 package devcycle
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -11,15 +10,12 @@ import (
 )
 
 func TestDVCClientService_AllFeatures_Local(t *testing.T) {
-	auth := context.WithValue(context.Background(), ContextAPIKey, APIKey{
-		Key: "dvc_server_token_hash",
-	})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 
-	features, err := c.DevCycleApi.AllFeatures(auth,
+	features, err := c.DevCycleApi.AllFeatures(
 		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"})
 	if err != nil {
 		t.Fatal(err)
@@ -30,15 +26,13 @@ func TestDVCClientService_AllFeatures_Local(t *testing.T) {
 
 }
 func TestDVCClientService_AllVariablesLocal(t *testing.T) {
-	auth := context.WithValue(context.Background(), ContextAPIKey, APIKey{
-		Key: "dvc_server_token_hash",
-	})
+
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 
-	variables, err := c.DevCycleApi.AllVariables(auth,
+	variables, err := c.DevCycleApi.AllVariables(
 		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"})
 	if err != nil {
 		t.Fatal(err)
@@ -49,15 +43,12 @@ func TestDVCClientService_AllVariablesLocal(t *testing.T) {
 }
 
 func TestDVCClientService_VariableCloud(t *testing.T) {
-	auth := context.WithValue(context.Background(), ContextAPIKey, APIKey{
-		Key: "dvc_server_token_hash",
-	})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpBucketingAPIMock()
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
 
-	variable, err := c.DevCycleApi.Variable(auth,
+	variable, err := c.DevCycleApi.Variable(
 		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
 		"test", true)
 	if err != nil {
@@ -69,16 +60,13 @@ func TestDVCClientService_VariableCloud(t *testing.T) {
 }
 
 func TestDVCClientService_VariableLocal(t *testing.T) {
-	auth := context.WithValue(context.Background(), ContextAPIKey, APIKey{
-		Key: "dvc_server_token_hash",
-	})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 
-	variable, err := c.DevCycleApi.Variable(auth,
+	variable, err := c.DevCycleApi.Variable(
 		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
 		"test", true)
 	if err != nil {
@@ -101,9 +89,6 @@ func TestDVCClientService_VariableLocal_403(t *testing.T) {
 }
 
 func TestDVCClientService_TrackLocal_QueueEvent(t *testing.T) {
-	auth := context.WithValue(context.Background(), ContextAPIKey, APIKey{
-		Key: test_environmentKey,
-	})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
@@ -111,7 +96,7 @@ func TestDVCClientService_TrackLocal_QueueEvent(t *testing.T) {
 
 	c, err := NewDVCClient(test_environmentKey, &dvcOptions)
 
-	track, err := c.DevCycleApi.Track(auth, DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"}, DVCEvent{
+	track, err := c.DevCycleApi.Track(DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"}, DVCEvent{
 		Target:      "customEvent",
 		Value:       0,
 		Type_:       "someType",
@@ -127,9 +112,6 @@ func TestDVCClientService_TrackLocal_QueueEvent(t *testing.T) {
 func TestProduction_Local(t *testing.T) {
 	environmentKey := os.Getenv("DVC_SERVER_KEY")
 	user := DVCUser{UserId: "test"}
-	auth := context.WithValue(context.Background(), ContextAPIKey, APIKey{
-		Key: environmentKey,
-	})
 	if environmentKey == "" {
 		t.Skip("DVC_SERVER_KEY not set. Not using production tests.")
 	}
@@ -147,7 +129,7 @@ func TestProduction_Local(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	variables, err := client.DevCycleApi.AllVariables(auth, user)
+	variables, err := client.DevCycleApi.AllVariables(user)
 	if err != nil {
 		t.Fatal(err)
 	}
