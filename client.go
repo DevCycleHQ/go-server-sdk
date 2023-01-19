@@ -46,6 +46,7 @@ type DVCClient struct {
 	DevCycleApi     *DVCClientService
 	DevCycleOptions *DVCOptions
 	environmentKey  string
+	auth            context.Context
 	localBucketing  *DevCycleLocalBucketing
 	configManager   *EnvironmentConfigManager
 	eventQueue      *EventQueue
@@ -116,6 +117,9 @@ func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error
 	c.DevCycleApi = (*DVCClientService)(&c.common)
 
 	c.DevCycleOptions = options
+	c.auth = context.WithValue(context.Background(), ContextAPIKey, APIKey{
+		Key: environmentKey,
+	})
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.DevCycleOptions.OnInitializedChannel != nil {

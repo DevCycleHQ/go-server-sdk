@@ -44,12 +44,11 @@ func (a *DVCClientService) queueAggregateEvent(bucketed BucketedUserConfig, even
 
 /*
 DVCClientService Get all features by key for user data
-  - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
   - @param body
 
 @return map[string]Feature
 */
-func (a *DVCClientService) AllFeatures(ctx context.Context, body DVCUser) (map[string]Feature, error) {
+func (a *DVCClientService) AllFeatures(body DVCUser) (map[string]Feature, error) {
 
 	if !a.client.DevCycleOptions.EnableCloudBucketing {
 		if a.client.isInitialized {
@@ -75,9 +74,9 @@ func (a *DVCClientService) AllFeatures(ctx context.Context, body DVCUser) (map[s
 
 	// body params
 	postBody = &body
-	if ctx != nil {
+	if a.client.auth != nil {
 		// API Key Authentication
-		if auth, ok := ctx.Value(ContextAPIKey).(APIKey); ok {
+		if auth, ok := a.client.auth.Value(ContextAPIKey).(APIKey); ok {
 			var key string
 			if auth.Prefix != "" {
 				key = auth.Prefix + " " + auth.Key
@@ -89,7 +88,7 @@ func (a *DVCClientService) AllFeatures(ctx context.Context, body DVCUser) (map[s
 		}
 	}
 
-	r, rBody, err := a.performRequest(ctx, path, httpMethod, postBody, headers, queryParams)
+	r, rBody, err := a.performRequest(a.client.auth, path, httpMethod, postBody, headers, queryParams)
 
 	if err != nil {
 		return nil, err
@@ -106,13 +105,12 @@ func (a *DVCClientService) AllFeatures(ctx context.Context, body DVCUser) (map[s
 
 /*
 DVCClientService Get variable by key for user data
-  - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
   - @param body
   - @param key Variable key
 
 @return Variable
 */
-func (a *DVCClientService) Variable(ctx context.Context, userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
+func (a *DVCClientService) Variable(userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
 	convertedDefaultValue := convertDefaultValueType(defaultValue)
 	readOnlyVariable := ReadOnlyVariable{Key: key, Value: convertedDefaultValue}
 	variable := Variable{ReadOnlyVariable: readOnlyVariable, DefaultValue: convertDefaultValueType, IsDefaulted: true}
@@ -165,7 +163,7 @@ func (a *DVCClientService) Variable(ctx context.Context, userdata DVCUser, key s
 	// userdata params
 	postBody = &userdata
 
-	r, body, err := a.performRequest(ctx, path, httpMethod, postBody, headers, queryParams)
+	r, body, err := a.performRequest(a.client.auth, path, httpMethod, postBody, headers, queryParams)
 
 	if err != nil {
 		return localVarReturnValue, err
@@ -189,7 +187,7 @@ func (a *DVCClientService) Variable(ctx context.Context, userdata DVCUser, key s
 	return variable, nil
 }
 
-func (a *DVCClientService) AllVariables(ctx context.Context, body DVCUser) (map[string]ReadOnlyVariable, error) {
+func (a *DVCClientService) AllVariables(body DVCUser) (map[string]ReadOnlyVariable, error) {
 
 	var (
 		httpMethod          = strings.ToUpper("Post")
@@ -218,7 +216,7 @@ func (a *DVCClientService) AllVariables(ctx context.Context, body DVCUser) (map[
 	// body params
 	postBody = &body
 
-	r, rBody, err := a.performRequest(ctx, path, httpMethod, postBody, headers, queryParams)
+	r, rBody, err := a.performRequest(a.client.auth, path, httpMethod, postBody, headers, queryParams)
 	if err != nil {
 		return localVarReturnValue, err
 	}
@@ -240,7 +238,7 @@ DVCClientService Post events to DevCycle for user
 @return InlineResponse201
 */
 
-func (a *DVCClientService) Track(ctx context.Context, user DVCUser, event DVCEvent) (bool, error) {
+func (a *DVCClientService) Track(user DVCUser, event DVCEvent) (bool, error) {
 	if a.client.DevCycleOptions.DisableCustomEventLogging {
 		return true, nil
 	}
@@ -273,7 +271,7 @@ func (a *DVCClientService) Track(ctx context.Context, user DVCUser, event DVCEve
 	// body params
 	postBody = &body
 
-	r, rBody, err := a.performRequest(ctx, path, httpMethod, postBody, headers, queryParams)
+	r, rBody, err := a.performRequest(a.client.auth, path, httpMethod, postBody, headers, queryParams)
 	if err != nil {
 		return false, err
 	}
