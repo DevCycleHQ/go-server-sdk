@@ -61,6 +61,7 @@ type DVCOptions struct {
 	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
 	ConfigCDNURI                 string
 	EventsAPIURI                 string
+	BucketingAPIURI              string
 }
 
 func (o *DVCOptions) CheckDefaults() {
@@ -103,8 +104,13 @@ func NewConfiguration(options *DVCOptions) *HTTPConfiguration {
 		eventsApiBasePath = options.EventsAPIURI
 	}
 
+	bucketingBasePath := "https://bucketing-api.devcycle.com"
+	if options.BucketingAPIURI != "" {
+		bucketingBasePath = options.BucketingAPIURI
+	}
+
 	cfg := &HTTPConfiguration{
-		BasePath:          "https://bucketing-api.devcycle.com",
+		BasePath:          bucketingBasePath,
 		ConfigCDNBasePath: configBasePath,
 		EventsAPIBasePath: eventsApiBasePath,
 		DefaultHeader:     make(map[string]string),
