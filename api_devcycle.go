@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"reflect"
 )
 
 var (
@@ -106,15 +107,23 @@ DVCClientService Get variable by key for user data
 @return Variable
 */
 func (a *DVCClientService) Variable(ctx context.Context, userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
-	defaultRetVal := Variable{Value: defaultValue, Key: key, IsDefaulted: true}
+	convertedDefaultValue := convertDefaultValueType(defaultValue)
+	readOnlyVariable := ReadOnlyVariable{Key: key, Value: convertedDefaultValue}
+	variable := Variable{ReadOnlyVariable: readOnlyVariable, DefaultValue: convertDefaultValueType, IsDefaulted: true}
 
 	if !a.client.DevCycleOptions.EnableCloudBucketing {
 		bucketed, err := a.generateBucketedConfig(userdata)
 
+		sameTypeAsDefault := compareTypes(bucketed.Variables[key].Value, convertedDefaultValue)
 		variableEvaluationType := ""
-		if bucketed.Variables[key].IsDefaulted {
+		if bucketed.Variables[key].Value != nil && sameTypeAsDefault {
+			variable.Value = bucketed.Variables[key].Value
+			variable.IsDefaulted = false
 			variableEvaluationType = EventType_AggVariableEvaluated
 		} else {
+			if !sameTypeAsDefault {
+				log.Printf("Type mismatch for variable %s. Expected type %s, got %s", key, reflect.TypeOf(defaultValue).String(), reflect.TypeOf(bucketed.Variables[key].Value).String())
+			}
 			variableEvaluationType = EventType_AggVariableDefaulted
 		}
 		if !a.client.DevCycleOptions.DisableAutomaticEventLogging {
@@ -127,10 +136,7 @@ func (a *DVCClientService) Variable(ctx context.Context, userdata DVCUser, key s
 				err = nil
 			}
 		}
-		if err != nil {
-			return defaultRetVal, err
-		}
-		return bucketed.Variables[key], err
+		return variable, err
 	}
 
 	var (
@@ -167,18 +173,18 @@ func (a *DVCClientService) Variable(ctx context.Context, userdata DVCUser, key s
 	err = a.client.decode(&v, body, r.Header.Get("Content-Type"))
 	if err != nil {
 		log.Println(err.Error())
-		return defaultRetVal, nil
+		return variable, nil
 	}
 	log.Println(v.Message)
-	return defaultRetVal, nil
+	return variable, nil
 }
 
-func (a *DVCClientService) AllVariables(ctx context.Context, body DVCUser) (map[string]Variable, error) {
+func (a *DVCClientService) AllVariables(ctx context.Context, body DVCUser) (map[string]ReadOnlyVariable, error) {
 
 	var (
 		httpMethod          = strings.ToUpper("Post")
 		postBody            interface{}
-		localVarReturnValue map[string]Variable
+		localVarReturnValue map[string]ReadOnlyVariable
 	)
 	if !a.client.DevCycleOptions.EnableCloudBucketing {
 		user, err := a.generateBucketedConfig(body)
@@ -359,4 +365,37 @@ func (a *DVCClientService) handleError(r *http.Response, body []byte) (err error
 	}
 	newErr.model = v
 	return newErr
+}
+
+func compareTypes(value1 interface{}, value2 interface{}) bool {
+	return reflect.TypeOf(value1) == reflect.TypeOf(value2)
+}
+
+func convertDefaultValueType(value interface{}) interface{} {
+	switch value.(type) {
+	case int:
+		return float64(value.(int))
+	case int8:
+		return float64(value.(int8))
+	case int16:
+		return float64(value.(int16))
+	case int32:
+		return float64(value.(int32))
+	case int64:
+		return float64(value.(int64))
+	case uint:
+		return float64(value.(uint))
+	case uint8:
+		return float64(value.(uint8))
+	case uint16:
+		return float64(value.(uint16))
+	case uint32:
+		return float64(value.(uint32))
+	case uint64:
+		return float64(value.(uint64))
+	case float32:
+		return float64(value.(float32))
+	default:
+		return value
+	}
 }
