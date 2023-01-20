@@ -210,7 +210,11 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 			variableEvaluationType = EventType_AggVariableEvaluated
 		} else {
 			if !sameTypeAsDefault && bucketed.Variables[key].Value != nil {
-				log.Printf("Type mismatch for variable %s. Expected type %s, got %s", key, reflect.TypeOf(defaultValue).String(), reflect.TypeOf(bucketed.Variables[key].Value).String())
+				log.Printf("Type mismatch for variable %s. Expected type %s, got %s",
+					key,
+					reflect.TypeOf(defaultValue).String(),
+					reflect.TypeOf(bucketed.Variables[key].Value).String(),
+				)
 			}
 			variableEvaluationType = EventType_AggVariableDefaulted
 		}
@@ -246,14 +250,25 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	r, body, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
 
 	if err != nil {
-		return localVarReturnValue, err
+		return variable, err
 	}
 
 	if r.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
 		err = decode(&localVarReturnValue, body, r.Header.Get("Content-Type"))
-		if err == nil {
-			return localVarReturnValue, err
+		if err == nil && localVarReturnValue.Value != nil {
+			if compareTypes(localVarReturnValue.Value, convertedDefaultValue) {
+				variable.Value = localVarReturnValue.Value
+				variable.IsDefaulted = false
+			} else {
+				log.Printf("Type mismatch for variable %s. Expected type %s, got %s",
+					key,
+					reflect.TypeOf(defaultValue).String(),
+					reflect.TypeOf(localVarReturnValue.Value).String(),
+				)
+			}
+
+			return variable, err
 		}
 	}
 
