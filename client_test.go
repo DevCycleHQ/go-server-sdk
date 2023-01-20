@@ -9,13 +9,13 @@ import (
 	"github.com/jarcoal/httpmock"
 )
 
-func TestDVCClientService_AllFeatures_Local(t *testing.T) {
+func TestDVCClient_AllFeatures_Local(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 
-	features, err := c.DevCycleApi.AllFeatures(
+	features, err := c.AllFeatures(
 		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"})
 	if err != nil {
 		t.Fatal(err)
@@ -25,14 +25,14 @@ func TestDVCClientService_AllFeatures_Local(t *testing.T) {
 	fmt.Println(features)
 
 }
-func TestDVCClientService_AllVariablesLocal(t *testing.T) {
+func TestDVCClient_AllVariablesLocal(t *testing.T) {
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 
-	variables, err := c.DevCycleApi.AllVariables(
+	variables, err := c.AllVariables(
 		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"})
 	if err != nil {
 		t.Fatal(err)
@@ -42,13 +42,13 @@ func TestDVCClientService_AllVariablesLocal(t *testing.T) {
 	fmt.Println(variables)
 }
 
-func TestDVCClientService_VariableCloud(t *testing.T) {
+func TestDVCClient_VariableCloud(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpBucketingAPIMock()
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
 
-	variable, err := c.DevCycleApi.Variable(
+	variable, err := c.Variable(
 		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
 		"test", true)
 	if err != nil {
@@ -59,14 +59,14 @@ func TestDVCClientService_VariableCloud(t *testing.T) {
 	fmt.Println(variable)
 }
 
-func TestDVCClientService_VariableLocal(t *testing.T) {
+func TestDVCClient_VariableLocal(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 
-	variable, err := c.DevCycleApi.Variable(
+	variable, err := c.Variable(
 		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
 		"test", true)
 	if err != nil {
@@ -77,7 +77,7 @@ func TestDVCClientService_VariableLocal(t *testing.T) {
 	fmt.Println(variable)
 }
 
-func TestDVCClientService_VariableLocal_403(t *testing.T) {
+func TestDVCClient_VariableLocal_403(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(403)
@@ -88,7 +88,7 @@ func TestDVCClientService_VariableLocal_403(t *testing.T) {
 	}
 }
 
-func TestDVCClientService_TrackLocal_QueueEvent(t *testing.T) {
+func TestDVCClient_TrackLocal_QueueEvent(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
@@ -96,7 +96,7 @@ func TestDVCClientService_TrackLocal_QueueEvent(t *testing.T) {
 
 	c, err := NewDVCClient(test_environmentKey, &dvcOptions)
 
-	track, err := c.DevCycleApi.Track(DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"}, DVCEvent{
+	track, err := c.Track(DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"}, DVCEvent{
 		Target:      "customEvent",
 		Value:       0,
 		Type_:       "someType",
@@ -129,7 +129,7 @@ func TestProduction_Local(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	variables, err := client.DevCycleApi.AllVariables(user)
+	variables, err := client.AllVariables(user)
 	if err != nil {
 		t.Fatal(err)
 	}

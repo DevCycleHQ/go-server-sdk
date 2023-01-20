@@ -15,7 +15,7 @@ func TestEventQueue_QueueEvent(t *testing.T) {
 
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 
-	_, err = c.DevCycleApi.Track(DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
+	_, err = c.Track(DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
 		DVCEvent{Target: "customevent", Type_: "event"})
 	if err != nil {
 		t.Fatal(err)
@@ -33,7 +33,7 @@ func TestEventQueue_QueueEvent_100_DropEvent(t *testing.T) {
 	errored := false
 	for i := 0; i < 1000; i++ {
 		log.Println(i)
-		_, err = c.DevCycleApi.Track(DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
+		_, err = c.Track(DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
 			DVCEvent{Target: "customevent"})
 		if err != nil {
 			errored = true
@@ -56,7 +56,7 @@ func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
 
 	for i := 0; i < 101; i++ {
 		log.Println(i)
-		_, err = c.DevCycleApi.Track(DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
+		_, err = c.Track(DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
 			DVCEvent{Target: "customevent", Type_: "event"})
 		if err != nil {
 			log.Println(err)
