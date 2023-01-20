@@ -33,5 +33,5 @@ type FlushPayload struct {
 }
 
 type BatchEventsBody struct {
-	Records []UserEventsBatchRecord `json:"batch,omitempty"`
+	Batch []UserEventsBatchRecord `json:"batch,omitempty"`
 }

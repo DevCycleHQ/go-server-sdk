@@ -25,12 +25,8 @@ func (pd *PlatformData) FromUser(user DVCUser) PlatformData {
 }
 
 func (pd *PlatformData) Default(isLocal bool) *PlatformData {
-	pd.Platform = "golang"
-	if isLocal {
-		pd.SdkType = "local"
-	} else {
-		pd.SdkType = "cloud"
-	}
+	pd.Platform = "Go"
+	pd.SdkType = "server"
 	pd.SdkVersion = VERSION
 	pd.PlatformVersion = runtime.Version()
 	pd.Hostname, _ = os.Hostname()
