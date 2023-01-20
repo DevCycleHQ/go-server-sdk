@@ -353,12 +353,19 @@ func (a *DVCClientService) handleError(r *http.Response, body []byte) (err error
 	}
 
 	var v ErrorResponse
-	err = decode(&v, body, r.Header.Get("Content-Type"))
-	if err != nil {
-		newErr.error = err.Error()
-		return newErr
+	if len(body) > 0 {
+		err = decode(&v, body, r.Header.Get("Content-Type"))
+		if err != nil {
+			newErr.error = err.Error()
+			return newErr
+		}
 	}
 	newErr.model = v
+
+	if r.StatusCode >= 500 {
+		log.Println("Request error: ", newErr)
+		return nil
+	}
 	return newErr
 }
 
