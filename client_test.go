@@ -16,7 +16,7 @@ func TestDVCClient_AllFeatures_Local(t *testing.T) {
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 
 	features, err := c.AllFeatures(
-		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"})
+		DVCUser{UserId: "j_test", DeviceModel: "testing"})
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -33,7 +33,7 @@ func TestDVCClient_AllVariablesLocal(t *testing.T) {
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 
 	variables, err := c.AllVariables(
-		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"})
+		DVCUser{UserId: "j_test", DeviceModel: "testing"})
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -49,7 +49,7 @@ func TestDVCClient_VariableCloud(t *testing.T) {
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
 
 	variable, err := c.Variable(
-		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
+		DVCUser{UserId: "j_test", DeviceModel: "testing"},
 		"test", true)
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +67,7 @@ func TestDVCClient_VariableLocal(t *testing.T) {
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 
 	variable, err := c.Variable(
-		DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"},
+		DVCUser{UserId: "j_test", DeviceModel: "testing"},
 		"test", true)
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestDVCClient_TrackLocal_QueueEvent(t *testing.T) {
 
 	c, err := NewDVCClient(test_environmentKey, &dvcOptions)
 
-	track, err := c.Track(DVCUser{UserId: "j_test", Platform: "golang-testing", SdkType: "server", PlatformVersion: "testing", DeviceModel: "testing", SdkVersion: "testing"}, DVCEvent{
+	track, err := c.Track(DVCUser{UserId: "j_test", DeviceModel: "testing"}, DVCEvent{
 		Target:      "customEvent",
 		Value:       0,
 		Type_:       "someType",

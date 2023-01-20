@@ -22,8 +22,8 @@ type DVCEvent struct {
 }
 
 type UserEventsBatchRecord struct {
-	User   DVCUser    `json:"user"`
-	Events []DVCEvent `json:"events"`
+	User   dvcPopulatedUser `json:"user"`
+	Events []DVCEvent       `json:"events"`
 }
 
 type FlushPayload struct {

@@ -9,6 +9,6 @@
 package devcycle
 
 type UserDataAndEventsBody struct {
-	Events []DVCEvent `json:"events,omitempty"`
-	User   *DVCUser   `json:"user,omitempty"`
+	Events []DVCEvent        `json:"events,omitempty"`
+	User   *dvcPopulatedUser `json:"user,omitempty"`
 }
