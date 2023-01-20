@@ -25,7 +25,7 @@ func main() {
 
 	client, _ := devcycle.NewDVCClient(environmentKey, &dvcOptions)
 
-	features, _ := client.DevCycleApi.AllFeatures(user)
+	features, _ := client.AllFeatures(user)
 	for key, feature := range features {
 		log.Printf("Key:%s, feature:%s", key, feature)
 	}
@@ -33,7 +33,7 @@ func main() {
 	<-onInitialized
 	log.Printf("client initialized")
 
-	variables, _ := client.DevCycleApi.AllVariables(user)
+	variables, _ := client.AllVariables(user)
 	for key, variable := range variables {
 		log.Printf("Key:%s, feature:%v", key, variable)
 	}
@@ -42,15 +42,15 @@ func main() {
 		Type_:  "customEvent",
 		Target: "somevariable.key"}
 
-	vara, _ := client.DevCycleApi.Variable(user, "elliot-test", "test")
+	vara, _ := client.Variable(user, "elliot-test", "test")
 
 	if !vara.IsDefaulted {
 		log.Printf("vara not defaulted:%v", vara.IsDefaulted)
 	}
-	varaDefaulted, _ := client.DevCycleApi.Variable(user, "elliot-asdasd", "test")
+	varaDefaulted, _ := client.Variable(user, "elliot-asdasd", "test")
 	if varaDefaulted.IsDefaulted {
 		log.Printf("vara defaulted:%v", varaDefaulted.IsDefaulted)
 	}
 
-	_, _ = client.DevCycleApi.Track(user, event)
+	_, _ = client.Track(user, event)
 }
