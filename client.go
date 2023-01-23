@@ -6,13 +6,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/matryer/try"
 	"io/ioutil"
 	"log"
+	"math"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var (
@@ -428,31 +432,53 @@ func (c *DVCClient) performRequest(
 	headerParams["Accept"] = "application/json"
 	headerParams["Authorization"] = c.environmentKey
 
-	r, err := c.prepareRequest(
-		path,
-		method,
-		postBody,
-		headerParams,
-		queryParams,
-	)
+	var httpResponse *http.Response
+	var responseBody []byte
+
+	// This retrying lib works by retrying as long as the bool is true and err is not nil
+	// the attempt param is auto-incremented
+	err = try.Do(func(attempt int) (bool, error) {
+		var err error
+		r, err := c.prepareRequest(
+			path,
+			method,
+			postBody,
+			headerParams,
+			queryParams,
+		)
+
+		// Don't retry if theres an error preparing the request
+		if err != nil {
+			return false, err
+		}
+
+		httpResponse, err = c.callAPI(r)
+		if httpResponse == nil && err == nil {
+			err = errors.New("Nil httpResponse")
+		}
+		if err != nil {
+			time.Sleep(time.Duration(exponentialBackoff(attempt)) * time.Millisecond) // wait with exponential backoff
+			return attempt <= 5, err
+		}
+		responseBody, err = ioutil.ReadAll(httpResponse.Body)
+		httpResponse.Body.Close()
+
+		if err == nil && httpResponse.StatusCode >= 500 && attempt <= 5 {
+			err = errors.New("5xx error on request")
+		}
+
+		if err != nil {
+			time.Sleep(time.Duration(exponentialBackoff(attempt)) * time.Millisecond) // wait with exponential backoff
+		}
+
+		return attempt <= 5, err // try 5 times
+	})
 
 	if err != nil {
 		return nil, nil, err
 	}
-
-	httpResponse, err := c.callAPI(r)
-	if err != nil || httpResponse == nil {
-		return nil, nil, err
-	}
-
-	responseBody, err := ioutil.ReadAll(httpResponse.Body)
-	httpResponse.Body.Close()
-
-	if err != nil {
-		return nil, nil, err
-	}
-
 	return httpResponse, responseBody, err
+
 }
 
 func (c *DVCClient) handleError(r *http.Response, body []byte) (err error) {
@@ -529,6 +555,12 @@ func variableTypeFromValue(key string, value interface{}) (varType string, err e
 // callAPI do the request.
 func (c *DVCClient) callAPI(request *http.Request) (*http.Response, error) {
 	return c.cfg.HTTPClient.Do(request)
+}
+
+func exponentialBackoff(attempt int) float64 {
+	delay := math.Pow(2, float64(attempt)) * 100
+	randomSum := delay * 0.2 * rand.Float64()
+	return (delay + randomSum)
 }
 
 // Change base path to allow switching to mocks
