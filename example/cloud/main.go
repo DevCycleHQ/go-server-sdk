@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	devcycle "github.com/devcyclehq/go-server-sdk"
+	devcycle "github.com/devcyclehq/go-server-sdk/v2"
 )
 
 func main() {
