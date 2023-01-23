@@ -96,7 +96,7 @@ func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions
 	d.configManager = &EnvironmentConfigManager{localBucketing: d}
 
 	platformData := PlatformData{}
-	platformData = *platformData.Default(true)
+	platformData = *platformData.Default()
 	platformJSON, err := json.Marshal(platformData)
 	if err != nil {
 		return err

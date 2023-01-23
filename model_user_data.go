@@ -9,9 +9,10 @@
 package devcycle
 
 import (
-	"runtime"
 	"time"
 )
+
+var platformData = (&PlatformData{}).Default()
 
 type DVCUser struct {
 	// Unique id to identify the user
@@ -40,16 +41,9 @@ type DVCUser struct {
 
 type dvcPopulatedUser struct {
 	DVCUser
+	*PlatformData
 	// Date the user was created, Unix epoch timestamp format
 	CreatedDate time.Time `json:"createdDate,omitempty"`
-	// Platform the Client SDK is running on
-	Platform string `json:"platform,omitempty"`
-	// Version of the platform the Client SDK is running on
-	PlatformVersion string `json:"platformVersion,omitempty"`
-	// DevCycle SDK type
-	SdkType string `json:"sdkType,omitempty"`
-	// DevCycle SDK Version
-	SdkVersion string `json:"sdkVersion,omitempty"`
 }
 
 type UserFeatureData struct {
@@ -60,10 +54,7 @@ type UserFeatureData struct {
 func (user *DVCUser) getPopulatedUser() dvcPopulatedUser {
 	return dvcPopulatedUser{
 		*user,
+		platformData,
 		time.Now(),
-		"Go",
-		runtime.Version(),
-		"server",
-		VERSION,
 	}
 }

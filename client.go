@@ -106,20 +106,20 @@ func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error
 	return c, nil
 }
 
-func (c *DVCClient) generateBucketedConfig(body dvcPopulatedUser) (user BucketedUserConfig, err error) {
-	userJSON, err := json.Marshal(body)
+func (c *DVCClient) generateBucketedConfig(user DVCUser) (config BucketedUserConfig, err error) {
+	userJSON, err := json.Marshal(user)
 	if err != nil {
 		return BucketedUserConfig{}, err
 	}
-	user, err = c.localBucketing.GenerateBucketedConfigForUser(string(userJSON))
+	config, err = c.localBucketing.GenerateBucketedConfigForUser(string(userJSON))
 	if err != nil {
 		return BucketedUserConfig{}, err
 	}
-	user.user = &body
+	config.user = &user
 	return
 }
 
-func (c *DVCClient) queueEvent(user dvcPopulatedUser, event DVCEvent) (err error) {
+func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
 	err = c.eventQueue.QueueEvent(user, event)
 	return
 }
@@ -135,11 +135,10 @@ DVCClientService Get all features by key for user data
 
 @return map[string]Feature
 */
-func (c *DVCClient) AllFeatures(body DVCUser) (map[string]Feature, error) {
-	populatedUser := body.getPopulatedUser()
+func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.isInitialized {
-			user, err := c.generateBucketedConfig(populatedUser)
+			user, err := c.generateBucketedConfig(user)
 			return user.Features, err
 		} else {
 			log.Println("AllFeatures called before client initialized")
@@ -147,6 +146,9 @@ func (c *DVCClient) AllFeatures(body DVCUser) (map[string]Feature, error) {
 		}
 
 	}
+
+	populatedUser := user.getPopulatedUser()
+
 	var (
 		httpMethod          = strings.ToUpper("Post")
 		postBody            interface{}
@@ -185,7 +187,6 @@ DVCClientService Get variable by key for user data
 @return Variable
 */
 func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
-	populatedUser := userdata.getPopulatedUser()
 	convertedDefaultValue := convertDefaultValueType(defaultValue)
 	variableType, err := variableTypeFromValue(key, convertedDefaultValue)
 
@@ -201,7 +202,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 			log.Println("Variable called before client initialized, returning default value")
 			return variable, nil
 		}
-		bucketed, err := c.generateBucketedConfig(populatedUser)
+		bucketed, err := c.generateBucketedConfig(userdata)
 
 		sameTypeAsDefault := compareTypes(bucketed.Variables[key].Value, convertedDefaultValue)
 		variableEvaluationType := ""
@@ -231,6 +232,8 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 		}
 		return variable, err
 	}
+
+	populatedUser := userdata.getPopulatedUser()
 
 	var (
 		httpMethod          = strings.ToUpper("Post")
@@ -283,8 +286,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	return variable, nil
 }
 
-func (c *DVCClient) AllVariables(body DVCUser) (map[string]ReadOnlyVariable, error) {
-	populatedUser := body.getPopulatedUser()
+func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, error) {
 	var (
 		httpMethod          = strings.ToUpper("Post")
 		postBody            interface{}
@@ -292,7 +294,7 @@ func (c *DVCClient) AllVariables(body DVCUser) (map[string]ReadOnlyVariable, err
 	)
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.isInitialized {
-			user, err := c.generateBucketedConfig(populatedUser)
+			user, err := c.generateBucketedConfig(user)
 			if err != nil {
 				return localVarReturnValue, err
 			}
@@ -302,6 +304,8 @@ func (c *DVCClient) AllVariables(body DVCUser) (map[string]ReadOnlyVariable, err
 			return map[string]ReadOnlyVariable{}, nil
 		}
 	}
+
+	populatedUser := user.getPopulatedUser()
 
 	// create path and map variables
 	path := c.cfg.BasePath + "/v1/variables"
@@ -335,7 +339,6 @@ DVCClientService Post events to DevCycle for user
 */
 
 func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
-	populatedUser := user.getPopulatedUser()
 	if c.DevCycleOptions.DisableCustomEventLogging {
 		return true, nil
 	}
@@ -345,7 +348,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.isInitialized {
-			err := c.eventQueue.QueueEvent(populatedUser, event)
+			err := c.eventQueue.QueueEvent(user, event)
 			return err == nil, err
 		} else {
 			log.Println("Track called before client initialized")
@@ -356,6 +359,8 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 		httpMethod = strings.ToUpper("Post")
 		postBody   interface{}
 	)
+
+	populatedUser := user.getPopulatedUser()
 
 	events := []DVCEvent{event}
 	body := UserDataAndEventsBody{User: &populatedUser, Events: events}
