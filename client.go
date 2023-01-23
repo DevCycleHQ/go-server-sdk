@@ -106,7 +106,7 @@ func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error
 	return c, nil
 }
 
-func (c *DVCClient) generateBucketedConfig(body DVCUser) (user BucketedUserConfig, err error) {
+func (c *DVCClient) generateBucketedConfig(body dvcPopulatedUser) (user BucketedUserConfig, err error) {
 	userJSON, err := json.Marshal(body)
 	if err != nil {
 		return BucketedUserConfig{}, err
@@ -119,7 +119,7 @@ func (c *DVCClient) generateBucketedConfig(body DVCUser) (user BucketedUserConfi
 	return
 }
 
-func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
+func (c *DVCClient) queueEvent(user dvcPopulatedUser, event DVCEvent) (err error) {
 	err = c.eventQueue.QueueEvent(user, event)
 	return
 }
@@ -136,10 +136,10 @@ DVCClientService Get all features by key for user data
 @return map[string]Feature
 */
 func (c *DVCClient) AllFeatures(body DVCUser) (map[string]Feature, error) {
-
+	populatedUser := body.getPopulatedUser()
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.isInitialized {
-			user, err := c.generateBucketedConfig(body)
+			user, err := c.generateBucketedConfig(populatedUser)
 			return user.Features, err
 		} else {
 			log.Println("AllFeatures called before client initialized")
@@ -160,7 +160,7 @@ func (c *DVCClient) AllFeatures(body DVCUser) (map[string]Feature, error) {
 	queryParams := url.Values{}
 
 	// body params
-	postBody = &body
+	postBody = &populatedUser
 
 	r, rBody, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
 
@@ -185,6 +185,7 @@ DVCClientService Get variable by key for user data
 @return Variable
 */
 func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
+	populatedUser := userdata.getPopulatedUser()
 	convertedDefaultValue := convertDefaultValueType(defaultValue)
 	variableType, err := variableTypeFromValue(key, convertedDefaultValue)
 
@@ -200,7 +201,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 			log.Println("Variable called before client initialized, returning default value")
 			return variable, nil
 		}
-		bucketed, err := c.generateBucketedConfig(userdata)
+		bucketed, err := c.generateBucketedConfig(populatedUser)
 
 		sameTypeAsDefault := compareTypes(bucketed.Variables[key].Value, convertedDefaultValue)
 		variableEvaluationType := ""
@@ -241,7 +242,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	queryParams := url.Values{}
 
 	// userdata params
-	postBody = &userdata
+	postBody = &populatedUser
 
 	r, body, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
 
@@ -268,7 +269,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 }
 
 func (c *DVCClient) AllVariables(body DVCUser) (map[string]ReadOnlyVariable, error) {
-
+	populatedUser := body.getPopulatedUser()
 	var (
 		httpMethod          = strings.ToUpper("Post")
 		postBody            interface{}
@@ -276,7 +277,7 @@ func (c *DVCClient) AllVariables(body DVCUser) (map[string]ReadOnlyVariable, err
 	)
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.isInitialized {
-			user, err := c.generateBucketedConfig(body)
+			user, err := c.generateBucketedConfig(populatedUser)
 			if err != nil {
 				return localVarReturnValue, err
 			}
@@ -294,7 +295,7 @@ func (c *DVCClient) AllVariables(body DVCUser) (map[string]ReadOnlyVariable, err
 	queryParams := url.Values{}
 
 	// body params
-	postBody = &body
+	postBody = &populatedUser
 
 	r, rBody, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
 	if err != nil {
@@ -319,6 +320,7 @@ DVCClientService Post events to DevCycle for user
 */
 
 func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
+	populatedUser := user.getPopulatedUser()
 	if c.DevCycleOptions.DisableCustomEventLogging {
 		return true, nil
 	}
@@ -328,7 +330,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.isInitialized {
-			err := c.eventQueue.QueueEvent(user, event)
+			err := c.eventQueue.QueueEvent(populatedUser, event)
 			return err == nil, err
 		} else {
 			log.Println("Track called before client initialized")
@@ -341,7 +343,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 	)
 
 	events := []DVCEvent{event}
-	body := UserDataAndEventsBody{User: &user, Events: events}
+	body := UserDataAndEventsBody{User: &populatedUser, Events: events}
 	// create path and map variables
 	path := c.cfg.BasePath + "/v1/track"
 

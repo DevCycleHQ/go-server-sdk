@@ -8,7 +8,10 @@
  */
 package devcycle
 
-import "time"
+import (
+	"runtime"
+	"time"
+)
 
 type DVCUser struct {
 	// Unique id to identify the user
@@ -29,16 +32,20 @@ type DVCUser struct {
 	CustomData map[string]interface{} `json:"customData,omitempty"`
 	// User's custom data to target the user with, data will not be logged to DevCycle only used for feature bucketing.
 	PrivateCustomData map[string]interface{} `json:"privateCustomData,omitempty"`
-	// Date the user was created, Unix epoch timestamp format
-	CreatedDate time.Time `json:"createdDate,omitempty"`
+	// User's device model
+	DeviceModel string `json:"deviceModel,omitempty"`
 	// Date the user was created, Unix epoch timestamp format
 	LastSeenDate time.Time `json:"lastSeenDate,omitempty"`
+}
+
+type dvcPopulatedUser struct {
+	DVCUser
+	// Date the user was created, Unix epoch timestamp format
+	CreatedDate time.Time `json:"createdDate,omitempty"`
 	// Platform the Client SDK is running on
 	Platform string `json:"platform,omitempty"`
 	// Version of the platform the Client SDK is running on
 	PlatformVersion string `json:"platformVersion,omitempty"`
-	// User's device model
-	DeviceModel string `json:"deviceModel,omitempty"`
 	// DevCycle SDK type
 	SdkType string `json:"sdkType,omitempty"`
 	// DevCycle SDK Version
@@ -48,4 +55,15 @@ type DVCUser struct {
 type UserFeatureData struct {
 	User        DVCUser `json:"user"`
 	FeatureVars map[string]string
+}
+
+func (user *DVCUser) getPopulatedUser() dvcPopulatedUser {
+	return dvcPopulatedUser{
+		*user,
+		time.Now(),
+		"Go",
+		runtime.Version(),
+		"server",
+		VERSION,
+	}
 }
