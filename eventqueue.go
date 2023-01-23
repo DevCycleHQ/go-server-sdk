@@ -138,7 +138,23 @@ func (e *EventQueue) FlushEvents() (err error) {
 		var req *http.Request
 		var resp *http.Response
 		requestBody, err := json.Marshal(BatchEventsBody{Batch: payload.Records})
+		if err != nil {
+			log.Printf("Failed to marshal batch events body: %s", err)
+			err = e.localBucketing.onPayloadFailure(payload.PayloadId, false)
+			if err != nil {
+				log.Println(err)
+			}
+			continue
+		}
 		req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(requestBody))
+		if err != nil {
+			log.Printf("Failed to create request to events api: %s", err)
+			err = e.localBucketing.onPayloadFailure(payload.PayloadId, false)
+			if err != nil {
+				log.Println(err)
+			}
+			continue
+		}
 
 		req.Header.Set("Authorization", e.localBucketing.sdkKey)
 		req.Header.Set("Content-Type", "application/json")
@@ -146,14 +162,21 @@ func (e *EventQueue) FlushEvents() (err error) {
 
 		resp, err = e.httpClient.Do(req)
 		if err != nil {
-			if resp != nil {
-				err = e.localBucketing.onPayloadFailure(payload.PayloadId, resp.StatusCode >= 500 && resp.StatusCode < 600)
-				if err != nil {
-					log.Println(err)
-					continue
-				}
+			log.Printf("Failed to make request to events api: %s", err)
+			err = e.localBucketing.onPayloadFailure(payload.PayloadId, false)
+			if err != nil {
+				log.Println(err)
 			}
-			log.Println(err)
+			continue
+		}
+
+		if resp.StatusCode >= 500 {
+			err = e.localBucketing.onPayloadFailure(payload.PayloadId, true)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			log.Println("Server error, retrying later")
 			continue
 		}
 
