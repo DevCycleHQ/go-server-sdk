@@ -35,3 +35,7 @@ import "github.com/devcyclehq/go-server-sdk"
 ## Usage
 
 To find usage documentation, visit our [docs](https://docs.devcycle.com/docs/sdk/server-side-sdks/go#usage).
+
+## Testing
+
+This SDK is supported by our [test harness](https://github.com/DevCycleHQ/test-harness), a test suite shared between all DevCycle SDKs for consistency.
