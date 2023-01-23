@@ -69,7 +69,7 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 	return nil
 }
 
-func (e *EventQueue) QueueEvent(user dvcPopulatedUser, event DVCEvent) error {
+func (e *EventQueue) QueueEvent(user DVCUser, event DVCEvent) error {
 	if e.closed {
 		log.Println("DevCycle client was closed, no more events can be tracked.")
 		return fmt.Errorf("DevCycle client was closed, no more events can be tracked.")

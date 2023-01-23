@@ -14,7 +14,7 @@ type PlatformData struct {
 	Hostname        string `json:"hostname"`
 }
 
-func (pd *PlatformData) Default(isLocal bool) *PlatformData {
+func (pd *PlatformData) Default() *PlatformData {
 	pd.Platform = "Go"
 	pd.SdkType = "server"
 	pd.SdkVersion = VERSION
