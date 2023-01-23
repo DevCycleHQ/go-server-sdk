@@ -5,12 +5,12 @@ This SDK supports both cloud bucketing (requests outbound to https://bucketing-a
 ## Installation
 
 ```bash
-go get "github.com/devcyclehq/go-server-sdk"
+go get "github.com/devcyclehq/go-server-sdk/v2"
 ```
 
 ```golang
 package main
-import "github.com/devcyclehq/go-server-sdk"
+import "github.com/devcyclehq/go-server-sdk/v2"
 ```
 
 ## Getting Started

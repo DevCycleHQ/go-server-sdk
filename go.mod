@@ -1,4 +1,4 @@
-module github.com/devcyclehq/go-server-sdk
+module github.com/devcyclehq/go-server-sdk/v2
 
 go 1.19
 
