@@ -159,7 +159,7 @@ DVCClientService Get all features by key for user data
 */
 func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
 	if !c.DevCycleOptions.EnableCloudBucketing {
-		if c.localBucketing.configManager.hasConfig {
+		if c.hasConfig() {
 			user, err := c.generateBucketedConfig(user)
 			return user.Features, err
 		} else {
@@ -224,7 +224,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	variable := Variable{baseVariable: baseVar, DefaultValue: convertedDefaultValue, IsDefaulted: true}
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
-		if !c.localBucketing.configManager.hasConfig {
+		if !c.hasConfig() {
 			log.Println("Variable called before client initialized, returning default value")
 			return variable, nil
 		}
@@ -319,7 +319,7 @@ func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, err
 		localVarReturnValue map[string]ReadOnlyVariable
 	)
 	if !c.DevCycleOptions.EnableCloudBucketing {
-		if c.localBucketing.configManager.hasConfig {
+		if c.hasConfig() {
 			user, err := c.generateBucketedConfig(user)
 			if err != nil {
 				return localVarReturnValue, err
@@ -453,6 +453,14 @@ func (c *DVCClient) Close() (err error) {
 	}
 
 	return err
+}
+
+func (c *DVCClient) hasConfig() bool {
+	if c.configManager == nil {
+		return false
+	}
+
+	return c.configManager.hasConfig
 }
 
 func (c *DVCClient) performRequest(
