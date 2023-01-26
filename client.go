@@ -27,15 +27,16 @@ var (
 // DVCClient
 // In most cases there should be only one, shared, DVCClient.
 type DVCClient struct {
-	cfg             *HTTPConfiguration
-	common          service // Reuse a single struct instead of allocating one for each service on the heap.
-	DevCycleOptions *DVCOptions
-	environmentKey  string
-	auth            context.Context
-	localBucketing  *DevCycleLocalBucketing
-	configManager   *EnvironmentConfigManager
-	eventQueue      *EventQueue
-	isInitialized   bool
+	cfg                          *HTTPConfiguration
+	common                       service // Reuse a single struct instead of allocating one for each service on the heap.
+	DevCycleOptions              *DVCOptions
+	environmentKey               string
+	auth                         context.Context
+	localBucketing               *DevCycleLocalBucketing
+	configManager                *EnvironmentConfigManager
+	eventQueue                   *EventQueue
+	isInitialized                bool
+	internalOnInitializedChannel chan bool
 }
 
 type SDKEvent struct {
@@ -67,8 +68,14 @@ func setLBClient(environmentKey string, options *DVCOptions, c *DVCClient) (*DVC
 
 	if err != nil {
 		if options.OnInitializedChannel != nil {
-			options.OnInitializedChannel <- true
+			go func() {
+				options.OnInitializedChannel <- true
+			}()
+
 		}
+		go func() {
+			c.internalOnInitializedChannel <- true
+		}()
 		return nil, err
 	}
 	c.localBucketing = localBucketing
@@ -76,9 +83,13 @@ func setLBClient(environmentKey string, options *DVCOptions, c *DVCClient) (*DVC
 	c.eventQueue = c.localBucketing.eventQueue
 	c.isInitialized = c.configManager.HasConfig()
 	if options.OnInitializedChannel != nil {
-		options.OnInitializedChannel <- true
-		close(options.OnInitializedChannel)
+		go func() {
+			options.OnInitializedChannel <- true
+		}()
 	}
+	go func() {
+		c.internalOnInitializedChannel <- true
+	}()
 	return c, nil
 }
 
@@ -101,6 +112,7 @@ func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error
 	c.DevCycleOptions = options
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
+		c.internalOnInitializedChannel = make(chan bool)
 		if c.DevCycleOptions.OnInitializedChannel != nil {
 			go setLBClient(environmentKey, options, c)
 		} else {
@@ -417,10 +429,14 @@ func (c *DVCClient) FlushEvents() error {
 Close the client and flush any pending events. Stop any ongoing tickers
 */
 func (c *DVCClient) Close() (err error) {
-	if c.DevCycleOptions.EnableCloudBucketing || !c.isInitialized {
+	if c.DevCycleOptions.EnableCloudBucketing {
 		return
 	}
 
+	if c.internalOnInitializedChannel != nil {
+		log.Println("Awaiting client initialization before closing")
+		<-c.internalOnInitializedChannel
+	}
 	err = c.eventQueue.Close()
 	c.configManager.Close()
 	return err
