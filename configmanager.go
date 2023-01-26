@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var pollingStop = make(chan bool, 1)
+var pollingStop = make(chan bool, 2)
 
 type EnvironmentConfigManager struct {
 	environmentKey string
