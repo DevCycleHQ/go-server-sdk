@@ -11,8 +11,6 @@ import (
 	"time"
 )
 
-var pollingStop = make(chan bool, 1)
-
 type EnvironmentConfigManager struct {
 	environmentKey string
 	configETag     string
@@ -22,6 +20,7 @@ type EnvironmentConfigManager struct {
 	cancel         context.CancelFunc
 	httpClient     *http.Client
 	hasConfig      bool
+	pollingStop    chan bool
 }
 
 func (e *EnvironmentConfigManager) Initialize(environmentKey string, localBucketing *DevCycleLocalBucketing) (err error) {
@@ -29,6 +28,7 @@ func (e *EnvironmentConfigManager) Initialize(environmentKey string, localBucket
 	e.environmentKey = environmentKey
 	e.httpClient = &http.Client{Timeout: localBucketing.options.RequestTimeout}
 	e.context, e.cancel = context.WithCancel(context.Background())
+	e.pollingStop = make(chan bool, 2)
 
 	ticker := time.NewTicker(localBucketing.options.ConfigPollingIntervalMS)
 	e.firstLoad = true
@@ -41,7 +41,7 @@ func (e *EnvironmentConfigManager) Initialize(environmentKey string, localBucket
 	go func() {
 		for {
 			select {
-			case <-pollingStop:
+			case <-e.pollingStop:
 				log.Printf("Stopping config polling.")
 				ticker.Stop()
 				return
@@ -77,9 +77,8 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 		log.Printf("Config not modified. Using cached config. %s\n", e.configETag)
 		break
 	case http.StatusForbidden:
-		pollingStop <- true
+		e.pollingStop <- true
 		return fmt.Errorf("403 Forbidden - SDK key is likely incorrect. Aborting polling")
-
 	case http.StatusInternalServerError:
 	case http.StatusBadGateway:
 	case http.StatusServiceUnavailable:
@@ -141,5 +140,5 @@ func (e *EnvironmentConfigManager) HasConfig() bool {
 }
 
 func (e *EnvironmentConfigManager) Close() {
-	pollingStop <- true
+	e.pollingStop <- true
 }
