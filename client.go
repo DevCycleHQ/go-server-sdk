@@ -191,6 +191,10 @@ DVCClientService Get variable by key for user data
 @return Variable
 */
 func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
+	if key == "" {
+		return Variable{}, errors.New("invalid key provided for call to Variable")
+	}
+
 	convertedDefaultValue := convertDefaultValueType(defaultValue)
 	variableType, err := variableTypeFromValue(key, convertedDefaultValue)
 
