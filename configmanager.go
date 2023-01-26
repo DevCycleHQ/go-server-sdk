@@ -2,6 +2,8 @@ package devcycle
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -105,6 +107,12 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 	raw, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
+	}
+
+	// Check
+	valid := json.Valid(raw)
+	if !valid {
+		return errors.New("invalid JSON data received for config")
 	}
 
 	config := string(raw)
