@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-var flushStop = make(chan bool, 1)
-
 type EventQueue struct {
 	localBucketing    *DevCycleLocalBucketing
 	options           *DVCOptions
@@ -20,6 +18,7 @@ type EventQueue struct {
 	context           context.Context
 	closed            bool
 	ticker            *time.Ticker
+	flushStop         chan bool
 }
 
 func (e *EventQueue) eventQueueOptionsFromDVCOptions(options *DVCOptions) *EventQueueOptions {
@@ -40,6 +39,8 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 	e.context = context.Background()
 	e.httpClient = localBucketing.cfg.HTTPClient
 	e.options = options
+	e.flushStop = make(chan bool, 1)
+
 	if !e.options.EnableCloudBucketing && localBucketing != nil {
 		e.localBucketing = localBucketing
 		str, err := json.Marshal(e.eventQueueOptionsFromDVCOptions(options))
@@ -52,7 +53,7 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 		go func() {
 			for {
 				select {
-				case <-flushStop:
+				case <-e.flushStop:
 					ticker.Stop()
 					log.Println("Stopping event flushing.")
 					return
@@ -193,7 +194,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 }
 
 func (e *EventQueue) Close() (err error) {
-	flushStop <- true
+	e.flushStop <- true
 	e.closed = true
 	err = e.FlushEvents()
 	return err
