@@ -31,7 +31,7 @@ func (e *EnvironmentConfigManager) Initialize(environmentKey string, localBucket
 	ticker := time.NewTicker(localBucketing.options.ConfigPollingIntervalMS)
 	e.firstLoad = true
 
-	err = e.fetchConfig()
+	err = e.fetchConfig(false)
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func (e *EnvironmentConfigManager) Initialize(environmentKey string, localBucket
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				err = e.fetchConfig()
+				err = e.fetchConfig(false)
 				if err != nil {
 					log.Printf("Error fetching config: %s\n", err)
 				}
@@ -55,7 +55,7 @@ func (e *EnvironmentConfigManager) Initialize(environmentKey string, localBucket
 	return nil
 }
 
-func (e *EnvironmentConfigManager) fetchConfig() error {
+func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 	req, err := http.NewRequest("GET", e.getConfigURL(), nil)
 	if e.configETag != "" {
 		req.Header.Set("If-None-Match", e.configETag)
@@ -82,7 +82,11 @@ func (e *EnvironmentConfigManager) fetchConfig() error {
 	case http.StatusBadGateway:
 	case http.StatusServiceUnavailable:
 		// Retryable Errors. Continue polling.
-		log.Println("Retrying config fetch. Status:" + resp.Status)
+		if !retrying {
+			log.Println("Retrying config fetch. Status:" + resp.Status)
+			return e.fetchConfig(true)
+		}
+		log.Println("Config fetch failed. Status:" + resp.Status)
 		break
 	default:
 		log.Printf("Unexpected response code: %d\n", resp.StatusCode)
