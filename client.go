@@ -63,7 +63,7 @@ func initializeLocalBucketing(environmentKey string, options *DVCOptions) (ret *
 	return
 }
 
-func setLBClient(environmentKey string, options *DVCOptions, c *DVCClient) (*DVCClient, error) {
+func setLBClient(environmentKey string, options *DVCOptions, c *DVCClient) {
 	localBucketing, err := initializeLocalBucketing(environmentKey, options)
 
 	if err != nil {
@@ -76,7 +76,8 @@ func setLBClient(environmentKey string, options *DVCOptions, c *DVCClient) (*DVC
 		go func() {
 			c.internalOnInitializedChannel <- true
 		}()
-		return nil, err
+		log.Println(err.Error())
+		return
 	}
 	c.localBucketing = localBucketing
 	c.configManager = c.localBucketing.configManager
@@ -90,7 +91,8 @@ func setLBClient(environmentKey string, options *DVCOptions, c *DVCClient) (*DVC
 	go func() {
 		c.internalOnInitializedChannel <- true
 	}()
-	return c, nil
+
+	return
 }
 
 // NewDVCClient creates a new API client.
@@ -116,7 +118,7 @@ func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error
 		if c.DevCycleOptions.OnInitializedChannel != nil {
 			go setLBClient(environmentKey, options, c)
 		} else {
-			return setLBClient(environmentKey, options, c)
+			setLBClient(environmentKey, options, c)
 		}
 	}
 	return c, nil

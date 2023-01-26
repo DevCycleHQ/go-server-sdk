@@ -66,22 +66,20 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 	if err != nil {
 		return err
 	}
-	switch resp.StatusCode {
-	case http.StatusOK:
+	switch statusCode := resp.StatusCode; {
+	case statusCode == http.StatusOK:
 		err = e.setConfig(resp)
 		if err != nil {
 			return err
 		}
 		break
-	case http.StatusNotModified:
+	case statusCode == http.StatusNotModified:
 		log.Printf("Config not modified. Using cached config. %s\n", e.configETag)
 		break
-	case http.StatusForbidden:
+	case statusCode == http.StatusForbidden:
 		e.pollingStop <- true
-		return fmt.Errorf("403 Forbidden - SDK key is likely incorrect. Aborting polling")
-	case http.StatusInternalServerError:
-	case http.StatusBadGateway:
-	case http.StatusServiceUnavailable:
+		return fmt.Errorf("invalid SDK key. Aborting config polling")
+	case statusCode >= 500:
 		// Retryable Errors. Continue polling.
 		if !retrying {
 			log.Println("Retrying config fetch. Status:" + resp.Status)
