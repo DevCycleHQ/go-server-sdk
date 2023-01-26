@@ -76,7 +76,6 @@ func setLBClient(environmentKey string, options *DVCOptions, c *DVCClient) error
 		go func() {
 			c.internalOnInitializedChannel <- true
 		}()
-		log.Println(err.Error())
 		return err
 	}
 	c.localBucketing = localBucketing
@@ -116,9 +115,15 @@ func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		c.internalOnInitializedChannel = make(chan bool)
 		if c.DevCycleOptions.OnInitializedChannel != nil {
-			go setLBClient(environmentKey, options, c)
+			go func() {
+				err := setLBClient(environmentKey, options, c)
+				if err != nil {
+					log.Println(err.Error())
+				}
+			}()
 		} else {
-			setLBClient(environmentKey, options, c)
+			err := setLBClient(environmentKey, options, c)
+			return c, err
 		}
 	}
 	return c, nil
