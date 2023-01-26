@@ -67,6 +67,7 @@ func setLBClient(environmentKey string, options *DVCOptions, c *DVCClient) error
 	localBucketing, err := initializeLocalBucketing(environmentKey, options)
 
 	if err != nil {
+		c.isInitialized = true
 		if options.OnInitializedChannel != nil {
 			go func() {
 				options.OnInitializedChannel <- true
@@ -81,7 +82,7 @@ func setLBClient(environmentKey string, options *DVCOptions, c *DVCClient) error
 	c.localBucketing = localBucketing
 	c.configManager = c.localBucketing.configManager
 	c.eventQueue = c.localBucketing.eventQueue
-	c.isInitialized = c.configManager.HasConfig()
+	c.isInitialized = true
 	if options.OnInitializedChannel != nil {
 		go func() {
 			options.OnInitializedChannel <- true
@@ -158,7 +159,7 @@ DVCClientService Get all features by key for user data
 */
 func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
 	if !c.DevCycleOptions.EnableCloudBucketing {
-		if c.isInitialized {
+		if c.localBucketing.configManager.hasConfig {
 			user, err := c.generateBucketedConfig(user)
 			return user.Features, err
 		} else {
@@ -223,7 +224,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	variable := Variable{baseVariable: baseVar, DefaultValue: convertedDefaultValue, IsDefaulted: true}
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
-		if !c.isInitialized {
+		if !c.localBucketing.configManager.hasConfig {
 			log.Println("Variable called before client initialized, returning default value")
 			return variable, nil
 		}
@@ -318,7 +319,7 @@ func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, err
 		localVarReturnValue map[string]ReadOnlyVariable
 	)
 	if !c.DevCycleOptions.EnableCloudBucketing {
-		if c.isInitialized {
+		if c.localBucketing.configManager.hasConfig {
 			user, err := c.generateBucketedConfig(user)
 			if err != nil {
 				return localVarReturnValue, err
@@ -438,12 +439,19 @@ func (c *DVCClient) Close() (err error) {
 		return
 	}
 
-	if c.internalOnInitializedChannel != nil {
+	if !c.isInitialized {
 		log.Println("Awaiting client initialization before closing")
 		<-c.internalOnInitializedChannel
 	}
-	err = c.eventQueue.Close()
-	c.configManager.Close()
+
+	if c.eventQueue != nil {
+		err = c.eventQueue.Close()
+	}
+
+	if c.configManager != nil {
+		c.configManager.Close()
+	}
+
 	return err
 }
 
