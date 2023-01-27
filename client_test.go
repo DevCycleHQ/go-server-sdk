@@ -83,8 +83,8 @@ func TestDVCClient_VariableLocal_403(t *testing.T) {
 	httpConfigMock(403)
 
 	_, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
-	if err != nil {
-		t.Fatal("Expected error from configmanager to be swallowed")
+	if err == nil {
+		t.Fatal("Expected error from configmanager")
 	}
 }
 
