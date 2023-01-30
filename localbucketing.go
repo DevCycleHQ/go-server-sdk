@@ -284,6 +284,11 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 }
 
 func (d *DevCycleLocalBucketing) StoreConfig(token, config string) error {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Println("Failed to process config: ", err)
+		}
+	}()
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
 	tokenAddr, err := d.newAssemblyScriptString(token)
