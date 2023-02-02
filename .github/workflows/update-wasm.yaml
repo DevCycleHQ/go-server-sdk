@@ -1,0 +1,38 @@
+name: Update WASM Binary
+
+on:
+  pull_request:
+    branches: [ main ]
+jobs:
+  update-wasm:
+    name: Harness Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update WASM
+        shell: bash
+        env:
+          USE_LATEST_BUCKETING_LIB: 1
+          WASM_FILE_PATH: "./bucketing-lib.release.wasm"
+        run: |
+          if [[ -z "$USE_LATEST_BUCKETING_LIB" ]]; then
+            if [[ -z "$BUCKETING_LIB_VERSION" ]]; then
+              echo "BUCKETING_LIB_VERSION is not set"
+              exit 1
+            fi
+            echo "Using BUCKETING_LIB_VERSION: $BUCKETING_LIB_VERSION"
+            BUCKETING_LIB_VERSION="@${BUCKETING_LIB_VERSION}"
+          else
+            BUCKETING_LIB_VERSION=""
+          fi          
+          if [[ -z "$WASM_FILE_PATH" ]]; then
+            echo "WASM_FILE_PATH is not set"
+            exit 1
+          fi
+          curl -o "${WASM_FILE_PATH}" "https://unpkg.com/@devcycle/bucketing-assembly-script$BUCKETING_LIB_VERSION/build/bucketing-lib.release.wasm"
+      - name: Commit and push
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "Update WASM binary"
+          commit_options: '--no-verify'
+          branch: ${{ github.head_ref }}
+          file_pattern: ${{ env.WASM_FILE_PATH }}
