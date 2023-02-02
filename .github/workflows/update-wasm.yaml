@@ -37,4 +37,4 @@ jobs:
           commit_message: "Update WASM binary"
           commit_options: '--no-verify'
           branch: ${{ github.head_ref }}
-          file_pattern: ${{ env.WASM_FILE_PATH }}
+          file_pattern: '*.wasm'
