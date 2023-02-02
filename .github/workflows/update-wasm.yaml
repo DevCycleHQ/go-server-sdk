@@ -3,11 +3,13 @@ name: Update WASM Binary
 on:
   pull_request:
     branches: [ main ]
+
 jobs:
   update-wasm:
     name: Harness Tests
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - name: Update WASM
         shell: bash
         env:
