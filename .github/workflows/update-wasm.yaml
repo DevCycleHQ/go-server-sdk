@@ -1,0 +1,17 @@
+name: Force update WASM on PRs
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  update-wasm:
+    name: Update WASM Binary if needed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - id: update-wasm
+        name: Update Web Assembly
+        uses: devcyclehq/update-bucketing-wasm-action@main
+        with:
+          wasm-file-path: "./bucketing-lib.release.wasm"
