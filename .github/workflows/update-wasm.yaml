@@ -13,7 +13,7 @@ jobs:
       - name: Update WASM
         shell: bash
         env:
-          USE_LATEST_BUCKETING_LIB=1
+          USE_LATEST_BUCKETING_LIB: 1
           WASM_FILE_PATH: "./bucketing-lib.release.wasm"
         run: |
           if [[ -z "$USE_LATEST_BUCKETING_LIB" ]]; then
