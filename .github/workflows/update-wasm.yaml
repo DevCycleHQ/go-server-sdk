@@ -12,6 +12,6 @@ jobs:
       - uses: actions/checkout@v3
       - id: update-wasm
         name: Update Web Assembly
-        uses: devcycle/update-bucketing-wasm-action@main
+        uses: devcyclehq/update-bucketing-wasm-action@main
         with:
           wasm-file-path: "./bucketing-lib.release.wasm"
