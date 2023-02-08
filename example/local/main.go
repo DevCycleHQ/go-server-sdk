@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	environmentKey := os.Getenv("DVC_SERVER_KEY")
+	sdkKey := os.Getenv("DVC_SERVER_KEY")
 	user := devcycle.DVCUser{UserId: "test"}
 	onInitialized := make(chan bool)
 	dvcOptions := devcycle.DVCOptions{
@@ -23,7 +23,7 @@ func main() {
 		OnInitializedChannel:         onInitialized,
 	}
 
-	client, _ := devcycle.NewDVCClient(environmentKey, &dvcOptions)
+	client, _ := devcycle.NewDVCClient(sdkKey, &dvcOptions)
 
 	features, _ := client.AllFeatures(user)
 	for key, feature := range features {

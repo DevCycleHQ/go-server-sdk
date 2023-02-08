@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	environmentKey := os.Getenv("DVC_SERVER_KEY")
+	sdkKey := os.Getenv("DVC_SERVER_KEY")
 	user := devcycle.DVCUser{UserId: "test"}
 	dvcOptions := devcycle.DVCOptions{
 		EnableEdgeDB:                 false,
@@ -20,7 +20,7 @@ func main() {
 		DisableAutomaticEventLogging: false,
 		DisableCustomEventLogging:    false,
 	}
-	client, _ := devcycle.NewDVCClient(environmentKey, &dvcOptions)
+	client, _ := devcycle.NewDVCClient(sdkKey, &dvcOptions)
 
 	features, _ := client.AllFeatures(user)
 	for key, feature := range features {
