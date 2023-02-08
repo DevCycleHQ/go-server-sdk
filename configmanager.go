@@ -12,7 +12,7 @@ import (
 )
 
 type EnvironmentConfigManager struct {
-	environmentKey string
+	sdkKey         string
 	configETag     string
 	localBucketing *DevCycleLocalBucketing
 	firstLoad      bool
@@ -23,9 +23,9 @@ type EnvironmentConfigManager struct {
 	pollingStop    chan bool
 }
 
-func (e *EnvironmentConfigManager) Initialize(environmentKey string, localBucketing *DevCycleLocalBucketing) (err error) {
+func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *DevCycleLocalBucketing) (err error) {
 	e.localBucketing = localBucketing
-	e.environmentKey = environmentKey
+	e.sdkKey = sdkKey
 	e.httpClient = &http.Client{Timeout: localBucketing.options.RequestTimeout}
 	e.context, e.cancel = context.WithCancel(context.Background())
 	e.pollingStop = make(chan bool, 2)
@@ -113,7 +113,7 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 	}
 
 	config := string(raw)
-	err = e.localBucketing.StoreConfig(e.environmentKey, config)
+	err = e.localBucketing.StoreConfig(e.sdkKey, config)
 	if err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 func (e *EnvironmentConfigManager) getConfigURL() string {
 	configBasePath := e.localBucketing.cfg.ConfigCDNBasePath
 
-	return fmt.Sprintf("%s/config/v1/server/%s.json", configBasePath, e.environmentKey)
+	return fmt.Sprintf("%s/config/v1/server/%s.json", configBasePath, e.sdkKey)
 }
 
 func (e *EnvironmentConfigManager) HasConfig() bool {

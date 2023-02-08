@@ -30,7 +30,7 @@ type DVCClient struct {
 	cfg                          *HTTPConfiguration
 	common                       service // Reuse a single struct instead of allocating one for each service on the heap.
 	DevCycleOptions              *DVCOptions
-	environmentKey               string
+	sdkKey                       string
 	auth                         context.Context
 	localBucketing               *DevCycleLocalBucketing
 	configManager                *EnvironmentConfigManager
@@ -50,12 +50,12 @@ type service struct {
 	client *DVCClient
 }
 
-func initializeLocalBucketing(environmentKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
+func initializeLocalBucketing(sdkKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
 	cfg := NewConfiguration(options)
 
 	options.CheckDefaults()
 	ret = &DevCycleLocalBucketing{}
-	err = ret.Initialize(environmentKey, options, cfg)
+	err = ret.Initialize(sdkKey, options, cfg)
 	if err != nil {
 		log.Println(err)
 		return nil, err
@@ -63,8 +63,8 @@ func initializeLocalBucketing(environmentKey string, options *DVCOptions) (ret *
 	return
 }
 
-func setLBClient(environmentKey string, options *DVCOptions, c *DVCClient) error {
-	localBucketing, err := initializeLocalBucketing(environmentKey, options)
+func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
+	localBucketing, err := initializeLocalBucketing(sdkKey, options)
 
 	if err != nil {
 		c.isInitialized = true
@@ -95,18 +95,18 @@ func setLBClient(environmentKey string, options *DVCOptions, c *DVCClient) error
 
 // NewDVCClient creates a new API client.
 // optionally pass a custom http.Client to allow for advanced features such as caching.
-func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error) {
-	if environmentKey == "" {
-		return nil, fmt.Errorf("Missing environment key! Call NewDVCClient with a valid environment key.")
+func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
+	if sdkKey == "" {
+		return nil, fmt.Errorf("Missing sdk key! Call NewDVCClient with a valid sdk key.")
 	}
-	if !environmentKeyIsValid(environmentKey) {
-		return nil, fmt.Errorf("Invalid environment key. Call NewDVCClient with a valid environment key.")
+	if !sdkKeyIsValid(sdkKey) {
+		return nil, fmt.Errorf("Invalid sdk key. Call NewDVCClient with a valid sdk key.")
 	}
 	cfg := NewConfiguration(options)
 
 	options.CheckDefaults()
 
-	c := &DVCClient{environmentKey: environmentKey}
+	c := &DVCClient{sdkKey: sdkKey}
 	c.cfg = cfg
 	c.common.client = c
 	c.DevCycleOptions = options
@@ -115,13 +115,13 @@ func NewDVCClient(environmentKey string, options *DVCOptions) (*DVCClient, error
 		c.internalOnInitializedChannel = make(chan bool, 1)
 		if c.DevCycleOptions.OnInitializedChannel != nil {
 			go func() {
-				err := setLBClient(environmentKey, options, c)
+				err := setLBClient(sdkKey, options, c)
 				if err != nil {
 					log.Println(err.Error())
 				}
 			}()
 		} else {
-			err := setLBClient(environmentKey, options, c)
+			err := setLBClient(sdkKey, options, c)
 			return c, err
 		}
 	}
@@ -471,7 +471,7 @@ func (c *DVCClient) performRequest(
 ) (response *http.Response, body []byte, err error) {
 	headerParams["Content-Type"] = "application/json"
 	headerParams["Accept"] = "application/json"
-	headerParams["Authorization"] = c.environmentKey
+	headerParams["Authorization"] = c.sdkKey
 
 	var httpResponse *http.Response
 	var responseBody []byte
@@ -693,6 +693,6 @@ func (c *DVCClient) prepareRequest(
 	return localVarRequest, nil
 }
 
-func environmentKeyIsValid(key string) bool {
+func sdkKeyIsValid(key string) bool {
 	return strings.HasPrefix(key, "server") || strings.HasPrefix(key, "dvc_server")
 }

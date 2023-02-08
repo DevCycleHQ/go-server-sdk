@@ -16,7 +16,7 @@ import "github.com/devcyclehq/go-server-sdk/v2"
 ## Getting Started
 
 ```golang
-    environmentKey := os.Getenv("DVC_SERVER_KEY")
+    sdkKey := os.Getenv("DVC_SERVER_KEY")
 	user := devcycle.DVCUser{UserId: "test"}
 
 	dvcOptions := devcycle.DVCOptions{
@@ -29,7 +29,7 @@ import "github.com/devcyclehq/go-server-sdk/v2"
 		DisableCustomEventLogging:    false,
 	}
 
-	client, _ := devcycle.NewDVCClient(environmentKey, &dvcOptions)
+	client, _ := devcycle.NewDVCClient(sdkKey, &dvcOptions)
 ```
 
 ## Usage
