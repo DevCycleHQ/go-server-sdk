@@ -431,6 +431,24 @@ func (c *DVCClient) FlushEvents() error {
 	return err
 }
 
+func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error {
+	if !c.DevCycleOptions.EnableCloudBucketing {
+		if c.isInitialized {
+			data, err := json.Marshal(customData)
+			if err != nil {
+				return err
+			}
+			err = c.localBucketing.SetClientCustomData(c.sdkKey, string(data))
+			return err
+		} else {
+			log.Println("SetClientCustomData called before client initialized")
+			return nil
+		}
+	}
+
+	return errors.New("SetClientCustomData is not available in cloud bucketing mode")
+}
+
 /*
 Close the client and flush any pending events. Stop any ongoing tickers
 */
