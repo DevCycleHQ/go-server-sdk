@@ -33,8 +33,8 @@ type DevCycleLocalBucketing struct {
 //go:embed bucketing-lib.release.wasm
 var wasmBinary []byte
 
-func (d *DevCycleLocalBucketing) SetSDKToken(token string) {
-	d.sdkKey = token
+func (d *DevCycleLocalBucketing) SetSDKKey(sdkKey string) {
+	d.sdkKey = sdkKey
 }
 
 func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions, cfg *HTTPConfiguration) (err error) {
@@ -121,7 +121,7 @@ func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions
 func (d *DevCycleLocalBucketing) initEventQueue(options string) (err error) {
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
-	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
+	sdkKeyAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
 	}
@@ -130,7 +130,7 @@ func (d *DevCycleLocalBucketing) initEventQueue(options string) (err error) {
 		return
 	}
 	_initEventQueue := d.wasmInstance.GetExport(d.wasmStore, "initEventQueue").Func()
-	_, err = _initEventQueue.Call(d.wasmStore, tokenAddr, optionsAddr)
+	_, err = _initEventQueue.Call(d.wasmStore, sdkKeyAddr, optionsAddr)
 	return
 }
 
@@ -144,12 +144,12 @@ func (d *DevCycleLocalBucketing) finishFlushEvents() {
 func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err error) {
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
-	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
+	sdkKeyAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
 	}
 	_flushEventQueue := d.wasmInstance.GetExport(d.wasmStore, "flushEventQueue").Func()
-	addrResult, err := _flushEventQueue.Call(d.wasmStore, tokenAddr)
+	addrResult, err := _flushEventQueue.Call(d.wasmStore, sdkKeyAddr)
 	if err != nil {
 		return
 	}
@@ -161,12 +161,12 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
-	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
+	sdkKeyAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
 	}
 	_eventQueueSize := d.wasmInstance.GetExport(d.wasmStore, "eventQueueSize").Func()
-	result, err := _eventQueueSize.Call(d.wasmStore, tokenAddr)
+	result, err := _eventQueueSize.Call(d.wasmStore, sdkKeyAddr)
 	if err != nil {
 		return
 	}
@@ -177,7 +177,7 @@ func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
 func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) {
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
-	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
+	sdkKeyAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
 	}
@@ -186,14 +186,14 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) 
 		return
 	}
 	_onPayloadSuccess := d.wasmInstance.GetExport(d.wasmStore, "onPayloadSuccess").Func()
-	_, err = _onPayloadSuccess.Call(d.wasmStore, tokenAddr, payloadIdAddr)
+	_, err = _onPayloadSuccess.Call(d.wasmStore, sdkKeyAddr, payloadIdAddr)
 	return
 }
 
 func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
-	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
+	sdkKeyAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
 	}
@@ -206,14 +206,14 @@ func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 		return
 	}
 	_queueEvent := d.wasmInstance.GetExport(d.wasmStore, "queueEvent").Func()
-	_, err = _queueEvent.Call(d.wasmStore, tokenAddr, userAddr, eventAddr)
+	_, err = _queueEvent.Call(d.wasmStore, sdkKeyAddr, userAddr, eventAddr)
 	return
 }
 
 func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, user BucketedUserConfig) (err error) {
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
-	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
+	sdkKeyAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
 	}
@@ -231,14 +231,14 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, user Bucketed
 		return
 	}
 	_queueAggregateEvent := d.wasmInstance.GetExport(d.wasmStore, "queueAggregateEvent").Func()
-	_, err = _queueAggregateEvent.Call(d.wasmStore, tokenAddr, eventAddr, variationMapAddr)
+	_, err = _queueAggregateEvent.Call(d.wasmStore, sdkKeyAddr, eventAddr, variationMapAddr)
 	return
 }
 
 func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bool) (err error) {
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
-	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
+	sdkKeyAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
 	}
@@ -252,9 +252,9 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 	}
 	_onPayloadFailure := d.wasmInstance.GetExport(d.wasmStore, "onPayloadFailure").Func()
 	if retryable {
-		_, err = _onPayloadFailure.Call(d.wasmStore, tokenAddr, payloadIdAddr, 1)
+		_, err = _onPayloadFailure.Call(d.wasmStore, sdkKeyAddr, payloadIdAddr, 1)
 	} else {
-		_, err = _onPayloadFailure.Call(d.wasmStore, tokenAddr, payloadIdAddr, 0)
+		_, err = _onPayloadFailure.Call(d.wasmStore, sdkKeyAddr, payloadIdAddr, 0)
 	}
 	return
 }
@@ -262,7 +262,7 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret BucketedUserConfig, err error) {
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
-	tokenAddr, err := d.newAssemblyScriptString(d.sdkKey)
+	sdkKeyAddr, err := d.newAssemblyScriptString(d.sdkKey)
 	if err != nil {
 		return
 	}
@@ -271,7 +271,7 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 		return
 	}
 	_generateBucketedConfigForUser := d.wasmInstance.GetExport(d.wasmStore, "generateBucketedConfigForUser").Func()
-	configPtr, err := _generateBucketedConfigForUser.Call(d.wasmStore, tokenAddr, userAddr)
+	configPtr, err := _generateBucketedConfigForUser.Call(d.wasmStore, sdkKeyAddr, userAddr)
 	if err != nil {
 		return
 	}
@@ -283,7 +283,7 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	return ret, nil
 }
 
-func (d *DevCycleLocalBucketing) StoreConfig(token, config string) error {
+func (d *DevCycleLocalBucketing) StoreConfig(sdkKey, config string) error {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Failed to process config: ", err)
@@ -291,7 +291,7 @@ func (d *DevCycleLocalBucketing) StoreConfig(token, config string) error {
 	}()
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
-	tokenAddr, err := d.newAssemblyScriptString(token)
+	sdkKeyAddr, err := d.newAssemblyScriptString(sdkKey)
 	if err != nil {
 		return err
 	}
@@ -300,7 +300,7 @@ func (d *DevCycleLocalBucketing) StoreConfig(token, config string) error {
 		return err
 	}
 	_setConfigData := d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
-	_, err = _setConfigData.Call(d.wasmStore, tokenAddr, configAddr)
+	_, err = _setConfigData.Call(d.wasmStore, sdkKeyAddr, configAddr)
 	if err != nil {
 		return err
 	}
@@ -323,11 +323,11 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 	return nil
 }
 
-func (d *DevCycleLocalBucketing) SetClientCustomData(token string, customData string) error {
+func (d *DevCycleLocalBucketing) SetClientCustomData(sdkKey string, customData string) error {
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
 
-	tokenAddr, err := d.newAssemblyScriptString(token)
+	sdkKeyAddr, err := d.newAssemblyScriptString(sdkKey)
 	if err != nil {
 		return err
 	}
@@ -338,11 +338,9 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(token string, customData st
 	}
 
 	_setClientCustomData := d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
-	_, err = _setClientCustomData.Call(d.wasmStore, tokenAddr, customDataAddr)
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err = _setClientCustomData.Call(d.wasmStore, sdkKeyAddr, customDataAddr)
+	
+	return err
 }
 
 // This has a horrible hack because of WTF-16 - We're double-allocating because utf8->utf16 doesn't zero-pad

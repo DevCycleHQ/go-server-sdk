@@ -446,8 +446,7 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 		}
 	}
 
-	log.Println("SetClientCustomData is not available in cloud bucketing mode.")
-	return nil
+	return errors.New("SetClientCustomData is not available in cloud bucketing mode")
 }
 
 /*
