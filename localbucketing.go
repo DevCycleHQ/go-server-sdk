@@ -310,12 +310,35 @@ func (d *DevCycleLocalBucketing) StoreConfig(token, config string) error {
 func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
+
 	configAddr, err := d.newAssemblyScriptString(platformData)
 	if err != nil {
 		return err
 	}
 	_setPlatformData := d.wasmInstance.GetExport(d.wasmStore, "setPlatformData").Func()
 	_, err = _setPlatformData.Call(d.wasmStore, configAddr)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *DevCycleLocalBucketing) SetClientCustomData(token string, customData string) error {
+	d.wasmMutex.Lock()
+	defer d.wasmMutex.Unlock()
+
+	tokenAddr, err := d.newAssemblyScriptString(token)
+	if err != nil {
+		return err
+	}
+
+	customDataAddr, err := d.newAssemblyScriptString(customData)
+	if err != nil {
+		return err
+	}
+
+	_setClientCustomData := d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
+	_, err = _setClientCustomData.Call(d.wasmStore, tokenAddr, customDataAddr)
 	if err != nil {
 		return err
 	}
