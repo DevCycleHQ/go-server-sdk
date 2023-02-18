@@ -6,9 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/matryer/try"
 	"io/ioutil"
-	"log"
 	"math"
 	"math/rand"
 	"net/http"
@@ -17,6 +15,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/matryer/try"
 )
 
 var (
@@ -57,7 +57,7 @@ func initializeLocalBucketing(sdkKey string, options *DVCOptions) (ret *DevCycle
 	ret = &DevCycleLocalBucketing{}
 	err = ret.Initialize(sdkKey, options, cfg)
 	if err != nil {
-		log.Println(err)
+		printf("error while initializing local bucketing", err)
 		return nil, err
 	}
 	return
@@ -117,7 +117,7 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 			go func() {
 				err := setLBClient(sdkKey, options, c)
 				if err != nil {
-					log.Println(err.Error())
+					printf(err.Error())
 				}
 			}()
 		} else {
@@ -163,7 +163,7 @@ func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
 			user, err := c.generateBucketedConfig(user)
 			return user.Features, err
 		} else {
-			log.Println("AllFeatures called before client initialized")
+			printf("AllFeatures called before client initialized")
 			return map[string]Feature{}, nil
 		}
 
@@ -225,7 +225,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if !c.hasConfig() {
-			log.Println("Variable called before client initialized, returning default value")
+			printf("Variable called before client initialized, returning default value")
 			return variable, nil
 		}
 		bucketed, err := c.generateBucketedConfig(userdata)
@@ -238,7 +238,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 			variableEvaluationType = EventType_AggVariableEvaluated
 		} else {
 			if !sameTypeAsDefault && bucketed.Variables[key].Value != nil {
-				log.Printf("Type mismatch for variable %s. Expected type %s, got %s",
+				printf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
 					reflect.TypeOf(bucketed.Variables[key].Value).String(),
@@ -252,7 +252,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 				Target: key,
 			})
 			if err != nil {
-				log.Println("Error queuing aggregate event: ", err)
+				printf("Error queuing aggregate event: ", err)
 				err = nil
 			}
 		}
@@ -291,7 +291,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 				variable.Value = localVarReturnValue.Value
 				variable.IsDefaulted = false
 			} else {
-				log.Printf("Type mismatch for variable %s. Expected type %s, got %s",
+				printf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
 					reflect.TypeOf(localVarReturnValue.Value).String(),
@@ -305,10 +305,10 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	var v ErrorResponse
 	err = decode(&v, body, r.Header.Get("Content-Type"))
 	if err != nil {
-		log.Println(err.Error())
+		printf(err.Error())
 		return variable, nil
 	}
-	log.Println(v.Message)
+	printf(v.Message)
 	return variable, nil
 }
 
@@ -326,7 +326,7 @@ func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, err
 			}
 			return user.Variables, err
 		} else {
-			log.Println("AllFeatures called before client initialized")
+			printf("AllFeatures called before client initialized")
 			return map[string]ReadOnlyVariable{}, nil
 		}
 	}
@@ -377,7 +377,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 			err := c.eventQueue.QueueEvent(user, event)
 			return err == nil, err
 		} else {
-			log.Println("Track called before client initialized")
+			printf("Track called before client initialized")
 			return true, nil
 		}
 	}
@@ -441,7 +441,7 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 			err = c.localBucketing.SetClientCustomData(c.sdkKey, string(data))
 			return err
 		} else {
-			log.Println("SetClientCustomData called before client initialized")
+			printf("SetClientCustomData called before client initialized")
 			return nil
 		}
 	}
@@ -458,7 +458,7 @@ func (c *DVCClient) Close() (err error) {
 	}
 
 	if !c.isInitialized {
-		log.Println("Awaiting client initialization before closing")
+		printf("Awaiting client initialization before closing")
 		<-c.internalOnInitializedChannel
 	}
 
@@ -557,7 +557,7 @@ func (c *DVCClient) handleError(r *http.Response, body []byte) (err error) {
 	newErr.model = v
 
 	if r.StatusCode >= 500 {
-		log.Println("Request error: ", newErr)
+		printf("Request error: ", newErr)
 		return nil
 	}
 	return newErr

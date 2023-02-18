@@ -3,7 +3,6 @@ package devcycle
 import (
 	_ "embed"
 	"encoding/json"
-	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -74,7 +73,7 @@ func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions
 	}
 
 	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
-		log.Println(readAssemblyScriptString(messagePtr, d.wasmMemory, d.wasmStore))
+		printf(readAssemblyScriptString(messagePtr, d.wasmMemory, d.wasmStore))
 	})
 	if err != nil {
 		return
@@ -286,7 +285,7 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 func (d *DevCycleLocalBucketing) StoreConfig(sdkKey, config string) error {
 	defer func() {
 		if err := recover(); err != nil {
-			log.Println("Failed to process config: ", err)
+			printf("Failed to process config: ", err)
 		}
 	}()
 	d.wasmMutex.Lock()
@@ -339,7 +338,7 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(sdkKey string, customData s
 
 	_setClientCustomData := d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
 	_, err = _setClientCustomData.Call(d.wasmStore, sdkKeyAddr, customDataAddr)
-	
+
 	return err
 }
 

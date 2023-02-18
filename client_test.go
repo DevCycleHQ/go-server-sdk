@@ -14,30 +14,26 @@ func TestDVCClient_AllFeatures_Local(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	fatalErr(t, err)
 
 	features, err := c.AllFeatures(
 		DVCUser{UserId: "j_test", DeviceModel: "testing"})
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
+	fatalErr(t, err)
 
 	fmt.Println(features)
-
 }
+
 func TestDVCClient_AllVariablesLocal(t *testing.T) {
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	fatalErr(t, err)
 
 	variables, err := c.AllVariables(
 		DVCUser{UserId: "j_test", DeviceModel: "testing"})
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
+	fatalErr(t, err)
 
 	fmt.Println(variables)
 }
@@ -51,10 +47,7 @@ func TestDVCClient_VariableCloud(t *testing.T) {
 	variable, err := c.Variable(
 		DVCUser{UserId: "j_test", DeviceModel: "testing"},
 		"test", true)
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
+	fatalErr(t, err)
 
 	fmt.Println(variable)
 }
@@ -69,10 +62,7 @@ func TestDVCClient_VariableLocal(t *testing.T) {
 	variable, err := c.Variable(
 		DVCUser{UserId: "j_test", DeviceModel: "testing"},
 		"test", true)
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
+	fatalErr(t, err)
 
 	fmt.Println(variable)
 }
@@ -103,9 +93,8 @@ func TestDVCClient_TrackLocal_QueueEvent(t *testing.T) {
 		FeatureVars: nil,
 		MetaData:    nil,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	fatalErr(t, err)
+
 	fmt.Println(track)
 }
 
@@ -130,10 +119,15 @@ func TestProduction_Local(t *testing.T) {
 	}
 
 	variables, err := client.AllVariables(user)
-	if err != nil {
-		t.Fatal(err)
-	}
+	fatalErr(t, err)
+
 	if len(variables) == 0 {
 		t.Fatal("No variables returned")
+	}
+}
+
+func fatalErr(t *testing.T, err error) {
+	if err != nil {
+		t.Fatal(err)
 	}
 }

@@ -38,7 +38,7 @@ func TestEventQueue_QueueEvent_100_DropEvent(t *testing.T) {
 		if err != nil {
 			errored = true
 			log.Println(err)
-			return
+			break
 		}
 	}
 	if !errored {
