@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"time"
 )
@@ -42,13 +41,13 @@ func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *Dev
 		for {
 			select {
 			case <-e.pollingStop:
-				log.Printf("Stopping config polling.")
+				printf("Stopping config polling.")
 				ticker.Stop()
 				return
 			case <-ticker.C:
 				err = e.fetchConfig(false)
 				if err != nil {
-					log.Printf("Error fetching config: %s\n", err)
+					printf("Error fetching config: %s\n", err)
 				}
 			}
 		}
@@ -59,6 +58,10 @@ func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *Dev
 
 func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 	req, err := http.NewRequest("GET", e.getConfigURL(), nil)
+	if err != nil {
+		return err
+	}
+
 	if e.configETag != "" {
 		req.Header.Set("If-None-Match", e.configETag)
 	}
@@ -68,13 +71,12 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 	}
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
-		err = e.setConfig(resp)
-		if err != nil {
+		if err = e.setConfig(resp); err != nil {
 			return err
 		}
 		break
 	case statusCode == http.StatusNotModified:
-		log.Printf("Config not modified. Using cached config. %s\n", e.configETag)
+		printf("Config not modified. Using cached config. %s\n", e.configETag)
 		break
 	case statusCode == http.StatusForbidden:
 		e.pollingStop <- true
@@ -82,17 +84,17 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 	case statusCode >= 500:
 		// Retryable Errors. Continue polling.
 		if !retrying {
-			log.Println("Retrying config fetch. Status:" + resp.Status)
+			printf("Retrying config fetch. Status:" + resp.Status)
 			return e.fetchConfig(true)
 		}
-		log.Println("Config fetch failed. Status:" + resp.Status)
+		printf("Config fetch failed. Status:" + resp.Status)
 		break
 	default:
-		log.Printf("Unexpected response code: %d\n", resp.StatusCode)
-		log.Printf("Body: %s\n", resp.Body)
-		log.Printf("URL: %s\n", e.getConfigURL())
-		log.Printf("Headers: %s\n", resp.Header)
-		log.Printf("Could not download configuration. Using cached version if available %s\n", resp.Header.Get("ETag"))
+		printf("Unexpected response code: %d\n", resp.StatusCode)
+		printf("Body: %s\n", resp.Body)
+		printf("URL: %s\n", e.getConfigURL())
+		printf("Headers: %s\n", resp.Header)
+		printf("Could not download configuration. Using cached version if available %s\n", resp.Header.Get("ETag"))
 		e.context.Done()
 		e.cancel()
 		break
@@ -119,10 +121,10 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 	}
 	e.hasConfig = true
 	e.configETag = response.Header.Get("Etag")
-	log.Printf("Config set. ETag: %s\n", e.configETag)
+	printf("Config set. ETag: %s\n", e.configETag)
 	if e.firstLoad {
 		e.firstLoad = false
-		log.Println("DevCycle SDK Initialized.")
+		printf("DevCycle SDK Initialized.")
 	}
 	return nil
 }
