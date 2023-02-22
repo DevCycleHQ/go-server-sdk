@@ -4,7 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"log"
+	
 	"math/rand"
 	"sync"
 	"time"
