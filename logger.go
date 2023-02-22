@@ -72,25 +72,11 @@ func (defaultLogger) Infof(format string, a ...any) {
 	log.Printf("INFO:"+format, a...)
 }
 
-func (defaultLogger) Fatalf(format string, a ...any) {
-	if !strings.HasSuffix(format, "\n") {
-		format += "\n"
-	}
-	log.Fatalf("FATAL:"+format, a...)
-}
-
 func (defaultLogger) Printf(format string, a ...any) {
 	if !strings.HasSuffix(format, "\n") {
 		format += "\n"
 	}
 	log.Printf(format, a...)
-}
-
-func (defaultLogger) Panicf(format string, a ...any) {
-	if !strings.HasSuffix(format, "\n") {
-		format += "\n"
-	}
-	log.Panicf(format, a...)
 }
 
 func (defaultLogger) Warnf(format string, a ...any) {
