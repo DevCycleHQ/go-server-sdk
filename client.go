@@ -308,7 +308,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	var v ErrorResponse
 	err = decode(&v, body, r.Header.Get("Content-Type"))
 	if err != nil {
-		debugf("Error decoding response body %s", err)
+		warnf("Error decoding response body %s", err)
 		return variable, nil
 	}
 	warnf(v.Message)
@@ -329,7 +329,7 @@ func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, err
 			}
 			return user.Variables, err
 		} else {
-			debugf("AllFeatures called before client initialized")
+			warnf("AllFeatures called before client initialized")
 			return map[string]ReadOnlyVariable{}, nil
 		}
 	}
@@ -380,7 +380,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 			err := c.eventQueue.QueueEvent(user, event)
 			return err == nil, err
 		} else {
-			debugf("Track called before client initialized")
+			warnf("Track called before client initialized")
 			return true, nil
 		}
 	}
@@ -444,7 +444,7 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 			err = c.localBucketing.SetClientCustomData(c.sdkKey, string(data))
 			return err
 		} else {
-			debugf("SetClientCustomData called before client initialized")
+			warnf("SetClientCustomData called before client initialized")
 			return nil
 		}
 	}
@@ -560,7 +560,7 @@ func (c *DVCClient) handleError(r *http.Response, body []byte) (err error) {
 	newErr.model = v
 
 	if r.StatusCode >= 500 {
-		debugf("Request error: ", newErr)
+		warnf("Server reported a 5xx error: ", newErr)
 		return nil
 	}
 	return newErr
