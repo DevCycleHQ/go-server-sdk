@@ -165,11 +165,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 		}
 
 		if resp.StatusCode >= 400 {
-			reportError := reportPayloadFailure(e.localBucketing, payload.PayloadId, false)
-			if reportError != nil {
-				continue
-			}
-
+			_ = reportPayloadFailure(e.localBucketing, payload.PayloadId, false)
 			responseBody, readError := io.ReadAll(resp.Body)
 			if readError != nil {
 				errorf("Failed to read response body %s", readError)
@@ -178,13 +174,14 @@ func (e *EventQueue) FlushEvents() (err error) {
 			resp.Body.Close()
 
 			errorf("Error sending events - Response: %s", string(responseBody))
+
 			continue
 		}
 
 		if resp.StatusCode == 201 {
 			err = e.localBucketing.onPayloadSuccess(payload.PayloadId)
 			if err != nil {
-				warnf("failed to mark payload as success %s", err)
+				errorf("failed to mark payload as success %s", err)
 				continue
 			}
 			infof("Flushed %d events\n", payload.EventCount)
@@ -196,7 +193,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 func reportPayloadFailure(localBucketing *DevCycleLocalBucketing, payloadId string, retry bool) (err error) {
 	err = localBucketing.onPayloadFailure(payloadId, retry)
 	if err != nil {
-		warnf("Failed to mark payload as failed: %s", err)
+		errorf("Failed to mark payload as failed: %s", err)
 	}
 	return
 }
