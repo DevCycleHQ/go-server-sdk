@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math"
 	"math/rand"
 	"net/http"
@@ -57,7 +57,7 @@ func initializeLocalBucketing(sdkKey string, options *DVCOptions) (ret *DevCycle
 	ret = &DevCycleLocalBucketing{}
 	err = ret.Initialize(sdkKey, options, cfg)
 	if err != nil {
-		printf("error while initializing local bucketing", err)
+		warnf("error while initializing local bucketing", err)
 		return nil, err
 	}
 	return
@@ -97,7 +97,7 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 // optionally pass a custom http.Client to allow for advanced features such as caching.
 func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	if sdkKey == "" {
-		return nil, fmt.Errorf("Missing sdk key! Call NewDVCClient with a valid sdk key.")
+		return nil, fmt.Errorf("missing sdk key! Call NewDVCClient with a valid sdk key")
 	}
 	if !sdkKeyIsValid(sdkKey) {
 		return nil, fmt.Errorf("Invalid sdk key. Call NewDVCClient with a valid sdk key.")
@@ -110,14 +110,17 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	c.cfg = cfg
 	c.common.client = c
 	c.DevCycleOptions = options
-
+	if c.DevCycleOptions.CustomLogger != nil {
+		SetLogger(c.DevCycleOptions.CustomLogger)
+	}
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		c.internalOnInitializedChannel = make(chan bool, 1)
 		if c.DevCycleOptions.OnInitializedChannel != nil {
+			// TODO: Pass this error back via a channel internally
 			go func() {
 				err := setLBClient(sdkKey, options, c)
 				if err != nil {
-					printf(err.Error())
+					infof(err.Error())
 				}
 			}()
 		} else {
@@ -163,7 +166,7 @@ func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
 			user, err := c.generateBucketedConfig(user)
 			return user.Features, err
 		} else {
-			printf("AllFeatures called before client initialized")
+			infof("AllFeatures called before client initialized")
 			return map[string]Feature{}, nil
 		}
 
@@ -225,7 +228,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if !c.hasConfig() {
-			printf("Variable called before client initialized, returning default value")
+			debugf("Variable called before client initialized, returning default value")
 			return variable, nil
 		}
 		bucketed, err := c.generateBucketedConfig(userdata)
@@ -238,7 +241,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 			variableEvaluationType = EventType_AggVariableEvaluated
 		} else {
 			if !sameTypeAsDefault && bucketed.Variables[key].Value != nil {
-				printf("Type mismatch for variable %s. Expected type %s, got %s",
+				debugf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
 					reflect.TypeOf(bucketed.Variables[key].Value).String(),
@@ -252,7 +255,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 				Target: key,
 			})
 			if err != nil {
-				printf("Error queuing aggregate event: ", err)
+				warnf("Error queuing aggregate event: ", err)
 				err = nil
 			}
 		}
@@ -291,7 +294,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 				variable.Value = localVarReturnValue.Value
 				variable.IsDefaulted = false
 			} else {
-				printf("Type mismatch for variable %s. Expected type %s, got %s",
+				debugf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
 					reflect.TypeOf(localVarReturnValue.Value).String(),
@@ -305,10 +308,10 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	var v ErrorResponse
 	err = decode(&v, body, r.Header.Get("Content-Type"))
 	if err != nil {
-		printf(err.Error())
+		debugf("Error decoding response body %s", err)
 		return variable, nil
 	}
-	printf(v.Message)
+	warnf(v.Message)
 	return variable, nil
 }
 
@@ -326,7 +329,7 @@ func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, err
 			}
 			return user.Variables, err
 		} else {
-			printf("AllFeatures called before client initialized")
+			debugf("AllFeatures called before client initialized")
 			return map[string]ReadOnlyVariable{}, nil
 		}
 	}
@@ -377,7 +380,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 			err := c.eventQueue.QueueEvent(user, event)
 			return err == nil, err
 		} else {
-			printf("Track called before client initialized")
+			debugf("Track called before client initialized")
 			return true, nil
 		}
 	}
@@ -441,7 +444,7 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 			err = c.localBucketing.SetClientCustomData(c.sdkKey, string(data))
 			return err
 		} else {
-			printf("SetClientCustomData called before client initialized")
+			debugf("SetClientCustomData called before client initialized")
 			return nil
 		}
 	}
@@ -458,7 +461,7 @@ func (c *DVCClient) Close() (err error) {
 	}
 
 	if !c.isInitialized {
-		printf("Awaiting client initialization before closing")
+		infof("Awaiting client initialization before closing")
 		<-c.internalOnInitializedChannel
 	}
 
@@ -519,7 +522,7 @@ func (c *DVCClient) performRequest(
 			time.Sleep(time.Duration(exponentialBackoff(attempt)) * time.Millisecond) // wait with exponential backoff
 			return attempt <= 5, err
 		}
-		responseBody, err = ioutil.ReadAll(httpResponse.Body)
+		responseBody, err = io.ReadAll(httpResponse.Body)
 		httpResponse.Body.Close()
 
 		if err == nil && httpResponse.StatusCode >= 500 && attempt <= 5 {
@@ -557,7 +560,7 @@ func (c *DVCClient) handleError(r *http.Response, body []byte) (err error) {
 	newErr.model = v
 
 	if r.StatusCode >= 500 {
-		printf("Request error: ", newErr)
+		debugf("Request error: ", newErr)
 		return nil
 	}
 	return newErr
@@ -657,13 +660,13 @@ func (c *DVCClient) prepareRequest(
 	}
 
 	// Setup path and query parameters
-	url, err := url.Parse(path)
+	builtURL, err := url.Parse(path)
 	if err != nil {
 		return nil, err
 	}
 
 	// Adding Query Param
-	query := url.Query()
+	query := builtURL.Query()
 	for k, v := range queryParams {
 		for _, iv := range v {
 			query.Add(k, iv)
@@ -675,13 +678,13 @@ func (c *DVCClient) prepareRequest(
 	}
 
 	// Encode the parameters.
-	url.RawQuery = query.Encode()
+	builtURL.RawQuery = query.Encode()
 
 	// Generate a new request
 	if body != nil {
-		localVarRequest, err = http.NewRequest(method, url.String(), body)
+		localVarRequest, err = http.NewRequest(method, builtURL.String(), body)
 	} else {
-		localVarRequest, err = http.NewRequest(method, url.String(), nil)
+		localVarRequest, err = http.NewRequest(method, builtURL.String(), nil)
 	}
 	if err != nil {
 		return nil, err

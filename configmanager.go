@@ -3,7 +3,6 @@ package devcycle
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,19 +40,18 @@ func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *Dev
 		for {
 			select {
 			case <-e.pollingStop:
-				printf("Stopping config polling.")
+				infof("Stopping config polling.")
 				ticker.Stop()
 				return
 			case <-ticker.C:
 				err = e.fetchConfig(false)
 				if err != nil {
-					printf("Error fetching config: %s\n", err)
+					warnf("Error fetching config: %s\n", err)
 				}
 			}
 		}
 	}()
-
-	return nil
+	return
 }
 
 func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
@@ -76,7 +74,7 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 		}
 		break
 	case statusCode == http.StatusNotModified:
-		printf("Config not modified. Using cached config. %s\n", e.configETag)
+		debugf("Config not modified. Using cached config. %s\n", e.configETag)
 		break
 	case statusCode == http.StatusForbidden:
 		e.pollingStop <- true
@@ -84,22 +82,23 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 	case statusCode >= 500:
 		// Retryable Errors. Continue polling.
 		if !retrying {
-			printf("Retrying config fetch. Status:" + resp.Status)
+			warnf("Retrying config fetch. Status:" + resp.Status)
 			return e.fetchConfig(true)
 		}
-		printf("Config fetch failed. Status:" + resp.Status)
+		warnf("Config fetch failed. Status:" + resp.Status)
 		break
 	default:
-		printf("Unexpected response code: %d\n", resp.StatusCode)
-		printf("Body: %s\n", resp.Body)
-		printf("URL: %s\n", e.getConfigURL())
-		printf("Headers: %s\n", resp.Header)
-		printf("Could not download configuration. Using cached version if available %s\n", resp.Header.Get("ETag"))
+		err = errorf("Unexpected response code: %d\n"+
+			"Body: %s\n"+
+			"URL: %s\n"+
+			"Headers: %s\n"+
+			"Could not download configuration. Using cached version if available %s\n",
+			resp.StatusCode, resp.Body, e.getConfigURL(), resp.Header, resp.Header.Get("ETag"))
 		e.context.Done()
 		e.cancel()
 		break
 	}
-	return nil
+	return err
 }
 
 func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
@@ -111,7 +110,7 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 	// Check
 	valid := json.Valid(raw)
 	if !valid {
-		return errors.New("invalid JSON data received for config")
+		return fmt.Errorf("invalid JSON data received for config")
 	}
 
 	config := string(raw)
@@ -121,10 +120,10 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 	}
 	e.hasConfig = true
 	e.configETag = response.Header.Get("Etag")
-	printf("Config set. ETag: %s\n", e.configETag)
+	infof("Config set. ETag: %s\n", e.configETag)
 	if e.firstLoad {
 		e.firstLoad = false
-		printf("DevCycle SDK Initialized.")
+		infof("DevCycle SDK Initialized.")
 	}
 	return nil
 }
