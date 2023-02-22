@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
@@ -162,6 +163,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 		req.Header.Set("Accept", "application/json")
 
 		resp, err = e.httpClient.Do(req)
+
 		if err != nil {
 			log.Printf("Failed to make request to events api: %s", err)
 			err = e.localBucketing.onPayloadFailure(payload.PayloadId, false)
@@ -178,6 +180,25 @@ func (e *EventQueue) FlushEvents() (err error) {
 				continue
 			}
 			log.Println("Server error, retrying later")
+			continue
+		}
+
+		if resp.StatusCode >= 400 {
+			err = e.localBucketing.onPayloadFailure(payload.PayloadId, false)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			responseBody, err := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			log.Println("Error sending events", string(responseBody))
 			continue
 		}
 

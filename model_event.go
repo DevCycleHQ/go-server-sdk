@@ -12,13 +12,13 @@ import "time"
 
 type DVCEvent struct {
 	Type_       string                 `json:"type"`
-	Target      string                 `json:"target,omitempty"`
-	CustomType  string                 `json:"customType,omitempty"`
-	UserId      string                 `json:"user_id,omitempty"`
-	ClientDate  time.Time              `json:"clientDate,omitempty"`
-	Value       float64                `json:"value,omitempty"`
-	FeatureVars map[string]string      `json:"featureVars,omitempty"`
-	MetaData    map[string]interface{} `json:"metaData,omitempty"`
+	Target      string                 `json:"target"`
+	CustomType  string                 `json:"customType"`
+	UserId      string                 `json:"user_id"`
+	ClientDate  time.Time              `json:"clientDate"`
+	Value       float64                `json:"value"`
+	FeatureVars map[string]string      `json:"featureVars"`
+	MetaData    map[string]interface{} `json:"metaData"`
 }
 
 type UserEventsBatchRecord struct {
@@ -27,11 +27,11 @@ type UserEventsBatchRecord struct {
 }
 
 type FlushPayload struct {
-	PayloadId  string                  `json:"payloadId,omitempty"`
-	EventCount int                     `json:"eventCount,omitempty"`
-	Records    []UserEventsBatchRecord `json:"records,omitempty"`
+	PayloadId  string                  `json:"payloadId"`
+	EventCount int                     `json:"eventCount"`
+	Records    []UserEventsBatchRecord `json:"records"`
 }
 
 type BatchEventsBody struct {
-	Batch []UserEventsBatchRecord `json:"batch,omitempty"`
+	Batch []UserEventsBatchRecord `json:"batch"`
 }
