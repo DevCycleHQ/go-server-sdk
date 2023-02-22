@@ -339,7 +339,7 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 func (d *DevCycleLocalBucketing) StoreConfig(sdkKey, config string) error {
 	defer func() {
 		if err := recover(); err != nil {
-			warnf("Failed to process config: ", err)
+			errorf("Failed to process config: ", err)
 		}
 	}()
 	d.wasmMutex.Lock()

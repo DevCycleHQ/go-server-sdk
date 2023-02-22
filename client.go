@@ -57,7 +57,7 @@ func initializeLocalBucketing(sdkKey string, options *DVCOptions) (ret *DevCycle
 	ret = &DevCycleLocalBucketing{}
 	err = ret.Initialize(sdkKey, options, cfg)
 	if err != nil {
-		warnf("error while initializing local bucketing", err)
+		errorf("error while initializing local bucketing", err)
 		return nil, err
 	}
 	return
@@ -110,8 +110,8 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	c.cfg = cfg
 	c.common.client = c
 	c.DevCycleOptions = options
-	if c.DevCycleOptions.CustomLogger != nil {
-		SetLogger(c.DevCycleOptions.CustomLogger)
+	if c.DevCycleOptions.Logger != nil {
+		SetLogger(c.DevCycleOptions.Logger)
 	}
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		c.internalOnInitializedChannel = make(chan bool, 1)
@@ -166,7 +166,7 @@ func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
 			user, err := c.generateBucketedConfig(user)
 			return user.Features, err
 		} else {
-			infof("AllFeatures called before client initialized")
+			warnf("AllFeatures called before client initialized")
 			return map[string]Feature{}, nil
 		}
 
@@ -228,7 +228,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if !c.hasConfig() {
-			debugf("Variable called before client initialized, returning default value")
+			warnf("Variable called before client initialized, returning default value")
 			return variable, nil
 		}
 		bucketed, err := c.generateBucketedConfig(userdata)

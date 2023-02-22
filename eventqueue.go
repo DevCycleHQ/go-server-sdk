@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"time"
 )
@@ -136,20 +135,14 @@ func (e *EventQueue) FlushEvents() (err error) {
 		var resp *http.Response
 		requestBody, err := json.Marshal(BatchEventsBody{Batch: payload.Records})
 		if err != nil {
-			warnf("Failed to marshal batch events body: %s", err)
-			err = e.localBucketing.onPayloadFailure(payload.PayloadId, false)
-			if err != nil {
-				warnf("Failed to mark payload as failed: %s", err)
-			}
+			errorf("Failed to marshal batch events body: %s", err)
+			reportPayloadFailure(e.localBucketing, payload.PayloadId, false)
 			continue
 		}
 		req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(requestBody))
 		if err != nil {
-			log.Printf("Failed to create request to events api: %s", err)
-			err = e.localBucketing.onPayloadFailure(payload.PayloadId, false)
-			if err != nil {
-				warnf("Failed to mark payload as failed: %s", err)
-			}
+			errorf("Failed to create request to events api: %s", err)
+			reportPayloadFailure(e.localBucketing, payload.PayloadId, false)
 			continue
 		}
 
@@ -160,13 +153,13 @@ func (e *EventQueue) FlushEvents() (err error) {
 		resp, err = e.httpClient.Do(req)
 
 		if err != nil {
-			warnf("Failed to make request to events api: %s", err)
+			errorf("Failed to make request to events api: %s", err)
 			_ = reportPayloadFailure(e.localBucketing, payload.PayloadId, false)
 			continue
 		}
 
 		if resp.StatusCode >= 500 {
-			debugf("Server error, retrying later")
+			warnf("Events API Returned a 5xx error, retrying later.")
 			_ = reportPayloadFailure(e.localBucketing, payload.PayloadId, true)
 			continue
 		}
@@ -179,12 +172,12 @@ func (e *EventQueue) FlushEvents() (err error) {
 
 			responseBody, readError := io.ReadAll(resp.Body)
 			if readError != nil {
-				warnf("Failed to read response body %s", readError)
+				errorf("Failed to read response body %s", readError)
 				continue
 			}
 			resp.Body.Close()
 
-			warnf("Error sending events - Response: %s", string(responseBody))
+			errorf("Error sending events - Response: %s", string(responseBody))
 			continue
 		}
 
