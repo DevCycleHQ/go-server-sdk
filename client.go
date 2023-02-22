@@ -118,10 +118,7 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 		if c.DevCycleOptions.OnInitializedChannel != nil {
 			// TODO: Pass this error back via a channel internally
 			go func() {
-				err := setLBClient(sdkKey, options, c)
-				if err != nil {
-					infof(err.Error())
-				}
+				_ = setLBClient(sdkKey, options, c)
 			}()
 		} else {
 			err := setLBClient(sdkKey, options, c)
@@ -241,7 +238,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 			variableEvaluationType = EventType_AggVariableEvaluated
 		} else {
 			if !sameTypeAsDefault && bucketed.Variables[key].Value != nil {
-				debugf("Type mismatch for variable %s. Expected type %s, got %s",
+				warnf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
 					reflect.TypeOf(bucketed.Variables[key].Value).String(),
@@ -294,7 +291,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 				variable.Value = localVarReturnValue.Value
 				variable.IsDefaulted = false
 			} else {
-				debugf("Type mismatch for variable %s. Expected type %s, got %s",
+				warnf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
 					reflect.TypeOf(localVarReturnValue.Value).String(),

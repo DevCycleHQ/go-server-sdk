@@ -40,7 +40,7 @@ func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *Dev
 		for {
 			select {
 			case <-e.pollingStop:
-				infof("Stopping config polling.")
+				warnf("Stopping config polling.")
 				ticker.Stop()
 				return
 			case <-ticker.C:

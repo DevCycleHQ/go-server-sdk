@@ -55,7 +55,7 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 				select {
 				case <-e.flushStop:
 					ticker.Stop()
-					warnf("Stopping event flushing.")
+					infof("Stopping event flushing.")
 					return
 				case <-ticker.C:
 					err = e.FlushEvents()
