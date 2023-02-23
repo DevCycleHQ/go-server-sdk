@@ -9,7 +9,6 @@
 package devcycle
 
 import (
-	"log"
 	"net/http"
 	"time"
 )
@@ -64,15 +63,16 @@ type DVCOptions struct {
 	EventsAPIURI                 string
 	OnInitializedChannel         chan bool
 	BucketingAPIURI              string
+	Logger                       Logger
 }
 
 func (o *DVCOptions) CheckDefaults() {
 	if o.EventFlushIntervalMS < time.Millisecond*500 || o.EventFlushIntervalMS > time.Minute*1 {
-		log.Println("EventFlushIntervalMS cannot be less than 500ms or longer than 1 minute. Defaulting to 30 seconds.")
+		warnf("EventFlushIntervalMS cannot be less than 500ms or longer than 1 minute. Defaulting to 30 seconds.")
 		o.EventFlushIntervalMS = time.Second * 30
 	}
 	if o.ConfigPollingIntervalMS < time.Second*1 {
-		log.Println("ConfigPollingIntervalMS cannot be less than 1 second. Defaulting to 10 seconds.")
+		warnf("ConfigPollingIntervalMS cannot be less than 1 second. Defaulting to 10 seconds.")
 		o.ConfigPollingIntervalMS = time.Second * 10
 	}
 	if o.RequestTimeout <= time.Second*5 {

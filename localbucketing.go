@@ -4,7 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	
+
 	"math/rand"
 	"sync"
 	"time"
@@ -73,7 +73,7 @@ func (d *DevCycleLocalBucketing) Initialize(sdkToken string, options *DVCOptions
 
 	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
 		errorMessage = readAssemblyScriptString(messagePtr, d.wasmMemory, d.wasmStore)
-		fmt.Printf("WASM Error: %s", errorMessage)
+		_ = errorf("WASM Error: %s", errorMessage)
 	})
 	if err != nil {
 		return
@@ -190,7 +190,7 @@ func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
 		return
 	}
 	_eventQueueSize := d.wasmInstance.GetExport(d.wasmStore, "eventQueueSize").Func()
-	
+
 	result, err := _eventQueueSize.Call(d.wasmStore, sdkKeyAddr)
 	if errorMessage != "" {
 		err = fmt.Errorf(errorMessage)
@@ -329,19 +329,17 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	}
 	if errorMessage != "" {
 		err = fmt.Errorf(errorMessage)
+		return
 	}
 	rawConfig := readAssemblyScriptString(configPtr.(int32), d.wasmMemory, d.wasmStore)
 	err = json.Unmarshal([]byte(rawConfig), &ret)
-	if err != nil {
-		return
-	}
-	return ret, nil
+	return ret, err
 }
 
 func (d *DevCycleLocalBucketing) StoreConfig(sdkKey, config string) error {
 	defer func() {
 		if err := recover(); err != nil {
-			printf("Failed to process config: ", err)
+			errorf("Failed to process config: ", err)
 		}
 	}()
 	d.wasmMutex.Lock()
@@ -388,6 +386,7 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 
 func (d *DevCycleLocalBucketing) SetClientCustomData(sdkKey string, customData string) error {
 	d.wasmMutex.Lock()
+	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
 	sdkKeyAddr, err := d.newAssemblyScriptString(sdkKey)
@@ -402,7 +401,9 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(sdkKey string, customData s
 
 	_setClientCustomData := d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
 	_, err = _setClientCustomData.Call(d.wasmStore, sdkKeyAddr, customDataAddr)
-
+	if errorMessage != "" {
+		err = fmt.Errorf(errorMessage)
+	}
 	return err
 }
 
