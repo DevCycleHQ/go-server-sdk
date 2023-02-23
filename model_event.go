@@ -12,13 +12,13 @@ import "time"
 
 type DVCEvent struct {
 	Type_       string                 `json:"type"`
-	Target      string                 `json:"target"`
-	CustomType  string                 `json:"customType"`
+	Target      string                 `json:"target,omitempty"`
+	CustomType  string                 `json:"customType,omitempty"`
 	UserId      string                 `json:"user_id"`
 	ClientDate  time.Time              `json:"clientDate"`
-	Value       float64                `json:"value"`
+	Value       float64                `json:"value,omitempty"`
 	FeatureVars map[string]string      `json:"featureVars"`
-	MetaData    map[string]interface{} `json:"metaData"`
+	MetaData    map[string]interface{} `json:"metaData,omitempty"`
 }
 
 type UserEventsBatchRecord struct {
