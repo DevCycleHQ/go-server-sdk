@@ -184,7 +184,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 				errorf("failed to mark payload as success %s", err)
 				continue
 			}
-			infof("Flushed %d events\n", payload.EventCount)
+			debugf("Flushed %d events\n", payload.EventCount)
 		}
 	}
 	return err
