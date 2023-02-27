@@ -158,16 +158,6 @@ func (d *DevCycleLocalBucketing) initEventQueue(options string) (err error) {
 	if err != nil {
 		return
 	}
-	err = d.assemblyScriptPin(optionsAddr)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err := d.assemblyScriptUnpin(optionsAddr)
-		if err != nil {
-			errorf(err.Error())
-		}
-	}()
 
 	_initEventQueue := d.wasmInstance.GetExport(d.wasmStore, "initEventQueue").Func()
 	if errorMessage != "" {
