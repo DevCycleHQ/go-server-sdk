@@ -364,7 +364,7 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	return ret, err
 }
 
-func (d *DevCycleLocalBucketing) StoreConfig(sdkKey, config string) error {
+func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
 	defer func() {
 		if err := recover(); err != nil {
 			errorf("Failed to process config: ", err)
@@ -453,7 +453,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, e
 }
 
 // https://www.assemblyscript.org/runtime.html#memory-layout
-// This has a horrible hack of skipping every other index in the resulting array because
+// This skips every other index in the resulting array because
 // there isn't a great way to parse UTF-16 cleanly that matches the WTF-16 format that ASC uses.
 func mallocAssemblyScriptString(pointer int32, memory *wasmtime.Memory, store *wasmtime.Store) (ret string, err error) {
 	if pointer == 0 {

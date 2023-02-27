@@ -114,7 +114,7 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 	}
 
 	config := string(raw)
-	err = e.localBucketing.StoreConfig(e.sdkKey, config)
+	err = e.localBucketing.StoreConfig(config)
 	if err != nil {
 		return err
 	}
