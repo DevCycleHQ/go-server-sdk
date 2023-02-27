@@ -438,7 +438,7 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 			if err != nil {
 				return err
 			}
-			err = c.localBucketing.SetClientCustomData(c.sdkKey, string(data))
+			err = c.localBucketing.SetClientCustomData(string(data))
 			return err
 		} else {
 			warnf("SetClientCustomData called before client initialized")

@@ -39,23 +39,6 @@ type DevCycleLocalBucketing struct {
 //go:embed bucketing-lib.release.wasm
 var wasmBinary []byte
 
-func (d *DevCycleLocalBucketing) setSDKKey(sdkKey string) (err error) {
-	addr, err := d.newAssemblyScriptString(sdkKey)
-	if err != nil {
-		return
-	}
-	success, err := d.assemblyScriptPin(addr)
-	if err != nil {
-		return
-	}
-	if !success {
-		return errorf("Failed to pin SDK key in ASC/WASM")
-	}
-	d.sdkKey = sdkKey
-	d.sdkKeyAddr = addr
-	return nil
-}
-
 func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, cfg *HTTPConfiguration) (err error) {
 	options.CheckDefaults()
 
@@ -146,6 +129,22 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	return
 }
 
+func (d *DevCycleLocalBucketing) setSDKKey(sdkKey string) (err error) {
+	addr, err := d.newAssemblyScriptString(sdkKey)
+	if err != nil {
+		return
+	}
+
+	err = d.assemblyScriptPin(addr)
+	if err != nil {
+		return
+	}
+
+	d.sdkKey = sdkKey
+	d.sdkKeyAddr = addr
+	return nil
+}
+
 func (d *DevCycleLocalBucketing) initEventQueue(options string) (err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
@@ -155,6 +154,17 @@ func (d *DevCycleLocalBucketing) initEventQueue(options string) (err error) {
 	if err != nil {
 		return
 	}
+	err = d.assemblyScriptPin(optionsAddr)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := d.assemblyScriptUnpin(optionsAddr)
+		if err != nil {
+			errorf(err.Error())
+		}
+	}()
+
 	_initEventQueue := d.wasmInstance.GetExport(d.wasmStore, "initEventQueue").Func()
 	if errorMessage != "" {
 		err = fmt.Errorf(errorMessage)
@@ -228,6 +238,16 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) 
 	if err != nil {
 		return
 	}
+	err = d.assemblyScriptPin(payloadIdAddr)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := d.assemblyScriptUnpin(payloadIdAddr)
+		if err != nil {
+			errorf(err.Error())
+		}
+	}()
 	_onPayloadSuccess := d.wasmInstance.GetExport(d.wasmStore, "onPayloadSuccess").Func()
 	_, err = _onPayloadSuccess.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr)
 	if err != nil || errorMessage != "" {
@@ -248,6 +268,16 @@ func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 	if err != nil {
 		return
 	}
+	err = d.assemblyScriptPin(userAddr)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := d.assemblyScriptUnpin(userAddr)
+		if err != nil {
+			errorf(err.Error())
+		}
+	}()
 	eventAddr, err := d.newAssemblyScriptString(event)
 	if err != nil {
 		return
@@ -273,10 +303,21 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, user Bucketed
 	if err != nil {
 		return
 	}
+	err = d.assemblyScriptPin(variationMapAddr)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := d.assemblyScriptUnpin(variationMapAddr)
+		if err != nil {
+			errorf(err.Error())
+		}
+	}()
 	eventAddr, err := d.newAssemblyScriptString(event)
 	if err != nil {
 		return
 	}
+
 	_queueAggregateEvent := d.wasmInstance.GetExport(d.wasmStore, "queueAggregateEvent").Func()
 	_, err = _queueAggregateEvent.Call(d.wasmStore, d.sdkKeyAddr, eventAddr, variationMapAddr)
 	if errorMessage != "" {
@@ -383,7 +424,7 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 	return err
 }
 
-func (d *DevCycleLocalBucketing) SetClientCustomData(sdkKey string, customData string) error {
+func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -443,21 +484,33 @@ func readAssemblyScriptString(pointer int32, memory *wasmtime.Memory, store *was
 	return
 }
 
-func (d *DevCycleLocalBucketing) assemblyScriptPin(pointer int32) (success bool, err error) {
+func (d *DevCycleLocalBucketing) assemblyScriptPin(pointer int32) (err error) {
 	if pointer == 0 {
-		return false, errorf("null pointer passed to assemblyScriptPin - cannot pin")
+		return errorf("null pointer passed to assemblyScriptPin - cannot pin")
 	}
 	__pin := d.wasmInstance.GetExport(d.wasmStore, "__pin").Func()
 	_, err = __pin.Call(d.wasmStore, pointer)
 	if err != nil {
-		return false, err
+		return err
 	}
-	return true, nil
+	return nil
 }
 
 func (d *DevCycleLocalBucketing) assemblyScriptCollect() (err error) {
 	__collect := d.wasmInstance.GetExport(d.wasmStore, "__collect").Func()
 	_, err = __collect.Call(d.wasmStore)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *DevCycleLocalBucketing) assemblyScriptUnpin(pointer int32) (err error) {
+	if pointer == 0 {
+		return errorf("null pointer passed to assemblyScriptUnpin - cannot unpin")
+	}
+	__unpin := d.wasmInstance.GetExport(d.wasmStore, "__unpin").Func()
+	_, err = __unpin.Call(d.wasmStore, pointer)
 	if err != nil {
 		return err
 	}
