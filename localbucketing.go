@@ -71,8 +71,12 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 
 	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
 		errorMessage, err = readAssemblyScriptString(messagePtr, d.wasmMemory, d.wasmStore)
-
+		if err != nil {
+			_ = errorf("WASM Error: %s", err)
+			return
+		}
 		_ = errorf("WASM Error: %s", errorMessage)
+		err = nil
 	})
 	if err != nil {
 		return
