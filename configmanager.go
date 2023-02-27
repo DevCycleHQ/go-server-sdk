@@ -74,7 +74,6 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 		}
 		break
 	case statusCode == http.StatusNotModified:
-		debugf("Config not modified. Using cached config. %s\n", e.configETag)
 		break
 	case statusCode == http.StatusForbidden:
 		e.pollingStop <- true
