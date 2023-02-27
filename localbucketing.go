@@ -70,7 +70,7 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	}
 
 	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
-		errorMessage, err = readAssemblyScriptString(messagePtr, d.wasmMemory, d.wasmStore)
+		errorMessage, err = mallocAssemblyScriptString(messagePtr, d.wasmMemory, d.wasmStore)
 		if err != nil {
 			_ = errorf("WASM Error: %s", err)
 			return
@@ -83,7 +83,7 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	}
 
 	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
-		printf(readAssemblyScriptString(messagePtr, d.wasmMemory, d.wasmStore))
+		printf(mallocAssemblyScriptString(messagePtr, d.wasmMemory, d.wasmStore))
 	})
 	if err != nil {
 		return
@@ -196,7 +196,7 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 		err = fmt.Errorf(errorMessage)
 		return
 	}
-	result, err := readAssemblyScriptString(addrResult.(int32), d.wasmMemory, d.wasmStore)
+	result, err := mallocAssemblyScriptString(addrResult.(int32), d.wasmMemory, d.wasmStore)
 	if err != nil {
 		return
 	}
@@ -232,16 +232,7 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) 
 	if err != nil {
 		return
 	}
-	err = d.assemblyScriptPin(payloadIdAddr)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err := d.assemblyScriptUnpin(payloadIdAddr)
-		if err != nil {
-			errorf(err.Error())
-		}
-	}()
+
 	_onPayloadSuccess := d.wasmInstance.GetExport(d.wasmStore, "onPayloadSuccess").Func()
 	_, err = _onPayloadSuccess.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr)
 	if err != nil || errorMessage != "" {
@@ -365,7 +356,7 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 		err = fmt.Errorf(errorMessage)
 		return
 	}
-	rawConfig, err := readAssemblyScriptString(configPtr.(int32), d.wasmMemory, d.wasmStore)
+	rawConfig, err := mallocAssemblyScriptString(configPtr.(int32), d.wasmMemory, d.wasmStore)
 	if err != nil {
 		return
 	}
@@ -464,9 +455,9 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, e
 // https://www.assemblyscript.org/runtime.html#memory-layout
 // This has a horrible hack of skipping every other index in the resulting array because
 // there isn't a great way to parse UTF-16 cleanly that matches the WTF-16 format that ASC uses.
-func readAssemblyScriptString(pointer int32, memory *wasmtime.Memory, store *wasmtime.Store) (ret string, err error) {
+func mallocAssemblyScriptString(pointer int32, memory *wasmtime.Memory, store *wasmtime.Store) (ret string, err error) {
 	if pointer == 0 {
-		return "", errorf("null pointer passed to readAssemblyScriptString - cannot read string")
+		return "", errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
 	}
 	stringLength := byteArrayToInt(memory.UnsafeData(store)[pointer-4 : pointer])
 	rawData := memory.UnsafeData(store)[pointer : pointer+int32(stringLength)]
