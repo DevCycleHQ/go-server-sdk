@@ -62,14 +62,14 @@ func (defaultLogger) Debugf(format string, a ...any) {
 	if !strings.HasSuffix(format, "\n") {
 		format += "\n"
 	}
-	log.Printf("DEBUG:"+format, a...)
+	log.Printf("DEBUG: "+format, a...)
 }
 
 func (defaultLogger) Infof(format string, a ...any) {
 	if !strings.HasSuffix(format, "\n") {
 		format += "\n"
 	}
-	log.Printf("INFO:"+format, a...)
+	log.Printf("INFO: "+format, a...)
 }
 
 func (defaultLogger) Printf(format string, a ...any) {
@@ -83,14 +83,14 @@ func (defaultLogger) Warnf(format string, a ...any) {
 	if !strings.HasSuffix(format, "\n") {
 		format += "\n"
 	}
-	log.Printf("WARN:"+format, a...)
+	log.Printf("WARN: "+format, a...)
 }
 
 func (defaultLogger) Errorf(format string, a ...any) error {
 	if !strings.HasSuffix(format, "\n") {
 		format += "\n"
 	}
-	log.Printf("ERROR:"+format, a...)
+	log.Printf("ERROR: "+format, a...)
 	return errors.New(fmt.Sprintf(format, a...))
 }
 
