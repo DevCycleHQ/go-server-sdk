@@ -80,7 +80,13 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 	}
 
 	c.localBucketing = localBucketing
-	c.configManager = c.localBucketing.configManager
+	c.configManager = &EnvironmentConfigManager{localBucketing: localBucketing}
+	err = c.configManager.Initialize(sdkKey, localBucketing)
+
+	if err != nil {
+		return err
+	}
+
 	c.eventQueue = c.localBucketing.eventQueue
 	c.isInitialized = true
 	if options.OnInitializedChannel != nil {
@@ -115,13 +121,17 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	}
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		c.internalOnInitializedChannel = make(chan bool, 1)
+		err := setLBClient(sdkKey, options, c)
+		if err != nil {
+			return c, err
+		}
 		if c.DevCycleOptions.OnInitializedChannel != nil {
 			// TODO: Pass this error back via a channel internally
 			go func() {
-				_ = setLBClient(sdkKey, options, c)
+				_ = c.configManager.initialFetch()
 			}()
 		} else {
-			err := setLBClient(sdkKey, options, c)
+			err := c.configManager.initialFetch()
 			return c, err
 		}
 	}
@@ -226,6 +236,16 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if !c.hasConfig() {
 			warnf("Variable called before client initialized, returning default value")
+			err = c.queueAggregateEvent(BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, DVCEvent{
+				Type_:  EventType_AggVariableDefaulted,
+				Target: key,
+			})
+
+			if err != nil {
+				warnf("Error queuing aggregate event: ", err)
+				err = nil
+			}
+
 			return variable, nil
 		}
 		bucketed, err := c.generateBucketedConfig(userdata)
@@ -474,10 +494,6 @@ func (c *DVCClient) Close() (err error) {
 }
 
 func (c *DVCClient) hasConfig() bool {
-	if c.configManager == nil {
-		return false
-	}
-
 	return c.configManager.hasConfig
 }
 

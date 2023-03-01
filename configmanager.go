@@ -19,6 +19,7 @@ type EnvironmentConfigManager struct {
 	httpClient     *http.Client
 	hasConfig      bool
 	pollingStop    chan bool
+	ticker         *time.Ticker
 }
 
 func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *DevCycleLocalBucketing) (err error) {
@@ -28,22 +29,18 @@ func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *Dev
 	e.context, e.cancel = context.WithCancel(context.Background())
 	e.pollingStop = make(chan bool, 2)
 
-	ticker := time.NewTicker(localBucketing.options.ConfigPollingIntervalMS)
 	e.firstLoad = true
 
-	err = e.fetchConfig(false)
-	if err != nil {
-		return err
-	}
-
+	e.ticker = time.NewTicker(e.localBucketing.options.ConfigPollingIntervalMS)
+	
 	go func() {
 		for {
 			select {
 			case <-e.pollingStop:
 				warnf("Stopping config polling.")
-				ticker.Stop()
+				e.ticker.Stop()
 				return
-			case <-ticker.C:
+			case <-e.ticker.C:
 				err = e.fetchConfig(false)
 				if err != nil {
 					warnf("Error fetching config: %s\n", err)
@@ -51,6 +48,11 @@ func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *Dev
 			}
 		}
 	}()
+	return
+}
+
+func (e *EnvironmentConfigManager) initialFetch() (err error) {
+	err = e.fetchConfig(false)
 	return
 }
 

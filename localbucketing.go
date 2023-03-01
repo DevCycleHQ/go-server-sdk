@@ -19,21 +19,20 @@ var (
 )
 
 type DevCycleLocalBucketing struct {
-	wasm          []byte
-	wasmStore     *wasmtime.Store
-	wasmModule    *wasmtime.Module
-	wasmInstance  *wasmtime.Instance
-	wasmLinker    *wasmtime.Linker
-	wasiConfig    *wasmtime.WasiConfig
-	wasmMemory    *wasmtime.Memory
-	configManager *EnvironmentConfigManager
-	eventQueue    *EventQueue
-	sdkKey        string
-	options       *DVCOptions
-	cfg           *HTTPConfiguration
-	wasmMutex     sync.Mutex
-	flushMutex    sync.Mutex
-	sdkKeyAddr    int32
+	wasm         []byte
+	wasmStore    *wasmtime.Store
+	wasmModule   *wasmtime.Module
+	wasmInstance *wasmtime.Instance
+	wasmLinker   *wasmtime.Linker
+	wasiConfig   *wasmtime.WasiConfig
+	wasmMemory   *wasmtime.Memory
+	eventQueue   *EventQueue
+	sdkKey       string
+	options      *DVCOptions
+	cfg          *HTTPConfiguration
+	wasmMutex    sync.Mutex
+	flushMutex   sync.Mutex
+	sdkKeyAddr   int32
 }
 
 //go:embed bucketing-lib.release.wasm
@@ -107,8 +106,6 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 		return
 	}
 
-	d.configManager = &EnvironmentConfigManager{localBucketing: d}
-
 	platformData := PlatformData{}
 	platformData = *platformData.Default()
 	platformJSON, err := json.Marshal(platformData)
@@ -127,9 +124,6 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	if err != nil {
 		return
 	}
-
-	err = d.configManager.Initialize(sdkKey, d)
-
 	return
 }
 
@@ -146,7 +140,7 @@ func (d *DevCycleLocalBucketing) setSDKKey(sdkKey string) (err error) {
 
 	d.sdkKey = sdkKey
 	d.sdkKeyAddr = addr
-	return nil
+	return
 }
 
 func (d *DevCycleLocalBucketing) initEventQueue(options string) (err error) {
@@ -275,12 +269,12 @@ func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 	return
 }
 
-func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, user BucketedUserConfig) (err error) {
+func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, config BucketedUserConfig) (err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	variationMap, err := json.Marshal(user.VariableVariationMap)
+	variationMap, err := json.Marshal(config.VariableVariationMap)
 	if err != nil {
 		return
 	}

@@ -92,13 +92,13 @@ func (e *EventQueue) QueueEvent(user DVCUser, event DVCEvent) error {
 	return nil
 }
 
-func (e *EventQueue) QueueAggregateEvent(user BucketedUserConfig, event DVCEvent) error {
+func (e *EventQueue) QueueAggregateEvent(config BucketedUserConfig, event DVCEvent) error {
 	if q, err := e.checkEventQueueSize(); err != nil || q {
 		return errorf("Max event queue size reached, dropping aggregate event")
 	}
 	if !e.options.EnableCloudBucketing {
 		eventstring, err := json.Marshal(event)
-		err = e.localBucketing.queueAggregateEvent(string(eventstring), user)
+		err = e.localBucketing.queueAggregateEvent(string(eventstring), config)
 		return err
 	}
 	return nil
