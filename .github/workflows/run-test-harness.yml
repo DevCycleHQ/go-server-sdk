@@ -13,6 +13,6 @@ jobs:
       - uses: DevCycleHQ/test-harness@main
         with:
           sdks-to-test: go
-          sdk-github-sha: ${{GITHUB_SHA}}
+          sdk-github-sha: ${{github.sha}}
           github-token: ${{ secrets.TEST_HARNESS_GH_SECRET }}
 
