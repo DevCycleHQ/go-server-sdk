@@ -2,7 +2,7 @@ name: Run Test Harness
 
 on:
   pull_request:
-    branches: [main]
+    branches: [ main ]
 
 
 jobs:
@@ -13,6 +13,6 @@ jobs:
       - uses: DevCycleHQ/test-harness@main
         with:
           sdks-to-test: go
-          sdk-github-sha: ${{github.sha}}
+          sdk-github-sha: ${{github.event.pull_request.head.sha}}
           github-token: ${{ secrets.TEST_HARNESS_GH_SECRET }}
 
