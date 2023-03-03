@@ -275,12 +275,6 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 				)
 			}
 		}
-		if !c.DevCycleOptions.DisableAutomaticEventLogging {
-			if err != nil {
-				warnf("Error queuing aggregate event: ", err)
-				err = nil
-			}
-		}
 		return variable, err
 	}
 
