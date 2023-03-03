@@ -452,15 +452,6 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
 	return err
 }
 
-func encodeUTF16(s string) []byte {
-	runes := utf16.Encode([]rune(s))
-	b := make([]byte, len(runes)*2)
-	for i, r := range runes {
-		b[i*2] = byte(r)
-	}
-	return b
-}
-
 // Due to WTF-16, we're double-allocating because utf8 -> utf16 doesn't zero-pad
 // after the first character byte, so we do that manually.
 func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, error) {
