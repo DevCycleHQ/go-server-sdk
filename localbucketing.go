@@ -422,8 +422,10 @@ func (d *DevCycleLocalBucketing) VariableForUser(user string, key string) (ret V
 	if err != nil {
 		return
 	}
-	
-	if varPtr == nil {
+
+	var intPtr = varPtr.(int32)
+
+	if intPtr == 0 {
 		ret = Variable{}
 		return
 	}
@@ -432,7 +434,7 @@ func (d *DevCycleLocalBucketing) VariableForUser(user string, key string) (ret V
 		err = fmt.Errorf(errorMessage)
 		return
 	}
-	rawVar, err := d.mallocAssemblyScriptString(varPtr.(int32))
+	rawVar, err := d.mallocAssemblyScriptString(intPtr)
 	if err != nil {
 		return
 	}
