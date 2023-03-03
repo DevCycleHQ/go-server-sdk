@@ -51,6 +51,7 @@ type DevCycleLocalBucketing struct {
 	initEventQueueFunc                *wasmtime.Func
 	queueAggregateEventFunc           *wasmtime.Func
 	setClientCustomDataFunc           *wasmtime.Func
+	variableForUserFunc               *wasmtime.Func
 }
 
 //go:embed bucketing-lib.release.wasm
@@ -131,6 +132,7 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	d.setPlatformDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setPlatformData").Func()
 	d.setClientCustomDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
 	d.setConfigDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
+	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser").Func()
 
 	// bind exported internal functions
 	d.__newFunc = d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
@@ -387,6 +389,48 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 		return
 	}
 	err = json.Unmarshal([]byte(rawConfig), &ret)
+	return ret, err
+}
+
+func (d *DevCycleLocalBucketing) VariableForUser(user string, key string) (ret Variable, err error) {
+	d.wasmMutex.Lock()
+	errorMessage = ""
+	defer d.wasmMutex.Unlock()
+	keyAddr, err := d.newAssemblyScriptString(key)
+
+	if err != nil {
+		return
+	}
+
+	err = d.assemblyScriptPin(keyAddr)
+	if err != nil {
+		return
+	}
+	defer func() {
+		err := d.assemblyScriptUnpin(keyAddr)
+		if err != nil {
+			errorf(err.Error())
+		}
+	}()
+
+	userAddr, err := d.newAssemblyScriptString(user)
+	if err != nil {
+		return
+	}
+
+	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr)
+	if err != nil {
+		return
+	}
+	if errorMessage != "" {
+		err = fmt.Errorf(errorMessage)
+		return
+	}
+	rawVar, err := d.mallocAssemblyScriptString(varPtr.(int32))
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal([]byte(rawVar), &ret)
 	return ret, err
 }
 
