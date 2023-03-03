@@ -422,6 +422,12 @@ func (d *DevCycleLocalBucketing) VariableForUser(user string, key string) (ret V
 	if err != nil {
 		return
 	}
+	
+	if varPtr == nil {
+		ret = Variable{}
+		return
+	}
+
 	if errorMessage != "" {
 		err = fmt.Errorf(errorMessage)
 		return
