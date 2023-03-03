@@ -151,6 +151,18 @@ func (c *DVCClient) generateBucketedConfig(user DVCUser) (config BucketedUserCon
 	return
 }
 
+func (c *DVCClient) variableForUser(user DVCUser, key string) (variable Variable, err error) {
+	userJSON, err := json.Marshal(user)
+	if err != nil {
+		return Variable{}, err
+	}
+	variable, err = c.localBucketing.VariableForUser(string(userJSON), key)
+	if err != nil {
+		return Variable{}, err
+	}
+	return
+}
+
 func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
 	err = c.eventQueue.QueueEvent(user, event)
 	return
@@ -248,29 +260,22 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 
 			return variable, nil
 		}
-		bucketed, err := c.generateBucketedConfig(userdata)
+		bucketedVariable, err := c.variableForUser(userdata, key)
 
-		sameTypeAsDefault := compareTypes(bucketed.Variables[key].Value, convertedDefaultValue)
-		variableEvaluationType := ""
-		if bucketed.Variables[key].Value != nil && sameTypeAsDefault {
-			variable.Value = bucketed.Variables[key].Value
+		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
+		if bucketedVariable.Value != nil && sameTypeAsDefault {
+			variable.Value = bucketedVariable.Value
 			variable.IsDefaulted = false
-			variableEvaluationType = EventType_AggVariableEvaluated
 		} else {
-			if !sameTypeAsDefault && bucketed.Variables[key].Value != nil {
+			if !sameTypeAsDefault && bucketedVariable.Value != nil {
 				warnf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
-					reflect.TypeOf(bucketed.Variables[key].Value).String(),
+					reflect.TypeOf(bucketedVariable.Value).String(),
 				)
 			}
-			variableEvaluationType = EventType_AggVariableDefaulted
 		}
 		if !c.DevCycleOptions.DisableAutomaticEventLogging {
-			err = c.queueAggregateEvent(bucketed, DVCEvent{
-				Type_:  variableEvaluationType,
-				Target: key,
-			})
 			if err != nil {
 				warnf("Error queuing aggregate event: ", err)
 				err = nil
