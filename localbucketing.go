@@ -461,7 +461,7 @@ func encodeUTF16(s string) []byte {
 	return b
 }
 
-// Due to WTF-16, we're double-allocating because utf8->utf16 doesn't zero-pad
+// Due to WTF-16, we're double-allocating because utf8 -> utf16 doesn't zero-pad
 // after the first character byte, so we do that manually.
 func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, error) {
 	const objectIdString int32 = 1
