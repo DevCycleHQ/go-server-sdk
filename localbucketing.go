@@ -418,6 +418,13 @@ func (d *DevCycleLocalBucketing) VariableForUser(user string, key string, variab
 
 	defer func() {
 		err := d.assemblyScriptUnpin(keyAddr)
+
+		if err != nil {
+			errorf(err.Error())
+		}
+
+		err = d.assemblyScriptUnpin(typeAddr)
+
 		if err != nil {
 			errorf(err.Error())
 		}
@@ -444,11 +451,11 @@ func (d *DevCycleLocalBucketing) VariableForUser(user string, key string, variab
 		err = fmt.Errorf(errorMessage)
 		return
 	}
-	rawVar, err := d.mallocAssemblyScriptString(intPtr)
+	rawVar, err := d.mallocAssemblyScriptBytes(intPtr)
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal([]byte(rawVar), &ret)
+	err = json.Unmarshal(rawVar, &ret)
 	return ret, err
 }
 
