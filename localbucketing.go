@@ -169,7 +169,7 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 }
 
 func (d *DevCycleLocalBucketing) setSDKKey(sdkKey string) (err error) {
-	addr, err := d.newAssemblyScriptString(sdkKey)
+	addr, err := d.newAssemblyScriptString([]byte(sdkKey))
 	if err != nil {
 		return
 	}
@@ -189,7 +189,7 @@ func (d *DevCycleLocalBucketing) initEventQueue(options string) (err error) {
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	optionsAddr, err := d.newAssemblyScriptString(options)
+	optionsAddr, err := d.newAssemblyScriptString([]byte(options))
 	if err != nil {
 		return
 	}
@@ -259,7 +259,7 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) 
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	payloadIdAddr, err := d.newAssemblyScriptString(payloadId)
+	payloadIdAddr, err := d.newAssemblyScriptString([]byte(payloadId))
 	if err != nil {
 		return
 	}
@@ -279,7 +279,7 @@ func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	userAddr, err := d.newAssemblyScriptString(user)
+	userAddr, err := d.newAssemblyScriptString([]byte(user))
 	if err != nil {
 		return
 	}
@@ -293,7 +293,7 @@ func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 			errorf(err.Error())
 		}
 	}()
-	eventAddr, err := d.newAssemblyScriptString(event)
+	eventAddr, err := d.newAssemblyScriptString([]byte(event))
 	if err != nil {
 		return
 	}
@@ -314,7 +314,7 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, config Bucket
 	if err != nil {
 		return
 	}
-	variationMapAddr, err := d.newAssemblyScriptString(string(variationMap))
+	variationMapAddr, err := d.newAssemblyScriptString(variationMap)
 	if err != nil {
 		return
 	}
@@ -328,7 +328,7 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, config Bucket
 			errorf(err.Error())
 		}
 	}()
-	eventAddr, err := d.newAssemblyScriptString(event)
+	eventAddr, err := d.newAssemblyScriptString([]byte(event))
 	if err != nil {
 		return
 	}
@@ -345,7 +345,7 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	payloadIdAddr, err := d.newAssemblyScriptString(payloadId)
+	payloadIdAddr, err := d.newAssemblyScriptString([]byte(payloadId))
 	if err != nil {
 		return
 	}
@@ -372,7 +372,7 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
-	userAddr, err := d.newAssemblyScriptString(user)
+	userAddr, err := d.newAssemblyScriptString([]byte(user))
 	if err != nil {
 		return
 	}
@@ -403,7 +403,7 @@ func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	configAddr, err := d.newAssemblyScriptString(config)
+	configAddr, err := d.newAssemblyScriptString([]byte(config))
 	if err != nil {
 		return err
 	}
@@ -423,7 +423,7 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	configAddr, err := d.newAssemblyScriptString(platformData)
+	configAddr, err := d.newAssemblyScriptString([]byte(platformData))
 	if err != nil {
 		return err
 	}
@@ -443,7 +443,7 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	customDataAddr, err := d.newAssemblyScriptString(customData)
+	customDataAddr, err := d.newAssemblyScriptString([]byte(customData))
 	if err != nil {
 		return err
 	}
@@ -457,18 +457,18 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
 
 // Due to WTF-16, we're double-allocating because utf8 -> utf16 doesn't zero-pad
 // after the first character byte, so we do that manually.
-func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, error) {
+func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, error) {
 	const objectIdString int32 = 1
 
 	// malloc
-	ptr, err := d.__newFunc.Call(d.wasmStore, int32(len([]byte(param))*2), objectIdString)
+	ptr, err := d.__newFunc.Call(d.wasmStore, int32(len(param)*2), objectIdString)
 	if err != nil {
 		return -1, err
 	}
 	addr := ptr.(int32)
 	data := d.wasmMemory.UnsafeData(d.wasmStore)
 
-	for i, c := range []byte(param) {
+	for i, c := range param {
 		data[addr+int32(i*2)] = c
 	}
 
