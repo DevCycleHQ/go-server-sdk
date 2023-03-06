@@ -52,6 +52,9 @@ type DevCycleLocalBucketing struct {
 	queueAggregateEventFunc           *wasmtime.Func
 	setClientCustomDataFunc           *wasmtime.Func
 	variableForUserFunc               *wasmtime.Func
+
+	// Cached wasm mem allocs (variable type -> pointer)
+	variableTypePointers map[string]int32
 }
 
 //go:embed bucketing-lib.release.wasm
@@ -142,6 +145,9 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	d.__pinFunc = d.wasmInstance.GetExport(d.wasmStore, "__pin").Func()
 	d.__unpinFunc = d.wasmInstance.GetExport(d.wasmStore, "__unpin").Func()
 	d.__collectFunc = d.wasmInstance.GetExport(d.wasmStore, "__collect").Func()
+
+	// cached memory allocations
+	d.variableTypePointers = make(map[string]int32)
 
 	err = d.setSDKKey(sdkKey)
 	if err != nil {
@@ -399,19 +405,32 @@ func (d *DevCycleLocalBucketing) VariableForUser(user string, key string, variab
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
-	keyAddr, err := d.newAssemblyScriptString(key)
-	typeAddr, err := d.newAssemblyScriptString(variableType)
 
+	var typeAddr, keyAddr int32
+
+	keyAddr, err = d.newAssemblyScriptString(key)
 	if err != nil {
 		return
+	}
+
+	// we're not releasing this memory anyway so might as well reuse it
+	if typeP, ok := d.variableTypePointers[variableType]; ok {
+		typeAddr = typeP
+	} else {
+		typeAddr, err = d.newAssemblyScriptString(variableType)
+		if err != nil {
+			return
+		}
+
+		err = d.assemblyScriptPin(typeAddr)
+		if err != nil {
+			return
+		}
+
+		d.variableTypePointers[variableType] = typeP
 	}
 
 	err = d.assemblyScriptPin(keyAddr)
-	if err != nil {
-		return
-	}
-
-	err = d.assemblyScriptPin(typeAddr)
 	if err != nil {
 		return
 	}
