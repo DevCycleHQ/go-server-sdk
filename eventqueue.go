@@ -47,7 +47,7 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 		if err != nil {
 			return err
 		}
-		err = e.localBucketing.initEventQueue(string(eventQueueOpt))
+		err = e.localBucketing.initEventQueue(eventQueueOpt)
 		ticker := time.NewTicker(e.options.EventFlushIntervalMS)
 
 		go func() {
