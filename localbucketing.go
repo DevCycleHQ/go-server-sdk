@@ -91,13 +91,14 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	}
 
 	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
-		var errorMessage []byte
-		errorMessage, err = d.mallocAssemblyScriptString(messagePtr)
+		var errorMsg []byte
+		errorMsg, err = d.mallocAssemblyScriptString(messagePtr)
+		errorMessage = string(errorMsg)
 		if err != nil {
 			_ = errorf("WASM Error: %s", err)
 			return
 		}
-		_ = errorf("WASM Error: %s", errorMessage)
+		_ = errorf("WASM Error: %s", errorMsg)
 		err = nil
 	})
 	if err != nil {
@@ -105,9 +106,9 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	}
 
 	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
-		var errorMessage []byte
-		errorMessage, err = d.mallocAssemblyScriptString(messagePtr)
-		printf(string(errorMessage))
+		var errorMsg []byte
+		errorMsg, err = d.mallocAssemblyScriptString(messagePtr)
+		printf(string(errorMsg))
 	})
 	if err != nil {
 		return
@@ -463,6 +464,7 @@ func (d *DevCycleLocalBucketing) VariableForUser(user string, key string, variab
 		err = fmt.Errorf(errorMessage)
 		return
 	}
+
 	rawVar, err := d.mallocAssemblyScriptString(intPtr)
 	if err != nil {
 		return
