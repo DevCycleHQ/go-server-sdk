@@ -458,7 +458,7 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
 // Due to WTF-16, we're double-allocating because utf8 -> utf16 doesn't zero-pad
 // after the first character byte, so we do that manually.
 func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, error) {
-	const objectIdString int32 = 1
+	const objectIdString int32 = 2
 
 	// malloc
 	ptr, err := d.__newFunc.Call(d.wasmStore, int32(len(param)*2), objectIdString)
