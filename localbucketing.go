@@ -88,22 +88,23 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 
 	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
 		var errorMessage []byte
-		errorMessage, err = d.mallocAssemblyScriptString(messagePtr)
+		errorMessage, err = d.mallocAssemblyScriptBytes(messagePtr)
 		if err != nil {
 			_ = errorf("WASM Error: %s", err)
 			return
 		}
-		_ = errorf("WASM Error: %s", errorMessage)
+		_ = errorf("WASM Error: %s", string(errorMessage))
 		err = nil
 	})
+
 	if err != nil {
 		return
 	}
 
 	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
-		var errorMessage []byte
-		errorMessage, err = d.mallocAssemblyScriptString(messagePtr)
-		printf(string(errorMessage))
+		var message []byte
+		message, err = d.mallocAssemblyScriptBytes(messagePtr)
+		printf(string(message))
 	})
 	if err != nil {
 		return
@@ -229,11 +230,11 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 		err = fmt.Errorf(errorMessage)
 		return
 	}
-	result, err := d.mallocAssemblyScriptString(addrResult.(int32))
+	result, err := d.mallocAssemblyScriptBytes(addrResult.(int32))
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal([]byte(result), &payload)
+	err = json.Unmarshal(result, &payload)
 	return
 }
 
@@ -385,11 +386,11 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 		err = fmt.Errorf(errorMessage)
 		return
 	}
-	rawConfig, err := d.mallocAssemblyScriptString(configPtr.(int32))
+	rawConfig, err := d.mallocAssemblyScriptBytes(configPtr.(int32))
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal([]byte(rawConfig), &ret)
+	err = json.Unmarshal(rawConfig, &ret)
 	return ret, err
 }
 
@@ -482,7 +483,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, e
 // https://www.assemblyscript.org/runtime.html#memory-layout
 // This skips every other index in the resulting array because
 // there isn't a great way to parse UTF-16 cleanly that matches the WTF-16 format that ASC uses.
-func (d *DevCycleLocalBucketing) mallocAssemblyScriptString(pointer int32) ([]byte, error) {
+func (d *DevCycleLocalBucketing) mallocAssemblyScriptBytes(pointer int32) ([]byte, error) {
 	if pointer == 0 {
 		return nil, errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
 	}
