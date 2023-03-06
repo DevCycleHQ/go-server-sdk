@@ -184,12 +184,12 @@ func (d *DevCycleLocalBucketing) setSDKKey(sdkKey string) (err error) {
 	return
 }
 
-func (d *DevCycleLocalBucketing) initEventQueue(options string) (err error) {
+func (d *DevCycleLocalBucketing) initEventQueue(options []byte) (err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	optionsAddr, err := d.newAssemblyScriptString([]byte(options))
+	optionsAddr, err := d.newAssemblyScriptString(options)
 	if err != nil {
 		return
 	}
