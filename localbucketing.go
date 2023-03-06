@@ -88,6 +88,7 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	}
 
 	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
+		var errorMessage []byte
 		errorMessage, err = d.mallocAssemblyScriptString(messagePtr)
 		if err != nil {
 			_ = errorf("WASM Error: %s", err)
@@ -101,7 +102,9 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	}
 
 	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
-		printf(d.mallocAssemblyScriptString(messagePtr))
+		var errorMessage []byte
+		errorMessage, err = d.mallocAssemblyScriptString(messagePtr)
+		printf(string(errorMessage))
 	})
 	if err != nil {
 		return
@@ -524,8 +527,9 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, e
 	}
 	addr := ptr.(int32)
 	var i int32 = 0
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
 	for i = 0; i < int32(len(encoded)); i++ {
-		d.wasmMemory.UnsafeData(d.wasmStore)[addr+(i*2)] = byte(encoded[i])
+		data[addr+(i*2)] = byte(encoded[i])
 	}
 	dataAddress := ptr.(int32)
 	if dataAddress == 0 {
@@ -537,18 +541,22 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, e
 // https://www.assemblyscript.org/runtime.html#memory-layout
 // This skips every other index in the resulting array because
 // there isn't a great way to parse UTF-16 cleanly that matches the WTF-16 format that ASC uses.
-func (d *DevCycleLocalBucketing) mallocAssemblyScriptString(pointer int32) (ret string, err error) {
+func (d *DevCycleLocalBucketing) mallocAssemblyScriptString(pointer int32) ([]byte, error) {
 	if pointer == 0 {
-		return "", errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
+		return nil, errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
 	}
-	stringLength := byteArrayToInt(d.wasmMemory.UnsafeData(d.wasmStore)[pointer-4 : pointer])
-	rawData := d.wasmMemory.UnsafeData(d.wasmStore)[pointer : pointer+int32(stringLength)]
+
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
+	stringLength := byteArrayToInt(data[pointer-4 : pointer])
+	rawData := data[pointer : pointer+int32(stringLength)]
+
+	ret := make([]byte, len(rawData)/2)
 
 	for i := 0; i < len(rawData); i += 2 {
-		ret += string(rawData[i])
+		ret[i/2] += rawData[i]
 	}
 
-	return
+	return ret, nil
 }
 
 func (d *DevCycleLocalBucketing) assemblyScriptPin(pointer int32) (err error) {
