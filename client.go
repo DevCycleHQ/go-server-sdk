@@ -157,9 +157,6 @@ func (c *DVCClient) variableForUser(user DVCUser, key string, variableType strin
 		return Variable{}, err
 	}
 	variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType)
-	if err != nil {
-		return Variable{}, err
-	}
 	return
 }
 
