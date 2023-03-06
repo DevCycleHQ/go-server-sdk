@@ -4,7 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -59,6 +59,10 @@ type DevCycleLocalBucketing struct {
 	variableForUserFunc               *wasmtime.Func
 
 	VariableTypeCodes VariableTypeCodes
+	// Cached wasm mem allocs (variable type -> pointer)
+	variableTypePointers map[string]int32
+	allocatedMemPool     []sync.Pool
+	pointerToSize        sync.Map // stores the size that each pointer allocates so it's easier to deallocate
 }
 
 func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
@@ -151,6 +155,24 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 		String:  VariableTypeCode(stringType),
 		Number:  VariableTypeCode(numberType),
 		JSON:    VariableTypeCode(jsonType),
+	}
+
+	d.pointerToSize = sync.Map{}
+	d.allocatedMemPool = make([]sync.Pool, 16) // overly simplistic, probably need a larger pool
+	for i := 0; i < 16; i++ {
+		power := i
+		size := 1 << power
+		d.allocatedMemPool[i] = sync.Pool{
+			New: func() any {
+				ptr, err := d.allocMemForString(int32(size), true)
+				if err == nil {
+					d.pointerToSize.Store(ptr, int32(size))
+					return ptr
+				}
+
+				return -1 // TODO: we'll check for the -1 value on each fetch
+			},
+		}
 	}
 
 	err = d.setSDKKey(sdkKey)
@@ -398,29 +420,20 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
-	keyAddr, err := d.newAssemblyScriptString([]byte(key))
 
+	keyAddr, err := d.newAssemblyScriptStringWithPool([]byte(key))
 	if err != nil {
 		return
 	}
 
-	err = d.assemblyScriptPin(keyAddr)
+	defer func() { d.releaseAlloc(keyAddr) }()
+
+	userAddr, err := d.newAssemblyScriptStringWithPool(user)
 	if err != nil {
 		return
 	}
 
-	defer func() {
-		err := d.assemblyScriptUnpin(keyAddr)
-
-		if err != nil {
-			errorf(err.Error())
-		}
-	}()
-
-	userAddr, err := d.newAssemblyScriptString(user)
-	if err != nil {
-		return
-	}
+	defer func() { d.releaseAlloc(userAddr) }()
 
 	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr, int32(variableType))
 	if err != nil {
@@ -530,6 +543,65 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, e
 		return -1, errorf("Failed to allocate memory for string")
 	}
 	return ptr.(int32), nil
+}
+
+func (d *DevCycleLocalBucketing) newAssemblyScriptStringWithPool(param []byte) (int32, error) {
+	ptr, err := d.allocMemForString(int32(len(param)*2), false)
+	if err != nil {
+		return -1, err
+	}
+
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
+	for i, c := range param {
+		data[ptr+int32(i*2)] = c
+	}
+
+	if ptr == 0 {
+		return -1, errorf("Failed to allocate memory for string")
+	}
+
+	return ptr, nil
+}
+
+func (d *DevCycleLocalBucketing) allocMemForString(size int32, fromPool bool) (int32, error) {
+	const objectIdString int32 = 2
+
+	cachedIdx := int32(math.Ceil(math.Log2(float64(size))))
+	if !fromPool {
+		// index is the highest power value of 2 for the size we want
+
+		if ptr := d.allocatedMemPool[cachedIdx].Get().(int32); ptr != -1 {
+			return ptr, nil
+		} else {
+			errorf("BAD POINTER")
+		}
+	}
+
+	// malloc
+	ptr, err := d.__newFunc.Call(d.wasmStore, size, objectIdString)
+	if err != nil {
+		errorf(err.Error())
+		return -1, err
+	}
+
+	if err := d.assemblyScriptPin(ptr.(int32)); err != nil {
+		errorf(err.Error())
+		return -1, err
+	}
+
+	return ptr.(int32), nil
+}
+
+func (d *DevCycleLocalBucketing) releaseAlloc(ptr int32) {
+	s, loaded := d.pointerToSize.Load(ptr)
+	if !loaded {
+		return // shouldn't happen
+	}
+
+	size := s.(int32)
+	cachedIdx := int32(math.Ceil(math.Log2(float64(size))))
+
+	d.allocatedMemPool[cachedIdx].Put(ptr)
 }
 
 // https://www.assemblyscript.org/runtime.html#memory-layout
