@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"unicode/utf16"
 
 	"math/rand"
 	"sync"
@@ -488,16 +489,18 @@ func (d *DevCycleLocalBucketing) mallocAssemblyScriptBytes(pointer int32) ([]byt
 	}
 
 	data := d.wasmMemory.UnsafeData(d.wasmStore)
+
 	stringLength := byteArrayToInt(data[pointer-4 : pointer])
+
 	rawData := data[pointer : pointer+int32(stringLength)]
 
-	ret := make([]byte, len(rawData)/2)
+	ret := make([]uint16, len(rawData)/2)
 
 	for i := 0; i < len(rawData); i += 2 {
-		ret[i/2] += rawData[i]
+		ret[i/2] = uint16(rawData[i]) + (uint16(rawData[i+1]) << 8)
 	}
 
-	return ret, nil
+	return []byte(string(utf16.Decode(ret))), nil
 }
 
 func (d *DevCycleLocalBucketing) assemblyScriptPin(pointer int32) (err error) {
