@@ -420,14 +420,14 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	return ret, err
 }
 
-func (d *DevCycleLocalBucketing) VariableForUser(user string, key string, variableType string) (ret Variable, err error) {
+func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType string) (ret Variable, err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
 	var typeAddr int32
 
-	keyAddr, keySize, err := d.newAssemblyScriptStringWithPool(key)
+	keyAddr, keySize, err := d.newAssemblyScriptStringWithPool([]byte(key))
 	if err != nil {
 		return
 	}
@@ -438,7 +438,7 @@ func (d *DevCycleLocalBucketing) VariableForUser(user string, key string, variab
 	if typeP, ok := d.variableTypePointers[variableType]; ok {
 		typeAddr = typeP
 	} else {
-		typeAddr, _, err = d.newAssemblyScriptStringWithPool(variableType)
+		typeAddr, _, err = d.newAssemblyScriptStringWithPool([]byte(variableType))
 		if err != nil {
 			return
 		}
@@ -564,23 +564,25 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, e
 	return ptr.(int32), nil
 }
 
-func (d *DevCycleLocalBucketing) newAssemblyScriptStringWithPool(param string) (int32, int32, error) {
-	encoded := utf16.Encode([]rune(param))
-
-	ptr, size, err := d.allocMemForString(int32(len(encoded)*2), false)
+// Avoid double allocating during utf-8 -> utf16 since we know that golang
+// strings are utf-8, so we can zero-pad when writting to shared memory
+func (d *DevCycleLocalBucketing) newAssemblyScriptStringWithPool(param []byte) (int32, int32, error) {
+	ptr, size, err := d.allocMemForString(int32(len(param)*2), false)
 	if err != nil {
 		return -1, -1, err
 	}
 
-	var i int32 = 0
-	data := d.wasmMemory.UnsafeData(d.wasmStore)
-	for i = 0; i < int32(len(encoded)); i++ {
-		data[ptr+(i*2)] = byte(encoded[i])
-	}
-	dataAddress := ptr
-	if dataAddress == 0 {
+	if ptr <= 0 {
 		return -1, -1, errorf("Failed to allocate memory for string")
 	}
+
+	var i int32 = 0
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
+	for i = 0; i < int32(len(param)); i++ {
+		data[ptr+(i*2)] = param[i]
+		data[ptr+(i*2+1)] = param[i] >> 8
+	}
+
 	return ptr, size, nil
 }
 
