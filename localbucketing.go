@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"math/rand"
 	"sync"
@@ -55,6 +56,8 @@ type DevCycleLocalBucketing struct {
 
 	// Cached wasm mem allocs (variable type -> pointer)
 	variableTypePointers map[string]int32
+	allocatedMemPool     []sync.Pool
+	pointerToSize        sync.Map // stores the size that each pointer allocates so it's easier to deallocate
 }
 
 //go:embed bucketing-lib.release.wasm
@@ -149,6 +152,24 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 
 	// cached memory allocations
 	d.variableTypePointers = make(map[string]int32)
+
+	d.pointerToSize = sync.Map{}
+	d.allocatedMemPool = make([]sync.Pool, 16) // overly simplistic, probably need a larger pool
+	for i := 0; i < 16; i++ {
+		power := i
+		size := 1 << power
+		d.allocatedMemPool[i] = sync.Pool{
+			New: func() any {
+				ptr, err := d.allocMemForString(int32(size), true)
+				if err == nil {
+					d.pointerToSize.Store(ptr, int32(size))
+					return ptr
+				}
+
+				return -1 // TODO: we'll check for the -1 value on each fetch
+			},
+		}
+	}
 
 	err = d.setSDKKey(sdkKey)
 	if err != nil {
@@ -409,21 +430,18 @@ func (d *DevCycleLocalBucketing) VariableForUser(user string, key string, variab
 
 	var typeAddr, keyAddr int32
 
-	keyAddr, err = d.newAssemblyScriptString(key)
+	keyAddr, err = d.newAssemblyScriptStringWithPool(key)
 	if err != nil {
 		return
 	}
+
+	defer func() { d.releaseAlloc(keyAddr) }()
 
 	// we're not releasing this memory anyway so might as well reuse it
 	if typeP, ok := d.variableTypePointers[variableType]; ok {
 		typeAddr = typeP
 	} else {
-		typeAddr, err = d.newAssemblyScriptString(variableType)
-		if err != nil {
-			return
-		}
-
-		err = d.assemblyScriptPin(typeAddr)
+		typeAddr, err = d.newAssemblyScriptStringWithPool(variableType)
 		if err != nil {
 			return
 		}
@@ -431,22 +449,12 @@ func (d *DevCycleLocalBucketing) VariableForUser(user string, key string, variab
 		d.variableTypePointers[variableType] = typeP
 	}
 
-	err = d.assemblyScriptPin(keyAddr)
+	userAddr, err := d.newAssemblyScriptStringWithPool(user)
 	if err != nil {
 		return
 	}
 
-	defer func() {
-		err := d.assemblyScriptUnpin(keyAddr)
-		if err != nil {
-			errorf(err.Error())
-		}
-	}()
-
-	userAddr, err := d.newAssemblyScriptString(user)
-	if err != nil {
-		return
-	}
+	defer func() { d.releaseAlloc(userAddr) }()
 
 	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr, typeAddr)
 	if err != nil {
@@ -469,7 +477,7 @@ func (d *DevCycleLocalBucketing) VariableForUser(user string, key string, variab
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal([]byte(rawVar), &ret)
+	err = json.Unmarshal(rawVar, &ret)
 	return ret, err
 }
 
@@ -557,6 +565,67 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, e
 		return -1, errorf("Failed to allocate memory for string")
 	}
 	return ptr.(int32), nil
+}
+
+func (d *DevCycleLocalBucketing) newAssemblyScriptStringWithPool(param string) (int32, error) {
+	encoded := utf16.Encode([]rune(param))
+
+	ptr, err := d.allocMemForString(int32(len(encoded)*2), false)
+	if err != nil {
+		return -1, err
+	}
+
+	var i int32 = 0
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
+	for i = 0; i < int32(len(encoded)); i++ {
+		data[ptr+(i*2)] = byte(encoded[i])
+	}
+	dataAddress := ptr
+	if dataAddress == 0 {
+		return -1, errorf("Failed to allocate memory for string")
+	}
+	return ptr, nil
+}
+
+func (d *DevCycleLocalBucketing) allocMemForString(size int32, fromPool bool) (int32, error) {
+	const objectIdString int32 = 1
+
+	cachedIdx := int32(math.Ceil(math.Log2(float64(size))))
+	if !fromPool {
+		// index is the highest power value of 2 for the size we want
+
+		if ptr := d.allocatedMemPool[cachedIdx].Get().(int32); ptr != -1 {
+			return ptr, nil
+		} else {
+			errorf("BAD POINTER")
+		}
+	}
+
+	// malloc
+	ptr, err := d.__newFunc.Call(d.wasmStore, size, objectIdString)
+	if err != nil {
+		errorf(err.Error())
+		return -1, err
+	}
+
+	if err := d.assemblyScriptPin(ptr.(int32)); err != nil {
+		errorf(err.Error())
+		return -1, err
+	}
+
+	return ptr.(int32), nil
+}
+
+func (d *DevCycleLocalBucketing) releaseAlloc(ptr int32) {
+	s, loaded := d.pointerToSize.Load(ptr)
+	if !loaded {
+		return // shouldn't happen
+	}
+
+	size := s.(int32)
+	cachedIdx := int32(math.Ceil(math.Log2(float64(size))))
+
+	d.allocatedMemPool[cachedIdx].Put(ptr)
 }
 
 // https://www.assemblyscript.org/runtime.html#memory-layout
