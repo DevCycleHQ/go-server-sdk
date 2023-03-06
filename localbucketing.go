@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"sync"
 	"time"
-	"unicode/utf16"
 	"unsafe"
 
 	"github.com/bytecodealliance/wasmtime-go/v6"
@@ -460,19 +459,19 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
 // after the first character byte, so we do that manually.
 func (d *DevCycleLocalBucketing) newAssemblyScriptString(param string) (int32, error) {
 	const objectIdString int32 = 1
-	encoded := utf16.Encode([]rune(param))
 
 	// malloc
-	ptr, err := d.__newFunc.Call(d.wasmStore, int32(len(encoded)*2), objectIdString)
+	ptr, err := d.__newFunc.Call(d.wasmStore, int32(len([]byte(param))*2), objectIdString)
 	if err != nil {
 		return -1, err
 	}
 	addr := ptr.(int32)
-	var i int32 = 0
 	data := d.wasmMemory.UnsafeData(d.wasmStore)
-	for i = 0; i < int32(len(encoded)); i++ {
-		data[addr+(i*2)] = byte(encoded[i])
+
+	for i, c := range []byte(param) {
+		data[addr+int32(i*2)] = c
 	}
+
 	dataAddress := ptr.(int32)
 	if dataAddress == 0 {
 		return -1, errorf("Failed to allocate memory for string")
