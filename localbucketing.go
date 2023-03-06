@@ -11,7 +11,7 @@ import (
 	"unicode/utf16"
 	"unsafe"
 
-	"github.com/bytecodealliance/wasmtime-go/v3"
+	"github.com/bytecodealliance/wasmtime-go/v6"
 )
 
 var (
