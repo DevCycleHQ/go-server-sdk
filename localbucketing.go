@@ -395,12 +395,12 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	return ret, err
 }
 
-func (d *DevCycleLocalBucketing) VariableForUser(user string, key string, variableType string) (ret Variable, err error) {
+func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType string) (ret Variable, err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
-	keyAddr, err := d.newAssemblyScriptString(key)
-	typeAddr, err := d.newAssemblyScriptString(variableType)
+	keyAddr, err := d.newAssemblyScriptString([]byte(key))
+	typeAddr, err := d.newAssemblyScriptString([]byte(variableType))
 
 	if err != nil {
 		return
