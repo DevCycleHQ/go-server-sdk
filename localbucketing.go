@@ -17,6 +17,15 @@ var (
 	errorMessage = ""
 )
 
+type VariableTypeCode int32
+
+type VariableTypeCodes struct {
+	Boolean VariableTypeCode
+	Number  VariableTypeCode
+	String  VariableTypeCode
+	JSON    VariableTypeCode
+}
+
 type DevCycleLocalBucketing struct {
 	wasm         []byte
 	wasmStore    *wasmtime.Store
@@ -51,6 +60,8 @@ type DevCycleLocalBucketing struct {
 	queueAggregateEventFunc           *wasmtime.Func
 	setClientCustomDataFunc           *wasmtime.Func
 	variableForUserFunc               *wasmtime.Func
+
+	VariableTypeCodes VariableTypeCodes
 }
 
 //go:embed bucketing-lib.release.wasm
@@ -142,6 +153,18 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	d.__pinFunc = d.wasmInstance.GetExport(d.wasmStore, "__pin").Func()
 	d.__unpinFunc = d.wasmInstance.GetExport(d.wasmStore, "__unpin").Func()
 	d.__collectFunc = d.wasmInstance.GetExport(d.wasmStore, "__collect").Func()
+
+	boolType := d.wasmInstance.GetExport(d.wasmStore, "VariableType.Boolean").Global().Get(d.wasmStore).I32()
+	stringType := d.wasmInstance.GetExport(d.wasmStore, "VariableType.String").Global().Get(d.wasmStore).I32()
+	numberType := d.wasmInstance.GetExport(d.wasmStore, "VariableType.Number").Global().Get(d.wasmStore).I32()
+	jsonType := d.wasmInstance.GetExport(d.wasmStore, "VariableType.JSON").Global().Get(d.wasmStore).I32()
+
+	d.VariableTypeCodes = VariableTypeCodes{
+		Boolean: VariableTypeCode(boolType),
+		String:  VariableTypeCode(stringType),
+		Number:  VariableTypeCode(numberType),
+		JSON:    VariableTypeCode(jsonType),
+	}
 
 	err = d.setSDKKey(sdkKey)
 	if err != nil {
@@ -395,12 +418,11 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	return ret, err
 }
 
-func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType string) (ret Variable, err error) {
+func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType VariableTypeCode) (ret Variable, err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 	keyAddr, err := d.newAssemblyScriptString([]byte(key))
-	typeAddr, err := d.newAssemblyScriptString([]byte(variableType))
 
 	if err != nil {
 		return
@@ -411,19 +433,8 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 		return
 	}
 
-	err = d.assemblyScriptPin(typeAddr)
-	if err != nil {
-		return
-	}
-
 	defer func() {
 		err := d.assemblyScriptUnpin(keyAddr)
-
-		if err != nil {
-			errorf(err.Error())
-		}
-
-		err = d.assemblyScriptUnpin(typeAddr)
 
 		if err != nil {
 			errorf(err.Error())
@@ -435,7 +446,7 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 		return
 	}
 
-	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr, typeAddr)
+	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr, int32(variableType))
 	if err != nil {
 		return
 	}
