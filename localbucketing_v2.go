@@ -10,7 +10,6 @@ import (
 
 	"sync"
 
-	"github.com/tetratelabs/wazero"
 	wasm "github.com/tetratelabs/wazero"
 	wasmapi "github.com/tetratelabs/wazero/api"
 )
@@ -56,7 +55,7 @@ func (d *DevCycleLocalBucketingV2) Initialize(sdkKey string, options *DVCOptions
 	// Choose the context to use for function calls.
 	ctx := context.Background() // TODO: Pass context as argument
 
-	d.wasmRuntime = wazero.NewRuntime(ctx)
+	d.wasmRuntime = wasm.NewRuntime(ctx)
 	// TODO: d.wasmRuntime.Close()
 
 	d.options = options
