@@ -11,4 +11,5 @@ require (
 require (
 	github.com/Jeffail/tunny v0.1.4 // indirect
 	github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
+	github.com/ianlancetaylor/cgosymbolizer v0.0.0-20221217025313-27d3c9f66b6a // indirect
 )

@@ -2,12 +2,13 @@ package devcycle
 
 import (
 	"fmt"
+	_ "github.com/ianlancetaylor/cgosymbolizer"
+	"github.com/jarcoal/httpmock"
 	"os"
+	"runtime/pprof"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/jarcoal/httpmock"
 )
 
 func TestDVCClient_AllFeatures_Local(t *testing.T) {
@@ -153,7 +154,8 @@ func BenchmarkDVCClient_Variable(b *testing.B) {
 	}
 
 	user := DVCUser{UserId: "dontcare"}
-
+	cpuProf, _ := os.Open("cpu.pprof")
+	pprof.StartCPUProfile(cpuProf)
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -165,6 +167,7 @@ func BenchmarkDVCClient_Variable(b *testing.B) {
 		//	b.Fatal("Expected variable to return a value")
 		//}
 	}
+	pprof.StopCPUProfile()
 }
 
 func BenchmarkDVCClient_VariableConcurrent(b *testing.B) {
