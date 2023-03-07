@@ -204,7 +204,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	if err != nil {
 		return
 	}
-	err = d.SetPlatformData(string(platformJSON))
+	err = d.SetPlatformData(platformJSON)
 
 	return
 }
@@ -481,17 +481,15 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 	return rawVar, nil
 }
 
-func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
-	defer func() {
-		if err := recover(); err != nil {
-			errorf("Failed to process config: ", err)
-		}
-	}()
-	d.wasmMutex.Lock()
+func (d *DevCycleLocalBucketing) StoreConfig(config []byte) error {
+	//defer func() {
+	//	if err := recover(); err != nil {
+	//		errorf("Failed to process config: ", err)
+	//	}
+	//}()
 	errorMessage = ""
-	defer d.wasmMutex.Unlock()
 
-	configAddr, err := d.newAssemblyScriptString([]byte(config))
+	configAddr, err := d.newAssemblyScriptString(config)
 	if err != nil {
 		return err
 	}
@@ -506,12 +504,12 @@ func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
 	return err
 }
 
-func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
+func (d *DevCycleLocalBucketing) SetPlatformData(platformData []byte) error {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	configAddr, err := d.newAssemblyScriptString([]byte(platformData))
+	configAddr, err := d.newAssemblyScriptString(platformData)
 	if err != nil {
 		return err
 	}

@@ -9,6 +9,7 @@ require (
 )
 
 require (
-	github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
+	github.com/Jeffail/tunny v0.1.4 // indirect
 	google.golang.org/protobuf v1.29.0 // indirect
+	github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
 )
