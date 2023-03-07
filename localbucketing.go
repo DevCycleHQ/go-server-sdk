@@ -146,7 +146,7 @@ func (d *DevCycleLocalBucketing) Initialize(ctx context.Context, sdkKey string, 
 	d.setPlatformDataFunc = d.wazeroModule.ExportedFunction("setPlatformData")
 	d.setConfigDataFunc = d.wazeroModule.ExportedFunction("setConfigData")
 	d.setClientCustomDataFunc = d.wazeroModule.ExportedFunction("setClientCustomData")
-	d.setClientCustomDataFunc = d.wazeroModule.ExportedFunction("variableForUser")
+	d.variableForUserFunc = d.wazeroModule.ExportedFunction("variableForUser")
 
 	d.__newFunc = d.wazeroModule.ExportedFunction("__new")
 	d.__pinFunc = d.wazeroModule.ExportedFunction("__pin")
