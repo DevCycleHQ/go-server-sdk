@@ -1,6 +1,7 @@
 package devcycle
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -16,7 +17,7 @@ func TestDVCClient_AllFeatures_Local(t *testing.T) {
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 	fatalErr(t, err)
 
-	features, err := c.AllFeatures(
+	features, err := c.AllFeatures(context.Background(),
 		DVCUser{UserId: "j_test", DeviceModel: "testing"})
 	fatalErr(t, err)
 
@@ -31,7 +32,7 @@ func TestDVCClient_AllVariablesLocal(t *testing.T) {
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 	fatalErr(t, err)
 
-	variables, err := c.AllVariables(
+	variables, err := c.AllVariables(context.Background(),
 		DVCUser{UserId: "j_test", DeviceModel: "testing"})
 	fatalErr(t, err)
 
@@ -44,7 +45,7 @@ func TestDVCClient_VariableCloud(t *testing.T) {
 	httpBucketingAPIMock()
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
 
-	variable, err := c.Variable(
+	variable, err := c.Variable(context.Background(),
 		DVCUser{UserId: "j_test", DeviceModel: "testing"},
 		"test", true)
 	fatalErr(t, err)
@@ -59,7 +60,7 @@ func TestDVCClient_VariableLocal(t *testing.T) {
 
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 
-	variable, err := c.Variable(
+	variable, err := c.Variable(context.Background(),
 		DVCUser{UserId: "j_test", DeviceModel: "testing"},
 		"test", true)
 	fatalErr(t, err)
@@ -86,7 +87,7 @@ func TestDVCClient_TrackLocal_QueueEvent(t *testing.T) {
 
 	c, err := NewDVCClient(test_environmentKey, &dvcOptions)
 
-	track, err := c.Track(DVCUser{UserId: "j_test", DeviceModel: "testing"}, DVCEvent{
+	track, err := c.Track(context.Background(), DVCUser{UserId: "j_test", DeviceModel: "testing"}, DVCEvent{
 		Target:      "customEvent",
 		Value:       0,
 		Type_:       "someType",
@@ -118,7 +119,7 @@ func TestProduction_Local(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	variables, err := client.AllVariables(user)
+	variables, err := client.AllVariables(context.Background(), user)
 	fatalErr(t, err)
 
 	if len(variables) == 0 {

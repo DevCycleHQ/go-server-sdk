@@ -4,7 +4,7 @@ import (
 	_ "embed"
 	"net/http"
 	"strings"
-
+	"bytes"
 	"github.com/jarcoal/httpmock"
 )
 
@@ -12,7 +12,7 @@ var (
 	test_environmentKey = "dvc_server_token_hash"
 
 	//go:embed testdata/fixture_small_config.json
-	test_config string
+	test_config []byte
 
 	//go:embed testdata/fixture_large_config.json
 	test_large_config          string
@@ -21,7 +21,7 @@ var (
 
 func init() {
 	// Remove newlines in configs
-	test_config = strings.ReplaceAll(test_config, "\n", "")
+	test_config = bytes.ReplaceAll(test_config, []byte("\n"), []byte(""))
 	test_large_config = strings.ReplaceAll(test_large_config, "\n", "")
 }
 
@@ -42,7 +42,7 @@ func httpEventsApiMock() {
 }
 
 func httpConfigMock(respcode int) {
-	httpCustomConfigMock(test_environmentKey, respcode, test_config)
+	httpCustomConfigMock(test_environmentKey, respcode, string(test_config))
 }
 
 func httpCustomConfigMock(sdkKey string, respcode int, config string) {
