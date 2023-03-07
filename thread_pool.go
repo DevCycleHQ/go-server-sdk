@@ -50,6 +50,7 @@ func (w *LocalBucketingWorker) Initialize(sdkKey string, options *DVCOptions) (e
 
 func (w *LocalBucketingWorker) Process(payload interface{}) interface{} {
 	var workerPayload = payload.(*VariableForUserPayload)
+	defer w.workerMutex.Unlock()
 	if workerPayload.Type_ == VariableForUser {
 		var variableForUserPayload = payload.(*VariableForUserPayload)
 
@@ -68,8 +69,6 @@ func (w *LocalBucketingWorker) Process(payload interface{}) interface{} {
 }
 
 func (w *LocalBucketingWorker) variableForUser(user *[]byte, key *string, variableType VariableTypeCode) (Variable, error) {
-	w.workerMutex.Lock()
-	defer w.workerMutex.Unlock()
 	return w.localBucketing.VariableForUser(*user, *key, variableType)
 }
 
@@ -79,6 +78,8 @@ func (w *LocalBucketingWorker) StoreConfig(configData []byte) error {
 	return w.localBucketing.StoreConfig(configData)
 }
 
-func (w *LocalBucketingWorker) BlockUntilReady() {}
-func (w *LocalBucketingWorker) Interrupt()       {}
-func (w *LocalBucketingWorker) Terminate()       {}
+func (w *LocalBucketingWorker) BlockUntilReady() {
+	w.workerMutex.Lock()
+}
+func (w *LocalBucketingWorker) Interrupt() {}
+func (w *LocalBucketingWorker) Terminate() {}
