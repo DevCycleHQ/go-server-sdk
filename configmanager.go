@@ -10,21 +10,28 @@ import (
 )
 
 type EnvironmentConfigManager struct {
-	sdkKey         string
-	configETag     string
-	localBucketing *DevCycleLocalBucketing
-	firstLoad      bool
-	context        context.Context
-	cancel         context.CancelFunc
-	httpClient     *http.Client
-	cfg            *HTTPConfiguration
-	hasConfig      bool
-	pollingStop    chan bool
-	ticker         *time.Ticker
+	sdkKey           string
+	configETag       string
+	localBucketing   *DevCycleLocalBucketing
+	bucketingWorkers []*LocalBucketingWorker
+	firstLoad        bool
+	context          context.Context
+	cancel           context.CancelFunc
+	httpClient       *http.Client
+	cfg              *HTTPConfiguration
+	hasConfig        bool
+	pollingStop      chan bool
+	ticker           *time.Ticker
 }
 
-func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *DevCycleLocalBucketing, cfg *HTTPConfiguration) (err error) {
+func (e *EnvironmentConfigManager) Initialize(
+	sdkKey string,
+	localBucketing *DevCycleLocalBucketing,
+	bucketingWorkers []*LocalBucketingWorker,
+	cfg *HTTPConfiguration,
+) (err error) {
 	e.localBucketing = localBucketing
+	e.bucketingWorkers = bucketingWorkers
 	e.sdkKey = sdkKey
 	e.cfg = cfg
 	e.httpClient = &http.Client{Timeout: localBucketing.options.RequestTimeout}
@@ -105,22 +112,30 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 }
 
 func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
-	raw, err := io.ReadAll(response.Body)
+	config, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
 
 	// Check
-	valid := json.Valid(raw)
+	valid := json.Valid(config)
 	if !valid {
 		return errorf("invalid JSON data received for config")
 	}
 
-	config := string(raw)
 	err = e.localBucketing.StoreConfig(config)
 	if err != nil {
 		return err
 	}
+	//
+	for _, worker := range e.bucketingWorkers {
+		err = worker.StoreConfig(config)
+	}
+
+	if err != nil {
+		return err
+	}
+
 	e.hasConfig = true
 	e.configETag = response.Header.Get("Etag")
 	infof("Config set. ETag: %s\n", e.configETag)

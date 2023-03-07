@@ -209,7 +209,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	if err != nil {
 		return
 	}
-	err = d.SetPlatformData(string(platformJSON))
+	err = d.SetPlatformData(platformJSON)
 
 	return
 }
@@ -454,7 +454,7 @@ func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	configAddr, err := d.newAssemblyScriptString([]byte(config))
+	configAddr, err := d.newAssemblyScriptString(config)
 	if err != nil {
 		return err
 	}
@@ -465,12 +465,12 @@ func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
 	return err
 }
 
-func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
+func (d *DevCycleLocalBucketing) SetPlatformData(platformData []byte) error {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	configAddr, err := d.newAssemblyScriptString([]byte(platformData))
+	configAddr, err := d.newAssemblyScriptString(platformData)
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -257,14 +258,58 @@ func BenchmarkDVCClient_Variable(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		variable, err := client.Variable(user, test_large_config_variable, false)
+		_, err := client.Variable(user, test_large_config_variable, false)
 		if err != nil {
 			b.Errorf("Failed to retrieve variable: %v", err)
 		}
-		if variable.IsDefaulted {
-			b.Fatal("Expected variable to return a value")
-		}
+		//if variable.IsDefaulted {
+		//	b.Fatal("Expected variable to return a value")
+		//}
 	}
+}
+
+func BenchmarkDVCClient_VariableConcurrent(b *testing.B) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
+	httpEventsApiMock()
+
+	options := &DVCOptions{
+		EnableCloudBucketing:         false,
+		DisableAutomaticEventLogging: true,
+		DisableCustomEventLogging:    true,
+		ConfigPollingIntervalMS:      time.Minute,
+		EventFlushIntervalMS:         time.Minute,
+	}
+
+	client, err := NewDVCClient(test_environmentKey, options)
+	if err != nil {
+		b.Errorf("Failed to initialize client: %v", err)
+	}
+
+	user := DVCUser{UserId: "dontcare"}
+
+	var wg sync.WaitGroup
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	var i int
+	for i = 0; i < b.N; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			variable, err := client.Variable(user, test_large_config_variable, false)
+			if err != nil {
+				b.Errorf("Failed to retrieve variable: %v", err)
+			}
+			if variable.IsDefaulted {
+				b.Fatal("Expected variable to return a value")
+			}
+		}()
+	}
+
+	wg.Wait()
 }
 
 func BenchmarkDVCClient_Variable_Protobuf(b *testing.B) {

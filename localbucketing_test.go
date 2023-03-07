@@ -50,12 +50,12 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = localBucketing.StoreConfig(test_config)
+	err = localBucketing.StoreConfig([]byte(test_config))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = localBucketing.SetPlatformData(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`)
+	err = localBucketing.SetPlatformData([]byte(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = localBucketing.StoreConfig(test_config)
+	err = localBucketing.StoreConfig([]byte(test_config))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 		b.Fatal(err)
 	}
 	for i := 0; i < b.N; i++ {
-		err = localBucketing.StoreConfig(test_config)
+		err = localBucketing.StoreConfig([]byte(test_config))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -125,7 +125,7 @@ func TestDevCycleLocalBucketing_SetPlatformData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = localBucketing.SetPlatformData(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`)
+	err = localBucketing.SetPlatformData([]byte(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,12 +145,12 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 		b.Fatal(err)
 	}
 
-	err = localBucketing.StoreConfig(test_config)
+	err = localBucketing.StoreConfig([]byte(test_config))
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	err = localBucketing.SetPlatformData(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`)
+	err = localBucketing.SetPlatformData([]byte(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`))
 	if err != nil {
 		b.Fatal(err)
 	}
