@@ -193,6 +193,14 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	return
 }
 
+func (d *DevCycleLocalBucketing) getSDKKey() string {
+	return d.sdkKey
+}
+
+func (d *DevCycleLocalBucketing) getCfg() *HTTPConfiguration {
+	return d.cfg
+}
+
 func (d *DevCycleLocalBucketing) setSDKKey(sdkKey string) (err error) {
 	addr, err := d.newAssemblyScriptString([]byte(sdkKey))
 	if err != nil {

@@ -9,8 +9,23 @@ import (
 	"time"
 )
 
+// Abstract the bucketting interface so I can test out both implementations at the same time
+type LocalBucketeer interface {
+	initEventQueue(options []byte) (err error)
+	queueEvent(user, event string) (err error)
+	queueAggregateEvent(event string, config BucketedUserConfig) (err error)
+	checkEventQueueSize() (length int, err error)
+	startFlushEvents()
+	finishFlushEvents()
+	onPayloadSuccess(payloadId string) (err error)
+	flushEventQueue() (payload []FlushPayload, err error)
+	onPayloadFailure(payloadId string, retryable bool) (err error)
+	getSDKKey() string
+	getCfg() *HTTPConfiguration
+}
+
 type EventQueue struct {
-	localBucketing    *DevCycleLocalBucketing
+	localBucketing    LocalBucketeer
 	options           *DVCOptions
 	eventQueueOptions *EventQueueOptions
 	httpClient        *http.Client
@@ -34,9 +49,9 @@ type EventQueueOptions struct {
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging"`
 }
 
-func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing) (err error) {
+func (e *EventQueue) initialize(options *DVCOptions, localBucketing LocalBucketeer) (err error) {
 	e.context = context.Background()
-	e.httpClient = localBucketing.cfg.HTTPClient
+	e.httpClient = localBucketing.getCfg().HTTPClient
 	e.options = options
 	e.flushStop = make(chan bool, 1)
 
@@ -122,7 +137,7 @@ func (e *EventQueue) checkEventQueueSize() (bool, error) {
 }
 
 func (e *EventQueue) FlushEvents() (err error) {
-	eventsHost := e.localBucketing.cfg.EventsAPIBasePath
+	eventsHost := e.localBucketing.getCfg().EventsAPIBasePath
 	e.localBucketing.startFlushEvents()
 	defer e.localBucketing.finishFlushEvents()
 	payloads, err := e.localBucketing.flushEventQueue()
@@ -146,7 +161,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 			continue
 		}
 
-		req.Header.Set("Authorization", e.localBucketing.sdkKey)
+		req.Header.Set("Authorization", e.localBucketing.getSDKKey())
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
 
@@ -190,7 +205,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 	return err
 }
 
-func reportPayloadFailure(localBucketing *DevCycleLocalBucketing, payloadId string, retry bool) (err error) {
+func reportPayloadFailure(localBucketing LocalBucketeer, payloadId string, retry bool) (err error) {
 	err = localBucketing.onPayloadFailure(payloadId, retry)
 	if err != nil {
 		errorf("Failed to mark payload as failed: %s", err)

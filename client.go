@@ -32,7 +32,7 @@ type DVCClient struct {
 	DevCycleOptions              *DVCOptions
 	sdkKey                       string
 	auth                         context.Context
-	localBucketing               *DevCycleLocalBucketing
+	localBucketing               *DevCycleLocalBucketingV2
 	configManager                *EnvironmentConfigManager
 	eventQueue                   *EventQueue
 	isInitialized                bool
@@ -50,11 +50,11 @@ type service struct {
 	client *DVCClient
 }
 
-func initializeLocalBucketing(sdkKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
+func initializeLocalBucketing(sdkKey string, options *DVCOptions) (ret *DevCycleLocalBucketingV2, err error) {
 	cfg := NewConfiguration(options)
 
 	options.CheckDefaults()
-	ret = &DevCycleLocalBucketing{}
+	ret = &DevCycleLocalBucketingV2{}
 	err = ret.Initialize(sdkKey, options, cfg)
 	if err != nil {
 		errorf("error while initializing local bucketing", err)
@@ -262,6 +262,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 		if err != nil {
 			return Variable{}, err
 		}
+
 		bucketedVariable, err := c.variableForUser(userdata, key, variableTypeCode)
 
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
@@ -277,6 +278,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 				)
 			}
 		}
+
 		return variable, err
 	}
 

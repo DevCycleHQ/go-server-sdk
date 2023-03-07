@@ -12,7 +12,7 @@ import (
 type EnvironmentConfigManager struct {
 	sdkKey         string
 	configETag     string
-	localBucketing *DevCycleLocalBucketing
+	localBucketing *DevCycleLocalBucketingV2
 	firstLoad      bool
 	context        context.Context
 	cancel         context.CancelFunc
@@ -22,7 +22,7 @@ type EnvironmentConfigManager struct {
 	ticker         *time.Ticker
 }
 
-func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *DevCycleLocalBucketing) (err error) {
+func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *DevCycleLocalBucketingV2) (err error) {
 	e.localBucketing = localBucketing
 	e.sdkKey = sdkKey
 	e.httpClient = &http.Client{Timeout: localBucketing.options.RequestTimeout}
@@ -32,7 +32,7 @@ func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *Dev
 	e.firstLoad = true
 
 	e.ticker = time.NewTicker(e.localBucketing.options.ConfigPollingIntervalMS)
-	
+
 	go func() {
 		for {
 			select {

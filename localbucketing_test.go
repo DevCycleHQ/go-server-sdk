@@ -3,15 +3,16 @@ package devcycle
 import (
 	_ "embed"
 	"fmt"
-	"github.com/jarcoal/httpmock"
 	"testing"
+
+	"github.com/jarcoal/httpmock"
 )
 
 func TestDevCycleLocalBucketing_Initialize(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
-	localBucketing := DevCycleLocalBucketing{}
+	localBucketing := DevCycleLocalBucketingV2{}
 	var err error
 	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{}, NewConfiguration(&DVCOptions{}))
 	if err != nil {
@@ -24,7 +25,7 @@ func BenchmarkDevCycleLocalBucketing_Initialize(b *testing.B) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	for i := 0; i < b.N; i++ {
-		localBucketing := DevCycleLocalBucketing{}
+		localBucketing := DevCycleLocalBucketingV2{}
 		var err error
 		err = localBucketing.Initialize(test_environmentKey, &DVCOptions{}, NewConfiguration(&DVCOptions{}))
 		if err != nil {
@@ -37,7 +38,7 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
-	localBucketing := DevCycleLocalBucketing{}
+	localBucketing := DevCycleLocalBucketingV2{}
 	var err error
 
 	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{}, NewConfiguration(&DVCOptions{}))
@@ -73,7 +74,7 @@ func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
-	localBucketing := DevCycleLocalBucketing{}
+	localBucketing := DevCycleLocalBucketingV2{}
 	var err error
 
 	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{}, NewConfiguration(&DVCOptions{}))
@@ -91,7 +92,7 @@ func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
-	localBucketing := DevCycleLocalBucketing{}
+	localBucketing := DevCycleLocalBucketingV2{}
 	var err error
 
 	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{}, NewConfiguration(&DVCOptions{}))
@@ -111,7 +112,7 @@ func TestDevCycleLocalBucketing_SetPlatformData(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
-	localBucketing := DevCycleLocalBucketing{}
+	localBucketing := DevCycleLocalBucketingV2{}
 	var err error
 
 	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{}, NewConfiguration(&DVCOptions{}))
@@ -131,7 +132,7 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
-	localBucketing := DevCycleLocalBucketing{}
+	localBucketing := DevCycleLocalBucketingV2{}
 	var err error
 
 	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{}, NewConfiguration(&DVCOptions{}))
