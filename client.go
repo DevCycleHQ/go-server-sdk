@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Jeffail/tunny"
 	"io"
 	"math"
 	"math/rand"
@@ -15,6 +16,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/proto"
@@ -40,6 +42,8 @@ type DVCClient struct {
 	eventQueue                   *EventQueue
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
+	bucketingWorkers             []*LocalBucketingWorker
+	bucketingWorkerPool          *tunny.Pool
 }
 
 type SDKEvent struct {
@@ -91,8 +95,22 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 	}
 
 	c.localBucketing = localBucketing
+
+	var wg sync.WaitGroup
+	wg.Add(8)
+	c.bucketingWorkerPool = tunny.New(8, func() tunny.Worker {
+		worker := LocalBucketingWorker{}
+		// TODO handle error
+		_ = worker.Initialize(sdkKey, options)
+		c.bucketingWorkers = append(c.bucketingWorkers, &worker)
+		wg.Done()
+		return &worker
+	})
+
+	wg.Wait()
+
 	c.configManager = &EnvironmentConfigManager{localBucketing: localBucketing}
-	err = c.configManager.Initialize(sdkKey, localBucketing, c.cfg)
+	err = c.configManager.Initialize(sdkKey, localBucketing, c.bucketingWorkers, c.cfg)
 
 	if err != nil {
 		return err
@@ -125,6 +143,7 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		c.internalOnInitializedChannel = make(chan bool, 1)
+
 		err := setLBClient(sdkKey, options, c)
 		if err != nil {
 			return c, err
@@ -257,31 +276,19 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 		return Variable{}, errorf("Error marshalling protobuf object in variableForUserProtobuf: %w", err)
 	}
 
-	variableBuffer, err := c.localBucketing.VariableForUser_PB(paramsBuffer)
-
-	if err != nil {
-		return Variable{}, errorf("Error calling variableForUserProtobuf: %w", err)
-	}
-
-	if variableBuffer == nil {
-		// If the variable is not bucketed, return an empty variable
-		return Variable{}, nil
-	}
-
-	// Decode the result
-	sdkVariable := proto.SDKVariable_PB{}
-	err = sdkVariable.UnmarshalVT(variableBuffer)
-
-	// turn sdkVariable into real Variable object
-	return Variable{
-		baseVariable: baseVariable{
-			Key:   sdkVariable.Key,
-			Type_: sdkVariable.Type.String(),
-			Value: sdkVariable.GetValue(),
+	result := c.bucketingWorkerPool.Process(&VariableForUserPayload{
+		WorkerPayload: WorkerPayload{
+			Type_: VariableForUser,
 		},
-		DefaultValue: nil,
-		IsDefaulted:  false,
-	}, nil
+		User:         &userJSON,
+		Key:          &key,
+		VariableType: variableType,
+	})
+
+	var variableResult = result.(VariableForUserResponse)
+
+	//variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType)
+	return *variableResult.Variable, variableResult.Err
 }
 
 func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
