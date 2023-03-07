@@ -34,7 +34,7 @@ type EventQueueOptions struct {
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging"`
 }
 
-func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing) (err error) {
+func (e *EventQueue) initialize(ctx context.Context, options *DVCOptions, localBucketing *DevCycleLocalBucketing) (err error) {
 	e.context = context.Background()
 	e.httpClient = localBucketing.cfg.HTTPClient
 	e.options = options
@@ -47,7 +47,7 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 		if err != nil {
 			return err
 		}
-		err = e.localBucketing.initEventQueue(eventQueueOpt)
+		err = e.localBucketing.initEventQueue(ctx, eventQueueOpt)
 		ticker := time.NewTicker(e.options.EventFlushIntervalMS)
 
 		go func() {
@@ -58,7 +58,7 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 					infof("Stopping event flushing.")
 					return
 				case <-ticker.C:
-					err = e.FlushEvents()
+					err = e.FlushEvents(ctx)
 					if err != nil {
 						warnf("Error flushing events: %s\n", err)
 					}
@@ -70,11 +70,11 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 	return err
 }
 
-func (e *EventQueue) QueueEvent(user DVCUser, event DVCEvent) error {
+func (e *EventQueue) QueueEvent(ctx context.Context, user DVCUser, event DVCEvent) error {
 	if e.closed {
 		return errorf("DevCycle client was closed, no more events can be tracked.")
 	}
-	if q, err := e.checkEventQueueSize(); err != nil || q {
+	if q, err := e.checkEventQueueSize(ctx); err != nil || q {
 		return errorf("Max event queue size reached, dropping event")
 	}
 	if !e.options.EnableCloudBucketing {
@@ -86,31 +86,31 @@ func (e *EventQueue) QueueEvent(user DVCUser, event DVCEvent) error {
 		if err != nil {
 			return err
 		}
-		err = e.localBucketing.queueEvent(string(userstring), string(eventstring))
+		err = e.localBucketing.queueEvent(ctx, userstring, eventstring)
 		return err
 	}
 	return nil
 }
 
-func (e *EventQueue) QueueAggregateEvent(config BucketedUserConfig, event DVCEvent) error {
-	if q, err := e.checkEventQueueSize(); err != nil || q {
+func (e *EventQueue) QueueAggregateEvent(ctx context.Context, config BucketedUserConfig, event DVCEvent) error {
+	if q, err := e.checkEventQueueSize(ctx); err != nil || q {
 		return errorf("Max event queue size reached, dropping aggregate event")
 	}
 	if !e.options.EnableCloudBucketing {
 		eventstring, err := json.Marshal(event)
-		err = e.localBucketing.queueAggregateEvent(string(eventstring), config)
+		err = e.localBucketing.queueAggregateEvent(ctx, eventstring, config)
 		return err
 	}
 	return nil
 }
 
-func (e *EventQueue) checkEventQueueSize() (bool, error) {
-	queueSize, err := e.localBucketing.checkEventQueueSize()
+func (e *EventQueue) checkEventQueueSize(ctx context.Context) (bool, error) {
+	queueSize, err := e.localBucketing.checkEventQueueSize(ctx)
 	if err != nil {
 		return false, err
 	}
 	if queueSize >= e.options.FlushEventQueueSize {
-		err = e.FlushEvents()
+		err = e.FlushEvents(ctx)
 		if err != nil {
 			return true, err
 		}
@@ -121,11 +121,11 @@ func (e *EventQueue) checkEventQueueSize() (bool, error) {
 	return false, nil
 }
 
-func (e *EventQueue) FlushEvents() (err error) {
+func (e *EventQueue) FlushEvents(ctx context.Context) (err error) {
 	eventsHost := e.localBucketing.cfg.EventsAPIBasePath
 	e.localBucketing.startFlushEvents()
 	defer e.localBucketing.finishFlushEvents()
-	payloads, err := e.localBucketing.flushEventQueue()
+	payloads, err := e.localBucketing.flushEventQueue(ctx)
 	if err != nil {
 		return err
 	}
@@ -136,13 +136,13 @@ func (e *EventQueue) FlushEvents() (err error) {
 		requestBody, err := json.Marshal(BatchEventsBody{Batch: payload.Records})
 		if err != nil {
 			errorf("Failed to marshal batch events body: %s", err)
-			reportPayloadFailure(e.localBucketing, payload.PayloadId, false)
+			reportPayloadFailure(ctx, e.localBucketing, payload.PayloadId, false)
 			continue
 		}
 		req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(requestBody))
 		if err != nil {
 			errorf("Failed to create request to events api: %s", err)
-			reportPayloadFailure(e.localBucketing, payload.PayloadId, false)
+			reportPayloadFailure(ctx, e.localBucketing, payload.PayloadId, false)
 			continue
 		}
 
@@ -154,18 +154,18 @@ func (e *EventQueue) FlushEvents() (err error) {
 
 		if err != nil {
 			errorf("Failed to make request to events api: %s", err)
-			_ = reportPayloadFailure(e.localBucketing, payload.PayloadId, false)
+			_ = reportPayloadFailure(ctx, e.localBucketing, payload.PayloadId, false)
 			continue
 		}
 
 		if resp.StatusCode >= 500 {
 			warnf("Events API Returned a 5xx error, retrying later.")
-			_ = reportPayloadFailure(e.localBucketing, payload.PayloadId, true)
+			_ = reportPayloadFailure(ctx, e.localBucketing, payload.PayloadId, true)
 			continue
 		}
 
 		if resp.StatusCode >= 400 {
-			_ = reportPayloadFailure(e.localBucketing, payload.PayloadId, false)
+			_ = reportPayloadFailure(ctx, e.localBucketing, payload.PayloadId, false)
 			responseBody, readError := io.ReadAll(resp.Body)
 			if readError != nil {
 				errorf("Failed to read response body %s", readError)
@@ -179,7 +179,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 		}
 
 		if resp.StatusCode == 201 {
-			err = e.localBucketing.onPayloadSuccess(payload.PayloadId)
+			err = e.localBucketing.onPayloadSuccess(ctx, payload.PayloadId)
 			if err != nil {
 				errorf("failed to mark payload as success %s", err)
 				continue
@@ -190,17 +190,17 @@ func (e *EventQueue) FlushEvents() (err error) {
 	return err
 }
 
-func reportPayloadFailure(localBucketing *DevCycleLocalBucketing, payloadId string, retry bool) (err error) {
-	err = localBucketing.onPayloadFailure(payloadId, retry)
+func reportPayloadFailure(ctx context.Context, localBucketing *DevCycleLocalBucketing, payloadId string, retry bool) (err error) {
+	err = localBucketing.onPayloadFailure(ctx, payloadId, retry)
 	if err != nil {
 		errorf("Failed to mark payload as failed: %s", err)
 	}
 	return
 }
 
-func (e *EventQueue) Close() (err error) {
+func (e *EventQueue) Close(ctx context.Context) (err error) {
 	e.flushStop <- true
 	e.closed = true
-	err = e.FlushEvents()
+	err = e.FlushEvents(ctx)
 	return err
 }

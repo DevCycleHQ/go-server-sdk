@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"time"
@@ -11,7 +12,6 @@ import (
 func main() {
 	sdkKey := os.Getenv("DVC_SERVER_KEY")
 	user := devcycle.DVCUser{UserId: "test"}
-	onInitialized := make(chan bool)
 	dvcOptions := devcycle.DVCOptions{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         false,
@@ -20,20 +20,16 @@ func main() {
 		RequestTimeout:               10 * time.Second,
 		DisableAutomaticEventLogging: false,
 		DisableCustomEventLogging:    false,
-		OnInitializedChannel:         onInitialized,
 	}
 
 	client, _ := devcycle.NewDVCClient(sdkKey, &dvcOptions)
 
-	features, _ := client.AllFeatures(user)
+	features, _ := client.AllFeatures(context.Background(), user)
 	for key, feature := range features {
 		log.Printf("Key:%s, feature:%s", key, feature)
 	}
 
-	<-onInitialized
-	log.Printf("client initialized")
-
-	variables, _ := client.AllVariables(user)
+	variables, _ := client.AllVariables(context.Background(), user)
 	for key, variable := range variables {
 		log.Printf("Key:%s, feature:%v", key, variable)
 	}
@@ -42,15 +38,18 @@ func main() {
 		Type_:  "customEvent",
 		Target: "somevariable.key"}
 
-	vara, _ := client.Variable(user, "elliot-test", "test")
-
-	if !vara.IsDefaulted {
-		log.Printf("vara not defaulted:%v", vara.IsDefaulted)
-	}
-	varaDefaulted, _ := client.Variable(user, "elliot-asdasd", "test")
-	if varaDefaulted.IsDefaulted {
-		log.Printf("vara defaulted:%v", varaDefaulted.IsDefaulted)
+	for i := 0; i < 100; i++ {
+		go evalVariable(client, user)
 	}
 
-	_, _ = client.Track(user, event)
+	_, _ = client.Track(context.Background(), user, event)
+	time.Sleep(10 * time.Second)
+}
+
+func evalVariable(client *devcycle.DVCClient, user devcycle.DVCUser) (devcycle.Variable, error) {
+	vara, err := client.Variable(context.Background(), user, "test", false)
+	if vara.Value != true {
+		log.Printf("vara not true\n")
+	}
+	return vara, err
 }

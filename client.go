@@ -55,7 +55,7 @@ func initializeLocalBucketing(sdkKey string, options *DVCOptions) (ret *DevCycle
 
 	options.CheckDefaults()
 	ret = &DevCycleLocalBucketing{}
-	err = ret.Initialize(sdkKey, options, cfg)
+	err = ret.Initialize(context.Background(), sdkKey, options, cfg)
 	if err != nil {
 		errorf("error while initializing local bucketing", err)
 		return nil, err
@@ -138,12 +138,12 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	return c, nil
 }
 
-func (c *DVCClient) generateBucketedConfig(user DVCUser) (config BucketedUserConfig, err error) {
+func (c *DVCClient) generateBucketedConfig(ctx context.Context, user DVCUser) (config BucketedUserConfig, err error) {
 	userJSON, err := json.Marshal(user)
 	if err != nil {
 		return BucketedUserConfig{}, err
 	}
-	config, err = c.localBucketing.GenerateBucketedConfigForUser(string(userJSON))
+	config, err = c.localBucketing.GenerateBucketedConfigForUser(ctx, userJSON)
 	if err != nil {
 		return BucketedUserConfig{}, err
 	}
@@ -160,13 +160,13 @@ func (c *DVCClient) variableForUser(user DVCUser, key string, variableType Varia
 	return
 }
 
-func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
-	err = c.eventQueue.QueueEvent(user, event)
+func (c *DVCClient) queueEvent(ctx context.Context, user DVCUser, event DVCEvent) (err error) {
+	err = c.eventQueue.QueueEvent(ctx, user, event)
 	return
 }
 
-func (c *DVCClient) queueAggregateEvent(bucketed BucketedUserConfig, event DVCEvent) (err error) {
-	err = c.eventQueue.QueueAggregateEvent(bucketed, event)
+func (c *DVCClient) queueAggregateEvent(ctx context.Context, bucketed BucketedUserConfig, event DVCEvent) (err error) {
+	err = c.eventQueue.QueueAggregateEvent(ctx, bucketed, event)
 	return
 }
 
@@ -176,10 +176,10 @@ DVCClientService Get all features by key for user data
 
 @return map[string]Feature
 */
-func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
+func (c *DVCClient) AllFeatures(ctx context.Context, user DVCUser) (map[string]Feature, error) {
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.hasConfig() {
-			user, err := c.generateBucketedConfig(user)
+			user, err := c.generateBucketedConfig(ctx, user)
 			return user.Features, err
 		} else {
 			warnf("AllFeatures called before client initialized")
@@ -227,7 +227,7 @@ DVCClientService Get variable by key for user data
 
 @return Variable
 */
-func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
+func (c *DVCClient) Variable(ctx context.Context, userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
 	if key == "" {
 		return Variable{}, errors.New("invalid key provided for call to Variable")
 	}
@@ -245,7 +245,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if !c.hasConfig() {
 			warnf("Variable called before client initialized, returning default value")
-			err = c.queueAggregateEvent(BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, DVCEvent{
+			err = c.queueAggregateEvent(ctx, BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, DVCEvent{
 				Type_:  EventType_AggVariableDefaulted,
 				Target: key,
 			})
@@ -333,7 +333,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	return variable, nil
 }
 
-func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, error) {
+func (c *DVCClient) AllVariables(ctx context.Context, user DVCUser) (map[string]ReadOnlyVariable, error) {
 	var (
 		httpMethod          = strings.ToUpper("Post")
 		postBody            interface{}
@@ -341,7 +341,7 @@ func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, err
 	)
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.hasConfig() {
-			user, err := c.generateBucketedConfig(user)
+			user, err := c.generateBucketedConfig(ctx, user)
 			if err != nil {
 				return localVarReturnValue, err
 			}
@@ -377,15 +377,7 @@ func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, err
 	return nil, c.handleError(r, rBody)
 }
 
-/*
-DVCClientService Post events to DevCycle for user
-  - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
-  - @param body
-
-@return InlineResponse201
-*/
-
-func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
+func (c *DVCClient) Track(ctx context.Context, user DVCUser, event DVCEvent) (bool, error) {
 	if c.DevCycleOptions.DisableCustomEventLogging {
 		return true, nil
 	}
@@ -395,7 +387,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.isInitialized {
-			err := c.eventQueue.QueueEvent(user, event)
+			err := c.eventQueue.QueueEvent(ctx, user, event)
 			return err == nil, err
 		} else {
 			warnf("Track called before client initialized")
@@ -438,7 +430,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 	return false, c.handleError(r, rBody)
 }
 
-func (c *DVCClient) FlushEvents() error {
+func (c *DVCClient) FlushEvents(ctx context.Context) error {
 
 	if c.DevCycleOptions.EnableCloudBucketing || !c.isInitialized {
 		return nil
@@ -448,18 +440,18 @@ func (c *DVCClient) FlushEvents() error {
 		return nil
 	}
 
-	err := c.eventQueue.FlushEvents()
+	err := c.eventQueue.FlushEvents(ctx)
 	return err
 }
 
-func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error {
+func (c *DVCClient) SetClientCustomData(ctx context.Context, customData map[string]interface{}) error {
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.isInitialized {
 			data, err := json.Marshal(customData)
 			if err != nil {
 				return err
 			}
-			err = c.localBucketing.SetClientCustomData(string(data))
+			err = c.localBucketing.SetClientCustomData(ctx, data)
 			return err
 		} else {
 			warnf("SetClientCustomData called before client initialized")
@@ -473,7 +465,7 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 /*
 Close the client and flush any pending events. Stop any ongoing tickers
 */
-func (c *DVCClient) Close() (err error) {
+func (c *DVCClient) Close(ctx context.Context) (err error) {
 	if c.DevCycleOptions.EnableCloudBucketing {
 		return
 	}
@@ -484,7 +476,7 @@ func (c *DVCClient) Close() (err error) {
 	}
 
 	if c.eventQueue != nil {
-		err = c.eventQueue.Close()
+		err = c.eventQueue.Close(ctx)
 	}
 
 	if c.configManager != nil {

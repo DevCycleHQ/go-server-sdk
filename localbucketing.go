@@ -1,16 +1,18 @@
 package devcycle
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"fmt"
-
+	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
 	"math/rand"
-	"sync"
+	"os"
 	"time"
-	"unsafe"
+	"unicode/utf16"
 
-	"github.com/bytecodealliance/wasmtime-go/v6"
+	"sync"
 )
 
 var (
@@ -27,146 +29,131 @@ type VariableTypeCodes struct {
 }
 
 type DevCycleLocalBucketing struct {
-	wasm         []byte
-	wasmStore    *wasmtime.Store
-	wasmModule   *wasmtime.Module
-	wasmInstance *wasmtime.Instance
-	wasmLinker   *wasmtime.Linker
-	wasiConfig   *wasmtime.WasiConfig
-	wasmMemory   *wasmtime.Memory
-	eventQueue   *EventQueue
-	sdkKey       string
-	options      *DVCOptions
-	cfg          *HTTPConfiguration
-	wasmMutex    sync.Mutex
-	flushMutex   sync.Mutex
-	sdkKeyAddr   int32
+	wasm          []byte
+	eventQueue    *EventQueue
+	sdkKey        string
+	options       *DVCOptions
+	cfg           *HTTPConfiguration
+	flushMutex    sync.Mutex
+	sdkKeyAddr    uint64
+	wazeroRuntime wazero.Runtime
+	wazeroMemory  api.Memory
+	wazeroModule  api.Module
+	wasmMutex     sync.Mutex
 
 	// Cache function pointers
-	__newFunc     *wasmtime.Func
-	__unpinFunc   *wasmtime.Func
-	__collectFunc *wasmtime.Func
-	__pinFunc     *wasmtime.Func
+	__newFunc     api.Function
+	__unpinFunc   api.Function
+	__collectFunc api.Function
+	__pinFunc     api.Function
 
-	flushEventQueueFunc               *wasmtime.Func
-	eventQueueSizeFunc                *wasmtime.Func
-	onPayloadSuccessFunc              *wasmtime.Func
-	queueEventFunc                    *wasmtime.Func
-	onPayloadFailureFunc              *wasmtime.Func
-	generateBucketedConfigForUserFunc *wasmtime.Func
-	setPlatformDataFunc               *wasmtime.Func
-	setConfigDataFunc                 *wasmtime.Func
-	initEventQueueFunc                *wasmtime.Func
-	queueAggregateEventFunc           *wasmtime.Func
-	setClientCustomDataFunc           *wasmtime.Func
-	variableForUserFunc               *wasmtime.Func
-
+	flushEventQueueFunc               api.Function
+	eventQueueSizeFunc                api.Function
+	onPayloadSuccessFunc              api.Function
+	queueEventFunc                    api.Function
+	onPayloadFailureFunc              api.Function
+	generateBucketedConfigForUserFunc api.Function
+	setPlatformDataFunc               api.Function
+	setConfigDataFunc                 api.Function
+	initEventQueueFunc                api.Function
+	queueAggregateEventFunc           api.Function
+	setClientCustomDataFunc           api.Function
+	
+	variableForUserFunc api.Function
+	
 	VariableTypeCodes VariableTypeCodes
 }
 
 //go:embed bucketing-lib.release.wasm
 var wasmBinary []byte
 
-func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, cfg *HTTPConfiguration) (err error) {
+func (d *DevCycleLocalBucketing) Initialize(ctx context.Context, sdkKey string, options *DVCOptions, cfg *HTTPConfiguration) (err error) {
 	options.CheckDefaults()
 
 	d.options = options
 	d.cfg = cfg
 	d.wasm = wasmBinary
 	d.eventQueue = &EventQueue{}
-	d.wasiConfig = wasmtime.NewWasiConfig()
-	d.wasiConfig.InheritEnv()
-	d.wasiConfig.InheritStderr()
-	d.wasiConfig.InheritStdout()
-	d.wasmStore = wasmtime.NewStore(wasmtime.NewEngine())
-	d.wasmStore.SetWasi(d.wasiConfig)
-	d.wasmLinker = wasmtime.NewLinker(d.wasmStore.Engine)
-	err = d.wasmLinker.DefineWasi()
 
+	d.wazeroRuntime = wazero.NewRuntime(ctx)
+	ascModuleBuilder := d.wazeroRuntime.NewHostModuleBuilder("env")
+
+	ascModuleBuilder.NewFunctionBuilder().WithName("~lib/builtins/seed").
+		WithGoModuleFunction(api.GoModuleFunc(func(ctx context.Context, mod api.Module, stack []uint64) {
+			r := rand.Float64() * float64(time.Now().UnixMilli())
+
+			// the caller interprets the result as a float64
+			stack[0] = uint64(r)
+		}), []api.ValueType{}, []api.ValueType{api.ValueTypeF64}).Export("seed")
+
+	ascModuleBuilder.NewFunctionBuilder().WithName("~lib/bindings/dom/Date.now").
+		WithGoModuleFunction(api.GoModuleFunc(func(ctx context.Context, mod api.Module, stack []uint64) {
+			r := float64(time.Now().UnixMilli())
+			// the caller interprets the result as a float64
+			stack[0] = uint64(r)
+		}), []api.ValueType{}, []api.ValueType{api.ValueTypeF64}).
+		Export("Date.now")
+
+	ascModuleBuilder.NewFunctionBuilder().WithName("~lib/builtins/abort").
+		WithGoModuleFunction(api.GoModuleFunc(func(ctx context.Context, mod api.Module, stack []uint64) {
+			mem := mod.Memory()
+
+			message := uint32(stack[0])
+			fileName := uint32(stack[1])
+			lineNumber := uint32(stack[2])
+			columnNumber := uint32(stack[3])
+
+			if msg, msgErr := readAssemblyScriptString(mem, message); msgErr == nil {
+				if fn, fnErr := readAssemblyScriptString(mem, fileName); fnErr == nil {
+					errorMessage = fmt.Sprintf("%s at %s:%d:%d\n", msg, fn, lineNumber, columnNumber)
+					errorf(errorMessage)
+				}
+			}
+		}), []api.ValueType{api.ValueTypeI32, api.ValueTypeI32, api.ValueTypeI32, api.ValueTypeI32}, []api.ValueType{}).
+		WithParameterNames("message", "fileName", "lineNumber", "columnNumber").
+		Export("abort")
+
+	ascModuleBuilder.NewFunctionBuilder().WithName("~lib/bindings/dom/console.log").WithGoModuleFunction(
+		api.GoModuleFunc(func(ctx context.Context, mod api.Module, stack []uint64) {
+			mem := mod.Memory()
+
+			message := uint32(stack[0])
+
+			if msg, msgErr := readAssemblyScriptString(mem, message); msgErr == nil {
+				printf(msg)
+			}
+		}), []api.ValueType{api.ValueTypeI32}, []api.ValueType{}).Export("console.log")
+
+	_, err = ascModuleBuilder.Instantiate(ctx)
 	if err != nil {
 		return
 	}
 
-	d.wasmModule, err = wasmtime.NewModule(d.wasmStore.Engine, d.wasm)
+	d.wazeroModule, err = d.wazeroRuntime.InstantiateWithConfig(context.Background(), d.wasm, wazero.NewModuleConfig().WithStdout(os.Stdout).WithStderr(os.Stderr))
 	if err != nil {
 		return
 	}
 
-	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "Date.now", func() float64 { return float64(time.Now().UnixMilli()) })
-	if err != nil {
-		return
-	}
+	d.initEventQueueFunc = d.wazeroModule.ExportedFunction("initEventQueue")
 
-	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
-		var errorMessage []byte
-		errorMessage, err = d.mallocAssemblyScriptBytes(messagePtr)
-		if err != nil {
-			_ = errorf("WASM Error: %s", err)
-			return
-		}
-		_ = errorf("WASM Error: %s", string(errorMessage))
-		err = nil
-	})
+	d.wazeroMemory = d.wazeroModule.Memory()
+	d.flushEventQueueFunc = d.wazeroModule.ExportedFunction("flushEventQueue")
+	d.eventQueueSizeFunc = d.wazeroModule.ExportedFunction("eventQueueSize")
+	d.onPayloadSuccessFunc = d.wazeroModule.ExportedFunction("onPayloadSuccess")
+	d.onPayloadFailureFunc = d.wazeroModule.ExportedFunction("onPayloadFailure")
+	d.generateBucketedConfigForUserFunc = d.wazeroModule.ExportedFunction("generateBucketedConfigForUser")
+	d.queueEventFunc = d.wazeroModule.ExportedFunction("queueEvent")
+	d.queueAggregateEventFunc = d.wazeroModule.ExportedFunction("queueAggregateEvent")
+	d.setPlatformDataFunc = d.wazeroModule.ExportedFunction("setPlatformData")
+	d.setConfigDataFunc = d.wazeroModule.ExportedFunction("setConfigData")
+	d.setClientCustomDataFunc = d.wazeroModule.ExportedFunction("setClientCustomData")
 
-	if err != nil {
-		return
-	}
+	d.__newFunc = d.wazeroModule.ExportedFunction("__new")
+	d.__pinFunc = d.wazeroModule.ExportedFunction("__pin")
+	d.__unpinFunc = d.wazeroModule.ExportedFunction("__unpin")
+	d.__collectFunc = d.wazeroModule.ExportedFunction("__collect")
 
-	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
-		var message []byte
-		message, err = d.mallocAssemblyScriptBytes(messagePtr)
-		printf(string(message))
-	})
-	if err != nil {
-		return
-	}
-
-	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "seed", func() float64 {
-		return rand.Float64() * float64(time.Now().UnixMilli())
-	})
-	if err != nil {
-		return
-	}
-
-	d.wasmInstance, err = d.wasmLinker.Instantiate(d.wasmStore, d.wasmModule)
-	if err != nil {
-		return
-	}
-	d.wasmMemory = d.wasmInstance.GetExport(d.wasmStore, "memory").Memory()
-
-	// bind exported functions
-	d.initEventQueueFunc = d.wasmInstance.GetExport(d.wasmStore, "initEventQueue").Func()
-	d.flushEventQueueFunc = d.wasmInstance.GetExport(d.wasmStore, "flushEventQueue").Func()
-	d.eventQueueSizeFunc = d.wasmInstance.GetExport(d.wasmStore, "eventQueueSize").Func()
-	d.onPayloadSuccessFunc = d.wasmInstance.GetExport(d.wasmStore, "onPayloadSuccess").Func()
-	d.onPayloadFailureFunc = d.wasmInstance.GetExport(d.wasmStore, "onPayloadFailure").Func()
-	d.generateBucketedConfigForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "generateBucketedConfigForUser").Func()
-	d.queueEventFunc = d.wasmInstance.GetExport(d.wasmStore, "queueEvent").Func()
-	d.queueAggregateEventFunc = d.wasmInstance.GetExport(d.wasmStore, "queueAggregateEvent").Func()
-	d.setPlatformDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setPlatformData").Func()
-	d.setClientCustomDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
-	d.setConfigDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
-	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser").Func()
-
-	// bind exported internal functions
-	d.__newFunc = d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
-	d.__pinFunc = d.wasmInstance.GetExport(d.wasmStore, "__pin").Func()
-	d.__unpinFunc = d.wasmInstance.GetExport(d.wasmStore, "__unpin").Func()
-	d.__collectFunc = d.wasmInstance.GetExport(d.wasmStore, "__collect").Func()
-
-	boolType := d.wasmInstance.GetExport(d.wasmStore, "VariableType.Boolean").Global().Get(d.wasmStore).I32()
-	stringType := d.wasmInstance.GetExport(d.wasmStore, "VariableType.String").Global().Get(d.wasmStore).I32()
-	numberType := d.wasmInstance.GetExport(d.wasmStore, "VariableType.Number").Global().Get(d.wasmStore).I32()
-	jsonType := d.wasmInstance.GetExport(d.wasmStore, "VariableType.JSON").Global().Get(d.wasmStore).I32()
-
-	d.VariableTypeCodes = VariableTypeCodes{
-		Boolean: VariableTypeCode(boolType),
-		String:  VariableTypeCode(stringType),
-		Number:  VariableTypeCode(numberType),
-		JSON:    VariableTypeCode(jsonType),
-	}
-
-	err = d.setSDKKey(sdkKey)
+	err = d.setSDKKey(ctx, sdkKey)
 	if err != nil {
 		return
 	}
@@ -177,7 +164,7 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	if err != nil {
 		return
 	}
-	err = d.SetPlatformData(string(platformJSON))
+	err = d.SetPlatformData(ctx, platformJSON)
 	if err != nil {
 		return
 	}
@@ -185,7 +172,7 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	if err != nil {
 		return
 	}
-	err = d.eventQueue.initialize(options, d)
+	err = d.eventQueue.initialize(ctx, options, d)
 	if err != nil {
 		return
 	}
@@ -193,28 +180,28 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	return
 }
 
-func (d *DevCycleLocalBucketing) setSDKKey(sdkKey string) (err error) {
-	addr, err := d.newAssemblyScriptString([]byte(sdkKey))
+func (d *DevCycleLocalBucketing) setSDKKey(ctx context.Context, sdkKey string) (err error) {
+	addr, err := d.newAssemblyScriptString(ctx, []byte(sdkKey))
 	if err != nil {
 		return
 	}
 
-	err = d.assemblyScriptPin(addr)
+	err = d.assemblyScriptPin(ctx, addr)
 	if err != nil {
 		return
 	}
 
 	d.sdkKey = sdkKey
-	d.sdkKeyAddr = addr
+	d.sdkKeyAddr = uint64(addr)
 	return
 }
 
-func (d *DevCycleLocalBucketing) initEventQueue(options []byte) (err error) {
+func (d *DevCycleLocalBucketing) initEventQueue(ctx context.Context, options []byte) (err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	optionsAddr, err := d.newAssemblyScriptString(options)
+	optionsAddr, err := d.newAssemblyScriptString(ctx, options)
 	if err != nil {
 		return
 	}
@@ -224,7 +211,7 @@ func (d *DevCycleLocalBucketing) initEventQueue(options []byte) (err error) {
 		return
 	}
 
-	_, err = d.initEventQueueFunc.Call(d.wasmStore, d.sdkKeyAddr, optionsAddr)
+	_, err = d.initEventQueueFunc.Call(ctx, d.sdkKeyAddr, uint64(optionsAddr))
 	if err != nil || errorMessage != "" {
 		if errorMessage != "" {
 			err = fmt.Errorf(errorMessage)
@@ -241,12 +228,12 @@ func (d *DevCycleLocalBucketing) startFlushEvents() {
 func (d *DevCycleLocalBucketing) finishFlushEvents() {
 	d.flushMutex.Unlock()
 }
-func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err error) {
+func (d *DevCycleLocalBucketing) flushEventQueue(ctx context.Context) (payload []FlushPayload, err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	addrResult, err := d.flushEventQueueFunc.Call(d.wasmStore, d.sdkKeyAddr)
+	addrResult, err := d.flushEventQueueFunc.Call(ctx, d.sdkKeyAddr)
 	if err != nil {
 		return
 	}
@@ -254,20 +241,20 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 		err = fmt.Errorf(errorMessage)
 		return
 	}
-	result, err := d.mallocAssemblyScriptBytes(addrResult.(int32))
+	result, err := readAssemblyScriptString(d.wazeroMemory, uint32(addrResult[0]))
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal(result, &payload)
+	err = json.Unmarshal([]byte(result), &payload)
 	return
 }
 
-func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
+func (d *DevCycleLocalBucketing) checkEventQueueSize(ctx context.Context) (length int, err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	result, err := d.eventQueueSizeFunc.Call(d.wasmStore, d.sdkKeyAddr)
+	result, err := d.eventQueueSizeFunc.Call(ctx, d.sdkKeyAddr)
 	if errorMessage != "" {
 		err = fmt.Errorf(errorMessage)
 		return
@@ -275,21 +262,21 @@ func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
 	if err != nil {
 		return
 	}
-	queueLen := result.(int32)
+	queueLen := result[0]
 	return int(queueLen), nil
 }
 
-func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) {
+func (d *DevCycleLocalBucketing) onPayloadSuccess(ctx context.Context, payloadId string) (err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	payloadIdAddr, err := d.newAssemblyScriptString([]byte(payloadId))
+	payloadIdAddr, err := d.newAssemblyScriptString(ctx, []byte(payloadId))
 	if err != nil {
 		return
 	}
 
-	_, err = d.onPayloadSuccessFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr)
+	_, err = d.onPayloadSuccessFunc.Call(ctx, d.sdkKeyAddr, uint64(payloadIdAddr))
 	if err != nil || errorMessage != "" {
 		if errorMessage != "" {
 			err = fmt.Errorf(errorMessage)
@@ -299,38 +286,38 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) 
 	return
 }
 
-func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
+func (d *DevCycleLocalBucketing) queueEvent(ctx context.Context, user, event []byte) (err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	userAddr, err := d.newAssemblyScriptString([]byte(user))
+	userAddr, err := d.newAssemblyScriptString(ctx, user)
 	if err != nil {
 		return
 	}
-	err = d.assemblyScriptPin(userAddr)
+	err = d.assemblyScriptPin(ctx, userAddr)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err := d.assemblyScriptUnpin(userAddr)
+		err := d.assemblyScriptUnpin(ctx, userAddr)
 		if err != nil {
 			errorf(err.Error())
 		}
 	}()
-	eventAddr, err := d.newAssemblyScriptString([]byte(event))
+	eventAddr, err := d.newAssemblyScriptString(ctx, event)
 	if err != nil {
 		return
 	}
 
-	_, err = d.queueEventFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, eventAddr)
+	_, err = d.queueEventFunc.Call(ctx, d.sdkKeyAddr, uint64(userAddr), uint64(eventAddr))
 	if errorMessage != "" {
 		err = fmt.Errorf(errorMessage)
 	}
 	return
 }
 
-func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, config BucketedUserConfig) (err error) {
+func (d *DevCycleLocalBucketing) queueAggregateEvent(ctx context.Context, event []byte, config BucketedUserConfig) (err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -339,38 +326,38 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, config Bucket
 	if err != nil {
 		return
 	}
-	variationMapAddr, err := d.newAssemblyScriptString(variationMap)
+	variationMapAddr, err := d.newAssemblyScriptString(ctx, variationMap)
 	if err != nil {
 		return
 	}
-	err = d.assemblyScriptPin(variationMapAddr)
+	err = d.assemblyScriptPin(ctx, variationMapAddr)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err := d.assemblyScriptUnpin(variationMapAddr)
+		err := d.assemblyScriptUnpin(ctx, variationMapAddr)
 		if err != nil {
 			errorf(err.Error())
 		}
 	}()
-	eventAddr, err := d.newAssemblyScriptString([]byte(event))
+	eventAddr, err := d.newAssemblyScriptString(ctx, event)
 	if err != nil {
 		return
 	}
 
-	_, err = d.queueAggregateEventFunc.Call(d.wasmStore, d.sdkKeyAddr, eventAddr, variationMapAddr)
+	_, err = d.queueAggregateEventFunc.Call(ctx, d.sdkKeyAddr, uint64(eventAddr), uint64(variationMapAddr))
 	if errorMessage != "" {
 		err = fmt.Errorf(errorMessage)
 	}
 	return
 }
 
-func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bool) (err error) {
+func (d *DevCycleLocalBucketing) onPayloadFailure(ctx context.Context, payloadId string, retryable bool) (err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	payloadIdAddr, err := d.newAssemblyScriptString([]byte(payloadId))
+	payloadIdAddr, err := d.newAssemblyScriptString(ctx, []byte(payloadId))
 	if err != nil {
 		return
 	}
@@ -380,12 +367,12 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 	}
 
 	if retryable {
-		_, err = d.onPayloadFailureFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr, 1)
+		_, err = d.onPayloadFailureFunc.Call(ctx, uint64(payloadIdAddr), 1)
 		if errorMessage != "" {
 			err = fmt.Errorf(errorMessage)
 		}
 	} else {
-		_, err = d.onPayloadFailureFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr, 0)
+		_, err = d.onPayloadFailureFunc.Call(ctx, d.sdkKeyAddr, uint64(payloadIdAddr), 0)
 		if errorMessage != "" {
 			err = fmt.Errorf(errorMessage)
 		}
@@ -393,16 +380,16 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 	return
 }
 
-func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret BucketedUserConfig, err error) {
+func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(ctx context.Context, user []byte) (ret BucketedUserConfig, err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
-	userAddr, err := d.newAssemblyScriptString([]byte(user))
+	userAddr, err := d.newAssemblyScriptString(ctx, user)
 	if err != nil {
 		return
 	}
 
-	configPtr, err := d.generateBucketedConfigForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr)
+	configPtr, err := d.generateBucketedConfigForUserFunc.Call(ctx, d.sdkKeyAddr, uint64(userAddr))
 	if err != nil {
 		return
 	}
@@ -410,48 +397,48 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 		err = fmt.Errorf(errorMessage)
 		return
 	}
-	rawConfig, err := d.mallocAssemblyScriptBytes(configPtr.(int32))
+	rawConfig, err := readAssemblyScriptString(d.wazeroMemory, uint32(configPtr[0]))
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal(rawConfig, &ret)
+	err = json.Unmarshal([]byte(rawConfig), &ret)
 	return ret, err
 }
 
-func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType VariableTypeCode) (ret Variable, err error) {
+func (d *DevCycleLocalBucketing) VariableForUser(ctx context.Context, user []byte, key string, variableType VariableTypeCode) (ret Variable, err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
-	keyAddr, err := d.newAssemblyScriptString([]byte(key))
+	keyAddr, err := d.newAssemblyScriptString(ctx, []byte(key))
 
 	if err != nil {
 		return
 	}
 
-	err = d.assemblyScriptPin(keyAddr)
+	err = d.assemblyScriptPin(ctx, keyAddr)
 	if err != nil {
 		return
 	}
 
 	defer func() {
-		err := d.assemblyScriptUnpin(keyAddr)
+		err := d.assemblyScriptUnpin(ctx, keyAddr)
 
 		if err != nil {
 			errorf(err.Error())
 		}
 	}()
 
-	userAddr, err := d.newAssemblyScriptString(user)
+	userAddr, err := d.newAssemblyScriptString(ctx, user)
 	if err != nil {
 		return
 	}
 
-	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr, int32(variableType))
+	varPtr, err := d.variableForUserFunc.Call(ctx, d.sdkKeyAddr, uint64(userAddr), uint64(keyAddr), uint64(variableType))
 	if err != nil {
 		return
 	}
 
-	var intPtr = varPtr.(int32)
+	var intPtr = uint32(varPtr[0])
 
 	if intPtr == 0 {
 		ret = Variable{}
@@ -462,15 +449,15 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 		err = fmt.Errorf(errorMessage)
 		return
 	}
-	rawVar, err := d.mallocAssemblyScriptBytes(intPtr)
+	rawVar, err := d.readAssemblyScriptString(d.wazeroMemory, intPtr)
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal(rawVar, &ret)
+	err = json.Unmarshal([]byte(rawVar), &ret)
 	return ret, err
 }
 
-func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
+func (d *DevCycleLocalBucketing) StoreConfig(ctx context.Context, config []byte) error {
 	defer func() {
 		if err := recover(); err != nil {
 			errorf("Failed to process config: ", err)
@@ -480,32 +467,12 @@ func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	configAddr, err := d.newAssemblyScriptString([]byte(config))
+	configAddr, err := d.newAssemblyScriptString(ctx, config)
 	if err != nil {
 		return err
 	}
 
-	_, err = d.setConfigDataFunc.Call(d.wasmStore, d.sdkKeyAddr, configAddr)
-	if err != nil {
-		return err
-	}
-	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
-	}
-	return err
-}
-
-func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
-	d.wasmMutex.Lock()
-	errorMessage = ""
-	defer d.wasmMutex.Unlock()
-
-	configAddr, err := d.newAssemblyScriptString([]byte(platformData))
-	if err != nil {
-		return err
-	}
-
-	_, err = d.setPlatformDataFunc.Call(d.wasmStore, configAddr)
+	_, err = d.setConfigDataFunc.Call(ctx, d.sdkKeyAddr, uint64(configAddr))
 	if err != nil {
 		return err
 	}
@@ -515,17 +482,37 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 	return err
 }
 
-func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
+func (d *DevCycleLocalBucketing) SetPlatformData(ctx context.Context, platformData []byte) error {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	customDataAddr, err := d.newAssemblyScriptString([]byte(customData))
+	configAddr, err := d.newAssemblyScriptString(ctx, platformData)
 	if err != nil {
 		return err
 	}
 
-	_, err = d.setClientCustomDataFunc.Call(d.wasmStore, d.sdkKeyAddr, customDataAddr)
+	_, err = d.setPlatformDataFunc.Call(ctx, uint64(configAddr))
+	if err != nil {
+		return err
+	}
+	if errorMessage != "" {
+		err = fmt.Errorf(errorMessage)
+	}
+	return err
+}
+
+func (d *DevCycleLocalBucketing) SetClientCustomData(ctx context.Context, customData []byte) error {
+	d.wasmMutex.Lock()
+	errorMessage = ""
+	defer d.wasmMutex.Unlock()
+
+	customDataAddr, err := d.newAssemblyScriptString(ctx, customData)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.setClientCustomDataFunc.Call(ctx, d.sdkKeyAddr, uint64(customDataAddr))
 	if errorMessage != "" {
 		err = fmt.Errorf(errorMessage)
 	}
@@ -534,85 +521,97 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
 
 // Due to WTF-16, we're double-allocating because utf8 -> utf16 doesn't zero-pad
 // after the first character byte, so we do that manually.
-func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, error) {
-	const objectIdString int32 = 2
+func (d *DevCycleLocalBucketing) newAssemblyScriptString(ctx context.Context, param []byte) (uint32, error) {
+	const objectIdString uint64 = 2
 
 	// malloc
-	ptr, err := d.__newFunc.Call(d.wasmStore, int32(len(param)*2), objectIdString)
+	ptr, err := d.__newFunc.Call(ctx, uint64(len(param)*2), objectIdString)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
-	addr := ptr.(int32)
-	data := d.wasmMemory.UnsafeData(d.wasmStore)
+	addr := uint32(ptr[0])
 
 	for i, c := range param {
-		data[addr+int32(i*2)] = c
+		d.wazeroMemory.WriteByte(addr+uint32(i*2), c)
 	}
 
-	dataAddress := ptr.(int32)
-	if dataAddress == 0 {
-		return -1, errorf("Failed to allocate memory for string")
+	if addr == 0 {
+		return 0, errorf("Failed to allocate memory for string")
 	}
-	return ptr.(int32), nil
+	return addr, nil
 }
 
-// https://www.assemblyscript.org/runtime.html#memory-layout
-// This skips every other index in the resulting array because
-// there isn't a great way to parse UTF-16 cleanly that matches the WTF-16 format that ASC uses.
-func (d *DevCycleLocalBucketing) mallocAssemblyScriptBytes(pointer int32) ([]byte, error) {
-	if pointer == 0 {
-		return nil, errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
-	}
-
-	data := d.wasmMemory.UnsafeData(d.wasmStore)
-	stringLength := byteArrayToInt(data[pointer-4 : pointer])
-	rawData := data[pointer : pointer+int32(stringLength)]
-
-	ret := make([]byte, len(rawData)/2)
-
-	for i := 0; i < len(rawData); i += 2 {
-		ret[i/2] += rawData[i]
-	}
-
-	return ret, nil
-}
-
-func (d *DevCycleLocalBucketing) assemblyScriptPin(pointer int32) (err error) {
+func (d *DevCycleLocalBucketing) assemblyScriptPin(ctx context.Context, pointer uint32) (err error) {
 	if pointer == 0 {
 		return errorf("null pointer passed to assemblyScriptPin - cannot pin")
 	}
-	_, err = d.__pinFunc.Call(d.wasmStore, pointer)
+	_, err = d.__pinFunc.Call(ctx, uint64(pointer))
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *DevCycleLocalBucketing) assemblyScriptCollect() (err error) {
-	_, err = d.__collectFunc.Call(d.wasmStore)
+func (d *DevCycleLocalBucketing) assemblyScriptCollect(ctx context.Context) (err error) {
+	_, err = d.__collectFunc.Call(ctx)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *DevCycleLocalBucketing) assemblyScriptUnpin(pointer int32) (err error) {
+func (d *DevCycleLocalBucketing) assemblyScriptUnpin(ctx context.Context, pointer uint32) (err error) {
 	if pointer == 0 {
 		return errorf("null pointer passed to assemblyScriptUnpin - cannot unpin")
 	}
 
-	_, err = d.__unpinFunc.Call(d.wasmStore, pointer)
+	_, err = d.__unpinFunc.Call(ctx, uint64(pointer))
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func byteArrayToInt(arr []byte) int64 {
-	val := int64(0)
-	size := len(arr)
-	for i := 0; i < size; i++ {
-		*(*uint8)(unsafe.Pointer(uintptr(unsafe.Pointer(&val)) + uintptr(i))) = arr[i]
+// readAssemblyScriptString reads a UTF-16 string created by AssemblyScript.
+func (d *DevCycleLocalBucketing) readAssemblyScriptString(mem api.Memory, offset uint32) (string, error) {
+	if offset <= 0 {
+		return "", errorf("null pointer passed to readAssemblyScriptString - cannot read string")
 	}
-	return val
+	// Length is four bytes before pointer.
+	byteCount, ok := mem.ReadUint32Le(offset - 4)
+	if !ok || byteCount%2 != 0 {
+		return "", errorf("invalid string length")
+	}
+	buf, ok := mem.Read(offset, byteCount)
+	if !ok {
+		return "", errorf("failed to read string from memory")
+	}
+	return decodeUTF16(buf), nil
+}
+
+func readAssemblyScriptString(mem api.Memory, offset uint32) (string, error) {
+	if offset <= 0 {
+		return "", errorf("null pointer passed to readAssemblyScriptString - cannot read string")
+	}
+	// Length is four bytes before pointer.
+	byteCount, ok := mem.ReadUint32Le(offset - 4)
+	if !ok || byteCount%2 != 0 {
+		return "", errorf("invalid string length")
+	}
+	buf, ok := mem.Read(offset, byteCount)
+	if !ok {
+		return "", errorf("failed to read string from memory")
+	}
+	return decodeUTF16(buf), nil
+}
+
+func decodeUTF16(b []byte) string {
+	u16s := make([]uint16, len(b)/2)
+
+	lb := len(b)
+	for i := 0; i < lb; i += 2 {
+		u16s[i/2] = uint16(b[i]) + (uint16(b[i+1]) << 8)
+	}
+
+	return string(utf16.Decode(u16s))
 }

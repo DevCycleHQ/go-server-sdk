@@ -32,7 +32,7 @@ func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *Dev
 	e.firstLoad = true
 
 	e.ticker = time.NewTicker(e.localBucketing.options.ConfigPollingIntervalMS)
-	
+
 	go func() {
 		for {
 			select {
@@ -71,7 +71,7 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 	}
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
-		if err = e.setConfig(resp); err != nil {
+		if err = e.setConfig(context.Background(), resp); err != nil {
 			return err
 		}
 		break
@@ -102,7 +102,7 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 	return err
 }
 
-func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
+func (e *EnvironmentConfigManager) setConfig(ctx context.Context, response *http.Response) error {
 	raw, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
@@ -114,8 +114,7 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 		return fmt.Errorf("invalid JSON data received for config")
 	}
 
-	config := string(raw)
-	err = e.localBucketing.StoreConfig(config)
+	err = e.localBucketing.StoreConfig(ctx, raw)
 	if err != nil {
 		return err
 	}
