@@ -17,10 +17,11 @@ var (
 )
 
 type LocalBucketingWorker struct {
-	localBucketing *DevCycleLocalBucketing
-	configEtag     string
-	configData     []byte
-	workerMutex    *sync.Mutex
+	localBucketing    *DevCycleLocalBucketing
+	configEtag        string
+	configData        []byte
+	workerMutex       *sync.Mutex
+	externalBusyMutex *sync.Mutex
 }
 
 type WorkerPayload struct {
@@ -45,6 +46,7 @@ func (w *LocalBucketingWorker) Initialize(sdkKey string, options *DVCOptions) (e
 	options.DisableAutomaticEventLogging = true
 	err = w.localBucketing.Initialize(sdkKey, options)
 	w.workerMutex = &sync.Mutex{}
+	w.externalBusyMutex = &sync.Mutex{}
 	return
 }
 
@@ -74,12 +76,25 @@ func (w *LocalBucketingWorker) variableForUser(user *[]byte, key *string, variab
 }
 
 func (w *LocalBucketingWorker) StoreConfig(configData []byte) error {
+	//w.externalBusyMutex.Lock()
 	w.workerMutex.Lock()
 	defer w.workerMutex.Unlock()
+	//defer w.externalBusyMutex.Unlock()
 	return w.localBucketing.StoreConfig(configData)
 }
 
-func (w *LocalBucketingWorker) BlockUntilReady() {
+func (w *LocalBucketingWorker) SetClientCustomData(customData []byte) error {
+	//w.externalBusyMutex.Lock()
+	w.workerMutex.Lock()
+	defer w.workerMutex.Unlock()
+	//defer w.externalBusyMutex.Unlock()
+	return w.localBucketing.SetClientCustomData(customData)
 }
+
+func (w *LocalBucketingWorker) BlockUntilReady() {
+	//w.externalBusyMutex.Lock()
+	//defer w.externalBusyMutex.Unlock()
+}
+
 func (w *LocalBucketingWorker) Interrupt() {}
 func (w *LocalBucketingWorker) Terminate() {}
