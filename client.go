@@ -96,7 +96,7 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 	c.localBucketing = localBucketing
 
 	if options.MaxWasmWorkers > 1 {
-		c.bucketingWorkerPool = tunny.New(8, func() tunny.Worker {
+		c.bucketingWorkerPool = tunny.New(options.MaxWasmWorkers, func() tunny.Worker {
 			worker := LocalBucketingWorker{}
 			err = worker.Initialize(sdkKey, options)
 			c.bucketingWorkers = append(c.bucketingWorkers, &worker)
