@@ -17,6 +17,15 @@ var (
 	errorMessage = ""
 )
 
+type VariableTypeCode int32
+
+type VariableTypeCodes struct {
+	Boolean VariableTypeCode
+	Number  VariableTypeCode
+	String  VariableTypeCode
+	JSON    VariableTypeCode
+}
+
 type DevCycleLocalBucketing struct {
 	wasm         []byte
 	wasmStore    *wasmtime.Store
@@ -50,6 +59,9 @@ type DevCycleLocalBucketing struct {
 	initEventQueueFunc                *wasmtime.Func
 	queueAggregateEventFunc           *wasmtime.Func
 	setClientCustomDataFunc           *wasmtime.Func
+	variableForUserFunc               *wasmtime.Func
+
+	VariableTypeCodes VariableTypeCodes
 }
 
 //go:embed bucketing-lib.release.wasm
@@ -134,12 +146,25 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	d.setPlatformDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setPlatformData").Func()
 	d.setClientCustomDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
 	d.setConfigDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
+	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser").Func()
 
 	// bind exported internal functions
 	d.__newFunc = d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
 	d.__pinFunc = d.wasmInstance.GetExport(d.wasmStore, "__pin").Func()
 	d.__unpinFunc = d.wasmInstance.GetExport(d.wasmStore, "__unpin").Func()
 	d.__collectFunc = d.wasmInstance.GetExport(d.wasmStore, "__collect").Func()
+
+	boolType := d.wasmInstance.GetExport(d.wasmStore, "VariableType.Boolean").Global().Get(d.wasmStore).I32()
+	stringType := d.wasmInstance.GetExport(d.wasmStore, "VariableType.String").Global().Get(d.wasmStore).I32()
+	numberType := d.wasmInstance.GetExport(d.wasmStore, "VariableType.Number").Global().Get(d.wasmStore).I32()
+	jsonType := d.wasmInstance.GetExport(d.wasmStore, "VariableType.JSON").Global().Get(d.wasmStore).I32()
+
+	d.VariableTypeCodes = VariableTypeCodes{
+		Boolean: VariableTypeCode(boolType),
+		String:  VariableTypeCode(stringType),
+		Number:  VariableTypeCode(numberType),
+		JSON:    VariableTypeCode(jsonType),
+	}
 
 	err = d.setSDKKey(sdkKey)
 	if err != nil {
@@ -390,6 +415,58 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 		return
 	}
 	err = json.Unmarshal(rawConfig, &ret)
+	return ret, err
+}
+
+func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType VariableTypeCode) (ret Variable, err error) {
+	d.wasmMutex.Lock()
+	errorMessage = ""
+	defer d.wasmMutex.Unlock()
+	keyAddr, err := d.newAssemblyScriptString([]byte(key))
+
+	if err != nil {
+		return
+	}
+
+	err = d.assemblyScriptPin(keyAddr)
+	if err != nil {
+		return
+	}
+
+	defer func() {
+		err := d.assemblyScriptUnpin(keyAddr)
+
+		if err != nil {
+			errorf(err.Error())
+		}
+	}()
+
+	userAddr, err := d.newAssemblyScriptString(user)
+	if err != nil {
+		return
+	}
+
+	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr, int32(variableType))
+	if err != nil {
+		return
+	}
+
+	var intPtr = varPtr.(int32)
+
+	if intPtr == 0 {
+		ret = Variable{}
+		return
+	}
+
+	if errorMessage != "" {
+		err = fmt.Errorf(errorMessage)
+		return
+	}
+	rawVar, err := d.mallocAssemblyScriptBytes(intPtr)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal(rawVar, &ret)
 	return ret, err
 }
 

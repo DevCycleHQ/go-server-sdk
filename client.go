@@ -151,6 +151,15 @@ func (c *DVCClient) generateBucketedConfig(user DVCUser) (config BucketedUserCon
 	return
 }
 
+func (c *DVCClient) variableForUser(user DVCUser, key string, variableType VariableTypeCode) (variable Variable, err error) {
+	userJSON, err := json.Marshal(user)
+	if err != nil {
+		return Variable{}, err
+	}
+	variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType)
+	return
+}
+
 func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
 	err = c.eventQueue.QueueEvent(user, event)
 	return
@@ -248,32 +257,24 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 
 			return variable, nil
 		}
-		bucketed, err := c.generateBucketedConfig(userdata)
+		variableTypeCode, err := c.variableTypeCodeFromType(variableType)
 
-		sameTypeAsDefault := compareTypes(bucketed.Variables[key].Value, convertedDefaultValue)
-		variableEvaluationType := ""
-		if bucketed.Variables[key].Value != nil && sameTypeAsDefault {
-			variable.Value = bucketed.Variables[key].Value
+		if err != nil {
+			return Variable{}, err
+		}
+		bucketedVariable, err := c.variableForUser(userdata, key, variableTypeCode)
+
+		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
+		if bucketedVariable.Value != nil && sameTypeAsDefault {
+			variable.Value = bucketedVariable.Value
 			variable.IsDefaulted = false
-			variableEvaluationType = EventType_AggVariableEvaluated
 		} else {
-			if !sameTypeAsDefault && bucketed.Variables[key].Value != nil {
+			if !sameTypeAsDefault && bucketedVariable.Value != nil {
 				warnf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
-					reflect.TypeOf(bucketed.Variables[key].Value).String(),
+					reflect.TypeOf(bucketedVariable.Value).String(),
 				)
-			}
-			variableEvaluationType = EventType_AggVariableDefaulted
-		}
-		if !c.DevCycleOptions.DisableAutomaticEventLogging {
-			err = c.queueAggregateEvent(bucketed, DVCEvent{
-				Type_:  variableEvaluationType,
-				Target: key,
-			})
-			if err != nil {
-				warnf("Error queuing aggregate event: ", err)
-				err = nil
 			}
 		}
 		return variable, err
@@ -625,6 +626,21 @@ func variableTypeFromValue(key string, value interface{}) (varType string, err e
 	}
 
 	return "", fmt.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
+}
+
+func (c *DVCClient) variableTypeCodeFromType(varType string) (varTypeCode VariableTypeCode, err error) {
+	switch varType {
+	case "Boolean":
+		return c.localBucketing.VariableTypeCodes.Boolean, nil
+	case "Number":
+		return c.localBucketing.VariableTypeCodes.Number, nil
+	case "String":
+		return c.localBucketing.VariableTypeCodes.String, nil
+	case "JSON":
+		return c.localBucketing.VariableTypeCodes.JSON, nil
+	}
+
+	return 0, fmt.Errorf("variable type %s is not a valid type", varType)
 }
 
 // callAPI do the request.
