@@ -151,12 +151,35 @@ func (c *DVCClient) generateBucketedConfig(user DVCUser) (config BucketedUserCon
 	return
 }
 
-func (c *DVCClient) variableForUser(user DVCUser, key string, variableType VariableTypeCode) (variable Variable, err error) {
+func (c *DVCClient) variableForUser(user DVCUser, key string, variableType VariableType) (variable Variable, err error) {
 	userJSON, err := json.Marshal(user)
 	if err != nil {
 		return Variable{}, err
 	}
-	variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType)
+	var value interface{}
+	if variableType == String {
+		value, err = c.localBucketing.VariableForUserString(userJSON, key)
+	} else if variableType == Number {
+		value, err = c.localBucketing.VariableForUserNumber(userJSON, key)
+	} else if variableType == Boolean {
+		value, err = c.localBucketing.VariableForUserBoolean(userJSON, key)
+	} else if variableType == JSON {
+		value, err = c.localBucketing.VariableForUserJSON(userJSON, key)
+	} else {
+		return Variable{}, fmt.Errorf("invalid variable type")
+	}
+
+	if err != nil {
+		return Variable{}, err
+	}
+
+	return Variable{
+		baseVariable: baseVariable{
+			Key:   key,
+			Type_: variableType.String(),
+			Value: value,
+		},
+	}, nil
 	return
 }
 
@@ -239,7 +262,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 		return Variable{}, err
 	}
 
-	baseVar := baseVariable{Key: key, Value: convertedDefaultValue, Type_: variableType}
+	baseVar := baseVariable{Key: key, Value: convertedDefaultValue, Type_: variableType.String()}
 	variable := Variable{baseVariable: baseVar, DefaultValue: convertedDefaultValue, IsDefaulted: true}
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
@@ -257,19 +280,13 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 
 			return variable, nil
 		}
-		variableTypeCode, err := c.variableTypeCodeFromType(variableType)
+		bucketedVariable, err := c.variableForUser(userdata, key, variableType)
 
-		if err != nil {
-			return Variable{}, err
-		}
-		bucketedVariable, err := c.variableForUser(userdata, key, variableTypeCode)
-
-		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
-		if bucketedVariable.Value != nil && sameTypeAsDefault {
+		if bucketedVariable.Value != nil {
 			variable.Value = bucketedVariable.Value
 			variable.IsDefaulted = false
 		} else {
-			if !sameTypeAsDefault && bucketedVariable.Value != nil {
+			if bucketedVariable.Value != nil {
 				warnf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
@@ -613,19 +630,32 @@ func convertDefaultValueType(value interface{}) interface{} {
 	}
 }
 
-func variableTypeFromValue(key string, value interface{}) (varType string, err error) {
+type VariableType int
+
+const (
+	Number VariableType = iota
+	String
+	Boolean
+	JSON
+)
+
+func (v VariableType) String() string {
+	return []string{"Number", "String", "Boolean", "JSON"}[v]
+}
+
+func variableTypeFromValue(key string, value interface{}) (varType VariableType, err error) {
 	switch value.(type) {
 	case float64:
-		return "Number", nil
+		return Number, nil
 	case string:
-		return "String", nil
+		return String, nil
 	case bool:
-		return "Boolean", nil
+		return Boolean, nil
 	case map[string]any:
-		return "JSON", nil
+		return JSON, nil
 	}
 
-	return "", fmt.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
+	return 0, fmt.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
 }
 
 func (c *DVCClient) variableTypeCodeFromType(varType string) (varTypeCode VariableTypeCode, err error) {

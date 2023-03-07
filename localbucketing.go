@@ -4,13 +4,11 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-
+	"github.com/bytecodealliance/wasmtime-go/v6"
 	"math/rand"
 	"sync"
 	"time"
 	"unsafe"
-
-	"github.com/bytecodealliance/wasmtime-go/v6"
 )
 
 var (
@@ -60,6 +58,10 @@ type DevCycleLocalBucketing struct {
 	queueAggregateEventFunc           *wasmtime.Func
 	setClientCustomDataFunc           *wasmtime.Func
 	variableForUserFunc               *wasmtime.Func
+	variableForUserBoolFunc           *wasmtime.Func
+	variableForUserNumberFunc         *wasmtime.Func
+	variableForUserStringFunc         *wasmtime.Func
+	variableForUserJSONFunc           *wasmtime.Func
 
 	VariableTypeCodes VariableTypeCodes
 }
@@ -147,6 +149,10 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 	d.setClientCustomDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
 	d.setConfigDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
 	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser").Func()
+	d.variableForUserBoolFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserBool").Func()
+	//d.variableForUserNumberFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserNumber").Func()
+	//d.variableForUserJSONFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserJSON").Func()
+	//d.variableForUserStringFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserString").Func()
 
 	// bind exported internal functions
 	d.__newFunc = d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
@@ -418,17 +424,25 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	return ret, err
 }
 
-func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType VariableTypeCode) (ret Variable, err error) {
-	d.wasmMutex.Lock()
+/*
+*
+Allocate string arguments to be provided to VariableForUser calls
+*/
+func (d *DevCycleLocalBucketing) allocateVariableArguments(user []byte, key string) (userAddr, keyAddr int32, err error) {
 	errorMessage = ""
-	defer d.wasmMutex.Unlock()
-	keyAddr, err := d.newAssemblyScriptString([]byte(key))
+	keyAddr, err = d.newAssemblyScriptString([]byte(key))
 
 	if err != nil {
 		return
 	}
 
 	err = d.assemblyScriptPin(keyAddr)
+
+	if err != nil {
+		return
+	}
+
+	userAddr, err = d.newAssemblyScriptString(user)
 	if err != nil {
 		return
 	}
@@ -441,12 +455,122 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 		}
 	}()
 
-	userAddr, err := d.newAssemblyScriptString(user)
+	return
+}
+
+func (d *DevCycleLocalBucketing) VariableForUserBoolean(user []byte, key string) (ret bool, err error) {
+	d.wasmMutex.Lock()
+	errorMessage = ""
+	defer d.wasmMutex.Unlock()
+
+	userAddr, keyAddr, err := d.allocateVariableArguments(user, key)
+	result, err := d.variableForUserBoolFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr)
 	if err != nil {
 		return
 	}
 
-	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr, int32(variableType))
+	raw, ok := result.(int32)
+
+	if !ok {
+		err = fmt.Errorf("error converting result to bool")
+		return
+	}
+
+	ret = raw == 1
+
+	return
+}
+
+func (d *DevCycleLocalBucketing) VariableForUserNumber(user []byte, key string) (ret float64, err error) {
+	d.wasmMutex.Lock()
+	errorMessage = ""
+	defer d.wasmMutex.Unlock()
+
+	userAddr, keyAddr, err := d.allocateVariableArguments(user, key)
+	result, err := d.variableForUserBoolFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr)
+	if err != nil {
+		return
+	}
+
+	ret, ok := result.(float64)
+
+	if !ok {
+		err = fmt.Errorf("error converting result to float64")
+		return
+	}
+
+	return
+}
+
+func (d *DevCycleLocalBucketing) VariableForUserString(user []byte, key string) (ret string, err error) {
+	d.wasmMutex.Lock()
+	errorMessage = ""
+	defer d.wasmMutex.Unlock()
+
+	userAddr, keyAddr, err := d.allocateVariableArguments(user, key)
+	varPtr, err := d.variableForUserBoolFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr)
+	if err != nil {
+		return
+	}
+
+	var intPtr = varPtr.(int32)
+
+	if intPtr == 0 {
+		ret = ""
+		return
+	}
+
+	rawVar, err := d.mallocAssemblyScriptBytes(intPtr)
+
+	if err != nil {
+		return
+	}
+
+	return string(rawVar), nil
+}
+
+func (d *DevCycleLocalBucketing) VariableForUserJSON(user []byte, key string) (ret interface{}, err error) {
+	d.wasmMutex.Lock()
+	errorMessage = ""
+	defer d.wasmMutex.Unlock()
+
+	userAddr, keyAddr, err := d.allocateVariableArguments(user, key)
+	varPtr, err := d.variableForUserBoolFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr)
+	if err != nil {
+		return
+	}
+
+	var intPtr = varPtr.(int32)
+
+	if intPtr == 0 {
+		ret = ""
+		return
+	}
+
+	rawVar, err := d.mallocAssemblyScriptBytes(intPtr)
+
+	if err != nil {
+		return
+	}
+
+	err = json.Unmarshal(rawVar, &ret)
+
+	return
+}
+
+func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType string) (ret Variable, err error) {
+	d.wasmMutex.Lock()
+	errorMessage = ""
+	defer d.wasmMutex.Unlock()
+
+	typeAddr, err := d.newAssemblyScriptString([]byte(variableType))
+
+	d.assemblyScriptPin(typeAddr)
+	defer d.assemblyScriptUnpin(typeAddr)
+
+	userAddr, keyAddr, err := d.allocateVariableArguments(user, key)
+
+	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr, typeAddr)
 	if err != nil {
 		return
 	}
@@ -468,6 +592,33 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 	}
 	err = json.Unmarshal(rawVar, &ret)
 	return ret, err
+}
+
+func (d *DevCycleLocalBucketing) VariableForUserResult(user []byte, key string, variableType string) (ret int32, err error) {
+	d.wasmMutex.Lock()
+	errorMessage = ""
+	defer d.wasmMutex.Unlock()
+
+	typeAddr, err := d.newAssemblyScriptString([]byte(variableType))
+
+	d.assemblyScriptPin(typeAddr)
+	defer d.assemblyScriptUnpin(typeAddr)
+
+	userAddr, keyAddr, err := d.allocateVariableArguments(user, key)
+
+	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr, typeAddr)
+	if err != nil {
+		return
+	}
+
+	var intPtr = varPtr.(int32)
+
+	if errorMessage != "" {
+		err = fmt.Errorf(errorMessage)
+		return
+	}
+
+	return intPtr, err
 }
 
 func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
