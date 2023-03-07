@@ -51,11 +51,9 @@ type service struct {
 }
 
 func initializeLocalBucketing(sdkKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
-	cfg := NewConfiguration(options)
-
 	options.CheckDefaults()
 	ret = &DevCycleLocalBucketing{}
-	err = ret.Initialize(sdkKey, options, cfg)
+	err = ret.Initialize(sdkKey, options)
 	if err != nil {
 		errorf("error while initializing local bucketing", err)
 		return nil, err
@@ -67,34 +65,23 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 	localBucketing, err := initializeLocalBucketing(sdkKey, options)
 
 	if err != nil {
-		c.isInitialized = true
-		if options.OnInitializedChannel != nil {
-			go func() {
-				options.OnInitializedChannel <- true
-			}()
-
-		}
-		c.internalOnInitializedChannel <- true
-
 		return err
 	}
 
-	c.localBucketing = localBucketing
-	c.configManager = &EnvironmentConfigManager{localBucketing: localBucketing}
-	err = c.configManager.Initialize(sdkKey, localBucketing)
+	c.eventQueue = &EventQueue{}
+	err = c.eventQueue.initialize(options, localBucketing, c.cfg)
 
 	if err != nil {
 		return err
 	}
 
-	c.eventQueue = c.localBucketing.eventQueue
-	c.isInitialized = true
-	if options.OnInitializedChannel != nil {
-		go func() {
-			options.OnInitializedChannel <- true
-		}()
+	c.localBucketing = localBucketing
+	c.configManager = &EnvironmentConfigManager{localBucketing: localBucketing}
+	err = c.configManager.Initialize(sdkKey, localBucketing, c.cfg)
+
+	if err != nil {
+		return err
 	}
-	c.internalOnInitializedChannel <- true
 
 	return err
 }
@@ -116,9 +103,11 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	c.cfg = cfg
 	c.common.client = c
 	c.DevCycleOptions = options
+
 	if c.DevCycleOptions.Logger != nil {
 		SetLogger(c.DevCycleOptions.Logger)
 	}
+
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		c.internalOnInitializedChannel = make(chan bool, 1)
 		err := setLBClient(sdkKey, options, c)
@@ -129,13 +118,26 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 			// TODO: Pass this error back via a channel internally
 			go func() {
 				_ = c.configManager.initialFetch()
+				c.handleInitialization()
 			}()
 		} else {
 			err := c.configManager.initialFetch()
+			c.handleInitialization()
 			return c, err
 		}
 	}
 	return c, nil
+}
+
+func (c *DVCClient) handleInitialization() {
+	c.isInitialized = true
+	if c.DevCycleOptions.OnInitializedChannel != nil {
+		go func() {
+			c.DevCycleOptions.OnInitializedChannel <- true
+		}()
+
+	}
+	c.internalOnInitializedChannel <- true
 }
 
 func (c *DVCClient) generateBucketedConfig(user DVCUser) (config BucketedUserConfig, err error) {

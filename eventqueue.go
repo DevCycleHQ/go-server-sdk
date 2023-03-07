@@ -13,7 +13,7 @@ type EventQueue struct {
 	localBucketing    *DevCycleLocalBucketing
 	options           *DVCOptions
 	eventQueueOptions *EventQueueOptions
-	httpClient        *http.Client
+	cfg               *HTTPConfiguration
 	context           context.Context
 	closed            bool
 	ticker            *time.Ticker
@@ -34,9 +34,9 @@ type EventQueueOptions struct {
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging"`
 }
 
-func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing) (err error) {
+func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing, cfg *HTTPConfiguration) (err error) {
 	e.context = context.Background()
-	e.httpClient = localBucketing.cfg.HTTPClient
+	e.cfg = cfg
 	e.options = options
 	e.flushStop = make(chan bool, 1)
 
@@ -122,7 +122,7 @@ func (e *EventQueue) checkEventQueueSize() (bool, error) {
 }
 
 func (e *EventQueue) FlushEvents() (err error) {
-	eventsHost := e.localBucketing.cfg.EventsAPIBasePath
+	eventsHost := e.cfg.EventsAPIBasePath
 	e.localBucketing.startFlushEvents()
 	defer e.localBucketing.finishFlushEvents()
 	payloads, err := e.localBucketing.flushEventQueue()
@@ -150,7 +150,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
 
-		resp, err = e.httpClient.Do(req)
+		resp, err = e.cfg.HTTPClient.Do(req)
 
 		if err != nil {
 			errorf("Failed to make request to events api: %s", err)

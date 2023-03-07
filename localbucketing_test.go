@@ -13,7 +13,7 @@ func TestDevCycleLocalBucketing_Initialize(t *testing.T) {
 	httpConfigMock(200)
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
-	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{}, NewConfiguration(&DVCOptions{}))
+	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func BenchmarkDevCycleLocalBucketing_Initialize(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		localBucketing := DevCycleLocalBucketing{}
 		var err error
-		err = localBucketing.Initialize(test_environmentKey, &DVCOptions{}, NewConfiguration(&DVCOptions{}))
+		err = localBucketing.Initialize(test_environmentKey, &DVCOptions{})
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -40,7 +40,7 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
 
-	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{}, NewConfiguration(&DVCOptions{}))
+	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
 
-	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{}, NewConfiguration(&DVCOptions{}))
+	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
 
-	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{}, NewConfiguration(&DVCOptions{}))
+	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestDevCycleLocalBucketing_SetPlatformData(t *testing.T) {
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
 
-	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{}, NewConfiguration(&DVCOptions{}))
+	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 	localBucketing := DevCycleLocalBucketing{}
 	var err error
 
-	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{}, NewConfiguration(&DVCOptions{}))
+	err = localBucketing.Initialize(test_environmentKey, &DVCOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}
