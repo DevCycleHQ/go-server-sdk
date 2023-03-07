@@ -99,6 +99,10 @@ func (o *DVCOptions) CheckDefaults() {
 	} else if o.MaxMemoryAllocationBuckets <= -1 {
 		o.MaxMemoryAllocationBuckets = 0
 	}
+
+	if o.MaxWasmWorkers <= 0 {
+		o.MaxWasmWorkers = 8
+	}
 }
 
 type HTTPConfiguration struct {
