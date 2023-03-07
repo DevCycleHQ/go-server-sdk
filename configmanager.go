@@ -80,7 +80,7 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 	}
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
-		if err = e.setConfig(resp); err != nil {
+		if err = e.setConfigFromResponse(resp); err != nil {
 			return err
 		}
 		break
@@ -111,7 +111,7 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 	return err
 }
 
-func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
+func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response) error {
 	config, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
@@ -123,20 +123,12 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 		return errorf("invalid JSON data received for config")
 	}
 
-	err = e.localBucketing.StoreConfig(config)
-	if err != nil {
-		return err
-	}
-	//
-	for _, worker := range e.bucketingWorkers {
-		err = worker.StoreConfig(config)
-	}
+	err = e.setConfig(config)
 
 	if err != nil {
 		return err
 	}
 
-	e.hasConfig = true
 	e.configETag = response.Header.Get("Etag")
 	infof("Config set. ETag: %s\n", e.configETag)
 	if e.firstLoad {
@@ -144,6 +136,48 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 		infof("DevCycle SDK Initialized.")
 	}
 	return nil
+}
+
+func (e *EnvironmentConfigManager) setConfig(config []byte) (err error) {
+	err = e.localBucketing.StoreConfig(config)
+	if err != nil {
+		return
+	}
+
+	for _, worker := range e.bucketingWorkers {
+		err = worker.StoreConfig(config)
+	}
+
+	// TODO see if this can work
+	//var wg sync.WaitGroup
+
+	//errorChan := make(chan error, 1)
+	//
+	//for _, worker := range e.bucketingWorkers {
+	//	wg.Add(1)
+	//	go func(worker *LocalBucketingWorker) {
+	//		err = worker.StoreConfig(config)
+	//		if err != nil {
+	//			errorChan <- err
+	//		}
+	//		wg.Done()
+	//	}(worker)
+	//}
+	//
+	//wg.Wait()
+	//
+	//select {
+	//case err = <-errorChan:
+	//	return err
+	//default:
+	//}
+
+	if err != nil {
+		return
+	}
+
+	e.hasConfig = true
+	return
 }
 
 func (e *EnvironmentConfigManager) getConfigURL() string {

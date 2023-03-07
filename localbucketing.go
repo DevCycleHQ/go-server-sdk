@@ -524,12 +524,12 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData []byte) error {
 	return err
 }
 
-func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
+func (d *DevCycleLocalBucketing) SetClientCustomData(customData []byte) error {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	customDataAddr, err := d.newAssemblyScriptString([]byte(customData))
+	customDataAddr, err := d.newAssemblyScriptString(customData)
 	if err != nil {
 		return err
 	}
