@@ -49,6 +49,10 @@ type APIKey struct {
 	Prefix string
 }
 
+type AdvancedOptions struct {
+	MaxWasmWorkers int
+}
+
 type DVCOptions struct {
 	EnableEdgeDB                 bool          `json:"enableEdgeDb,omitempty"`
 	EnableCloudBucketing         bool          `json:"enableCloudBucketing,omitempty"`
@@ -64,6 +68,7 @@ type DVCOptions struct {
 	OnInitializedChannel         chan bool
 	BucketingAPIURI              string
 	Logger                       Logger
+	AdvancedOptions
 }
 
 func (o *DVCOptions) CheckDefaults() {
