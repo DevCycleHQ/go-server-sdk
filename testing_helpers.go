@@ -4,8 +4,9 @@ import (
 	_ "embed"
 	"net/http"
 	"strings"
-	"bytes"
+
 	"github.com/jarcoal/httpmock"
+	"bytes"
 )
 
 var (
