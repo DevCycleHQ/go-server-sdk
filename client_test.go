@@ -153,11 +153,11 @@ func BenchmarkDVCClient_Variable(b *testing.B) {
 	}
 
 	user := DVCUser{UserId: "dontcare"}
-
+	ctx := context.Background()
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		variable, err := client.Variable(user, test_large_config_variable, false)
+		variable, err := client.Variable(ctx, user, test_large_config_variable, false)
 		if err != nil {
 			b.Errorf("Failed to retrieve variable: %v", err)
 		}

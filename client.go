@@ -151,12 +151,12 @@ func (c *DVCClient) generateBucketedConfig(ctx context.Context, user DVCUser) (c
 	return
 }
 
-func (c *DVCClient) variableForUser(user DVCUser, key string, variableType VariableTypeCode) (variable Variable, err error) {
+func (c *DVCClient) variableForUser(ctx context.Context, user DVCUser, key string, variableType VariableTypeCode) (variable Variable, err error) {
 	userJSON, err := json.Marshal(user)
 	if err != nil {
 		return Variable{}, err
 	}
-	variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType)
+	variable, err = c.localBucketing.VariableForUser(ctx, userJSON, key, variableType)
 	return
 }
 
@@ -262,7 +262,7 @@ func (c *DVCClient) Variable(ctx context.Context, userdata DVCUser, key string, 
 		if err != nil {
 			return Variable{}, err
 		}
-		bucketedVariable, err := c.variableForUser(userdata, key, variableTypeCode)
+		bucketedVariable, err := c.variableForUser(ctx, userdata, key, variableTypeCode)
 
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
 		if bucketedVariable.Value != nil && sameTypeAsDefault {

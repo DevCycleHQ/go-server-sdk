@@ -58,9 +58,8 @@ type DevCycleLocalBucketing struct {
 	initEventQueueFunc                api.Function
 	queueAggregateEventFunc           api.Function
 	setClientCustomDataFunc           api.Function
-	
-	variableForUserFunc api.Function
-	
+	variableForUserFunc               api.Function
+
 	VariableTypeCodes VariableTypeCodes
 }
 
@@ -147,12 +146,23 @@ func (d *DevCycleLocalBucketing) Initialize(ctx context.Context, sdkKey string, 
 	d.setPlatformDataFunc = d.wazeroModule.ExportedFunction("setPlatformData")
 	d.setConfigDataFunc = d.wazeroModule.ExportedFunction("setConfigData")
 	d.setClientCustomDataFunc = d.wazeroModule.ExportedFunction("setClientCustomData")
+	d.setClientCustomDataFunc = d.wazeroModule.ExportedFunction("variableForUser")
 
 	d.__newFunc = d.wazeroModule.ExportedFunction("__new")
 	d.__pinFunc = d.wazeroModule.ExportedFunction("__pin")
 	d.__unpinFunc = d.wazeroModule.ExportedFunction("__unpin")
 	d.__collectFunc = d.wazeroModule.ExportedFunction("__collect")
 
+	boolType := int32(d.wazeroModule.ExportedGlobal("VariableType.Boolean").Get())
+	numberType := int32(d.wazeroModule.ExportedGlobal("VariableType.Number").Get())
+	jsonType := int32(d.wazeroModule.ExportedGlobal("VariableType.JSON").Get())
+	stringType := int32(d.wazeroModule.ExportedGlobal("VariableType.String").Get())
+	d.VariableTypeCodes = VariableTypeCodes{
+		Boolean: VariableTypeCode(boolType),
+		String:  VariableTypeCode(stringType),
+		Number:  VariableTypeCode(numberType),
+		JSON:    VariableTypeCode(jsonType),
+	}
 	err = d.setSDKKey(ctx, sdkKey)
 	if err != nil {
 		return
