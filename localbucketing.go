@@ -482,11 +482,14 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 }
 
 func (d *DevCycleLocalBucketing) StoreConfig(config []byte) error {
-	//defer func() {
-	//	if err := recover(); err != nil {
-	//		errorf("Failed to process config: ", err)
-	//	}
-	//}()
+	d.wasmMutex.Lock()
+	defer d.wasmMutex.Unlock()
+
+	defer func() {
+		if err := recover(); err != nil {
+			errorf("Failed to process config: ", err)
+		}
+	}()
 	errorMessage = ""
 
 	configAddr, err := d.newAssemblyScriptString(config)

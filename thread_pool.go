@@ -5,31 +5,15 @@ import (
 	"sync"
 )
 
-type WorkerJobType int
-
-const (
-	VariableForUser WorkerJobType = iota
-)
-
-var (
-	//go:embed testdata/fixture_large_config.json
-	thread_config string
-)
-
 type LocalBucketingWorker struct {
-	localBucketing    *DevCycleLocalBucketing
-	configEtag        string
-	configData        []byte
-	workerMutex       *sync.Mutex
+	localBucketing *DevCycleLocalBucketing
+	configEtag     string
+	configData     []byte
+	// used to hold this worker out of the pool while its state is being externally updated (e.g. a new config)
 	externalBusyMutex *sync.Mutex
 }
 
-type WorkerPayload struct {
-	Type_ WorkerJobType
-}
-
 type VariableForUserPayload struct {
-	WorkerPayload
 	User         *[]byte
 	Key          *string
 	VariableType VariableTypeCode
@@ -45,55 +29,44 @@ func (w *LocalBucketingWorker) Initialize(sdkKey string, options *DVCOptions) (e
 	// TODO figure out how to track events with the new threading
 	options.DisableAutomaticEventLogging = true
 	err = w.localBucketing.Initialize(sdkKey, options)
-	w.workerMutex = &sync.Mutex{}
 	w.externalBusyMutex = &sync.Mutex{}
 	return
 }
 
 func (w *LocalBucketingWorker) Process(payload interface{}) interface{} {
-	var workerPayload = payload.(*VariableForUserPayload)
-	if workerPayload.Type_ == VariableForUser {
-		var variableForUserPayload = payload.(*VariableForUserPayload)
+	var variableForUserPayload = payload.(*VariableForUserPayload)
 
-		variable, err := w.variableForUser(
-			variableForUserPayload.User,
-			variableForUserPayload.Key,
-			variableForUserPayload.VariableType,
-		)
+	variable, err := w.variableForUser(
+		variableForUserPayload.User,
+		variableForUserPayload.Key,
+		variableForUserPayload.VariableType,
+	)
 
-		return VariableForUserResponse{
-			Variable: &variable,
-			Err:      err,
-		}
+	return VariableForUserResponse{
+		Variable: &variable,
+		Err:      err,
 	}
-	return nil
 }
 
 func (w *LocalBucketingWorker) variableForUser(user *[]byte, key *string, variableType VariableTypeCode) (Variable, error) {
-	w.workerMutex.Lock()
-	defer w.workerMutex.Unlock()
 	return w.localBucketing.VariableForUser(*user, *key, variableType)
 }
 
 func (w *LocalBucketingWorker) StoreConfig(configData []byte) error {
-	//w.externalBusyMutex.Lock()
-	w.workerMutex.Lock()
-	defer w.workerMutex.Unlock()
-	//defer w.externalBusyMutex.Unlock()
+	w.externalBusyMutex.Lock()
+	defer w.externalBusyMutex.Unlock()
 	return w.localBucketing.StoreConfig(configData)
 }
 
 func (w *LocalBucketingWorker) SetClientCustomData(customData []byte) error {
-	//w.externalBusyMutex.Lock()
-	w.workerMutex.Lock()
-	defer w.workerMutex.Unlock()
-	//defer w.externalBusyMutex.Unlock()
+	w.externalBusyMutex.Lock()
+	defer w.externalBusyMutex.Unlock()
 	return w.localBucketing.SetClientCustomData(customData)
 }
 
 func (w *LocalBucketingWorker) BlockUntilReady() {
-	//w.externalBusyMutex.Lock()
-	//defer w.externalBusyMutex.Unlock()
+	w.externalBusyMutex.Lock()
+	defer w.externalBusyMutex.Unlock()
 }
 
 func (w *LocalBucketingWorker) Interrupt() {}
