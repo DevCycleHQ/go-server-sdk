@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"time"
@@ -22,12 +23,12 @@ func main() {
 	}
 	client, _ := devcycle.NewDVCClient(sdkKey, &dvcOptions)
 
-	features, _ := client.AllFeatures(user)
+	features, _ := client.AllFeatures(context.Background(), user)
 	for key, feature := range features {
 		log.Printf("Key:%s, feature:%s", key, feature)
 	}
 
-	variables, _ := client.AllVariables(user)
+	variables, _ := client.AllVariables(context.Background(), user)
 	for key, variable := range variables {
 		log.Printf("Key:%s, feature:%v", key, variable)
 	}
@@ -36,14 +37,14 @@ func main() {
 		Type_:  "customEvent",
 		Target: "somevariable.key"}
 
-	vara, _ := client.Variable(user, "elliot-test", "test")
+	vara, _ := client.Variable(context.Background(), user, "elliot-test", "test")
 	if !vara.IsDefaulted {
 		log.Printf("vara not defaulted:%v", vara.IsDefaulted)
 	}
-	varaDefaulted, _ := client.Variable(user, "elliot-asdasd", "test")
+	varaDefaulted, _ := client.Variable(context.Background(), user, "elliot-asdasd", "test")
 	if varaDefaulted.IsDefaulted {
 		log.Printf("vara defaulted:%v", varaDefaulted.IsDefaulted)
 	}
 
-	_, _ = client.Track(user, event)
+	_, _ = client.Track(context.Background(), user, event)
 }
