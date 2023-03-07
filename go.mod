@@ -8,4 +8,7 @@ require (
 	github.com/matryer/try v0.0.0-20161228173917-9ac251b645a2
 )
 
-require github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
+require (
+	github.com/Jeffail/tunny v0.1.4 // indirect
+	github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
+)
