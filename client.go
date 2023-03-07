@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Jeffail/tunny"
 	"io"
 	"math"
 	"math/rand"
@@ -14,6 +15,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/matryer/try"
@@ -38,6 +40,8 @@ type DVCClient struct {
 	eventQueue                   *EventQueue
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
+	bucketingWorkers             []*LocalBucketingWorker
+	bucketingWorkerPool          *tunny.Pool
 }
 
 type SDKEvent struct {
@@ -91,8 +95,22 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 	}
 
 	c.localBucketing = localBucketing
+
+	var wg sync.WaitGroup
+	wg.Add(8)
+	c.bucketingWorkerPool = tunny.New(8, func() tunny.Worker {
+		worker := LocalBucketingWorker{}
+		// TODO handle error
+		_ = worker.Initialize(sdkKey, options)
+		c.bucketingWorkers = append(c.bucketingWorkers, &worker)
+		wg.Done()
+		return &worker
+	})
+
+	wg.Wait()
+
 	c.configManager = &EnvironmentConfigManager{localBucketing: localBucketing}
-	err = c.configManager.Initialize(sdkKey, localBucketing, c.cfg)
+	err = c.configManager.Initialize(sdkKey, localBucketing, c.bucketingWorkers, c.cfg)
 
 	if err != nil {
 		return err
@@ -125,6 +143,7 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		c.internalOnInitializedChannel = make(chan bool, 1)
+
 		err := setLBClient(sdkKey, options, c)
 		if err != nil {
 			return c, err
@@ -173,8 +192,20 @@ func (c *DVCClient) variableForUser(user DVCUser, key string, variableType Varia
 	if err != nil {
 		return Variable{}, err
 	}
-	variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType)
-	return
+
+	result := c.bucketingWorkerPool.Process(&VariableForUserPayload{
+		WorkerPayload: WorkerPayload{
+			Type_: VariableForUser,
+		},
+		User:         &userJSON,
+		Key:          &key,
+		VariableType: variableType,
+	})
+
+	var variableResult = result.(VariableForUserResponse)
+
+	//variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType)
+	return *variableResult.Variable, variableResult.Err
 }
 
 func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {

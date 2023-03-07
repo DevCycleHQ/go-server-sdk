@@ -164,7 +164,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	if err != nil {
 		return
 	}
-	err = d.SetPlatformData(string(platformJSON))
+	err = d.SetPlatformData(platformJSON)
 
 	return
 }
@@ -395,9 +395,15 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 }
 
 func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType VariableTypeCode) (ret Variable, err error) {
-	d.wasmMutex.Lock()
+	//d.wasmMutex.Lock()
 	errorMessage = ""
-	defer d.wasmMutex.Unlock()
+	//defer func() {
+	//	if unlocked {
+	//		return
+	//	}
+	//	d.wasmMutex.Unlock()
+	//}()
+
 	keyAddr, err := d.newAssemblyScriptString([]byte(key))
 
 	if err != nil {
@@ -446,17 +452,15 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 	return ret, err
 }
 
-func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
-	defer func() {
-		if err := recover(); err != nil {
-			errorf("Failed to process config: ", err)
-		}
-	}()
-	d.wasmMutex.Lock()
+func (d *DevCycleLocalBucketing) StoreConfig(config []byte) error {
+	//defer func() {
+	//	if err := recover(); err != nil {
+	//		errorf("Failed to process config: ", err)
+	//	}
+	//}()
 	errorMessage = ""
-	defer d.wasmMutex.Unlock()
 
-	configAddr, err := d.newAssemblyScriptString([]byte(config))
+	configAddr, err := d.newAssemblyScriptString(config)
 	if err != nil {
 		return err
 	}
@@ -471,12 +475,12 @@ func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
 	return err
 }
 
-func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
+func (d *DevCycleLocalBucketing) SetPlatformData(platformData []byte) error {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	configAddr, err := d.newAssemblyScriptString([]byte(platformData))
+	configAddr, err := d.newAssemblyScriptString(platformData)
 	if err != nil {
 		return err
 	}
