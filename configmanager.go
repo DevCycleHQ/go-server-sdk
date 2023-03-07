@@ -17,14 +17,16 @@ type EnvironmentConfigManager struct {
 	context        context.Context
 	cancel         context.CancelFunc
 	httpClient     *http.Client
+	cfg            *HTTPConfiguration
 	hasConfig      bool
 	pollingStop    chan bool
 	ticker         *time.Ticker
 }
 
-func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *DevCycleLocalBucketing) (err error) {
+func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *DevCycleLocalBucketing, cfg *HTTPConfiguration) (err error) {
 	e.localBucketing = localBucketing
 	e.sdkKey = sdkKey
+	e.cfg = cfg
 	e.httpClient = &http.Client{Timeout: localBucketing.options.RequestTimeout}
 	e.context, e.cancel = context.WithCancel(context.Background())
 	e.pollingStop = make(chan bool, 2)
@@ -32,7 +34,7 @@ func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *Dev
 	e.firstLoad = true
 
 	e.ticker = time.NewTicker(e.localBucketing.options.ConfigPollingIntervalMS)
-	
+
 	go func() {
 		for {
 			select {
@@ -130,7 +132,7 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 }
 
 func (e *EnvironmentConfigManager) getConfigURL() string {
-	configBasePath := e.localBucketing.cfg.ConfigCDNBasePath
+	configBasePath := e.cfg.ConfigCDNBasePath
 
 	return fmt.Sprintf("%s/config/v1/server/%s.json", configBasePath, e.sdkKey)
 }

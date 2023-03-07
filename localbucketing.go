@@ -34,10 +34,8 @@ type DevCycleLocalBucketing struct {
 	wasmLinker   *wasmtime.Linker
 	wasiConfig   *wasmtime.WasiConfig
 	wasmMemory   *wasmtime.Memory
-	eventQueue   *EventQueue
 	sdkKey       string
 	options      *DVCOptions
-	cfg          *HTTPConfiguration
 	wasmMutex    sync.Mutex
 	flushMutex   sync.Mutex
 	sdkKeyAddr   int32
@@ -67,13 +65,11 @@ type DevCycleLocalBucketing struct {
 //go:embed bucketing-lib.release.wasm
 var wasmBinary []byte
 
-func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, cfg *HTTPConfiguration) (err error) {
+func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions) (err error) {
 	options.CheckDefaults()
 
 	d.options = options
-	d.cfg = cfg
 	d.wasm = wasmBinary
-	d.eventQueue = &EventQueue{}
 	d.wasiConfig = wasmtime.NewWasiConfig()
 	d.wasiConfig.InheritEnv()
 	d.wasiConfig.InheritStderr()
@@ -178,17 +174,6 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions, 
 		return
 	}
 	err = d.SetPlatformData(string(platformJSON))
-	if err != nil {
-		return
-	}
-
-	if err != nil {
-		return
-	}
-	err = d.eventQueue.initialize(options, d)
-	if err != nil {
-		return
-	}
 
 	return
 }
