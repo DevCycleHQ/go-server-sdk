@@ -395,14 +395,11 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 }
 
 func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType VariableTypeCode) (ret Variable, err error) {
-	//d.wasmMutex.Lock()
+	d.wasmMutex.Lock()
 	errorMessage = ""
-	//defer func() {
-	//	if unlocked {
-	//		return
-	//	}
-	//	d.wasmMutex.Unlock()
-	//}()
+	defer func() {
+		d.wasmMutex.Unlock()
+	}()
 
 	keyAddr, err := d.newAssemblyScriptString([]byte(key))
 
@@ -453,11 +450,14 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 }
 
 func (d *DevCycleLocalBucketing) StoreConfig(config []byte) error {
-	//defer func() {
-	//	if err := recover(); err != nil {
-	//		errorf("Failed to process config: ", err)
-	//	}
-	//}()
+	d.wasmMutex.Lock()
+	defer d.wasmMutex.Unlock()
+
+	defer func() {
+		if err := recover(); err != nil {
+			errorf("Failed to process config: ", err)
+		}
+	}()
 	errorMessage = ""
 
 	configAddr, err := d.newAssemblyScriptString(config)

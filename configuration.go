@@ -89,6 +89,10 @@ func (o *DVCOptions) CheckDefaults() {
 	if o.FlushEventQueueSize <= 0 {
 		o.FlushEventQueueSize = 1000
 	}
+
+	if o.MaxWasmWorkers <= 0 {
+		o.MaxWasmWorkers = 8
+	}
 }
 
 type HTTPConfiguration struct {
