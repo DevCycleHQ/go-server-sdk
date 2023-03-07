@@ -15,7 +15,6 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/matryer/try"
