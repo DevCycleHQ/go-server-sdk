@@ -32,6 +32,7 @@ type DVCClient struct {
 	DevCycleOptions              *DVCOptions
 	sdkKey                       string
 	auth                         context.Context
+	wasmMain                     *WASMMain
 	localBucketing               *DevCycleLocalBucketing
 	configManager                *EnvironmentConfigManager
 	eventQueue                   *EventQueue
@@ -50,10 +51,22 @@ type service struct {
 	client *DVCClient
 }
 
-func initializeLocalBucketing(sdkKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
+func initializeWasmMain(options *DVCOptions) (ret *WASMMain, err error) {
+	options.CheckDefaults()
+	ret = &WASMMain{}
+	err = ret.Initialize(options)
+	if err != nil {
+		errorf("error while initializing local bucketing", err)
+		return nil, err
+	}
+
+	return
+}
+
+func initializeLocalBucketing(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
 	options.CheckDefaults()
 	ret = &DevCycleLocalBucketing{}
-	err = ret.Initialize(sdkKey, options)
+	err = ret.Initialize(wasmMain, sdkKey, options)
 	if err != nil {
 		errorf("error while initializing local bucketing", err)
 		return nil, err
@@ -62,7 +75,9 @@ func initializeLocalBucketing(sdkKey string, options *DVCOptions) (ret *DevCycle
 }
 
 func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
-	localBucketing, err := initializeLocalBucketing(sdkKey, options)
+	wasmMain, err := initializeWasmMain(options)
+	c.wasmMain = wasmMain
+	localBucketing, err := initializeLocalBucketing(wasmMain, sdkKey, options)
 
 	if err != nil {
 		return err

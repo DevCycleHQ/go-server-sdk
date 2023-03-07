@@ -29,11 +29,10 @@ type VariableTypeCodes struct {
 type DevCycleLocalBucketing struct {
 	wasm         []byte
 	wasmStore    *wasmtime.Store
-	wasmModule   *wasmtime.Module
 	wasmInstance *wasmtime.Instance
-	wasmLinker   *wasmtime.Linker
-	wasiConfig   *wasmtime.WasiConfig
 	wasmMemory   *wasmtime.Memory
+	wasiConfig   *wasmtime.WasiConfig
+	wasmMain     *WASMMain
 	sdkKey       string
 	options      *DVCOptions
 	wasmMutex    sync.Mutex
@@ -62,38 +61,30 @@ type DevCycleLocalBucketing struct {
 	VariableTypeCodes VariableTypeCodes
 }
 
-//go:embed bucketing-lib.release.wasm
-var wasmBinary []byte
-
-func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions) (err error) {
+func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
 	options.CheckDefaults()
 
 	d.options = options
-	d.wasm = wasmBinary
+	d.wasmMain = wasmMain
+
 	d.wasiConfig = wasmtime.NewWasiConfig()
 	d.wasiConfig.InheritEnv()
 	d.wasiConfig.InheritStderr()
 	d.wasiConfig.InheritStdout()
-	d.wasmStore = wasmtime.NewStore(wasmtime.NewEngine())
+
+	d.wasmStore = wasmtime.NewStore(d.wasmMain.wasmEngine)
 	d.wasmStore.SetWasi(d.wasiConfig)
-	d.wasmLinker = wasmtime.NewLinker(d.wasmStore.Engine)
-	err = d.wasmLinker.DefineWasi()
 
 	if err != nil {
 		return
 	}
 
-	d.wasmModule, err = wasmtime.NewModule(d.wasmStore.Engine, d.wasm)
+	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "Date.now", func() float64 { return float64(time.Now().UnixMilli()) })
 	if err != nil {
 		return
 	}
 
-	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "Date.now", func() float64 { return float64(time.Now().UnixMilli()) })
-	if err != nil {
-		return
-	}
-
-	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
+	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
 		var errorMessage []byte
 		errorMessage, err = d.mallocAssemblyScriptBytes(messagePtr)
 		if err != nil {
@@ -108,7 +99,7 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions) 
 		return
 	}
 
-	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
+	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
 		var message []byte
 		message, err = d.mallocAssemblyScriptBytes(messagePtr)
 		printf(string(message))
@@ -117,14 +108,14 @@ func (d *DevCycleLocalBucketing) Initialize(sdkKey string, options *DVCOptions) 
 		return
 	}
 
-	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "seed", func() float64 {
+	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "seed", func() float64 {
 		return rand.Float64() * float64(time.Now().UnixMilli())
 	})
 	if err != nil {
 		return
 	}
 
-	d.wasmInstance, err = d.wasmLinker.Instantiate(d.wasmStore, d.wasmModule)
+	d.wasmInstance, err = d.wasmMain.wasmLinker.Instantiate(d.wasmStore, d.wasmMain.wasmModule)
 	if err != nil {
 		return
 	}
