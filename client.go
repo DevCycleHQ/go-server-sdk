@@ -16,7 +16,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/proto"
@@ -98,18 +97,14 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 
 	c.localBucketing = localBucketing
 
-	var wg sync.WaitGroup
-	wg.Add(8)
-	c.bucketingWorkerPool = tunny.New(8, func() tunny.Worker {
-		worker := LocalBucketingWorker{}
-		// TODO handle error
-		_ = worker.Initialize(sdkKey, options)
-		c.bucketingWorkers = append(c.bucketingWorkers, &worker)
-		wg.Done()
-		return &worker
-	})
-
-	wg.Wait()
+	if options.MaxWasmWorkers > 1 {
+		c.bucketingWorkerPool = tunny.New(8, func() tunny.Worker {
+			worker := LocalBucketingWorker{}
+			err = worker.Initialize(sdkKey, options)
+			c.bucketingWorkers = append(c.bucketingWorkers, &worker)
+			return &worker
+		})
+	}
 
 	c.configManager = &EnvironmentConfigManager{localBucketing: localBucketing}
 	err = c.configManager.Initialize(sdkKey, localBucketing, c.bucketingWorkers, c.cfg)
@@ -278,10 +273,12 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 		return Variable{}, errorf("Error marshalling protobuf object in variableForUserProtobuf: %w", err)
 	}
 
+	if c.bucketingWorkerPool == nil {
+		variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType)
+		return variable, err
+	}
+
 	result := c.bucketingWorkerPool.Process(&VariableForUserPayload{
-		WorkerPayload: WorkerPayload{
-			Type_: VariableForUser,
-		},
 		User:         &userJSON,
 		Key:          &key,
 		VariableType: variableType,
