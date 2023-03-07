@@ -138,12 +138,15 @@ func BenchmarkDVCClient_Variable(b *testing.B) {
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
 	httpEventsApiMock()
 
+	onInitializedChannel := make(chan bool) // optional
+
 	options := &DVCOptions{
 		EnableCloudBucketing:         false,
 		DisableAutomaticEventLogging: true,
 		DisableCustomEventLogging:    true,
 		ConfigPollingIntervalMS:      time.Minute,
 		EventFlushIntervalMS:         time.Minute,
+		OnInitializedChannel:         onInitializedChannel,
 	}
 
 	client, err := NewDVCClient(test_environmentKey, options)
@@ -153,10 +156,16 @@ func BenchmarkDVCClient_Variable(b *testing.B) {
 
 	user := DVCUser{UserId: "dontcare"}
 
+	<-onInitializedChannel
+
+	time.Sleep(time.Second)
+
 	b.ResetTimer()
 	b.ReportAllocs()
+
+	var variable Variable
 	for i := 0; i < b.N; i++ {
-		variable, err := client.Variable(user, test_large_config_variable, false)
+		variable, err = client.Variable(user, test_large_config_variable, false)
 		if err != nil {
 			b.Errorf("Failed to retrieve variable: %v", err)
 		}
