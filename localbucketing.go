@@ -59,9 +59,10 @@ type DevCycleLocalBucketing struct {
 	variableForUserFunc               *wasmtime.Func
 
 	VariableTypeCodes VariableTypeCodes
-	// Cached wasm mem allocs (variable type -> pointer)
-	variableTypePointers map[string]int32
-	allocatedMemPool     [][]int32
+
+	// Holds pointers to pre-allocated blocks of memory. The first dimension is an index based on the size of the data
+	// The second dimension is a list of pointers to blocks of memory of that size
+	allocatedMemPool [][]int32
 }
 
 func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
@@ -157,6 +158,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	}
 
 	d.allocatedMemPool = make([][]int32, 16) // overly simplistic, probably need a larger pool
+
 	for i := 0; i < 16; i++ {
 		power := i
 		size := 1 << power
@@ -169,6 +171,9 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 			return err
 		}
 
+		// currently we know there can only be two strings allocated at a time in the VariableForUser method
+		// which is the only method using this pool. Knowing that, preallocate two blocks for each size bucket
+		// We can then use both blocks of a particular bucket in case of a size collision between the two strings
 		d.allocatedMemPool[i][0] = ptr1
 		d.allocatedMemPool[i][1] = ptr2
 	}
