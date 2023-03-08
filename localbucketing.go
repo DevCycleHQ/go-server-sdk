@@ -27,17 +27,18 @@ type VariableTypeCodes struct {
 }
 
 type DevCycleLocalBucketing struct {
-	wasm         []byte
 	wasmStore    *wasmtime.Store
 	wasmInstance *wasmtime.Instance
 	wasmMemory   *wasmtime.Memory
 	wasiConfig   *wasmtime.WasiConfig
-	wasmMain     *WASMMain
-	sdkKey       string
-	options      *DVCOptions
-	wasmMutex    sync.Mutex
-	flushMutex   sync.Mutex
-	sdkKeyAddr   int32
+	wasmLinker   *wasmtime.Linker
+	//wasmModule   *wasmtime.Module
+	wasmMain   *WASMMain
+	sdkKey     string
+	options    *DVCOptions
+	wasmMutex  sync.Mutex
+	flushMutex sync.Mutex
+	sdkKeyAddr int32
 
 	// Cache function pointers
 	__newFunc     *wasmtime.Func
@@ -67,6 +68,12 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	d.options = options
 	d.wasmMain = wasmMain
 
+	d.wasmLinker = wasmtime.NewLinker(d.wasmMain.wasmEngine)
+	err = d.wasmLinker.DefineWasi()
+
+	if err != nil {
+		return
+	}
 	d.wasiConfig = wasmtime.NewWasiConfig()
 	d.wasiConfig.InheritEnv()
 	d.wasiConfig.InheritStderr()
@@ -79,12 +86,12 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 		return
 	}
 
-	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "Date.now", func() float64 { return float64(time.Now().UnixMilli()) })
+	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "Date.now", func() float64 { return float64(time.Now().UnixMilli()) })
 	if err != nil {
 		return
 	}
 
-	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
+	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
 		var errorMessage []byte
 		errorMessage, err = d.mallocAssemblyScriptBytes(messagePtr)
 		if err != nil {
@@ -99,7 +106,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 		return
 	}
 
-	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
+	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
 		var message []byte
 		message, err = d.mallocAssemblyScriptBytes(messagePtr)
 		printf(string(message))
@@ -108,14 +115,14 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 		return
 	}
 
-	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "seed", func() float64 {
+	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "seed", func() float64 {
 		return rand.Float64() * float64(time.Now().UnixMilli())
 	})
 	if err != nil {
 		return
 	}
 
-	d.wasmInstance, err = d.wasmMain.wasmLinker.Instantiate(d.wasmStore, d.wasmMain.wasmModule)
+	d.wasmInstance, err = d.wasmLinker.Instantiate(d.wasmStore, d.wasmMain.wasmModule)
 	if err != nil {
 		return
 	}
@@ -394,7 +401,7 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	return ret, err
 }
 
-func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType VariableTypeCode) (ret Variable, err error) {
+func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType VariableTypeCode, shouldTrackEvent bool) (ret Variable, err error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer func() {
@@ -425,7 +432,12 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 		return
 	}
 
-	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr, int32(variableType))
+	var shouldTrackEventInt int32 = 0
+	if shouldTrackEvent {
+		shouldTrackEventInt = 1
+	}
+
+	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr, int32(variableType), shouldTrackEventInt)
 	if err != nil {
 		return
 	}
