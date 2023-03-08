@@ -18,32 +18,20 @@ type EventQueue struct {
 	closed            bool
 	ticker            *time.Ticker
 	flushStop         chan bool
+	eventsChan        chan []FlushPayload
 }
 
-func (e *EventQueue) eventQueueOptionsFromDVCOptions(options *DVCOptions) *EventQueueOptions {
-	return &EventQueueOptions{
-		FlushEventsInterval:          options.EventFlushIntervalMS,
-		DisableAutomaticEventLogging: options.DisableAutomaticEventLogging,
-		DisableCustomEventLogging:    options.DisableCustomEventLogging,
-	}
-}
-
-type EventQueueOptions struct {
-	FlushEventsInterval          time.Duration `json:"flushEventsMS"`
-	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging"`
-	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging"`
-}
-
-func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing, cfg *HTTPConfiguration) (err error) {
+func (e *EventQueue) initialize(eventsChan chan []FlushPayload, options *DVCOptions, localBucketing *DevCycleLocalBucketing, cfg *HTTPConfiguration) (err error) {
 	e.context = context.Background()
 	e.cfg = cfg
 	e.options = options
 	e.flushStop = make(chan bool, 1)
+	e.eventsChan = eventsChan
 
 	if !e.options.EnableCloudBucketing && localBucketing != nil {
 		e.localBucketing = localBucketing
 		var eventQueueOpt []byte
-		eventQueueOpt, err = json.Marshal(e.eventQueueOptionsFromDVCOptions(options))
+		eventQueueOpt, err = json.Marshal(options.eventQueueOptions())
 		if err != nil {
 			return err
 		}
@@ -53,15 +41,20 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 		go func() {
 			for {
 				select {
+				case payloads := <-eventsChan:
+					err = e.flushEventPayloads(payloads, true)
+					if err != nil {
+						warnf("Error flushing worker events: %s\n", err)
+					}
+				case <-ticker.C:
+					err = e.FlushEvents()
+					if err != nil {
+						warnf("Error flushing primary events queue: %s\n", err)
+					}
 				case <-e.flushStop:
 					ticker.Stop()
 					infof("Stopping event flushing.")
 					return
-				case <-ticker.C:
-					err = e.FlushEvents()
-					if err != nil {
-						warnf("Error flushing events: %s\n", err)
-					}
 				}
 			}
 		}()
@@ -122,7 +115,6 @@ func (e *EventQueue) checkEventQueueSize() (bool, error) {
 }
 
 func (e *EventQueue) FlushEvents() (err error) {
-	eventsHost := e.cfg.EventsAPIBasePath
 	e.localBucketing.startFlushEvents()
 	defer e.localBucketing.finishFlushEvents()
 	payloads, err := e.localBucketing.flushEventQueue()
@@ -130,19 +122,24 @@ func (e *EventQueue) FlushEvents() (err error) {
 		return err
 	}
 
+	return e.flushEventPayloads(payloads, false)
+}
+
+func (e *EventQueue) flushEventPayloads(payloads []FlushPayload, useChannel bool) (err error) {
+	eventsHost := e.cfg.EventsAPIBasePath
 	for _, payload := range payloads {
 		var req *http.Request
 		var resp *http.Response
 		requestBody, err := json.Marshal(BatchEventsBody{Batch: payload.Records})
 		if err != nil {
-			errorf("Failed to marshal batch events body: %s", err)
-			reportPayloadFailure(e.localBucketing, payload.PayloadId, false)
+			_ = errorf("Failed to marshal batch events body: %s", err)
+			e.reportPayloadFailure(payload, false, useChannel)
 			continue
 		}
 		req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(requestBody))
 		if err != nil {
-			errorf("Failed to create request to events api: %s", err)
-			reportPayloadFailure(e.localBucketing, payload.PayloadId, false)
+			_ = errorf("Failed to create request to events api: %s", err)
+			e.reportPayloadFailure(payload, false, useChannel)
 			continue
 		}
 
@@ -153,47 +150,64 @@ func (e *EventQueue) FlushEvents() (err error) {
 		resp, err = e.cfg.HTTPClient.Do(req)
 
 		if err != nil {
-			errorf("Failed to make request to events api: %s", err)
-			_ = reportPayloadFailure(e.localBucketing, payload.PayloadId, false)
+			_ = errorf("Failed to make request to events api: %s", err)
+			e.reportPayloadFailure(payload, false, useChannel)
 			continue
 		}
 
 		if resp.StatusCode >= 500 {
 			warnf("Events API Returned a 5xx error, retrying later.")
-			_ = reportPayloadFailure(e.localBucketing, payload.PayloadId, true)
+			e.reportPayloadFailure(payload, true, useChannel)
 			continue
 		}
 
 		if resp.StatusCode >= 400 {
-			_ = reportPayloadFailure(e.localBucketing, payload.PayloadId, false)
+			e.reportPayloadFailure(payload, false, useChannel)
 			responseBody, readError := io.ReadAll(resp.Body)
 			if readError != nil {
-				errorf("Failed to read response body %s", readError)
+				_ = errorf("Failed to read response body %s", readError)
 				continue
 			}
 			resp.Body.Close()
 
-			errorf("Error sending events - Response: %s", string(responseBody))
+			_ = errorf("Error sending events - Response: %s", string(responseBody))
 
 			continue
 		}
 
 		if resp.StatusCode == 201 {
-			err = e.localBucketing.onPayloadSuccess(payload.PayloadId)
+			err = e.reportPayloadSuccess(payload, useChannel)
 			if err != nil {
-				errorf("failed to mark payload as success %s", err)
+				_ = errorf("failed to mark payload as success %s", err)
 				continue
 			}
-			debugf("Flushed %d events\n", payload.EventCount)
 		}
 	}
 	return err
 }
 
-func reportPayloadFailure(localBucketing *DevCycleLocalBucketing, payloadId string, retry bool) (err error) {
-	err = localBucketing.onPayloadFailure(payloadId, retry)
+func (e *EventQueue) reportPayloadSuccess(payload FlushPayload, useChannel bool) (err error) {
+	if useChannel {
+		// No need to do anything here, the message has been removed from the channel already
+		return nil
+	}
+	err = e.localBucketing.onPayloadSuccess(payload.PayloadId)
 	if err != nil {
-		errorf("Failed to mark payload as failed: %s", err)
+		_ = errorf("Failed to mark payload as failed: %s", err)
+	}
+	return
+}
+
+func (e *EventQueue) reportPayloadFailure(payload FlushPayload, retry bool, useChannel bool) {
+	if useChannel {
+		// Feed failed payload back into channel for re-processing
+		// TODO: This needs to respect the maximum queue size
+		e.eventsChan <- []FlushPayload{payload}
+		return
+	}
+	err := e.localBucketing.onPayloadFailure(payload.PayloadId, retry)
+	if err != nil {
+		_ = errorf("Failed to mark payload as failed: %s", err)
 	}
 	return
 }

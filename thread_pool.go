@@ -2,11 +2,18 @@ package devcycle
 
 import (
 	_ "embed"
+	"encoding/json"
+	"fmt"
 	"sync/atomic"
+	"time"
 )
 
 var (
 	workerId = atomic.Int32{}
+	"encoding/json"
+	"fmt"
+	"sync"
+	"time"
 )
 
 type LocalBucketingWorker struct {
@@ -19,6 +26,10 @@ type LocalBucketingWorker struct {
 	storeConfigResponseChan         chan error
 	setClientCustomDataChan         chan *[]byte
 	setClientCustomDataResponseChan chan error
+	// used to signal to the event flushing to stop
+	flushStop chan bool
+	// channel for passing back event payloads to the main event queue
+	eventsQueue chan []FlushPayload
 	hasConfig                       bool
 	id                              int32
 }
@@ -34,26 +45,75 @@ type VariableForUserResponse struct {
 	Err      error
 }
 
-func (w *LocalBucketingWorker) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
+func (w *LocalBucketingWorker) Initialize(wasmMain *WASMMain, sdkKey string, eventsQueue chan []FlushPayload, options *DVCOptions) (err error) {
 	w.localBucketing = &DevCycleLocalBucketing{}
 	err = w.localBucketing.Initialize(wasmMain, sdkKey, options)
 	w.storeConfigChan = make(chan *[]byte, 1)
 	w.storeConfigResponseChan = make(chan error, 1)
 	w.setClientCustomDataChan = make(chan *[]byte, 1)
 	w.setClientCustomDataResponseChan = make(chan error, 1)
+	w.eventsQueue = eventsQueue
+
+	var eventQueueOpt []byte
+	eventQueueOpt, err = json.Marshal(options.eventQueueOptions())
+	if err != nil {
+		return fmt.Errorf("error marshalling event queue options: %w", err)
+	}
+	err = w.localBucketing.initEventQueue(eventQueueOpt)
+	if err != nil {
+		return fmt.Errorf("error initializing worker event queue: %w", err)
+	}
+
+	ticker := time.NewTicker(options.EventFlushIntervalMS)
+	w.flushStop = make(chan bool, 1)
+	go w.eventLoop(ticker)
+
 	w.id = workerId.Add(1)
 	return
+}
+
+func (w *LocalBucketingWorker) eventLoop(ticker *time.Ticker) {
+	for {
+		select {
+		case <-w.flushStop:
+			ticker.Stop()
+			infof("LocalBucketingWorker: Stopping event flushing.")
+			return
+		case <-ticker.C:
+			err := w.flushEvents()
+			if err != nil {
+				warnf("LocalBucketingWorker: Error flushing events: %s\n", err)
+			}
+		}
+	}
+}
+
+func (w *LocalBucketingWorker) flushEvents() error {
+	payloads, err := w.localBucketing.flushEventQueue()
+	if err != nil {
+		return err
+	}
+	if len(payloads) == 0 {
+		return nil
+	}
+	w.eventsQueue <- payloads
+	for _, payload := range payloads {
+		if err = w.localBucketing.onPayloadSuccess(payload.PayloadId); err != nil {
+			// TODO: Need to handle this better: otherwise next flushEventQueue will fail
+			return err
+		}
+	}
+	return nil
 }
 
 func (w *LocalBucketingWorker) Process(payload interface{}) interface{} {
 	var variableForUserPayload = payload.(*VariableForUserPayload)
 
-	// TODO figure out how to track events with the new threading
 	variable, err := w.variableForUser(
 		variableForUserPayload.User,
 		variableForUserPayload.Key,
 		variableForUserPayload.VariableType,
-		false,
+		true,
 	)
 
 	return VariableForUserResponse{
@@ -100,4 +160,6 @@ func (w *LocalBucketingWorker) BlockUntilReady() {
 }
 
 func (w *LocalBucketingWorker) Interrupt() {}
-func (w *LocalBucketingWorker) Terminate() {}
+func (w *LocalBucketingWorker) Terminate() {
+	w.flushStop <- true
+}

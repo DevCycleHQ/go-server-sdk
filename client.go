@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Jeffail/tunny"
 	"io"
 	"math"
 	"math/rand"
@@ -20,6 +19,8 @@ import (
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/proto"
+	"github.com/Jeffail/tunny"
+
 	"github.com/matryer/try"
 )
 
@@ -88,8 +89,10 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 		return err
 	}
 
+	eventsChan := make(chan []FlushPayload)
+
 	c.eventQueue = &EventQueue{}
-	err = c.eventQueue.initialize(options, localBucketing, c.cfg)
+	err = c.eventQueue.initialize(eventsChan, options, localBucketing, c.cfg)
 
 	if err != nil {
 		return err
@@ -100,7 +103,7 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 	if options.MaxWasmWorkers > 1 {
 		c.bucketingWorkerPool = tunny.New(options.MaxWasmWorkers, func() tunny.Worker {
 			worker := LocalBucketingWorker{}
-			err = worker.Initialize(wasmMain, sdkKey, options)
+			err = worker.Initialize(wasmMain, sdkKey, eventsChan, options)
 			c.bucketingWorkers = append(c.bucketingWorkers, &worker)
 			return &worker
 		})
@@ -570,7 +573,6 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 }
 
 func (c *DVCClient) FlushEvents() error {
-
 	if c.DevCycleOptions.EnableCloudBucketing || !c.isInitialized {
 		return nil
 	}
@@ -633,6 +635,8 @@ func (c *DVCClient) Close() (err error) {
 		infof("Awaiting client initialization before closing")
 		<-c.internalOnInitializedChannel
 	}
+
+	c.bucketingWorkerPool.Close()
 
 	if c.eventQueue != nil {
 		err = c.eventQueue.Close()
