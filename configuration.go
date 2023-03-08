@@ -78,6 +78,20 @@ type DVCOptions struct {
 	AdvancedOptions
 }
 
+type EventQueueOptions struct {
+	FlushEventsInterval          time.Duration `json:"flushEventsMS"`
+	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging"`
+	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging"`
+}
+
+func (options *DVCOptions) eventQueueOptions() *EventQueueOptions {
+	return &EventQueueOptions{
+		FlushEventsInterval:          options.EventFlushIntervalMS,
+		DisableAutomaticEventLogging: options.DisableAutomaticEventLogging,
+		DisableCustomEventLogging:    options.DisableCustomEventLogging,
+	}
+}
+
 func (o *DVCOptions) CheckDefaults() {
 	if o.EventFlushIntervalMS < time.Millisecond*500 || o.EventFlushIntervalMS > time.Minute*1 {
 		warnf("EventFlushIntervalMS cannot be less than 500ms or longer than 1 minute. Defaulting to 30 seconds.")
