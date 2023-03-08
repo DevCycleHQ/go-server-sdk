@@ -157,9 +157,9 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 		JSON:    VariableTypeCode(jsonType),
 	}
 
-	d.allocatedMemPool = make([][]int32, 16) // overly simplistic, probably need a larger pool
+	d.allocatedMemPool = make([][]int32, d.options.MaxMemoryAllocationBuckets) // overly simplistic, probably need a larger pool
 
-	for i := 0; i < 16; i++ {
+	for i := 0; i < d.options.MaxMemoryAllocationBuckets; i++ {
 		power := i
 		size := 1 << power
 
@@ -588,9 +588,11 @@ func (d *DevCycleLocalBucketing) allocMemForStringPool(size int32, preAllocIndex
 	// index is the highest power value of 2 for the size we want
 
 	// if this length exceeds the max size of the pool, we'll just allocate the memory temporarily
-	if cachedIdx >= int32(len(d.allocatedMemPool)) {
+	if len(d.allocatedMemPool) == 0 {
+		// dont use the pool, fall through to alloc below
+	} else if cachedIdx >= int32(len(d.allocatedMemPool)) {
 		warnf("String size exceeds max memory pool size, allocating new temporary block")
-	} else {
+	} else if d.options.MaxMemoryAllocationBuckets != -1 {
 		return d.allocatedMemPool[cachedIdx][preAllocIndex], true, nil
 	}
 

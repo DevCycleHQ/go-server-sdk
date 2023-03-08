@@ -49,6 +49,13 @@ type APIKey struct {
 	Prefix string
 }
 
+type AdvancedOptions struct {
+	// controls the maximum number of pre-allocated memory blocks used for WASM execution. This influences the maximum
+	// string length that can be fit inside of preallocated memory
+	// Can be set to -1 to disable pre-allocated memory blocks entirely.
+	MaxMemoryAllocationBuckets int
+}
+
 type DVCOptions struct {
 	EnableEdgeDB                 bool          `json:"enableEdgeDb,omitempty"`
 	EnableCloudBucketing         bool          `json:"enableCloudBucketing,omitempty"`
@@ -64,6 +71,7 @@ type DVCOptions struct {
 	OnInitializedChannel         chan bool
 	BucketingAPIURI              string
 	Logger                       Logger
+	AdvancedOptions
 }
 
 func (o *DVCOptions) CheckDefaults() {
@@ -83,6 +91,11 @@ func (o *DVCOptions) CheckDefaults() {
 	}
 	if o.FlushEventQueueSize <= 0 {
 		o.FlushEventQueueSize = 1000
+	}
+	if o.MaxMemoryAllocationBuckets == 0 {
+		o.MaxMemoryAllocationBuckets = 16
+	} else if o.MaxMemoryAllocationBuckets <= -1 {
+		o.MaxMemoryAllocationBuckets = 0
 	}
 }
 
