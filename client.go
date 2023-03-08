@@ -56,10 +56,9 @@ type service struct {
 	client *DVCClient
 }
 
-func initializeWasmMain(options *DVCOptions) (ret *WASMMain, err error) {
-	options.CheckDefaults()
+func initializeWasmMain() (ret *WASMMain, err error) {
 	ret = &WASMMain{}
-	err = ret.Initialize(options)
+	err = ret.Initialize()
 	if err != nil {
 		errorf("error while initializing local bucketing", err)
 		return nil, err
@@ -80,7 +79,7 @@ func initializeLocalBucketing(wasmMain *WASMMain, sdkKey string, options *DVCOpt
 }
 
 func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
-	wasmMain, err := initializeWasmMain(options)
+	wasmMain, err := initializeWasmMain()
 	c.wasmMain = wasmMain
 	localBucketing, err := initializeLocalBucketing(wasmMain, sdkKey, options)
 
@@ -100,7 +99,7 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 	if options.MaxWasmWorkers > 1 {
 		c.bucketingWorkerPool = tunny.New(options.MaxWasmWorkers, func() tunny.Worker {
 			worker := LocalBucketingWorker{}
-			err = worker.Initialize(sdkKey, options)
+			err = worker.Initialize(wasmMain, sdkKey, options)
 			c.bucketingWorkers = append(c.bucketingWorkers, &worker)
 			return &worker
 		})
@@ -274,7 +273,7 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 	}
 
 	if c.bucketingWorkerPool == nil {
-		variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType)
+		variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType, true)
 		return variable, err
 	}
 
