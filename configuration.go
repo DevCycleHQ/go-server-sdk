@@ -10,6 +10,7 @@ package devcycle
 
 import (
 	"net/http"
+	"runtime"
 	"time"
 )
 
@@ -101,7 +102,7 @@ func (o *DVCOptions) CheckDefaults() {
 	}
 
 	if o.MaxWasmWorkers <= 0 {
-		o.MaxWasmWorkers = 8
+		o.MaxWasmWorkers = runtime.NumCPU()
 	}
 }
 
