@@ -10,26 +10,18 @@ var wasmMainBinary []byte
 
 type WASMMain struct {
 	wasm       []byte
-	wasmLinker *wasmtime.Linker
 	wasmEngine *wasmtime.Engine
 	wasmModule *wasmtime.Module
 }
 
-func (d *WASMMain) Initialize(options *DVCOptions) (err error) {
+func (d *WASMMain) Initialize() (err error) {
 	d.wasm = wasmMainBinary
 	d.wasmEngine = wasmtime.NewEngine()
-	d.wasmLinker = wasmtime.NewLinker(d.wasmEngine)
-	err = d.wasmLinker.DefineWasi()
+	d.wasmModule, err = wasmtime.NewModule(d.wasmEngine, wasmMainBinary)
 
 	if err != nil {
 		return
 	}
 
-	d.wasmModule, err = wasmtime.NewModule(d.wasmEngine, d.wasm)
-
 	return
-}
-
-func (d *WASMMain) GetWasmLinker() *wasmtime.Linker {
-	return d.wasmLinker
 }
