@@ -53,6 +53,7 @@ type AdvancedOptions struct {
 	// controls the maximum number of pre-allocated memory blocks used for WASM execution. This influences the maximum
 	// string length that can be fit inside of preallocated memory
 	// Can be set to -1 to disable pre-allocated memory blocks entirely.
+	// This takes \sum_{k=1}^{n} 2^k memory usage
 	MaxMemoryAllocationBuckets int
 }
 
