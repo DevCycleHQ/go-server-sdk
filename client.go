@@ -284,7 +284,6 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 
 	var variableResult = result.(VariableForUserResponse)
 
-	//variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType)
 	return *variableResult.Variable, variableResult.Err
 }
 
