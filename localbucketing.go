@@ -167,7 +167,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 					return ptr
 				}
 
-				return -1 // TODO: we'll check for the -1 value on each fetch
+				return -1
 			},
 		}
 	}
@@ -418,23 +418,23 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	keyAddr, keySize, err := d.newAssemblyScriptStringWithPool([]byte(key))
+	keyAddr, keyIndex, err := d.newAssemblyScriptStringWithPool([]byte(key))
 
 	if err != nil {
 		return
 	}
 
-	defer func() { d.releaseAlloc(keyAddr, keySize) }()
+	defer func() { d.releaseAlloc(keyAddr, keyIndex) }()
 
-	userAddr, userSize, err := d.newAssemblyScriptStringWithPool(user)
+	userAddr, userIndex, err := d.newAssemblyScriptStringWithPool(user)
 
 	if err != nil {
 		return
 	}
 
-	defer func() { d.releaseAlloc(userAddr, userSize) }()
+	defer func() { d.releaseAlloc(userAddr, userIndex) }()
 
-	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr, int32(variableType))
+	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, len(user), keyAddr, len(key), int32(variableType))
 	if err != nil {
 		return
 	}
@@ -545,7 +545,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, e
 }
 
 func (d *DevCycleLocalBucketing) newAssemblyScriptStringWithPool(param []byte) (int32, int32, error) {
-	ptr, size, err := d.allocMemForString(int32(len(param)*2), false)
+	ptr, index, err := d.allocMemForString(int32(len(param)*2), false)
 
 	if err != nil {
 		return -1, -1, err
@@ -560,32 +560,33 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptStringWithPool(param []byte) (
 		return -1, -1, errorf("Failed to allocate memory for string")
 	}
 
-	return ptr, size, nil
+	return ptr, index, nil
 }
 
-func (d *DevCycleLocalBucketing) allocMemForString(size int32, fromPool bool) (int32, int32, error) {
+func (d *DevCycleLocalBucketing) allocMemForString(size int32, fromPool bool) (addr int32, index int32, err error) {
 	const objectIdString int32 = 2
 
 	cachedIdx := int32(math.Ceil(math.Log2(float64(size))))
 	if !fromPool {
 		// index is the highest power value of 2 for the size we want
 
-		if ptr := d.allocatedMemPool[cachedIdx].Get().(int32); ptr != -1 {
+		// if this length exceeds the max size of the pool, we'll just allocate the memory temporarily
+		if cachedIdx >= int32(len(d.allocatedMemPool)) {
+			warnf("String size exceeds max memory pool size, allocating new temporary block")
+		} else if ptr := d.allocatedMemPool[cachedIdx].Get().(int32); ptr != -1 {
 			return ptr, cachedIdx, nil
 		} else {
-			errorf("BAD POINTER")
+			warnf("Failed to use pre-allocated memory for string, allocating new block")
 		}
 	}
 
 	// malloc
 	ptr, err := d.__newFunc.Call(d.wasmStore, size, objectIdString)
 	if err != nil {
-		errorf(err.Error())
 		return -1, -1, err
 	}
 
 	if err := d.assemblyScriptPin(ptr.(int32)); err != nil {
-		errorf(err.Error())
 		return -1, -1, err
 	}
 
