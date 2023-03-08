@@ -38,20 +38,6 @@ func TestDVCClient_AllVariablesLocal(t *testing.T) {
 	fmt.Println(variables)
 }
 
-func TestDVCClient_VariableCloud(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpBucketingAPIMock()
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
-
-	variable, err := c.Variable(
-		DVCUser{UserId: "j_test", DeviceModel: "testing"},
-		"test", true)
-	fatalErr(t, err)
-
-	fmt.Println(variable)
-}
-
 func TestDVCClient_VariableLocal(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
