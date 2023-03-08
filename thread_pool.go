@@ -24,11 +24,9 @@ type VariableForUserResponse struct {
 	Err      error
 }
 
-func (w *LocalBucketingWorker) Initialize(sdkKey string, options *DVCOptions) (err error) {
+func (w *LocalBucketingWorker) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
 	w.localBucketing = &DevCycleLocalBucketing{}
-	// TODO figure out how to track events with the new threading
-	options.DisableAutomaticEventLogging = true
-	err = w.localBucketing.Initialize(sdkKey, options)
+	err = w.localBucketing.Initialize(wasmMain, sdkKey, options)
 	w.externalBusyMutex = &sync.Mutex{}
 	return
 }
@@ -36,10 +34,12 @@ func (w *LocalBucketingWorker) Initialize(sdkKey string, options *DVCOptions) (e
 func (w *LocalBucketingWorker) Process(payload interface{}) interface{} {
 	var variableForUserPayload = payload.(*VariableForUserPayload)
 
+	// TODO figure out how to track events with the new threading
 	variable, err := w.variableForUser(
 		variableForUserPayload.User,
 		variableForUserPayload.Key,
 		variableForUserPayload.VariableType,
+		false,
 	)
 
 	return VariableForUserResponse{
@@ -48,8 +48,8 @@ func (w *LocalBucketingWorker) Process(payload interface{}) interface{} {
 	}
 }
 
-func (w *LocalBucketingWorker) variableForUser(user *[]byte, key *string, variableType VariableTypeCode) (Variable, error) {
-	return w.localBucketing.VariableForUser(*user, *key, variableType)
+func (w *LocalBucketingWorker) variableForUser(user *[]byte, key *string, variableType VariableTypeCode, shouldTrackEvents bool) (Variable, error) {
+	return w.localBucketing.VariableForUser(*user, *key, variableType, shouldTrackEvents)
 }
 
 func (w *LocalBucketingWorker) StoreConfig(configData []byte) error {
