@@ -32,13 +32,12 @@ type DevCycleLocalBucketing struct {
 	wasmMemory   *wasmtime.Memory
 	wasiConfig   *wasmtime.WasiConfig
 	wasmLinker   *wasmtime.Linker
-	//wasmModule   *wasmtime.Module
-	wasmMain   *WASMMain
-	sdkKey     string
-	options    *DVCOptions
-	wasmMutex  sync.Mutex
-	flushMutex sync.Mutex
-	sdkKeyAddr int32
+	wasmMain     *WASMMain
+	sdkKey       string
+	options      *DVCOptions
+	wasmMutex    sync.Mutex
+	flushMutex   sync.Mutex
+	sdkKeyAddr   int32
 
 	// Cache function pointers
 	__newFunc     *wasmtime.Func
