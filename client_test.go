@@ -1,7 +1,10 @@
 package devcycle
 
 import (
+	"flag"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"sync"
 	"testing"
@@ -133,11 +136,16 @@ func fatalErr(t *testing.T, err error) {
 	}
 }
 
+var benchmarkEvents = flag.Bool("benchEnableEvents", false, "Custom test flag that enables event logging in benchmarks")
+
 func BenchmarkDVCClient_Variable(b *testing.B) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
 	httpEventsApiMock()
+
+	// silence logging
+	log.SetOutput(io.Discard)
 
 	options := &DVCOptions{
 		EnableCloudBucketing:         false,
@@ -145,6 +153,12 @@ func BenchmarkDVCClient_Variable(b *testing.B) {
 		DisableCustomEventLogging:    true,
 		ConfigPollingIntervalMS:      time.Minute,
 		EventFlushIntervalMS:         time.Minute,
+	}
+
+	if *benchmarkEvents {
+		options.DisableAutomaticEventLogging = false
+		options.DisableCustomEventLogging = false
+		options.EventFlushIntervalMS = 0
 	}
 
 	client, err := NewDVCClient(test_environmentKey, options)
@@ -156,6 +170,7 @@ func BenchmarkDVCClient_Variable(b *testing.B) {
 
 	b.ResetTimer()
 	b.ReportAllocs()
+
 	for i := 0; i < b.N; i++ {
 		variable, err := client.Variable(user, test_large_config_variable, false)
 		if err != nil {
@@ -173,12 +188,21 @@ func BenchmarkDVCClient_VariableConcurrent(b *testing.B) {
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
 	httpEventsApiMock()
 
+	// silence logging
+	log.SetOutput(io.Discard)
+
 	options := &DVCOptions{
 		EnableCloudBucketing:         false,
 		DisableAutomaticEventLogging: true,
 		DisableCustomEventLogging:    true,
 		ConfigPollingIntervalMS:      time.Minute,
 		EventFlushIntervalMS:         time.Minute,
+	}
+	if *benchmarkEvents {
+		infof("Enabling event logging")
+		options.DisableAutomaticEventLogging = false
+		options.DisableCustomEventLogging = false
+		options.EventFlushIntervalMS = time.Millisecond * 500
 	}
 
 	client, err := NewDVCClient(test_environmentKey, options)
@@ -192,8 +216,8 @@ func BenchmarkDVCClient_VariableConcurrent(b *testing.B) {
 
 	b.ResetTimer()
 	b.ReportAllocs()
-	var i int
-	for i = 0; i < b.N; i++ {
+
+	for i := 0; i < b.N; i++ {
 		wg.Add(1)
 
 		go func() {
