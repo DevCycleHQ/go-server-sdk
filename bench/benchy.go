@@ -1,18 +1,19 @@
 package main
 
 import (
-	devcycle "github.com/devcyclehq/go-server-sdk/v2"
+	"github.com/devcyclehq/go-server-sdk/v2"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-
 	variableKey := os.Getenv("DVC_VARIABLE_KEY")
 	userId := os.Getenv("DVC_USER_ID")
-	client, err := devcycle.NewDVCClient(os.Getenv("DVC_SERVER_KEY"), &devcycle.DVCOptions{})
+	advOpt := devcycle.AdvancedOptions{MaxWasmWorkers: 100}
+	client, err := devcycle.NewDVCClient(os.Getenv("DVC_SERVER_SDK_KEY"), &devcycle.DVCOptions{AdvancedOptions: advOpt, ConfigPollingIntervalMS: time.Second})
 	if err != nil {
 		return
 	}
