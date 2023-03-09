@@ -32,13 +32,17 @@ type LocalBucketingWorker struct {
 	id              int32
 }
 
-type VariableForUserPayload struct {
-	User         *[]byte
-	Key          *string
-	VariableType VariableTypeCode
+type WorkerPoolPayload struct {
+	// TODO make this an enum
+	Type_            string
+	User             *[]byte
+	Key              *string
+	ConfigData       *[]byte
+	ClientCustomData *[]byte
+	VariableType     VariableTypeCode
 }
 
-type VariableForUserResponse struct {
+type WorkerPoolResponse struct {
 	Variable *Variable
 	Err      error
 }
@@ -134,16 +138,33 @@ func (w *LocalBucketingWorker) Process(payload interface{}) interface{} {
 	w.jobInProgress.Store(true)
 	defer w.jobInProgress.Store(false)
 
-	var variableForUserPayload = payload.(*VariableForUserPayload)
+	var workerPayload = payload.(*WorkerPoolPayload)
+
+	if workerPayload.Type_ == "storeConfig" {
+		err := w.storeConfig(*workerPayload.ConfigData)
+		return WorkerPoolResponse{
+			Err: err,
+		}
+	} else if workerPayload.Type_ == "setClientCustomData" {
+		err := w.setClientCustomData(*workerPayload.ClientCustomData)
+		return WorkerPoolResponse{
+			Err: err,
+		}
+	} else if workerPayload.Type_ == "flushEvents" {
+		err := w.flushEvents()
+		return WorkerPoolResponse{
+			Err: err,
+		}
+	}
 
 	variable, err := w.variableForUser(
-		variableForUserPayload.User,
-		variableForUserPayload.Key,
-		variableForUserPayload.VariableType,
+		workerPayload.User,
+		workerPayload.Key,
+		workerPayload.VariableType,
 		true,
 	)
 
-	return VariableForUserResponse{
+	return WorkerPoolResponse{
 		Variable: &variable,
 		Err:      err,
 	}
@@ -163,30 +184,30 @@ func (w *LocalBucketingWorker) setClientCustomData(customData []byte) error {
 }
 
 func (w *LocalBucketingWorker) checkForExternalWork() {
-	if w.jobInProgress.Load() {
-		return
-	}
-
-	for {
-		select {
-		case configData := <-w.storeConfigChan:
-			err := w.storeConfig(*configData)
-			w.storeConfigResponseChan <- err
-		case customData := <-w.setClientCustomDataChan:
-			err := w.setClientCustomData(*customData)
-			w.setClientCustomDataResponseChan <- err
-		case <-w.flushEventsChan:
-			err := w.flushEvents()
-			if err != nil {
-				warnf("LocalBucketingWorker: Error flushing events: %s\n", err)
-			}
-		default:
-			// keep blocking this worker until it has a config
-			if w.hasConfig {
-				return
-			}
-		}
-	}
+	//if w.jobInProgress.Load() {
+	//	return
+	//}
+	//
+	//for {
+	//	select {
+	//	case configData := <-w.storeConfigChan:
+	//		err := w.storeConfig(*configData)
+	//		w.storeConfigResponseChan <- err
+	//	case customData := <-w.setClientCustomDataChan:
+	//		err := w.setClientCustomData(*customData)
+	//		w.setClientCustomDataResponseChan <- err
+	//	case <-w.flushEventsChan:
+	//		err := w.flushEvents()
+	//		if err != nil {
+	//			warnf("LocalBucketingWorker: Error flushing events: %s\n", err)
+	//		}
+	//	default:
+	//		// keep blocking this worker until it has a config
+	//		if w.hasConfig {
+	//			return
+	//		}
+	//	}
+	//}
 }
 
 /**
