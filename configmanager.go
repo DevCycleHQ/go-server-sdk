@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -144,33 +145,26 @@ func (e *EnvironmentConfigManager) setConfig(config []byte) (err error) {
 		return
 	}
 
+	var wg sync.WaitGroup
+	errorChan := make(chan error, len(e.bucketingWorkers))
+
 	for _, worker := range e.bucketingWorkers {
-		err = worker.StoreConfig(config)
+		go func(worker *LocalBucketingWorker) {
+			wg.Add(1)
+			worker.storeConfigChan <- &config
+			err = <-worker.storeConfigResponseChan
+			errorChan <- err
+			wg.Done()
+		}(worker)
 	}
 
-	// TODO see if this can work
-	//var wg sync.WaitGroup
+	wg.Wait()
 
-	//errorChan := make(chan error, 1)
-	//
-	//for _, worker := range e.bucketingWorkers {
-	//	wg.Add(1)
-	//	go func(worker *LocalBucketingWorker) {
-	//		err = worker.StoreConfig(config)
-	//		if err != nil {
-	//			errorChan <- err
-	//		}
-	//		wg.Done()
-	//	}(worker)
-	//}
-	//
-	//wg.Wait()
-	//
-	//select {
-	//case err = <-errorChan:
-	//	return err
-	//default:
-	//}
+	select {
+	case err = <-errorChan:
+		return err
+	default:
+	}
 
 	if err != nil {
 		return

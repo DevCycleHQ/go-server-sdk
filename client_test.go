@@ -300,9 +300,9 @@ func BenchmarkDVCClient_VariableConcurrent(b *testing.B) {
 		go func() {
 			defer wg.Done()
 			variable, err := client.Variable(user, test_large_config_variable, false)
-			//if i%200 == 1 {
-			//	client.configManager.setConfig([]byte(test_large_config))
-			//}
+			if i%2000 == 1 {
+				client.configManager.setConfig([]byte(test_large_config))
+			}
 			if err != nil {
 				b.Errorf("Failed to retrieve variable: %v", err)
 			}
