@@ -3,10 +3,10 @@ package proto;
 option go_package = "./proto";
 
 enum VariableType_PB {
-    Boolean = 0;
-    Number = 1;
-    String = 2;
-    JSON = 3;
+  Boolean = 0;
+  Number = 1;
+  String = 2;
+  JSON = 3;
 }
 
 message NullableString {
@@ -19,13 +19,15 @@ message NullableDouble {
   bool isNull = 2;
 }
 
+enum CustomDataType {
+  Bool = 0;
+  Num = 1;
+  Str = 2;
+  Null = 3;
+}
+
 message CustomDataValue {
-  /*
-  Reusing this because if you create a new enum with the same names it has a conflict.
-  Enums use C++ scoping rules making them all global
-  TODO revisit
-  */
-  VariableType_PB type = 1;
+  CustomDataType type = 1;
   bool boolValue = 2;
   double doubleValue = 3;
   string stringValue = 4;
@@ -37,10 +39,11 @@ message NullableCustomData {
 }
 
 message VariableForUserParams_PB {
-    string sdkKey = 1;
-    string variableKey = 2;
-    VariableType_PB variableType = 3;
-    DVCUser_PB user = 4;
+  string sdkKey = 1;
+  string variableKey = 2;
+  VariableType_PB variableType = 3;
+  DVCUser_PB user = 4;
+  bool shouldTrackEvent = 5;
 }
 
 message DVCUser_PB {
@@ -57,11 +60,11 @@ message DVCUser_PB {
 }
 
 message SDKVariable_PB {
-    string _id = 1;
-    VariableType_PB type = 2;
-    string key = 3;
-    bool boolValue = 4;
-    double doubleValue = 5;
-    string stringValue = 6;
-    NullableString evalReason = 7;
+  string _id = 1;
+  VariableType_PB type = 2;
+  string key = 3;
+  bool boolValue = 4;
+  double doubleValue = 5;
+  string stringValue = 6;
+  NullableString evalReason = 7;
 }
