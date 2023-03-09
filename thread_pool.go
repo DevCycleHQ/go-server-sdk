@@ -28,6 +28,7 @@ type LocalBucketingWorker struct {
 	eventsQueue     chan PayloadsAndChannel
 	flushEventsChan chan bool
 	hasConfig       bool
+	jobInProgress   atomic.Bool
 	id              int32
 }
 
@@ -68,24 +69,34 @@ func (w *LocalBucketingWorker) Initialize(wasmMain *WASMMain, sdkKey string, eve
 	}
 
 	ticker := time.NewTicker(options.EventFlushIntervalMS)
+	checkForWorkTimer := time.NewTicker(1 * time.Second)
+
 	w.flushStop = make(chan bool, 1)
 	w.flushEventsChan = make(chan bool, 1)
 
-	go w.eventLoop(ticker)
+	w.jobInProgress = atomic.Bool{}
+
+	go w.tickers(ticker, checkForWorkTimer)
 
 	w.id = workerId.Add(1)
 	return
 }
 
-func (w *LocalBucketingWorker) eventLoop(ticker *time.Ticker) {
+func (w *LocalBucketingWorker) tickers(flushTicker *time.Ticker, checkForWorkTimer *time.Ticker) {
 	for {
 		select {
 		case <-w.flushStop:
-			ticker.Stop()
+			flushTicker.Stop()
 			infof("LocalBucketingWorker: Stopping event flushing.")
 			return
-		case <-ticker.C:
-			w.flushEventsChan <- true
+		case <-checkForWorkTimer.C:
+			w.checkForExternalWork()
+		case <-flushTicker.C:
+			select {
+			// write non-blockingly to notify that we want to flush still
+			case w.flushEventsChan <- true:
+			default:
+			}
 		}
 	}
 }
@@ -120,6 +131,9 @@ func (w *LocalBucketingWorker) flushEvents() error {
 }
 
 func (w *LocalBucketingWorker) Process(payload interface{}) interface{} {
+	w.jobInProgress.Store(true)
+	defer w.jobInProgress.Store(false)
+
 	var variableForUserPayload = payload.(*VariableForUserPayload)
 
 	variable, err := w.variableForUser(
@@ -148,13 +162,11 @@ func (w *LocalBucketingWorker) setClientCustomData(customData []byte) error {
 	return w.localBucketing.SetClientCustomData(customData)
 }
 
-/**
- * Called by the thread pool each time a job is completed.
- *	When the function returns, the worker will be returned to the pool and given a new job when needed.
- * We use this moment to check for any external state updates that have come in (eg. a new config or client custom data)
- *  and process them since we are not currently busy with a job.
- */
-func (w *LocalBucketingWorker) BlockUntilReady() {
+func (w *LocalBucketingWorker) checkForExternalWork() {
+	if w.jobInProgress.Load() {
+		return
+	}
+
 	for {
 		select {
 		case configData := <-w.storeConfigChan:
@@ -177,13 +189,17 @@ func (w *LocalBucketingWorker) BlockUntilReady() {
 	}
 }
 
+/**
+ * Called by the thread pool each time a job is completed.
+ *	When the function returns, the worker will be returned to the pool and given a new job when needed.
+ * We use this moment to check for any external state updates that have come in (eg. a new config or client custom data)
+ *  and process them since we are not currently busy with a job.
+ */
+func (w *LocalBucketingWorker) BlockUntilReady() {
+	w.checkForExternalWork()
+}
+
 func (w *LocalBucketingWorker) Interrupt() {}
 func (w *LocalBucketingWorker) Terminate() {
 	w.flushStop <- true
 }
-
-// did a job
-// block until ready
-// setClientCustomData - no listener for channel
-// new job
-// block until ready - now we read the channel
