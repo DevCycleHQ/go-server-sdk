@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/proto"
@@ -590,8 +591,23 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 			}
 			err = c.localBucketing.SetClientCustomData(data)
 
+			var wg sync.WaitGroup
+			errChan := make(chan error, len(c.bucketingWorkers))
+
 			for _, w := range c.bucketingWorkers {
-				err = w.SetClientCustomData(data)
+				go func(w *LocalBucketingWorker) {
+					wg.Add(1)
+					defer wg.Done()
+					w.setClientCustomDataChan <- &data
+					err = <-w.setClientCustomDataResponseChan
+					errChan <- err
+				}(w)
+			}
+
+			wg.Wait()
+
+			if err == nil {
+				err = <-errChan
 			}
 
 			return err
