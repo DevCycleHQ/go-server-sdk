@@ -12,7 +12,7 @@ func main() {
 
 	variableKey := os.Getenv("DVC_VARIABLE_KEY")
 	userId := os.Getenv("DVC_USER_ID")
-	client, err := devcycle.NewDVCClient(os.Getenv("DVC_SERVER_KEY"), &devcycle.DVCOptions{})
+	client, err := devcycle.NewDVCClient(os.Getenv("DVC_SERVER_SDK_KEY"), &devcycle.DVCOptions{})
 	if err != nil {
 		return
 	}
