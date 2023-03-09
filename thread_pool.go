@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync/atomic"
-	"time"
 )
 
 var (
@@ -22,14 +21,12 @@ type LocalBucketingWorker struct {
 	storeConfigResponseChan         chan error
 	setClientCustomDataChan         chan *[]byte
 	setClientCustomDataResponseChan chan error
-	// used to signal to the event flushing to stop
-	flushStop chan bool
 	// channel for passing back event payloads to the main event queue
-	eventsQueue     chan PayloadsAndChannel
-	flushEventsChan chan bool
-	hasConfig       bool
-	jobInProgress   atomic.Bool
-	id              int32
+	eventsQueue chan<- PayloadsAndChannel
+
+	hasConfig     bool
+	jobInProgress atomic.Bool
+	id            int32
 }
 
 type WorkerPoolPayload struct {
@@ -72,37 +69,10 @@ func (w *LocalBucketingWorker) Initialize(wasmMain *WASMMain, sdkKey string, eve
 		return fmt.Errorf("error initializing worker event queue: %w", err)
 	}
 
-	ticker := time.NewTicker(options.EventFlushIntervalMS)
-	checkForWorkTimer := time.NewTicker(1 * time.Second)
-
-	w.flushStop = make(chan bool, 1)
-	w.flushEventsChan = make(chan bool, 1)
-
 	w.jobInProgress = atomic.Bool{}
-
-	go w.tickers(ticker, checkForWorkTimer)
 
 	w.id = workerId.Add(1)
 	return
-}
-
-func (w *LocalBucketingWorker) tickers(flushTicker *time.Ticker, checkForWorkTimer *time.Ticker) {
-	for {
-		select {
-		case <-w.flushStop:
-			flushTicker.Stop()
-			infof("LocalBucketingWorker: Stopping event flushing.")
-			return
-		case <-checkForWorkTimer.C:
-			w.checkForExternalWork()
-		case <-flushTicker.C:
-			select {
-			// write non-blockingly to notify that we want to flush still
-			case w.flushEventsChan <- true:
-			default:
-			}
-		}
-	}
 }
 
 func (w *LocalBucketingWorker) flushEvents() error {
@@ -113,7 +83,8 @@ func (w *LocalBucketingWorker) flushEvents() error {
 	if len(payloads) == 0 {
 		return nil
 	}
-	var responseChannel = make(chan FlushResult, 1)
+
+	var responseChannel = make(chan FlushResult)
 
 	w.eventsQueue <- PayloadsAndChannel{
 		payloads: payloads,
@@ -151,6 +122,7 @@ func (w *LocalBucketingWorker) Process(payload interface{}) interface{} {
 			Err: err,
 		}
 	} else if workerPayload.Type_ == "flushEvents" {
+		debugf("Flushing events from worker %d", w.id)
 		err := w.flushEvents()
 		return WorkerPoolResponse{
 			Err: err,
@@ -221,6 +193,4 @@ func (w *LocalBucketingWorker) BlockUntilReady() {
 }
 
 func (w *LocalBucketingWorker) Interrupt() {}
-func (w *LocalBucketingWorker) Terminate() {
-	w.flushStop <- true
-}
+func (w *LocalBucketingWorker) Terminate() {}
