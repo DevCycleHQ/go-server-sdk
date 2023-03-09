@@ -100,6 +100,4 @@ func (w *LocalBucketingWorker) BlockUntilReady() {
 }
 
 func (w *LocalBucketingWorker) Interrupt() {}
-func (w *LocalBucketingWorker) Terminate() {
-	printf("terminating worker %d", w.id)
-}
+func (w *LocalBucketingWorker) Terminate() {}
