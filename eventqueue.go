@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/DevCycleHQ/tunny"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/DevCycleHQ/tunny"
 )
 
 type EventQueue struct {
@@ -139,10 +140,13 @@ func (e *EventQueue) FlushEvents() (err error) {
 
 	// ask all the workers to send us their events.
 	// These will arrive on the events channel and be flushed on each worker thread
-	debugf("Flushing events from all workers")
-	errs := e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
-		Type_: "flushEvents",
-	})
+	var errs []interface{}
+	if e.bucketingWorkerPool != nil {
+		debugf("Flushing events from all workers")
+		errs = e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
+			Type_: "flushEvents",
+		})
+	}
 
 	for _, err := range errs {
 		var response = err.(WorkerPoolResponse)
