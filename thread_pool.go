@@ -10,10 +10,6 @@ import (
 
 var (
 	workerId = atomic.Int32{}
-	"encoding/json"
-	"fmt"
-	"sync"
-	"time"
 )
 
 type LocalBucketingWorker struct {
@@ -30,8 +26,8 @@ type LocalBucketingWorker struct {
 	flushStop chan bool
 	// channel for passing back event payloads to the main event queue
 	eventsQueue chan []FlushPayload
-	hasConfig                       bool
-	id                              int32
+	hasConfig   bool
+	id          int32
 }
 
 type VariableForUserPayload struct {
