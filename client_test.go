@@ -3,6 +3,7 @@ package devcycle
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -79,6 +80,20 @@ func TestDVCClient_VariableLocalProtobuf(t *testing.T) {
 		"test", true)
 	fatalErr(t, err)
 
+	expected := Variable{
+		baseVariable: baseVariable{
+			Key:   "test",
+			Type_: "Boolean",
+			Value: true,
+		},
+		DefaultValue: true,
+		IsDefaulted:  false,
+	}
+	if !reflect.DeepEqual(expected, variable) {
+		fmt.Println("got", variable)
+		fmt.Println("expected", expected)
+		t.Fatal("Expected variable to be equal to expected variable")
+	}
 	fmt.Println(variable)
 }
 

@@ -1,7 +1,9 @@
 package devcycle
 
 import (
+	"bytes"
 	_ "embed"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -502,20 +504,6 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 		return nil, fmt.Errorf("Error allocating WASM string: %w", err)
 	}
 
-	err = d.assemblyScriptPin(paramsAddr)
-	if err != nil {
-		return nil, fmt.Errorf("Error pinning WASM address: %w", err)
-	}
-
-	defer func() {
-		err := d.assemblyScriptUnpin(paramsAddr)
-
-		if err != nil {
-			errorf(err.Error())
-		}
-	}()
-	varPtrData := d.wasmMemory.UnsafeData(d.wasmStore)[paramsAddr : paramsAddr+int32(len(serializedParams))]
-	fmt.Println(varPtrData)
 	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr)
 	if err != nil {
 		return nil, fmt.Errorf("Error calling variableForUserPB: %w", err)
@@ -531,7 +519,7 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 		return nil, fmt.Errorf(errorMessage)
 	}
 
-	rawVar, err := d.mallocAssemblyScriptByteArray(intPtr)
+	rawVar, err := d.readAssemblyScriptByteArray(intPtr)
 	if err != nil {
 		return nil, fmt.Errorf("Error converting WASM result to bytes: %w", err)
 	}
@@ -680,25 +668,46 @@ func (d *DevCycleLocalBucketing) allocMemForString(size int32) (addr int32, err 
 }
 
 func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32, error) {
-	const objectIdString int32 = 9
+	const id int32 = 9
+	const align = 0
+	length := int32(len(param))
 
-	// malloc
-	ptr, err := d.__newFunc.Call(d.wasmStore, int32(len(param)), objectIdString)
+	bufferPtr, err := d.__newFunc.Call(d.wasmStore, length<<align, 1)
 	if err != nil {
 		return -1, err
 	}
-	addr := ptr.(int32)
+	buffer := bufferPtr.(int32)
+	_, err = d.__pinFunc.Call(d.wasmStore, buffer)
+	headerPtr, err := d.__newFunc.Call(d.wasmStore, 12, id)
+	header := headerPtr.(int32)
+	littleEndianBufferAddress := bytes.NewBuffer([]byte{})
+
 	data := d.wasmMemory.UnsafeData(d.wasmStore)
 
-	for i, c := range param {
-		data[addr+int32(i)] = c
+	err = binary.Write(littleEndianBufferAddress, binary.LittleEndian, buffer)
+	if err != nil {
+		return 0, err
 	}
 
-	dataAddress := ptr.(int32)
-	if dataAddress == 0 {
-		return -1, errorf("Failed to allocate memory for string")
+	for i, c := range littleEndianBufferAddress.Bytes() {
+		data[header+int32(i)] = c
+		data[header+int32(i)+4] = c
 	}
-	return ptr.(int32), nil
+
+	lengthBuffer := bytes.NewBuffer([]byte{})
+	err = binary.Write(lengthBuffer, binary.LittleEndian, length<<align)
+	if err != nil {
+		return 0, err
+	}
+	for i, c := range lengthBuffer.Bytes() {
+		data[header+8+int32(i)] = c
+	}
+
+	for i, c := range param {
+		data[buffer+int32(i)] = c
+	}
+
+	return header, nil
 }
 
 // https://www.assemblyscript.org/runtime.html#memory-layout
@@ -722,19 +731,20 @@ func (d *DevCycleLocalBucketing) mallocAssemblyScriptBytes(pointer int32) ([]byt
 	return ret, nil
 }
 
-func (d *DevCycleLocalBucketing) mallocAssemblyScriptByteArray(pointer int32) ([]byte, error) {
+func (d *DevCycleLocalBucketing) readAssemblyScriptByteArray(pointer int32) ([]byte, error) {
 	if pointer == 0 {
 		return nil, errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
 	}
 
 	data := d.wasmMemory.UnsafeData(d.wasmStore)
-	stringLength := byteArrayToInt(data[pointer-4 : pointer])
-	rawData := data[pointer : pointer+int32(stringLength)]
+	dataLength := byteArrayToInt(data[pointer+8 : pointer+12])
 
-	ret := make([]byte, len(rawData))
+	dataPointer := byteArrayToInt(data[pointer : pointer+4])
 
-	for i := 0; i < len(rawData); i++ {
-		ret[i] += rawData[i]
+	ret := make([]byte, dataLength)
+
+	for i := 0; i < int(dataLength); i++ {
+		ret[i] = data[int32(dataPointer)+int32(i)]
 	}
 
 	return ret, nil

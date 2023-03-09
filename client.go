@@ -243,8 +243,7 @@ func (c *DVCClient) variableForUser_Protobuf(user DVCUser, key string, variableT
 	sdkVariable := proto.SDKVariable_PB{}
 	err = sdkVariable.UnmarshalVT(variable_buffer)
 
-	// turn sdkVariable into real Variable object
-	return Variable{
+	reConstructedVariable := Variable{
 		baseVariable: baseVariable{
 			Key:   sdkVariable.Key,
 			Type_: sdkVariable.Type.String(),
@@ -252,7 +251,9 @@ func (c *DVCClient) variableForUser_Protobuf(user DVCUser, key string, variableT
 		},
 		DefaultValue: nil,
 		IsDefaulted:  false,
-	}, nil
+	}
+	// turn sdkVariable into real Variable object
+	return reConstructedVariable, nil
 }
 
 func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
