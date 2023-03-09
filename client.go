@@ -89,7 +89,7 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 		return err
 	}
 
-	eventsChan := make(chan []FlushPayload)
+	eventsChan := make(chan PayloadsAndChannel)
 
 	c.eventQueue = &EventQueue{}
 	err = c.eventQueue.initialize(eventsChan, options, localBucketing, c.cfg)

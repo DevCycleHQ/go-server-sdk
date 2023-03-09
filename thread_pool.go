@@ -10,10 +10,6 @@ import (
 
 var (
 	workerId = atomic.Int32{}
-	"encoding/json"
-	"fmt"
-	"sync"
-	"time"
 )
 
 type LocalBucketingWorker struct {
@@ -29,10 +25,10 @@ type LocalBucketingWorker struct {
 	// used to signal to the event flushing to stop
 	flushStop chan bool
 	// channel for passing back event payloads to the main event queue
-	eventsQueue chan []FlushPayload
+	eventsQueue     chan PayloadsAndChannel
 	flushEventsChan chan bool
-	hasConfig                       bool
-	id                              int32
+	hasConfig       bool
+	id              int32
 }
 
 type VariableForUserPayload struct {
@@ -46,7 +42,13 @@ type VariableForUserResponse struct {
 	Err      error
 }
 
-func (w *LocalBucketingWorker) Initialize(wasmMain *WASMMain, sdkKey string, eventsQueue chan []FlushPayload, options *DVCOptions) (err error) {
+type FlushResult struct {
+	SuccessPayloads          []string
+	FailurePayloads          []string
+	FailureWithRetryPayloads []string
+}
+
+func (w *LocalBucketingWorker) Initialize(wasmMain *WASMMain, sdkKey string, eventsQueue chan PayloadsAndChannel, options *DVCOptions) (err error) {
 	w.localBucketing = &DevCycleLocalBucketing{}
 	err = w.localBucketing.Initialize(wasmMain, sdkKey, options)
 	w.storeConfigChan = make(chan *[]byte, 1)
@@ -83,14 +85,7 @@ func (w *LocalBucketingWorker) eventLoop(ticker *time.Ticker) {
 			infof("LocalBucketingWorker: Stopping event flushing.")
 			return
 		case <-ticker.C:
-			select {
-			case <-w.flushEventsChan:
-				err := w.flushEvents()
-				if err != nil {
-					warnf("LocalBucketingWorker: Error flushing events: %s\n", err)
-				}
-			default:
-			}
+			w.flushEventsChan <- true
 		}
 	}
 }
@@ -103,10 +98,21 @@ func (w *LocalBucketingWorker) flushEvents() error {
 	if len(payloads) == 0 {
 		return nil
 	}
-	w.eventsQueue <- payloads
-	for _, payload := range payloads {
-		if err = w.localBucketing.onPayloadSuccess(payload.PayloadId); err != nil {
-			// TODO: Need to handle this better: otherwise next flushEventQueue will fail
+	var responseChannel = make(chan FlushResult, 1)
+
+	w.eventsQueue <- PayloadsAndChannel{
+		payloads: payloads,
+		channel:  &responseChannel,
+	}
+
+	var result = <-responseChannel
+	for _, payloadId := range result.SuccessPayloads {
+		if err = w.localBucketing.onPayloadSuccess(payloadId); err != nil {
+			return err
+		}
+	}
+	for _, payloadId := range result.FailurePayloads {
+		if err = w.localBucketing.onPayloadSuccess(payloadId); err != nil {
 			return err
 		}
 	}
@@ -175,3 +181,9 @@ func (w *LocalBucketingWorker) Interrupt() {}
 func (w *LocalBucketingWorker) Terminate() {
 	w.flushStop <- true
 }
+
+// did a job
+// block until ready
+// setClientCustomData - no listener for channel
+// new job
+// block until ready - now we read the channel
