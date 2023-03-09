@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/proto"
+	"github.com/matryer/try"
 	"io"
 	"math"
 	"math/rand"
@@ -15,8 +17,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/matryer/try"
 )
 
 var (
@@ -174,6 +174,67 @@ func (c *DVCClient) variableForUser(user DVCUser, key string, variableType Varia
 		return Variable{}, err
 	}
 	variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType)
+	return
+}
+
+func createNullableString(val string) proto.NullableString {
+	if val == "" {
+		return proto.NullableString{Value: "", IsNull: true}
+	} else {
+		return proto.NullableString{Value: val, IsNull: false}
+	}
+}
+
+func createNullableDouble(val float64) proto.NullableDouble {
+	if val == math.NaN() {
+		return proto.NullableDouble{Value: 0, IsNull: true}
+	} else {
+		return proto.NullableDouble{Value: val, IsNull: false}
+	}
+}
+
+func createNullableCustomData(data map[string]interface{}) proto.NullableCustomData {
+	// TODO figure out how to do this conversion, default to null prop for testing
+	emptyMap := map[string]*proto.CustomDataValue{}
+	return proto.NullableCustomData{
+		Value:  emptyMap,
+		IsNull: true,
+	}
+}
+
+func (c *DVCClient) variableForUser_Protobuf(user DVCUser, key string, variableType VariableTypeCode) (variable Variable, err error) {
+	userPB := proto.DVCUser_PB{
+		UserId:   user.UserId,
+		Email:    createNullableString(user.Email),
+		Name:     createNullableString(user.Name),
+		Language: createNullableString(user.Language),
+		Country:  createNullableString(user.Country),
+		// ??? for some reason this is a string in Go but on the WASM it is a number
+		AppBuild:          createNullableDouble(0),
+		AppVersion:        createNullableString(user.AppVersion),
+		DeviceModel:       createNullableString(user.DeviceModel),
+		CustomData:        createNullableCustomData(user.CustomData),
+		PrivateCustomData: createNullableCustomData(user.PrivateCustomData),
+	}
+
+	paramsPB := proto.VariableForUserParams_PB{
+		SdkKey:       c.sdkKey,
+		VariableKey:  key,
+		VariableType: proto.VariableType_PB(variableType),
+		User:         userPB,
+	}
+
+	// Generate the buffer
+	buffer, err := paramsPB.MarshalVT()
+
+	// pass the byte[] to the VariableForUser_PB and get a possible byte buffer back
+	//variable_buffer, err = c.localBucketing.VariableForUser_PB(buffer)
+
+	// Decode the buffer into an object
+	sdkVariable := proto.SDKVariable_PB{}
+	err = sdkVariable.UnmarshalVT(variable_buffer)
+
+	// turn sdkVariable into real Variable object
 	return
 }
 
