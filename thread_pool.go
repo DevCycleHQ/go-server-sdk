@@ -98,7 +98,12 @@ func (w *LocalBucketingWorker) flushEvents() error {
 		}
 	}
 	for _, payloadId := range result.FailurePayloads {
-		if err = w.localBucketing.onPayloadSuccess(payloadId); err != nil {
+		if err = w.localBucketing.onPayloadFailure(payloadId, false); err != nil {
+			return err
+		}
+	}
+	for _, payloadId := range result.FailureWithRetryPayloads {
+		if err = w.localBucketing.onPayloadFailure(payloadId, true); err != nil {
 			return err
 		}
 	}
