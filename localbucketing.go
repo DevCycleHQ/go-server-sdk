@@ -491,7 +491,7 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 	return ret, err
 }
 
-func (d *DevCycleLocalBucketing) VariableForUserPB(serializedParams []byte) ([]byte, error) {
+func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]byte, error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()

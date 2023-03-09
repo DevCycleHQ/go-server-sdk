@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/proto"
-	"github.com/matryer/try"
 	"io"
 	"math"
 	"math/rand"
@@ -17,6 +15,9 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/devcyclehq/go-server-sdk/v2/proto"
+	"github.com/matryer/try"
 )
 
 var (
@@ -177,33 +178,33 @@ func (c *DVCClient) variableForUser(user DVCUser, key string, variableType Varia
 	return
 }
 
-func createNullableString(val string) proto.NullableString {
+func createNullableString(val string) *proto.NullableString {
 	if val == "" {
-		return proto.NullableString{Value: "", IsNull: true}
+		return &proto.NullableString{Value: "", IsNull: true}
 	} else {
-		return proto.NullableString{Value: val, IsNull: false}
+		return &proto.NullableString{Value: val, IsNull: false}
 	}
 }
 
-func createNullableDouble(val float64) proto.NullableDouble {
+func createNullableDouble(val float64) *proto.NullableDouble {
 	if val == math.NaN() {
-		return proto.NullableDouble{Value: 0, IsNull: true}
+		return &proto.NullableDouble{Value: 0, IsNull: true}
 	} else {
-		return proto.NullableDouble{Value: val, IsNull: false}
+		return &proto.NullableDouble{Value: val, IsNull: false}
 	}
 }
 
-func createNullableCustomData(data map[string]interface{}) proto.NullableCustomData {
+func createNullableCustomData(data map[string]interface{}) *proto.NullableCustomData {
 	// TODO figure out how to do this conversion, default to null prop for testing
 	emptyMap := map[string]*proto.CustomDataValue{}
-	return proto.NullableCustomData{
+	return &proto.NullableCustomData{
 		Value:  emptyMap,
-		IsNull: true,
+		IsNull: false,
 	}
 }
 
 func (c *DVCClient) variableForUser_Protobuf(user DVCUser, key string, variableType VariableTypeCode) (variable Variable, err error) {
-	userPB := proto.DVCUser_PB{
+	userPB := &proto.DVCUser_PB{
 		UserId:   user.UserId,
 		Email:    createNullableString(user.Email),
 		Name:     createNullableString(user.Name),
@@ -227,15 +228,31 @@ func (c *DVCClient) variableForUser_Protobuf(user DVCUser, key string, variableT
 	// Generate the buffer
 	buffer, err := paramsPB.MarshalVT()
 
+	if err != nil {
+		return Variable{}, fmt.Errorf("Error marshalling protobuf object in variableForUser_Protobuf: %w", err)
+	}
+
 	// pass the byte[] to the VariableForUser_PB and get a possible byte buffer back
-	//variable_buffer, err = c.localBucketing.VariableForUser_PB(buffer)
+	variable_buffer, err := c.localBucketing.VariableForUser_PB(buffer)
+
+	if err != nil {
+		return Variable{}, fmt.Errorf("Error calling variableForUser_Protobuf: %w", err)
+	}
 
 	// Decode the buffer into an object
 	sdkVariable := proto.SDKVariable_PB{}
 	err = sdkVariable.UnmarshalVT(variable_buffer)
 
 	// turn sdkVariable into real Variable object
-	return
+	return Variable{
+		baseVariable: baseVariable{
+			Key:   sdkVariable.Key,
+			Type_: sdkVariable.Type.String(),
+			Value: sdkVariable.GetValue(),
+		},
+		DefaultValue: nil,
+		IsDefaulted:  false,
+	}, nil
 }
 
 func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
