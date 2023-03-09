@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"reflect"
+	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -237,16 +240,29 @@ func fatalErr(t *testing.T, err error) {
 	}
 }
 
-var benchmarkEvents = flag.Bool("benchEnableEvents", false, "Custom test flag that enables event logging in benchmarks")
+var (
+	benchmarkEnableEvents        bool
+	benchmarkEnableConfigUpdates bool
+	benchmarkNumWorkers          int
+	benchmarkDisableLogs         bool
+)
 
-func BenchmarkDVCClient_Variable(b *testing.B) {
+func init() {
+	flag.BoolVar(&benchmarkEnableEvents, "benchEnableEvents", false, "Custom test flag that enables event logging in benchmarks")
+	flag.BoolVar(&benchmarkEnableConfigUpdates, "benchEnableConfigUpdates", false, "Custom test flag that enables config updates in benchmarks")
+	flag.IntVar(&benchmarkNumWorkers, "benchNumWorkers", runtime.NumCPU(), "Custom test flag that sets the number of WASM workers in benchmarks")
+	flag.BoolVar(&benchmarkDisableLogs, "benchDisableLogs", false, "Custom test flag that disables logging in benchmarks")
+}
+
+func BenchmarkDVCClient_VariableSerial(b *testing.B) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
 	httpEventsApiMock()
 
-	// silence logging
-	log.SetOutput(io.Discard)
+	if benchmarkDisableLogs {
+		log.SetOutput(io.Discard)
+	}
 
 	options := &DVCOptions{
 		EnableCloudBucketing:         false,
@@ -254,9 +270,12 @@ func BenchmarkDVCClient_Variable(b *testing.B) {
 		DisableCustomEventLogging:    true,
 		ConfigPollingIntervalMS:      time.Minute,
 		EventFlushIntervalMS:         time.Minute,
+		AdvancedOptions: AdvancedOptions{
+			MaxWasmWorkers: benchmarkNumWorkers,
+		},
 	}
 
-	if *benchmarkEvents {
+	if benchmarkEnableEvents {
 		options.DisableAutomaticEventLogging = false
 		options.DisableCustomEventLogging = false
 		options.EventFlushIntervalMS = 0
@@ -283,14 +302,15 @@ func BenchmarkDVCClient_Variable(b *testing.B) {
 	}
 }
 
-func BenchmarkDVCClient_VariableConcurrent(b *testing.B) {
+func BenchmarkDVCClient_VariableParallel(b *testing.B) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
 	httpEventsApiMock()
 
-	// silence logging
-	log.SetOutput(io.Discard)
+	if benchmarkDisableLogs {
+		log.SetOutput(io.Discard)
+	}
 
 	options := &DVCOptions{
 		EnableCloudBucketing:         false,
@@ -298,8 +318,11 @@ func BenchmarkDVCClient_VariableConcurrent(b *testing.B) {
 		DisableCustomEventLogging:    true,
 		ConfigPollingIntervalMS:      time.Minute,
 		EventFlushIntervalMS:         time.Minute,
+		AdvancedOptions: AdvancedOptions{
+			MaxWasmWorkers: benchmarkNumWorkers,
+		},
 	}
-	if *benchmarkEvents {
+	if benchmarkEnableEvents {
 		infof("Enabling event logging")
 		options.DisableAutomaticEventLogging = false
 		options.DisableCustomEventLogging = false
@@ -318,107 +341,28 @@ func BenchmarkDVCClient_VariableConcurrent(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
-		wg.Add(1)
+	setConfigCount := atomic.Uint64{}
 
-		go func() {
-			defer wg.Done()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
 			variable, err := client.Variable(user, test_large_config_variable, false)
-			if i%2000 == 1 {
-				client.configManager.setConfig([]byte(test_large_config))
-			}
 			if err != nil {
 				b.Errorf("Failed to retrieve variable: %v", err)
+			}
+			if benchmarkEnableConfigUpdates && rand.Intn(1000) == 0 {
+				go func() {
+					err = client.configManager.setConfig([]byte(test_large_config))
+					setConfigCount.Add(1)
+				}()
 			}
 			if variable.IsDefaulted {
 				b.Fatal("Expected variable to return a value")
 			}
-		}()
-	}
+		}
+	})
 
 	wg.Wait()
-}
 
-func BenchmarkDVCClient_Variable_Protobuf(b *testing.B) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
-	httpEventsApiMock()
-
-	options := &DVCOptions{
-		EnableCloudBucketing:         false,
-		DisableAutomaticEventLogging: true,
-		DisableCustomEventLogging:    true,
-		ConfigPollingIntervalMS:      time.Minute,
-		EventFlushIntervalMS:         time.Minute,
-	}
-
-	client, err := NewDVCClient(test_environmentKey, options)
-	if err != nil {
-		b.Errorf("Failed to initialize client: %v", err)
-	}
-
-	user := DVCUser{UserId: "dontcare"}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		variable, err := client.Variable(user, test_large_config_variable, false)
-		if err != nil {
-			b.Errorf("Failed to retrieve variable: %v", err)
-		}
-		if variable.IsDefaulted {
-			b.Fatal("Expected variable to return a value")
-		}
-	}
-}
-
-func BenchmarkDVCClient_VariableConcurrentOneWorker(b *testing.B) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
-	httpEventsApiMock()
-
-	options := &DVCOptions{
-		EnableCloudBucketing:         false,
-		DisableAutomaticEventLogging: true,
-		DisableCustomEventLogging:    true,
-		ConfigPollingIntervalMS:      time.Minute,
-		EventFlushIntervalMS:         time.Minute,
-		AdvancedOptions: AdvancedOptions{
-			MaxWasmWorkers: 1,
-		},
-	}
-
-	client, err := NewDVCClient(test_environmentKey, options)
-	if err != nil {
-		b.Errorf("Failed to initialize client: %v", err)
-	}
-
-	user := DVCUser{UserId: "dontcare"}
-
-	var wg sync.WaitGroup
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	var i int
-	for i = 0; i < b.N; i++ {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-			variable, err := client.Variable(user, test_large_config_variable, false)
-			//if i%200 == 1 {
-			//	client.configManager.setConfig([]byte(test_large_config))
-			//}
-			if err != nil {
-				b.Errorf("Failed to retrieve variable: %v", err)
-			}
-			if variable.IsDefaulted {
-				b.Fatal("Expected variable to return a value")
-			}
-		}()
-	}
-
-	wg.Wait()
+	b.ReportMetric(float64(benchmarkNumWorkers), "workers")
+	b.ReportMetric(float64(setConfigCount.Load()), "reconfigs")
 }
