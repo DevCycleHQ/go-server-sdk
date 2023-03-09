@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -204,14 +205,20 @@ func createNullableCustomData(data map[string]interface{}) *proto.NullableCustom
 }
 
 func (c *DVCClient) variableForUser_Protobuf(user DVCUser, key string, variableType VariableTypeCode) (variable Variable, err error) {
+	appBuild := math.NaN()
+	if user.AppBuild != "" {
+		appBuild, err = strconv.ParseFloat(user.AppBuild, 64)
+		if err != nil {
+			appBuild = math.NaN()
+		}
+	}
 	userPB := &proto.DVCUser_PB{
-		UserId:   user.UserId,
-		Email:    createNullableString(user.Email),
-		Name:     createNullableString(user.Name),
-		Language: createNullableString(user.Language),
-		Country:  createNullableString(user.Country),
-		// ??? for some reason this is a string in Go but on the WASM it is a number
-		AppBuild:          createNullableDouble(0),
+		UserId:            user.UserId,
+		Email:             createNullableString(user.Email),
+		Name:              createNullableString(user.Name),
+		Language:          createNullableString(user.Language),
+		Country:           createNullableString(user.Country),
+		AppBuild:          createNullableDouble(appBuild),
 		AppVersion:        createNullableString(user.AppVersion),
 		DeviceModel:       createNullableString(user.DeviceModel),
 		CustomData:        createNullableCustomData(user.CustomData),
@@ -243,7 +250,8 @@ func (c *DVCClient) variableForUser_Protobuf(user DVCUser, key string, variableT
 	sdkVariable := proto.SDKVariable_PB{}
 	err = sdkVariable.UnmarshalVT(variable_buffer)
 
-	reConstructedVariable := Variable{
+	// turn sdkVariable into real Variable object
+	return Variable{
 		baseVariable: baseVariable{
 			Key:   sdkVariable.Key,
 			Type_: sdkVariable.Type.String(),
@@ -251,9 +259,7 @@ func (c *DVCClient) variableForUser_Protobuf(user DVCUser, key string, variableT
 		},
 		DefaultValue: nil,
 		IsDefaulted:  false,
-	}
-	// turn sdkVariable into real Variable object
-	return reConstructedVariable, nil
+	}, nil
 }
 
 func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
