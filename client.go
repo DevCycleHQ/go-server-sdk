@@ -428,6 +428,112 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	return variable, nil
 }
 
+func (c *DVCClient) VariableProtobuf(userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
+	if key == "" {
+		return Variable{}, errors.New("invalid key provided for call to Variable")
+	}
+
+	convertedDefaultValue := convertDefaultValueType(defaultValue)
+	variableType, err := variableTypeFromValue(key, convertedDefaultValue)
+
+	if err != nil {
+		return Variable{}, err
+	}
+
+	baseVar := baseVariable{Key: key, Value: convertedDefaultValue, Type_: variableType}
+	variable := Variable{baseVariable: baseVar, DefaultValue: convertedDefaultValue, IsDefaulted: true}
+
+	if !c.DevCycleOptions.EnableCloudBucketing {
+		if !c.hasConfig() {
+			warnf("Variable called before client initialized, returning default value")
+			err = c.queueAggregateEvent(BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, DVCEvent{
+				Type_:  EventType_AggVariableDefaulted,
+				Target: key,
+			})
+
+			if err != nil {
+				warnf("Error queuing aggregate event: ", err)
+				err = nil
+			}
+
+			return variable, nil
+		}
+		variableTypeCode, err := c.variableTypeCodeFromType(variableType)
+
+		if err != nil {
+			return Variable{}, err
+		}
+		bucketedVariable, err := c.variableForUser_Protobuf(userdata, key, variableTypeCode)
+
+		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
+		if bucketedVariable.Value != nil && sameTypeAsDefault {
+			variable.Value = bucketedVariable.Value
+			variable.IsDefaulted = false
+		} else {
+			if !sameTypeAsDefault && bucketedVariable.Value != nil {
+				warnf("Type mismatch for variable %s. Expected type %s, got %s",
+					key,
+					reflect.TypeOf(defaultValue).String(),
+					reflect.TypeOf(bucketedVariable.Value).String(),
+				)
+			}
+		}
+		return variable, err
+	}
+
+	populatedUser := userdata.getPopulatedUser()
+
+	var (
+		httpMethod          = strings.ToUpper("Post")
+		postBody            interface{}
+		localVarReturnValue Variable
+	)
+
+	// create path and map variables
+	path := c.cfg.BasePath + "/v1/variables/{key}"
+	path = strings.Replace(path, "{"+"key"+"}", fmt.Sprintf("%v", key), -1)
+
+	headers := make(map[string]string)
+	queryParams := url.Values{}
+
+	// userdata params
+	postBody = &populatedUser
+
+	r, body, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
+
+	if err != nil {
+		return variable, err
+	}
+
+	if r.StatusCode < 300 {
+		// If we succeed, return the data, otherwise pass on to decode error.
+		err = decode(&localVarReturnValue, body, r.Header.Get("Content-Type"))
+		if err == nil && localVarReturnValue.Value != nil {
+			if compareTypes(localVarReturnValue.Value, convertedDefaultValue) {
+				variable.Value = localVarReturnValue.Value
+				variable.IsDefaulted = false
+			} else {
+				warnf("Type mismatch for variable %s. Expected type %s, got %s",
+					key,
+					reflect.TypeOf(defaultValue).String(),
+					reflect.TypeOf(localVarReturnValue.Value).String(),
+				)
+			}
+
+			return variable, err
+		}
+	}
+
+	var v ErrorResponse
+	err = decode(&v, body, r.Header.Get("Content-Type"))
+	if err != nil {
+		warnf("Error decoding response body %s", err)
+		return variable, nil
+	}
+	warnf(v.Message)
+	return variable, nil
+}
+
 func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, error) {
 	var (
 		httpMethod          = strings.ToUpper("Post")

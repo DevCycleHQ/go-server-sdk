@@ -496,7 +496,7 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	paramsAddr, err := d.newAssemblyScriptString(serializedParams)
+	paramsAddr, err := d.newAssemblyScriptByteArray(serializedParams)
 
 	if err != nil {
 		return nil, fmt.Errorf("Error allocating WASM string: %w", err)
@@ -514,7 +514,8 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 			errorf(err.Error())
 		}
 	}()
-
+	varPtrData := d.wasmMemory.UnsafeData(d.wasmStore)[paramsAddr : paramsAddr+int32(len(serializedParams))]
+	fmt.Println(varPtrData)
 	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr)
 	if err != nil {
 		return nil, fmt.Errorf("Error calling variableForUserPB: %w", err)
@@ -530,7 +531,7 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 		return nil, fmt.Errorf(errorMessage)
 	}
 
-	rawVar, err := d.mallocAssemblyScriptBytes(intPtr)
+	rawVar, err := d.mallocAssemblyScriptByteArray(intPtr)
 	if err != nil {
 		return nil, fmt.Errorf("Error converting WASM result to bytes: %w", err)
 	}
@@ -675,7 +676,28 @@ func (d *DevCycleLocalBucketing) allocMemForString(size int32) (addr int32, err 
 	if err := d.assemblyScriptPin(ptr.(int32)); err != nil {
 		return -1, err
 	}
+	return ptr.(int32), nil
+}
 
+func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32, error) {
+	const objectIdString int32 = 9
+
+	// malloc
+	ptr, err := d.__newFunc.Call(d.wasmStore, int32(len(param)), objectIdString)
+	if err != nil {
+		return -1, err
+	}
+	addr := ptr.(int32)
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
+
+	for i, c := range param {
+		data[addr+int32(i)] = c
+	}
+
+	dataAddress := ptr.(int32)
+	if dataAddress == 0 {
+		return -1, errorf("Failed to allocate memory for string")
+	}
 	return ptr.(int32), nil
 }
 
@@ -700,6 +722,23 @@ func (d *DevCycleLocalBucketing) mallocAssemblyScriptBytes(pointer int32) ([]byt
 	return ret, nil
 }
 
+func (d *DevCycleLocalBucketing) mallocAssemblyScriptByteArray(pointer int32) ([]byte, error) {
+	if pointer == 0 {
+		return nil, errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
+	}
+
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
+	stringLength := byteArrayToInt(data[pointer-4 : pointer])
+	rawData := data[pointer : pointer+int32(stringLength)]
+
+	ret := make([]byte, len(rawData))
+
+	for i := 0; i < len(rawData); i++ {
+		ret[i] += rawData[i]
+	}
+
+	return ret, nil
+}
 func (d *DevCycleLocalBucketing) assemblyScriptPin(pointer int32) (err error) {
 	if pointer == 0 {
 		return errorf("null pointer passed to assemblyScriptPin - cannot pin")

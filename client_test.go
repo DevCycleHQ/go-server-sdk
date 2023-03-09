@@ -67,6 +67,21 @@ func TestDVCClient_VariableLocal(t *testing.T) {
 	fmt.Println(variable)
 }
 
+func TestDVCClient_VariableLocalProtobuf(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+
+	variable, err := c.VariableProtobuf(
+		DVCUser{UserId: "j_test", DeviceModel: "testing"},
+		"test", true)
+	fatalErr(t, err)
+
+	fmt.Println(variable)
+}
+
 func TestDVCClient_VariableLocal_403(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()

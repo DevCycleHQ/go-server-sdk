@@ -5,7 +5,7 @@ import (
 	"github.com/bytecodealliance/wasmtime-go/v6"
 )
 
-//go:embed bucketing-lib.release.wasm
+//go:embed bucketing-lib.debug.wasm
 var wasmMainBinary []byte
 
 type WASMMain struct {
