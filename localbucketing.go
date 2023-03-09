@@ -61,6 +61,7 @@ type DevCycleLocalBucketing struct {
 	queueAggregateEventFunc           *wasmtime.Func
 	setClientCustomDataFunc           *wasmtime.Func
 	variableForUserFunc               *wasmtime.Func
+	variableForUser_PBFunc            *wasmtime.Func
 
 	VariableTypeCodes VariableTypeCodes
 
@@ -142,6 +143,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	d.setClientCustomDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
 	d.setConfigDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
 	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserPreallocated").Func()
+	d.variableForUser_PBFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser_PB").Func()
 
 	// bind exported internal functions
 	d.__newFunc = d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
@@ -162,7 +164,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	}
 
 	d.allocatedMemPool = make([][]int32, d.options.MaxMemoryAllocationBuckets)
-	
+
 	// preallocate "buckets" of memory to write data buffers of different lengths to
 	// allocate 2^5 bytes to 2^(5+MaxMemoryAllocationBuckets) bytes
 	for i := memoryBucketOffset; i < d.options.MaxMemoryAllocationBuckets+memoryBucketOffset; i++ {
@@ -487,6 +489,53 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 	}
 	err = json.Unmarshal(rawVar, &ret)
 	return ret, err
+}
+
+func (d *DevCycleLocalBucketing) VariableForUserPB(serializedParams []byte) ([]byte, error) {
+	d.wasmMutex.Lock()
+	errorMessage = ""
+	defer d.wasmMutex.Unlock()
+
+	paramsAddr, err := d.newAssemblyScriptString(serializedParams)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error allocating WASM string: %w", err)
+	}
+
+	err = d.assemblyScriptPin(paramsAddr)
+	if err != nil {
+		return nil, fmt.Errorf("Error pinning WASM address: %w", err)
+	}
+
+	defer func() {
+		err := d.assemblyScriptUnpin(paramsAddr)
+
+		if err != nil {
+			errorf(err.Error())
+		}
+	}()
+
+	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr)
+	if err != nil {
+		return nil, fmt.Errorf("Error calling variableForUserPB: %w", err)
+	}
+
+	var intPtr = varPtr.(int32)
+
+	if intPtr == 0 {
+		return nil, fmt.Errorf("Unexpected zero pointer from calling variableForUserPB")
+	}
+
+	if errorMessage != "" {
+		return nil, fmt.Errorf(errorMessage)
+	}
+
+	rawVar, err := d.mallocAssemblyScriptBytes(intPtr)
+	if err != nil {
+		return nil, fmt.Errorf("Error converting WASM result to bytes: %w", err)
+	}
+
+	return rawVar, nil
 }
 
 func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
