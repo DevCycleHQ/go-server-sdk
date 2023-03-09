@@ -1,5 +1,5 @@
-github.com/Jeffail/tunny v0.1.4 h1:chtpdz+nUtaYQeCKlNBg6GycFF/kGVHOr6A3cmzTJXs=
-github.com/Jeffail/tunny v0.1.4/go.mod h1:P8xAx4XQl0xsuhjX1DtfaMDCSuavzdb2rwbd0lk+fvo=
+github.com/DevCycleHQ/tunny v0.0.0-20230309215158-d5b09badb97e h1:NK7D4JronKhjwj7FVe2+Pfxqdg1G78DhDSW4HBbF5SY=
+github.com/DevCycleHQ/tunny v0.0.0-20230309215158-d5b09badb97e/go.mod h1:jn9NqyRhew59FDdHD5sDnjSX6Z6aMd8RCDpMN66Yr8M=
 github.com/bytecodealliance/wasmtime-go/v6 v6.0.0 h1:5mSXXSh0NomwPRZwQfT+bvfeev6O2USeR3L4GGdppLo=
 github.com/bytecodealliance/wasmtime-go/v6 v6.0.0/go.mod h1:xM6n7uQzUKzcYXIou/DgW8aYDhSIq63Vzpl65n+BVeQ=
 github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 h1:SKI1/fuSdodxmNNyVBR8d7X/HuLnRpvvFO0AgyQk764=

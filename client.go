@@ -15,11 +15,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/proto"
-	"github.com/Jeffail/tunny"
+	"github.com/DevCycleHQ/tunny"
 
 	"github.com/matryer/try"
 )
@@ -110,7 +109,7 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 	}
 
 	c.configManager = &EnvironmentConfigManager{localBucketing: localBucketing}
-	err = c.configManager.Initialize(sdkKey, localBucketing, c.bucketingWorkers, c.cfg)
+	err = c.configManager.Initialize(sdkKey, localBucketing, c.bucketingWorkers, c.bucketingWorkerPool, c.cfg)
 
 	if err != nil {
 		return err
@@ -281,13 +280,13 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 		return variable, err
 	}
 
-	result := c.bucketingWorkerPool.Process(&VariableForUserPayload{
+	result := c.bucketingWorkerPool.Process(&WorkerPoolPayload{
 		User:         &userJSON,
 		Key:          &key,
 		VariableType: variableType,
 	})
 
-	var variableResult = result.(VariableForUserResponse)
+	var variableResult = result.(WorkerPoolResponse)
 
 	return *variableResult.Variable, variableResult.Err
 }
@@ -594,23 +593,35 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 			}
 			err = c.localBucketing.SetClientCustomData(data)
 
-			var wg sync.WaitGroup
-			errChan := make(chan error, len(c.bucketingWorkers))
-
-			for _, w := range c.bucketingWorkers {
-				go func(w *LocalBucketingWorker) {
-					wg.Add(1)
-					defer wg.Done()
-					w.setClientCustomDataChan <- &data
-					err = <-w.setClientCustomDataResponseChan
-					errChan <- err
-				}(w)
+			if err != nil {
+				return err
 			}
 
-			wg.Wait()
+			errs := c.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
+				Type_:            "setClientCustomData",
+				ClientCustomData: &data,
+			})
 
-			if err == nil {
-				err = <-errChan
+			//var wg sync.WaitGroup
+			//errChan := make(chan error, len(c.bucketingWorkers))
+			//
+			//for _, w := range c.bucketingWorkers {
+			//	go func(w *LocalBucketingWorker) {
+			//		wg.Add(1)
+			//		defer wg.Done()
+			//		w.setClientCustomDataChan <- &data
+			//		err = <-w.setClientCustomDataResponseChan
+			//		errChan <- err
+			//	}(w)
+			//}
+			//
+			//wg.Wait()
+
+			for _, err := range errs {
+				var response = err.(WorkerPoolResponse)
+				if response.Err != nil {
+					return response.Err
+				}
 			}
 
 			return err
