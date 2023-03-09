@@ -4,7 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -15,6 +15,10 @@ import (
 
 var (
 	errorMessage = ""
+)
+
+const (
+	memoryBucketOffset = 5
 )
 
 type VariableTypeCode int32
@@ -59,6 +63,10 @@ type DevCycleLocalBucketing struct {
 	variableForUserFunc               *wasmtime.Func
 
 	VariableTypeCodes VariableTypeCodes
+
+	// Holds pointers to pre-allocated blocks of memory. The first dimension is an index based on the size of the data
+	// The second dimension is a list of pointers to blocks of memory of that size
+	allocatedMemPool [][]int32
 }
 
 func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
@@ -133,7 +141,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	d.setPlatformDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setPlatformData").Func()
 	d.setClientCustomDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
 	d.setConfigDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
-	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser").Func()
+	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserPreallocated").Func()
 
 	// bind exported internal functions
 	d.__newFunc = d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
@@ -151,6 +159,34 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 		String:  VariableTypeCode(stringType),
 		Number:  VariableTypeCode(numberType),
 		JSON:    VariableTypeCode(jsonType),
+	}
+
+	d.allocatedMemPool = make([][]int32, d.options.MaxMemoryAllocationBuckets)
+	
+	// preallocate "buckets" of memory to write data buffers of different lengths to
+	// allocate 2^5 bytes to 2^(5+MaxMemoryAllocationBuckets) bytes
+	for i := memoryBucketOffset; i < d.options.MaxMemoryAllocationBuckets+memoryBucketOffset; i++ {
+		index := i - memoryBucketOffset
+		size := 1 << i
+
+		d.allocatedMemPool[index] = make([]int32, 2)
+		ptr1, err := d.allocMemForString(int32(size))
+
+		if err != nil {
+			return err
+		}
+
+		ptr2, err := d.allocMemForString(int32(size))
+
+		if err != nil {
+			return err
+		}
+
+		// currently we know there can only be two strings allocated at a time in the VariableForUser method
+		// which is the only method using this pool. Knowing that, preallocate two blocks for each size bucket
+		// We can then use both blocks of a particular bucket in case of a size collision between the two strings
+		d.allocatedMemPool[index][0] = ptr1
+		d.allocatedMemPool[index][1] = ptr2
 	}
 
 	err = d.setSDKKey(sdkKey)
@@ -398,31 +434,38 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
-	keyAddr, err := d.newAssemblyScriptString([]byte(key))
 
-	if err != nil {
-		return
-	}
+	keyAddr, preAllocatedKey, err := d.newAssemblyScriptStringWithPool([]byte(key), 0)
 
-	err = d.assemblyScriptPin(keyAddr)
 	if err != nil {
 		return
 	}
 
 	defer func() {
-		err := d.assemblyScriptUnpin(keyAddr)
-
-		if err != nil {
-			errorf(err.Error())
+		if !preAllocatedKey {
+			err := d.assemblyScriptUnpin(keyAddr)
+			if err != nil {
+				errorf(err.Error())
+			}
 		}
 	}()
 
-	userAddr, err := d.newAssemblyScriptString(user)
+	userAddr, preAllocatedUser, err := d.newAssemblyScriptStringWithPool(user, 1)
+
 	if err != nil {
 		return
 	}
 
-	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, keyAddr, int32(variableType))
+	defer func() {
+		if !preAllocatedUser {
+			err := d.assemblyScriptUnpin(userAddr)
+			if err != nil {
+				errorf(err.Error())
+			}
+		}
+	}()
+
+	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, len(user), keyAddr, len(key), int32(variableType), 1)
 	if err != nil {
 		return
 	}
@@ -529,6 +572,61 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, e
 	if dataAddress == 0 {
 		return -1, errorf("Failed to allocate memory for string")
 	}
+	return ptr.(int32), nil
+}
+
+func (d *DevCycleLocalBucketing) newAssemblyScriptStringWithPool(param []byte, preAllocIndex int32) (int32, bool, error) {
+	ptr, preAllocated, err := d.allocMemForStringPool(int32(len(param)*2), preAllocIndex)
+
+	if err != nil {
+		return -1, false, err
+	}
+
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
+	for i, c := range param {
+		data[ptr+int32(i*2)] = c
+	}
+
+	if ptr == 0 {
+		return -1, false, errorf("Failed to allocate memory for string")
+	}
+
+	return ptr, preAllocated, nil
+}
+
+func (d *DevCycleLocalBucketing) allocMemForStringPool(size int32, preAllocIndex int32) (addr int32, preAllocated bool, err error) {
+	if len(d.allocatedMemPool) == 0 {
+		// dont use the pool, fall through to alloc below
+	} else {
+		// index is the highest power value of 2 for the size we want, offset by the start of the allocation sizes
+		cachedIdx := int32(math.Max(memoryBucketOffset, math.Ceil(math.Log2(float64(size))))) - memoryBucketOffset
+		// if this index exceeds the max size of the pool, we'll just allocate the memory temporarily
+		if cachedIdx >= int32(len(d.allocatedMemPool)) {
+			warnf("String size exceeds max memory pool size, allocating new temporary block")
+		} else {
+			return d.allocatedMemPool[cachedIdx][preAllocIndex], true, nil
+		}
+	}
+
+	// malloc
+	ptr, err := d.allocMemForString(size)
+
+	return ptr, false, err
+}
+
+func (d *DevCycleLocalBucketing) allocMemForString(size int32) (addr int32, err error) {
+	const objectIdString int32 = 2
+
+	// malloc
+	ptr, err := d.__newFunc.Call(d.wasmStore, size, objectIdString)
+	if err != nil {
+		return -1, err
+	}
+
+	if err := d.assemblyScriptPin(ptr.(int32)); err != nil {
+		return -1, err
+	}
+
 	return ptr.(int32), nil
 }
 
