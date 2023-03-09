@@ -4,35 +4,38 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/DevCycleHQ/tunny"
 	"io"
 	"net/http"
-	"sync"
 	"time"
 )
 
 type EnvironmentConfigManager struct {
-	sdkKey           string
-	configETag       string
-	localBucketing   *DevCycleLocalBucketing
-	bucketingWorkers []*LocalBucketingWorker
-	firstLoad        bool
-	context          context.Context
-	cancel           context.CancelFunc
-	httpClient       *http.Client
-	cfg              *HTTPConfiguration
-	hasConfig        bool
-	pollingStop      chan bool
-	ticker           *time.Ticker
+	sdkKey              string
+	configETag          string
+	localBucketing      *DevCycleLocalBucketing
+	bucketingWorkers    []*LocalBucketingWorker
+	bucketingWorkerPool *tunny.Pool
+	firstLoad           bool
+	context             context.Context
+	cancel              context.CancelFunc
+	httpClient          *http.Client
+	cfg                 *HTTPConfiguration
+	hasConfig           bool
+	pollingStop         chan bool
+	ticker              *time.Ticker
 }
 
 func (e *EnvironmentConfigManager) Initialize(
 	sdkKey string,
 	localBucketing *DevCycleLocalBucketing,
 	bucketingWorkers []*LocalBucketingWorker,
+	bucketingWorkerPool *tunny.Pool,
 	cfg *HTTPConfiguration,
 ) (err error) {
 	e.localBucketing = localBucketing
 	e.bucketingWorkers = bucketingWorkers
+	e.bucketingWorkerPool = bucketingWorkerPool
 	e.sdkKey = sdkKey
 	e.cfg = cfg
 	e.httpClient = &http.Client{Timeout: localBucketing.options.RequestTimeout}
@@ -145,30 +148,42 @@ func (e *EnvironmentConfigManager) setConfig(config []byte) (err error) {
 		return
 	}
 
-	var wg sync.WaitGroup
-	errorChan := make(chan error, len(e.bucketingWorkers))
+	errs := e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
+		Type_:      "storeConfig",
+		ConfigData: &config,
+	})
 
-	for _, worker := range e.bucketingWorkers {
-		go func(worker *LocalBucketingWorker) {
-			wg.Add(1)
-			worker.storeConfigChan <- &config
-			err = <-worker.storeConfigResponseChan
-			errorChan <- err
-			wg.Done()
-		}(worker)
+	for _, err := range errs {
+		var response = err.(WorkerPoolResponse)
+		if response.Err != nil {
+			return response.Err
+		}
 	}
 
-	wg.Wait()
+	//var wg sync.WaitGroup
+	//errorChan := make(chan error, len(e.bucketingWorkers))
+	//
+	//for _, worker := range e.bucketingWorkers {
+	//	go func(worker *LocalBucketingWorker) {
+	//		wg.Add(1)
+	//		worker.storeConfigChan <- &config
+	//		err = <-worker.storeConfigResponseChan
+	//		errorChan <- err
+	//		wg.Done()
+	//	}(worker)
+	//}
+	//
+	//wg.Wait()
+	//
+	//select {
+	//case err = <-errorChan:
+	//	return err
+	//default:
+	//}
 
-	select {
-	case err = <-errorChan:
-		return err
-	default:
-	}
-
-	if err != nil {
-		return
-	}
+	//if err != nil {
+	//	return
+	//}
 
 	e.hasConfig = true
 	return
