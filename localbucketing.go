@@ -17,6 +17,10 @@ var (
 	errorMessage = ""
 )
 
+const (
+	memoryBucketOffset = 5
+)
+
 type VariableTypeCode int32
 
 type VariableTypeCodes struct {
@@ -157,14 +161,21 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 		JSON:    VariableTypeCode(jsonType),
 	}
 
-	d.allocatedMemPool = make([][]int32, d.options.MaxMemoryAllocationBuckets) // overly simplistic, probably need a larger pool
+	d.allocatedMemPool = make([][]int32, d.options.MaxMemoryAllocationBuckets)
+	
+	// preallocate "buckets" of memory to write data buffers of different lengths to
+	// allocate 2^5 bytes to 2^(5+MaxMemoryAllocationBuckets) bytes
+	for i := memoryBucketOffset; i < d.options.MaxMemoryAllocationBuckets+memoryBucketOffset; i++ {
+		index := i - memoryBucketOffset
+		size := 1 << i
 
-	for i := 0; i < d.options.MaxMemoryAllocationBuckets; i++ {
-		power := i
-		size := 1 << power
-
-		d.allocatedMemPool[i] = make([]int32, 2)
+		d.allocatedMemPool[index] = make([]int32, 2)
 		ptr1, err := d.allocMemForString(int32(size))
+
+		if err != nil {
+			return err
+		}
+
 		ptr2, err := d.allocMemForString(int32(size))
 
 		if err != nil {
@@ -174,8 +185,8 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 		// currently we know there can only be two strings allocated at a time in the VariableForUser method
 		// which is the only method using this pool. Knowing that, preallocate two blocks for each size bucket
 		// We can then use both blocks of a particular bucket in case of a size collision between the two strings
-		d.allocatedMemPool[i][0] = ptr1
-		d.allocatedMemPool[i][1] = ptr2
+		d.allocatedMemPool[index][0] = ptr1
+		d.allocatedMemPool[index][1] = ptr2
 	}
 
 	err = d.setSDKKey(sdkKey)
@@ -584,16 +595,17 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptStringWithPool(param []byte, p
 }
 
 func (d *DevCycleLocalBucketing) allocMemForStringPool(size int32, preAllocIndex int32) (addr int32, preAllocated bool, err error) {
-	cachedIdx := int32(math.Ceil(math.Log2(float64(size))))
-	// index is the highest power value of 2 for the size we want
-
-	// if this length exceeds the max size of the pool, we'll just allocate the memory temporarily
 	if len(d.allocatedMemPool) == 0 {
 		// dont use the pool, fall through to alloc below
-	} else if cachedIdx >= int32(len(d.allocatedMemPool)) {
-		warnf("String size exceeds max memory pool size, allocating new temporary block")
-	} else if d.options.MaxMemoryAllocationBuckets != -1 {
-		return d.allocatedMemPool[cachedIdx][preAllocIndex], true, nil
+	} else {
+		// index is the highest power value of 2 for the size we want, offset by the start of the allocation sizes
+		cachedIdx := int32(math.Max(memoryBucketOffset, math.Ceil(math.Log2(float64(size))))) - memoryBucketOffset
+		// if this index exceeds the max size of the pool, we'll just allocate the memory temporarily
+		if cachedIdx >= int32(len(d.allocatedMemPool)) {
+			warnf("String size exceeds max memory pool size, allocating new temporary block")
+		} else {
+			return d.allocatedMemPool[cachedIdx][preAllocIndex], true, nil
+		}
 	}
 
 	// malloc

@@ -53,7 +53,7 @@ type AdvancedOptions struct {
 	// controls the maximum number of pre-allocated memory blocks used for WASM execution. This influences the maximum
 	// string length that can be fit inside of preallocated memory
 	// Can be set to -1 to disable pre-allocated memory blocks entirely.
-	// This takes \sum_{k=1}^{n} 2^k memory usage
+	// This takes \sum_{k=5}^{n+5} 2^k memory usage
 	MaxMemoryAllocationBuckets int
 }
 
@@ -94,7 +94,7 @@ func (o *DVCOptions) CheckDefaults() {
 		o.FlushEventQueueSize = 1000
 	}
 	if o.MaxMemoryAllocationBuckets == 0 {
-		o.MaxMemoryAllocationBuckets = 16
+		o.MaxMemoryAllocationBuckets = 12
 	} else if o.MaxMemoryAllocationBuckets <= -1 {
 		o.MaxMemoryAllocationBuckets = 0
 	}
