@@ -30,6 +30,7 @@ type LocalBucketingWorker struct {
 	flushStop chan bool
 	// channel for passing back event payloads to the main event queue
 	eventsQueue chan []FlushPayload
+	flushEventsChan chan bool
 	hasConfig                       bool
 	id                              int32
 }
@@ -66,6 +67,8 @@ func (w *LocalBucketingWorker) Initialize(wasmMain *WASMMain, sdkKey string, eve
 
 	ticker := time.NewTicker(options.EventFlushIntervalMS)
 	w.flushStop = make(chan bool, 1)
+	w.flushEventsChan = make(chan bool, 1)
+
 	go w.eventLoop(ticker)
 
 	w.id = workerId.Add(1)
@@ -80,9 +83,13 @@ func (w *LocalBucketingWorker) eventLoop(ticker *time.Ticker) {
 			infof("LocalBucketingWorker: Stopping event flushing.")
 			return
 		case <-ticker.C:
-			err := w.flushEvents()
-			if err != nil {
-				warnf("LocalBucketingWorker: Error flushing events: %s\n", err)
+			select {
+			case <-w.flushEventsChan:
+				err := w.flushEvents()
+				if err != nil {
+					warnf("LocalBucketingWorker: Error flushing events: %s\n", err)
+				}
+			default:
 			}
 		}
 	}
@@ -150,6 +157,11 @@ func (w *LocalBucketingWorker) BlockUntilReady() {
 		case customData := <-w.setClientCustomDataChan:
 			err := w.setClientCustomData(*customData)
 			w.setClientCustomDataResponseChan <- err
+		case <-w.flushEventsChan:
+			err := w.flushEvents()
+			if err != nil {
+				warnf("LocalBucketingWorker: Error flushing events: %s\n", err)
+			}
 		default:
 			// keep blocking this worker until it has a config
 			if w.hasConfig {
