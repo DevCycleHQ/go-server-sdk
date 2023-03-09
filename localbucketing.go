@@ -668,45 +668,64 @@ func (d *DevCycleLocalBucketing) allocMemForString(size int32) (addr int32, err 
 }
 
 func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32, error) {
-	const id int32 = 9
+	const byteArrayId int32 = 9
+	const bufferId int32 = 1
 	const align = 0
 	length := int32(len(param))
-
-	bufferPtr, err := d.__newFunc.Call(d.wasmStore, length<<align, 1)
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
+	// Allocate the full buffer of our data - this is a buffer
+	bufferPtr, err := d.__newFunc.Call(d.wasmStore, length<<align, bufferId)
 	if err != nil {
 		return -1, err
 	}
 	buffer := bufferPtr.(int32)
-	_, err = d.__pinFunc.Call(d.wasmStore, buffer)
-	headerPtr, err := d.__newFunc.Call(d.wasmStore, 12, id)
-	header := headerPtr.(int32)
-	littleEndianBufferAddress := bytes.NewBuffer([]byte{})
 
-	data := d.wasmMemory.UnsafeData(d.wasmStore)
+	// Pin the buffer addres to prevent GC from moving it
+	pinAddr, err := d.__pinFunc.Call(d.wasmStore, buffer)
+	pinnedAddr := pinAddr.(int32)
+	defer func() {
+		d.__unpinFunc.Call(d.wasmStore, pinnedAddr)
+	}()
+
+	// Allocate new memory for the header
+	// Format is
+	// 4 bytes: pointer address in LE to buffer
+	// 4 bytes: pointer address in LE to buffer
+	// 4 bytes: length of the buffer in LE
+	headerPtr, err := d.__newFunc.Call(d.wasmStore, 12, byteArrayId)
+	header := headerPtr.(int32)
+
+	// Create a binary buffer to write little endian format
+	littleEndianBufferAddress := bytes.NewBuffer([]byte{})
 
 	err = binary.Write(littleEndianBufferAddress, binary.LittleEndian, buffer)
 	if err != nil {
 		return 0, err
 	}
 
+	// Write to the first 8 bytes of the header
 	for i, c := range littleEndianBufferAddress.Bytes() {
 		data[header+int32(i)] = c
 		data[header+int32(i)+4] = c
 	}
 
+	// Create another binary buffer to write the length of the buffer
 	lengthBuffer := bytes.NewBuffer([]byte{})
 	err = binary.Write(lengthBuffer, binary.LittleEndian, length<<align)
 	if err != nil {
 		return 0, err
 	}
+	// Write the length to the last 4 bytes of the header
 	for i, c := range lengthBuffer.Bytes() {
 		data[header+8+int32(i)] = c
 	}
 
+	// Write the buffer itself into WASM.
 	for i, c := range param {
 		data[buffer+int32(i)] = c
 	}
 
+	// Return the header address - as that's what's consumed on the WASM side.
 	return header, nil
 }
 
