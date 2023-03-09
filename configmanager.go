@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/DevCycleHQ/tunny"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/DevCycleHQ/tunny"
 )
 
 type EnvironmentConfigManager struct {
@@ -148,42 +149,19 @@ func (e *EnvironmentConfigManager) setConfig(config []byte) (err error) {
 		return
 	}
 
-	errs := e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
-		Type_:      "storeConfig",
-		ConfigData: &config,
-	})
+	if e.bucketingWorkerPool != nil {
+		errs := e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
+			Type_:      "storeConfig",
+			ConfigData: &config,
+		})
 
-	for _, err := range errs {
-		var response = err.(WorkerPoolResponse)
-		if response.Err != nil {
-			return response.Err
+		for _, err := range errs {
+			var response = err.(WorkerPoolResponse)
+			if response.Err != nil {
+				return response.Err
+			}
 		}
 	}
-
-	//var wg sync.WaitGroup
-	//errorChan := make(chan error, len(e.bucketingWorkers))
-	//
-	//for _, worker := range e.bucketingWorkers {
-	//	go func(worker *LocalBucketingWorker) {
-	//		wg.Add(1)
-	//		worker.storeConfigChan <- &config
-	//		err = <-worker.storeConfigResponseChan
-	//		errorChan <- err
-	//		wg.Done()
-	//	}(worker)
-	//}
-	//
-	//wg.Wait()
-	//
-	//select {
-	//case err = <-errorChan:
-	//	return err
-	//default:
-	//}
-
-	//if err != nil {
-	//	return
-	//}
 
 	e.hasConfig = true
 	return
