@@ -18,10 +18,15 @@ type EventQueue struct {
 	closed            bool
 	ticker            *time.Ticker
 	flushStop         chan bool
-	eventsChan        chan []FlushPayload
+	eventsChan        chan PayloadsAndChannel
 }
 
-func (e *EventQueue) initialize(eventsChan chan []FlushPayload, options *DVCOptions, localBucketing *DevCycleLocalBucketing, cfg *HTTPConfiguration) (err error) {
+type PayloadsAndChannel struct {
+	payloads []FlushPayload
+	channel  *chan FlushResult
+}
+
+func (e *EventQueue) initialize(eventsChan chan PayloadsAndChannel, options *DVCOptions, localBucketing *DevCycleLocalBucketing, cfg *HTTPConfiguration) (err error) {
 	e.context = context.Background()
 	e.cfg = cfg
 	e.options = options
@@ -42,7 +47,7 @@ func (e *EventQueue) initialize(eventsChan chan []FlushPayload, options *DVCOpti
 			for {
 				select {
 				case payloads := <-eventsChan:
-					err = e.flushEventPayloads(payloads, true)
+					err = e.flushEventPayloads(payloads)
 					if err != nil {
 						warnf("Error flushing worker events: %s\n", err)
 					}
@@ -122,24 +127,24 @@ func (e *EventQueue) FlushEvents() (err error) {
 		return err
 	}
 
-	return e.flushEventPayloads(payloads, false)
+	return e.flushEventPayloads(PayloadsAndChannel{payloads: payloads})
 }
 
-func (e *EventQueue) flushEventPayloads(payloads []FlushPayload, useChannel bool) (err error) {
+func (e *EventQueue) flushEventPayloads(payloadsAndChannel PayloadsAndChannel) (err error) {
 	eventsHost := e.cfg.EventsAPIBasePath
-	for _, payload := range payloads {
+	for _, payload := range payloadsAndChannel.payloads {
 		var req *http.Request
 		var resp *http.Response
 		requestBody, err := json.Marshal(BatchEventsBody{Batch: payload.Records})
 		if err != nil {
 			_ = errorf("Failed to marshal batch events body: %s", err)
-			e.reportPayloadFailure(payload, false, useChannel)
+			e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
 			continue
 		}
 		req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(requestBody))
 		if err != nil {
 			_ = errorf("Failed to create request to events api: %s", err)
-			e.reportPayloadFailure(payload, false, useChannel)
+			e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
 			continue
 		}
 
@@ -151,7 +156,7 @@ func (e *EventQueue) flushEventPayloads(payloads []FlushPayload, useChannel bool
 
 		if err != nil {
 			_ = errorf("Failed to make request to events api: %s", err)
-			e.reportPayloadFailure(payload, false, useChannel)
+			e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
 			continue
 		}
 
@@ -166,24 +171,24 @@ func (e *EventQueue) flushEventPayloads(payloads []FlushPayload, useChannel bool
 		responseBody, readError := io.ReadAll(resp.Body)
 		if readError != nil {
 			errorf("Failed to read response body: %v", readError)
-			_ = e.reportPayloadFailure(payload, false, useChannel)
+			_ = e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
 			continue
 		}
 
 		if resp.StatusCode >= 500 {
 			warnf("Events API Returned a 5xx error, retrying later.")
-			e.reportPayloadFailure(payload, true, useChannel)
+			e.reportPayloadFailure(payload, true, payloadsAndChannel.channel)
 			continue
 		}
 
 		if resp.StatusCode >= 400 {
-			_ = e.reportPayloadFailure(payload, false, useChannel)
+			_ = e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
 			errorf("Error sending events - Response: %s", string(responseBody))
 			continue
 		}
 
 		if resp.StatusCode == 201 {
-			err = e.reportPayloadSuccess(payload, useChannel)
+			err = e.reportPayloadSuccess(payload, payloadsAndChannel.channel)
 			if err != nil {
 				_ = errorf("failed to mark payload as success %s", err)
 				continue
@@ -193,10 +198,10 @@ func (e *EventQueue) flushEventPayloads(payloads []FlushPayload, useChannel bool
 	return err
 }
 
-func (e *EventQueue) reportPayloadSuccess(payload FlushPayload, useChannel bool) (err error) {
-	if useChannel {
-		// No need to do anything here, the message has been removed from the channel already
-		return nil
+func (e *EventQueue) reportPayloadSuccess(payload FlushPayload, respChannel *chan FlushResult) (err error) {
+	if respChannel != nil {
+		*respChannel <- FlushResult{SuccessPayloads: []string{payload.PayloadId}}
+		return
 	}
 	err = e.localBucketing.onPayloadSuccess(payload.PayloadId)
 	if err != nil {
@@ -205,11 +210,13 @@ func (e *EventQueue) reportPayloadSuccess(payload FlushPayload, useChannel bool)
 	return
 }
 
-func (e *EventQueue) reportPayloadFailure(payload FlushPayload, retry bool, useChannel bool) {
-	if useChannel {
-		// Feed failed payload back into channel for re-processing
-		// TODO: This needs to respect the maximum queue size
-		e.eventsChan <- []FlushPayload{payload}
+func (e *EventQueue) reportPayloadFailure(payload FlushPayload, retry bool, respChannel *chan FlushResult) {
+	if respChannel != nil {
+		if retry {
+			*respChannel <- FlushResult{FailureWithRetryPayloads: []string{payload.PayloadId}}
+		} else {
+			*respChannel <- FlushResult{FailurePayloads: []string{payload.PayloadId}}
+		}
 		return
 	}
 	err := e.localBucketing.onPayloadFailure(payload.PayloadId, retry)
