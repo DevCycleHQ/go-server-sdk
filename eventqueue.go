@@ -4,21 +4,23 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/DevCycleHQ/tunny"
 	"io"
 	"net/http"
 	"time"
 )
 
 type EventQueue struct {
-	localBucketing    *DevCycleLocalBucketing
-	options           *DVCOptions
-	eventQueueOptions *EventQueueOptions
-	cfg               *HTTPConfiguration
-	context           context.Context
-	closed            bool
-	ticker            *time.Ticker
-	flushStop         chan bool
-	eventsChan        chan PayloadsAndChannel
+	localBucketing      *DevCycleLocalBucketing
+	options             *DVCOptions
+	eventQueueOptions   *EventQueueOptions
+	cfg                 *HTTPConfiguration
+	context             context.Context
+	closed              bool
+	ticker              *time.Ticker
+	flushStop           chan bool
+	eventsChan          chan PayloadsAndChannel
+	bucketingWorkerPool *tunny.Pool
 }
 
 type PayloadsAndChannel struct {
@@ -26,12 +28,13 @@ type PayloadsAndChannel struct {
 	channel  *chan FlushResult
 }
 
-func (e *EventQueue) initialize(eventsChan chan PayloadsAndChannel, options *DVCOptions, localBucketing *DevCycleLocalBucketing, cfg *HTTPConfiguration) (err error) {
+func (e *EventQueue) initialize(eventsChan chan PayloadsAndChannel, options *DVCOptions, localBucketing *DevCycleLocalBucketing, bucketingWorkerPool *tunny.Pool, cfg *HTTPConfiguration) (err error) {
 	e.context = context.Background()
 	e.cfg = cfg
 	e.options = options
 	e.flushStop = make(chan bool, 1)
 	e.eventsChan = eventsChan
+	e.bucketingWorkerPool = bucketingWorkerPool
 
 	if !e.options.EnableCloudBucketing && localBucketing != nil {
 		e.localBucketing = localBucketing
@@ -52,6 +55,7 @@ func (e *EventQueue) initialize(eventsChan chan PayloadsAndChannel, options *DVC
 						warnf("Error flushing worker events: %s\n", err)
 					}
 				case <-ticker.C:
+					debugf("Ticker for event flush triggered")
 					err = e.FlushEvents()
 					if err != nil {
 						warnf("Error flushing primary events queue: %s\n", err)
@@ -127,7 +131,27 @@ func (e *EventQueue) FlushEvents() (err error) {
 		return err
 	}
 
-	return e.flushEventPayloads(PayloadsAndChannel{payloads: payloads})
+	err = e.flushEventPayloads(PayloadsAndChannel{payloads: payloads})
+
+	if err != nil {
+		return err
+	}
+
+	// ask all the workers to send us their events.
+	// These will arrive on the events channel and be flushed on each worker thread
+	debugf("Flushing events from all workers")
+	errs := e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
+		Type_: "flushEvents",
+	})
+
+	for _, err := range errs {
+		var response = err.(WorkerPoolResponse)
+		if response.Err != nil {
+			return response.Err
+		}
+	}
+
+	return
 }
 
 func (e *EventQueue) flushEventPayloads(payloadsAndChannel PayloadsAndChannel) (err error) {
@@ -191,9 +215,12 @@ func (e *EventQueue) flushEventPayloads(payloadsAndChannel PayloadsAndChannel) (
 			err = e.reportPayloadSuccess(payload, payloadsAndChannel.channel)
 			if err != nil {
 				_ = errorf("failed to mark payload as success %s", err)
-				continue
 			}
+			continue
 		}
+
+		_ = errorf("unknown status code when flushing events %d", resp.StatusCode)
+		e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
 	}
 	return err
 }
