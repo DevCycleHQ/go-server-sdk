@@ -265,6 +265,11 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 		return Variable{}, errorf("Error calling variableForUserProtobuf: %w", err)
 	}
 
+	if variableBuffer == nil {
+		// If the variable is not bucketed, return an empty variable
+		return Variable{}, nil
+	}
+
 	// Decode the result
 	sdkVariable := proto.SDKVariable_PB{}
 	err = sdkVariable.UnmarshalVT(variableBuffer)
