@@ -42,6 +42,7 @@ type WorkerPoolPayload struct {
 type WorkerPoolResponse struct {
 	Variable *Variable
 	Events   *PayloadsAndChannel
+	ImHere   bool
 	Err      error
 }
 
