@@ -230,7 +230,8 @@ func createNullableCustomData(data map[string]interface{}) *proto.NullableCustom
 	}
 }
 
-func (c *DVCClient) variableForUser_Protobuf(user DVCUser, key string, variableType VariableTypeCode) (variable Variable, err error) {
+func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableType VariableTypeCode) (variable Variable, err error) {
+	// Take all the parameters and convert them to protobuf objects
 	appBuild := math.NaN()
 	if user.AppBuild != "" {
 		appBuild, err = strconv.ParseFloat(user.AppBuild, 64)
@@ -251,6 +252,7 @@ func (c *DVCClient) variableForUser_Protobuf(user DVCUser, key string, variableT
 		PrivateCustomData: createNullableCustomData(user.PrivateCustomData),
 	}
 
+	// package everything into the root params object
 	paramsPB := proto.VariableForUserParams_PB{
 		SdkKey:       c.sdkKey,
 		VariableKey:  key,
@@ -259,22 +261,21 @@ func (c *DVCClient) variableForUser_Protobuf(user DVCUser, key string, variableT
 	}
 
 	// Generate the buffer
-	buffer, err := paramsPB.MarshalVT()
+	paramsBuffer, err := paramsPB.MarshalVT()
 
 	if err != nil {
-		return Variable{}, fmt.Errorf("Error marshalling protobuf object in variableForUser_Protobuf: %w", err)
+		return Variable{}, fmt.Errorf("Error marshalling protobuf object in variableForUserProtobuf: %w", err)
 	}
 
-	// pass the byte[] to the VariableForUser_PB and get a possible byte buffer back
-	variable_buffer, err := c.localBucketing.VariableForUser_PB(buffer)
+	variableBuffer, err := c.localBucketing.VariableForUser_PB(paramsBuffer)
 
 	if err != nil {
-		return Variable{}, fmt.Errorf("Error calling variableForUser_Protobuf: %w", err)
+		return Variable{}, fmt.Errorf("Error calling variableForUserProtobuf: %w", err)
 	}
 
-	// Decode the buffer into an object
+	// Decode the result
 	sdkVariable := proto.SDKVariable_PB{}
-	err = sdkVariable.UnmarshalVT(variable_buffer)
+	err = sdkVariable.UnmarshalVT(variableBuffer)
 
 	// turn sdkVariable into real Variable object
 	return Variable{
@@ -461,6 +462,15 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	return variable, nil
 }
 
+/*
+DVCClientService Get variable by key for user data using Protobuf encoding
+
+  - @param body
+
+  - @param key Variable key
+
+    -@return Variable
+*/
 func (c *DVCClient) VariableProtobuf(userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
 	if key == "" {
 		return Variable{}, errors.New("invalid key provided for call to Variable")
@@ -496,7 +506,7 @@ func (c *DVCClient) VariableProtobuf(userdata DVCUser, key string, defaultValue 
 		if err != nil {
 			return Variable{}, err
 		}
-		bucketedVariable, err := c.variableForUser_Protobuf(userdata, key, variableTypeCode)
+		bucketedVariable, err := c.variableForUserProtobuf(userdata, key, variableTypeCode)
 
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
 		if bucketedVariable.Value != nil && sameTypeAsDefault {

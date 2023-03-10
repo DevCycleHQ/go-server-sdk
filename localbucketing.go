@@ -493,6 +493,10 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 	return ret, err
 }
 
+/*
+ * This is a helper function to call the variableForUserPB function in the WASM module.
+ * It takes a serialized protobuf message as input and returns a serialized protobuf message as output.
+ */
 func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]byte, error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
