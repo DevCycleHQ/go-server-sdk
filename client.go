@@ -170,15 +170,6 @@ func (c *DVCClient) generateBucketedConfig(user DVCUser) (config BucketedUserCon
 	return
 }
 
-func (c *DVCClient) variableForUser(user DVCUser, key string, variableType VariableTypeCode) (variable Variable, err error) {
-	userJSON, err := json.Marshal(user)
-	if err != nil {
-		return Variable{}, err
-	}
-	variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType)
-	return
-}
-
 func createNullableString(val string) *proto.NullableString {
 	if val == "" {
 		return &proto.NullableString{Value: "", IsNull: true}
