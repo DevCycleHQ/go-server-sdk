@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/devcyclehq/go-server-sdk/v2/proto"
 	"github.com/DevCycleHQ/tunny"
+	"github.com/devcyclehq/go-server-sdk/v2/proto"
 
 	"github.com/matryer/try"
 )
@@ -275,20 +275,37 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 		return Variable{}, errorf("Error marshalling protobuf object in variableForUserProtobuf: %w", err)
 	}
 
+	var variablePB *proto.SDKVariable_PB
 	if c.bucketingWorkerPool == nil {
-		variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType, true)
-		return variable, err
+		variablePB, err = c.localBucketing.VariableForUser_PB(paramsBuffer)
+		if err != nil {
+			return Variable{}, err
+		}
+	} else {
+		result := c.bucketingWorkerPool.Process(&WorkerPoolPayload{
+			VariableEvalParams: &paramsBuffer,
+		})
+
+		var variableResult = result.(WorkerPoolResponse)
+		if variableResult.Err != nil {
+			return Variable{}, variableResult.Err
+		}
+		variablePB = variableResult.Variable
 	}
 
-	result := c.bucketingWorkerPool.Process(&WorkerPoolPayload{
-		User:         &userJSON,
-		Key:          &key,
-		VariableType: variableType,
-	})
+	if variablePB == nil {
+		return Variable{}, nil
+	}
 
-	var variableResult = result.(WorkerPoolResponse)
-
-	return *variableResult.Variable, variableResult.Err
+	return Variable{
+		baseVariable: baseVariable{
+			Key:   variablePB.Key,
+			Type_: variablePB.Type.String(),
+			Value: variablePB.GetValue(),
+		},
+		DefaultValue: nil,
+		IsDefaulted:  false,
+	}, nil
 }
 
 func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
