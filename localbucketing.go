@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"math"
 	"math/rand"
 	"sync"
@@ -237,14 +236,14 @@ func (d *DevCycleLocalBucketing) initEventQueue(options []byte) (err error) {
 	}
 
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 		return
 	}
 
 	_, err = d.initEventQueueFunc.Call(d.wasmStore, d.sdkKeyAddr, optionsAddr)
 	if err != nil || errorMessage != "" {
 		if errorMessage != "" {
-			err = fmt.Errorf(errorMessage)
+			err = errorf(errorMessage)
 		}
 		return
 	}
@@ -268,7 +267,7 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 		return
 	}
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 		return
 	}
 	result, err := d.readAssemblyScriptStringBytes(addrResult.(int32))
@@ -286,7 +285,7 @@ func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
 
 	result, err := d.eventQueueSizeFunc.Call(d.wasmStore, d.sdkKeyAddr)
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 		return
 	}
 	if err != nil {
@@ -309,7 +308,7 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) 
 	_, err = d.onPayloadSuccessFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr)
 	if err != nil || errorMessage != "" {
 		if errorMessage != "" {
-			err = fmt.Errorf(errorMessage)
+			err = errorf(errorMessage)
 		}
 		return
 	}
@@ -342,7 +341,7 @@ func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 
 	_, err = d.queueEventFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, eventAddr)
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 	}
 	return
 }
@@ -377,7 +376,7 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, config Bucket
 
 	_, err = d.queueAggregateEventFunc.Call(d.wasmStore, d.sdkKeyAddr, eventAddr, variationMapAddr)
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 	}
 	return
 }
@@ -399,12 +398,12 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 	if retryable {
 		_, err = d.onPayloadFailureFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr, 1)
 		if errorMessage != "" {
-			err = fmt.Errorf(errorMessage)
+			err = errorf(errorMessage)
 		}
 	} else {
 		_, err = d.onPayloadFailureFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr, 0)
 		if errorMessage != "" {
-			err = fmt.Errorf(errorMessage)
+			err = errorf(errorMessage)
 		}
 	}
 	return
@@ -424,7 +423,7 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 		return
 	}
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 		return
 	}
 	rawConfig, err := d.readAssemblyScriptStringBytes(configPtr.(int32))
@@ -432,6 +431,65 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 		return
 	}
 	err = json.Unmarshal(rawConfig, &ret)
+	return ret, err
+}
+
+func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType VariableTypeCode) (ret Variable, err error) {
+	d.wasmMutex.Lock()
+	errorMessage = ""
+	defer d.wasmMutex.Unlock()
+
+	keyAddr, preAllocatedKey, err := d.newAssemblyScriptStringWithPool([]byte(key))
+
+	if err != nil {
+		return
+	}
+
+	defer func() {
+		if !preAllocatedKey {
+			err := d.assemblyScriptUnpin(keyAddr)
+			if err != nil {
+				errorf(err.Error())
+			}
+		}
+	}()
+
+	userAddr, preAllocatedUser, err := d.newAssemblyScriptStringWithPool(user)
+
+	if err != nil {
+		return
+	}
+
+	defer func() {
+		if !preAllocatedUser {
+			err := d.assemblyScriptUnpin(userAddr)
+			if err != nil {
+				errorf(err.Error())
+			}
+		}
+	}()
+
+	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, len(user), keyAddr, len(key), int32(variableType), 1)
+	if err != nil {
+		return
+	}
+
+	var intPtr = varPtr.(int32)
+
+	if intPtr == 0 {
+		ret = Variable{}
+		return
+	}
+
+	if errorMessage != "" {
+		err = errorf(errorMessage)
+		return
+	}
+	rawVar, err := d.readAssemblyScriptStringBytes(intPtr)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal(rawVar, &ret)
 	return ret, err
 }
 
@@ -447,7 +505,7 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 	paramsAddr, preallocated, err := d.newAssemblyScriptByteArray(serializedParams)
 
 	if err != nil {
-		return nil, fmt.Errorf("Error allocating WASM string: %w", err)
+		return nil, errorf("Error allocating WASM string: %w", err)
 	}
 
 	defer func() {
@@ -461,22 +519,22 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 
 	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr, len(serializedParams))
 	if err != nil {
-		return nil, fmt.Errorf("Error calling variableForUserPB: %w", err)
+		return nil, errorf("Error calling variableForUserPB: %w", err)
 	}
 
 	var intPtr = varPtr.(int32)
 
 	if intPtr == 0 {
-		return nil, fmt.Errorf("Unexpected zero pointer from calling variableForUserPB")
+		return nil, errorf("Unexpected zero pointer from calling variableForUserPB")
 	}
 
 	if errorMessage != "" {
-		return nil, fmt.Errorf(errorMessage)
+		return nil, errorf(errorMessage)
 	}
 
 	rawVar, err := d.readAssemblyScriptByteArray(intPtr)
 	if err != nil {
-		return nil, fmt.Errorf("Error converting WASM result to bytes: %w", err)
+		return nil, errorf("Error converting WASM result to bytes: %w", err)
 	}
 
 	return rawVar, nil
@@ -502,7 +560,7 @@ func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
 		return err
 	}
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 	}
 	return err
 }
@@ -522,7 +580,7 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 		return err
 	}
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 	}
 	return err
 }
@@ -539,7 +597,7 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
 
 	_, err = d.setClientCustomDataFunc.Call(d.wasmStore, d.sdkKeyAddr, customDataAddr)
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 	}
 	return err
 }

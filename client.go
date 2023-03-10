@@ -107,7 +107,7 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 // optionally pass a custom http.Client to allow for advanced features such as caching.
 func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	if sdkKey == "" {
-		return nil, fmt.Errorf("missing sdk key! Call NewDVCClient with a valid sdk key")
+		return nil, errorf("missing sdk key! Call NewDVCClient with a valid sdk key")
 	}
 	if !sdkKeyIsValid(sdkKey) {
 		return nil, fmt.Errorf("Invalid sdk key. Call NewDVCClient with a valid sdk key.")
@@ -255,13 +255,13 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 	paramsBuffer, err := paramsPB.MarshalVT()
 
 	if err != nil {
-		return Variable{}, fmt.Errorf("Error marshalling protobuf object in variableForUserProtobuf: %w", err)
+		return Variable{}, errorf("Error marshalling protobuf object in variableForUserProtobuf: %w", err)
 	}
 
 	variableBuffer, err := c.localBucketing.VariableForUser_PB(paramsBuffer)
 
 	if err != nil {
-		return Variable{}, fmt.Errorf("Error calling variableForUserProtobuf: %w", err)
+		return Variable{}, errorf("Error calling variableForUserProtobuf: %w", err)
 	}
 
 	// Decode the result
@@ -747,7 +747,7 @@ func variableTypeFromValue(key string, value interface{}) (varType string, err e
 		return "JSON", nil
 	}
 
-	return "", fmt.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
+	return "", errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
 }
 
 func (c *DVCClient) variableTypeCodeFromType(varType string) (varTypeCode VariableTypeCode, err error) {
@@ -762,7 +762,7 @@ func (c *DVCClient) variableTypeCodeFromType(varType string) (varTypeCode Variab
 		return c.localBucketing.VariableTypeCodes.JSON, nil
 	}
 
-	return 0, fmt.Errorf("variable type %s is not a valid type", varType)
+	return 0, errorf("variable type %s is not a valid type", varType)
 }
 
 // callAPI do the request.
