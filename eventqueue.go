@@ -122,12 +122,12 @@ func (e *EventQueue) checkEventQueueSize() (bool, error) {
 func (e *EventQueue) FlushEvents() (err error) {
 	e.localBucketing.startFlushEvents()
 	defer e.localBucketing.finishFlushEvents()
-	payloads, err := e.localBucketing.flushEventQueue()
+	//payloads, err := e.localBucketing.flushEventQueue()
 	if err != nil {
 		return err
 	}
 
-	err = e.flushEventPayloads(&PayloadsAndChannel{payloads: payloads})
+	//err = e.flushEventPayloads(&PayloadsAndChannel{payloads: payloads})
 
 	if err != nil {
 		return err
@@ -135,23 +135,25 @@ func (e *EventQueue) FlushEvents() (err error) {
 
 	// ask all the workers to send us their events.
 	// These will arrive on the events channel and be flushed on each worker thread
-	var events []interface{}
+	var workerFlushResponses []interface{}
 	if e.bucketingWorkerPool != nil {
 		debugf("Flushing events from all workers")
-		events = e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
+		workerFlushResponses = e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
 			Type_: "flushEvents",
 		})
 	}
 
-	for _, err := range events {
-		var response = err.(WorkerPoolResponse)
+	for _, workerResponse := range workerFlushResponses {
+		var response = workerResponse.(WorkerPoolResponse)
 		if response.Err != nil {
 			return response.Err
 		}
-		err := e.flushEventPayloads(response.Events)
+		if response.Events != nil {
+			err := e.flushEventPayloads(response.Events)
 
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 	}
 
