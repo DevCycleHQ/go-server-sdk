@@ -245,10 +245,11 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 
 	// package everything into the root params object
 	paramsPB := proto.VariableForUserParams_PB{
-		SdkKey:       c.sdkKey,
-		VariableKey:  key,
-		VariableType: proto.VariableType_PB(variableType),
-		User:         userPB,
+		SdkKey:           c.sdkKey,
+		VariableKey:      key,
+		VariableType:     proto.VariableType_PB(variableType),
+		User:             userPB,
+		ShouldTrackEvent: true,
 	}
 
 	// Generate the buffer

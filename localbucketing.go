@@ -466,7 +466,7 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 	var intPtr = varPtr.(int32)
 
 	if intPtr == 0 {
-		return nil, errorf("Unexpected zero pointer from calling variableForUserPB")
+		return nil, nil
 	}
 
 	if errorMessage != "" {
