@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/binary"
 	"encoding/json"
+	"github.com/devcyclehq/go-server-sdk/v2/proto"
 	"math"
 	"math/rand"
 	"sync"
@@ -444,7 +445,7 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
  * This is a helper function to call the variableForUserPB function in the WASM module.
  * It takes a serialized protobuf message as input and returns a serialized protobuf message as output.
  */
-func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]byte, error) {
+func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) (*proto.SDKVariable_PB, error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -484,7 +485,14 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 		return nil, errorf("Error converting WASM result to bytes: %w", err)
 	}
 
-	return rawVar, nil
+	sdkVariable := proto.SDKVariable_PB{}
+	err = sdkVariable.UnmarshalVT(rawVar)
+
+	if err != nil {
+		return nil, errorf("Error deserializing WASM result: %w", err)
+	}
+
+	return &sdkVariable, nil
 }
 
 func (d *DevCycleLocalBucketing) StoreConfig(config []byte) error {
