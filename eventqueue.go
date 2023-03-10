@@ -122,12 +122,12 @@ func (e *EventQueue) checkEventQueueSize() (bool, error) {
 func (e *EventQueue) FlushEvents() (err error) {
 	e.localBucketing.startFlushEvents()
 	defer e.localBucketing.finishFlushEvents()
-	//payloads, err := e.localBucketing.flushEventQueue()
+	payloads, err := e.localBucketing.flushEventQueue()
 	if err != nil {
 		return err
 	}
 
-	//err = e.flushEventPayloads(&PayloadsAndChannel{payloads: payloads})
+	err = e.flushEventPayloads(&PayloadsAndChannel{payloads: payloads})
 
 	if err != nil {
 		return err
@@ -139,7 +139,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 	if e.bucketingWorkerPool != nil {
 		debugf("Flushing events from all workers")
 		workerFlushResponses = e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
-			Type_: "flushEvents",
+			Type_: FlushEvents,
 		})
 	}
 

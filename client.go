@@ -614,7 +614,7 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 			}
 
 			errs := c.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
-				Type_:            "setClientCustomData",
+				Type_:            SetClientCustomData,
 				ClientCustomData: &data,
 			})
 
