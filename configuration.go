@@ -116,7 +116,7 @@ func (o *DVCOptions) CheckDefaults() {
 	}
 
 	if o.MaxWasmWorkers <= 0 {
-		o.MaxWasmWorkers = runtime.NumCPU()
+		o.MaxWasmWorkers = runtime.GOMAXPROCS(0)
 	}
 }
 
