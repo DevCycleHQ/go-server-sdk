@@ -129,6 +129,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 	if err != nil {
 		return err
 	}
+	e.eventsFlushed.Add(int32(len(payloads)))
 
 	err = e.flushEventPayloads(&PayloadsAndChannel{payloads: payloads})
 
