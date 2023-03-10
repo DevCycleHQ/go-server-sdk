@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"os"
 	"reflect"
 	"runtime"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -336,33 +334,48 @@ func BenchmarkDVCClient_VariableParallel(b *testing.B) {
 
 	user := DVCUser{UserId: "dontcare"}
 
-	var wg sync.WaitGroup
-
 	b.ResetTimer()
 	b.ReportAllocs()
 
 	setConfigCount := atomic.Uint64{}
+	configCounter := atomic.Uint64{}
+
+	errors := make(chan error, b.N)
+
+	var opNanos atomic.Int64
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
+			start := time.Now()
 			variable, err := client.Variable(user, test_large_config_variable, false)
+			duration := time.Since(start)
+			opNanos.Add(duration.Nanoseconds())
+
 			if err != nil {
-				b.Errorf("Failed to retrieve variable: %v", err)
+				errors <- fmt.Errorf("Failed to retrieve variable: %v", err)
 			}
-			if benchmarkEnableConfigUpdates && rand.Intn(1000) == 0 {
+			if benchmarkEnableConfigUpdates && configCounter.Add(1)%10000 == 0 {
 				go func() {
 					err = client.configManager.setConfig([]byte(test_large_config))
 					setConfigCount.Add(1)
 				}()
 			}
 			if variable.IsDefaulted {
-				b.Fatal("Expected variable to return a value")
+				errors <- fmt.Errorf("Expected variable to return a value")
 			}
 		}
 	})
 
-	wg.Wait()
+	select {
+	case err := <-errors:
+		b.Error(err)
+	default:
+	}
 
 	b.ReportMetric(float64(benchmarkNumWorkers), "workers")
 	b.ReportMetric(float64(setConfigCount.Load()), "reconfigs")
+	b.ReportMetric(float64(opNanos.Load())/float64(b.N), "ns")
+	eventsFlushed, eventsReported := client.eventQueue.Metrics()
+	b.ReportMetric(float64(eventsFlushed), "eventsFlushed")
+	b.ReportMetric(float64(eventsReported), "eventsReported")
 }
