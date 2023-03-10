@@ -165,6 +165,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 }
 
 func (e *EventQueue) flushEventPayloads(payloadsAndChannel *PayloadsAndChannel) (err error) {
+	e.eventsFlushed.Add(int32(len(payloadsAndChannel.payloads)))
 	eventsHost := e.cfg.EventsAPIBasePath
 	for _, payload := range payloadsAndChannel.payloads {
 		var req *http.Request
@@ -226,6 +227,7 @@ func (e *EventQueue) flushEventPayloads(payloadsAndChannel *PayloadsAndChannel) 
 			if err != nil {
 				_ = errorf("failed to mark payload as success %s", err)
 			}
+			e.eventsReported.Add(1)
 			continue
 		}
 
