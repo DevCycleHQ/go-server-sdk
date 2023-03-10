@@ -69,7 +69,8 @@ type DevCycleLocalBucketing struct {
 
 	// Holds pointers to pre-allocated blocks of memory. The first dimension is an index based on the size of the data
 	// The second dimension is a list of pointers to blocks of memory of that size
-	allocatedMemPool [][]int32
+	allocatedMemPool      [][]int32
+	allocatedBytesMemPool [][]int32
 }
 
 func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
@@ -97,7 +98,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 
 	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
 		var errorMessage []byte
-		errorMessage, err = d.mallocAssemblyScriptBytes(messagePtr)
+		errorMessage, err = d.readAssemblyScriptStringBytes(messagePtr)
 		if err != nil {
 			_ = errorf("WASM Error: %s", err)
 			return
@@ -112,7 +113,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 
 	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
 		var message []byte
-		message, err = d.mallocAssemblyScriptBytes(messagePtr)
+		message, err = d.readAssemblyScriptStringBytes(messagePtr)
 		printf(string(message))
 	})
 	if err != nil {
@@ -166,6 +167,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	}
 
 	d.allocatedMemPool = make([][]int32, d.options.MaxMemoryAllocationBuckets)
+	d.allocatedBytesMemPool = make([][]int32, d.options.MaxMemoryAllocationBuckets)
 
 	// preallocate "buckets" of memory to write data buffers of different lengths to
 	// allocate 2^5 bytes to 2^(5+MaxMemoryAllocationBuckets) bytes
@@ -270,7 +272,7 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 		err = fmt.Errorf(errorMessage)
 		return
 	}
-	result, err := d.mallocAssemblyScriptBytes(addrResult.(int32))
+	result, err := d.readAssemblyScriptStringBytes(addrResult.(int32))
 	if err != nil {
 		return
 	}
@@ -426,7 +428,7 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 		err = fmt.Errorf(errorMessage)
 		return
 	}
-	rawConfig, err := d.mallocAssemblyScriptBytes(configPtr.(int32))
+	rawConfig, err := d.readAssemblyScriptStringBytes(configPtr.(int32))
 	if err != nil {
 		return
 	}
@@ -485,7 +487,7 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 		err = fmt.Errorf(errorMessage)
 		return
 	}
-	rawVar, err := d.mallocAssemblyScriptBytes(intPtr)
+	rawVar, err := d.readAssemblyScriptStringBytes(intPtr)
 	if err != nil {
 		return
 	}
@@ -736,7 +738,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32
 // https://www.assemblyscript.org/runtime.html#memory-layout
 // This skips every other index in the resulting array because
 // there isn't a great way to parse UTF-16 cleanly that matches the WTF-16 format that ASC uses.
-func (d *DevCycleLocalBucketing) mallocAssemblyScriptBytes(pointer int32) ([]byte, error) {
+func (d *DevCycleLocalBucketing) readAssemblyScriptStringBytes(pointer int32) ([]byte, error) {
 	if pointer == 0 {
 		return nil, errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
 	}
