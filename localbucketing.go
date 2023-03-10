@@ -458,7 +458,7 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 		}
 	}()
 
-	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr, len(serializedParams))
+	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr, int32(len(serializedParams)))
 	if err != nil {
 		return nil, errorf("Error calling variableForUserPB: %w", err)
 	}
