@@ -97,6 +97,53 @@ func TestDVCClient_VariableLocalProtobuf(t *testing.T) {
 	fmt.Println(variable)
 }
 
+func TestDVCClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+
+	customData := map[string]interface{}{
+		"propStr":  "hello",
+		"propInt":  1,
+		"propBool": true,
+		"propNull": nil,
+	}
+	customPrivateData := map[string]interface{}{
+		"aPrivateValue": "asuh",
+	}
+
+	variable, err := c.VariableProtobuf(
+		DVCUser{
+			UserId:            "j_test",
+			DeviceModel:       "testing",
+			Name:              "Pedro Pascal",
+			Email:             "pedro@pascal.com",
+			AppBuild:          "1.0.0",
+			CustomData:        customData,
+			PrivateCustomData: customPrivateData,
+		},
+		"test", true)
+	fatalErr(t, err)
+
+	expected := Variable{
+		baseVariable: baseVariable{
+			Key:   "test",
+			Type_: "Boolean",
+			Value: true,
+		},
+		DefaultValue: true,
+		IsDefaulted:  false,
+	}
+	if !reflect.DeepEqual(expected, variable) {
+		fmt.Println("got", variable)
+		fmt.Println("expected", expected)
+		t.Fatal("Expected variable to be equal to expected variable")
+	}
+	fmt.Println(variable)
+}
+
 func TestDVCClient_VariableLocal_403(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
