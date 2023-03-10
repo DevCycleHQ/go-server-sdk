@@ -3,6 +3,7 @@ package devcycle
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -52,6 +53,29 @@ func TestDVCClient_VariableCloud(t *testing.T) {
 	fmt.Println(variable)
 }
 
+func TestDVCClient_VariableLocalNumber(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
+
+	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+
+	variable, err := c.Variable(
+		DVCUser{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}},
+		"v-key-76", 69)
+	fatalErr(t, err)
+
+	if variable.IsDefaulted || variable.Value == 69 {
+		t.Fatal("variable should not be defaulted")
+	}
+	fmt.Println(variable.Value)
+	if variable.Value.(float64) != 60.0 {
+		t.Fatal("variable should be 60")
+	}
+	fmt.Println(variable.IsDefaulted)
+	fmt.Println(variable)
+}
+
 func TestDVCClient_VariableLocal(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -64,6 +88,82 @@ func TestDVCClient_VariableLocal(t *testing.T) {
 		"test", true)
 	fatalErr(t, err)
 
+	fmt.Println(variable)
+}
+
+func TestDVCClient_VariableLocalProtobuf(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+
+	variable, err := c.Variable(
+		DVCUser{UserId: "j_test", DeviceModel: "testing"},
+		"test", true)
+	fatalErr(t, err)
+
+	expected := Variable{
+		baseVariable: baseVariable{
+			Key:   "test",
+			Type_: "Boolean",
+			Value: true,
+		},
+		DefaultValue: true,
+		IsDefaulted:  false,
+	}
+	if !reflect.DeepEqual(expected, variable) {
+		fmt.Println("got", variable)
+		fmt.Println("expected", expected)
+		t.Fatal("Expected variable to be equal to expected variable")
+	}
+	fmt.Println(variable)
+}
+
+func TestDVCClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+
+	customData := map[string]interface{}{
+		"propStr":  "hello",
+		"propInt":  1,
+		"propBool": true,
+		"propNull": nil,
+	}
+	customPrivateData := map[string]interface{}{
+		"aPrivateValue": "asuh",
+	}
+
+	variable, err := c.Variable(
+		DVCUser{
+			UserId:            "j_test",
+			DeviceModel:       "testing",
+			Name:              "Pedro Pascal",
+			Email:             "pedro@pascal.com",
+			AppBuild:          "1.0.0",
+			CustomData:        customData,
+			PrivateCustomData: customPrivateData,
+		},
+		"test", true)
+	fatalErr(t, err)
+
+	expected := Variable{
+		baseVariable: baseVariable{
+			Key:   "test",
+			Type_: "Boolean",
+			Value: true,
+		},
+		DefaultValue: true,
+		IsDefaulted:  false,
+	}
+	if !reflect.DeepEqual(expected, variable) {
+		fmt.Println("got", variable)
+		fmt.Println("expected", expected)
+		t.Fatal("Expected variable to be equal to expected variable")
+	}
 	fmt.Println(variable)
 }
 
@@ -127,12 +227,47 @@ func TestProduction_Local(t *testing.T) {
 }
 
 func fatalErr(t *testing.T, err error) {
+	t.Helper()
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func BenchmarkDVCClient_Variable(b *testing.B) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
+	httpEventsApiMock()
+
+	options := &DVCOptions{
+		EnableCloudBucketing:         false,
+		DisableAutomaticEventLogging: true,
+		DisableCustomEventLogging:    true,
+		ConfigPollingIntervalMS:      time.Minute,
+		EventFlushIntervalMS:         time.Minute,
+	}
+
+	client, err := NewDVCClient(test_environmentKey, options)
+	if err != nil {
+		b.Errorf("Failed to initialize client: %v", err)
+	}
+
+	user := DVCUser{UserId: "dontcare"}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		variable, err := client.Variable(user, test_large_config_variable, false)
+		if err != nil {
+			b.Errorf("Failed to retrieve variable: %v", err)
+		}
+		if variable.IsDefaulted {
+			b.Fatal("Expected variable to return a value")
+		}
+	}
+}
+
+func BenchmarkDVCClient_Variable_Protobuf(b *testing.B) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)

@@ -1,9 +1,10 @@
 package devcycle
 
 import (
+	"bytes"
 	_ "embed"
+	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"math"
 	"math/rand"
 	"sync"
@@ -19,6 +20,7 @@ var (
 
 const (
 	memoryBucketOffset = 5
+	bufferHeaderSize   = 12
 )
 
 type VariableTypeCode int32
@@ -61,12 +63,14 @@ type DevCycleLocalBucketing struct {
 	queueAggregateEventFunc           *wasmtime.Func
 	setClientCustomDataFunc           *wasmtime.Func
 	variableForUserFunc               *wasmtime.Func
+	variableForUser_PBFunc            *wasmtime.Func
 
 	VariableTypeCodes VariableTypeCodes
 
-	// Holds pointers to pre-allocated blocks of memory. The first dimension is an index based on the size of the data
-	// The second dimension is a list of pointers to blocks of memory of that size
-	allocatedMemPool [][]int32
+	// Holds pointers to pre-allocated blocks of memory.
+	allocatedMemPool []int32
+	// Ptr to reserved block for byte buffer header
+	byteBufferHeader int32
 }
 
 func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
@@ -94,7 +98,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 
 	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
 		var errorMessage []byte
-		errorMessage, err = d.mallocAssemblyScriptBytes(messagePtr)
+		errorMessage, err = d.readAssemblyScriptStringBytes(messagePtr)
 		if err != nil {
 			_ = errorf("WASM Error: %s", err)
 			return
@@ -109,7 +113,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 
 	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
 		var message []byte
-		message, err = d.mallocAssemblyScriptBytes(messagePtr)
+		message, err = d.readAssemblyScriptStringBytes(messagePtr)
 		printf(string(message))
 	})
 	if err != nil {
@@ -142,6 +146,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	d.setClientCustomDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
 	d.setConfigDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
 	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserPreallocated").Func()
+	d.variableForUser_PBFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser_PB_Preallocated").Func()
 
 	// bind exported internal functions
 	d.__newFunc = d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
@@ -161,32 +166,31 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 		JSON:    VariableTypeCode(jsonType),
 	}
 
-	d.allocatedMemPool = make([][]int32, d.options.MaxMemoryAllocationBuckets)
-	
+	d.allocatedMemPool = make([]int32, d.options.MaxMemoryAllocationBuckets)
+
+	ptr, err := d.allocMemForBuffer(bufferHeaderSize, 9)
+
+	if err != nil {
+		return err
+	}
+
+	// Allocate new memory for the header
+	// Format is
+	// 4 bytes: pointer address in LE to buffer
+	// 4 bytes: pointer address in LE to buffer
+	// 4 bytes: length of the buffer in LE
+	d.byteBufferHeader = ptr
+
 	// preallocate "buckets" of memory to write data buffers of different lengths to
 	// allocate 2^5 bytes to 2^(5+MaxMemoryAllocationBuckets) bytes
 	for i := memoryBucketOffset; i < d.options.MaxMemoryAllocationBuckets+memoryBucketOffset; i++ {
 		index := i - memoryBucketOffset
 		size := 1 << i
-
-		d.allocatedMemPool[index] = make([]int32, 2)
-		ptr1, err := d.allocMemForString(int32(size))
-
+		ptr, err := d.allocMemForString(int32(size))
 		if err != nil {
 			return err
 		}
-
-		ptr2, err := d.allocMemForString(int32(size))
-
-		if err != nil {
-			return err
-		}
-
-		// currently we know there can only be two strings allocated at a time in the VariableForUser method
-		// which is the only method using this pool. Knowing that, preallocate two blocks for each size bucket
-		// We can then use both blocks of a particular bucket in case of a size collision between the two strings
-		d.allocatedMemPool[index][0] = ptr1
-		d.allocatedMemPool[index][1] = ptr2
+		d.allocatedMemPool[index] = ptr
 	}
 
 	err = d.setSDKKey(sdkKey)
@@ -232,14 +236,14 @@ func (d *DevCycleLocalBucketing) initEventQueue(options []byte) (err error) {
 	}
 
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 		return
 	}
 
 	_, err = d.initEventQueueFunc.Call(d.wasmStore, d.sdkKeyAddr, optionsAddr)
 	if err != nil || errorMessage != "" {
 		if errorMessage != "" {
-			err = fmt.Errorf(errorMessage)
+			err = errorf(errorMessage)
 		}
 		return
 	}
@@ -263,10 +267,10 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 		return
 	}
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 		return
 	}
-	result, err := d.mallocAssemblyScriptBytes(addrResult.(int32))
+	result, err := d.readAssemblyScriptStringBytes(addrResult.(int32))
 	if err != nil {
 		return
 	}
@@ -281,7 +285,7 @@ func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
 
 	result, err := d.eventQueueSizeFunc.Call(d.wasmStore, d.sdkKeyAddr)
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 		return
 	}
 	if err != nil {
@@ -304,7 +308,7 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) 
 	_, err = d.onPayloadSuccessFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr)
 	if err != nil || errorMessage != "" {
 		if errorMessage != "" {
-			err = fmt.Errorf(errorMessage)
+			err = errorf(errorMessage)
 		}
 		return
 	}
@@ -337,7 +341,7 @@ func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 
 	_, err = d.queueEventFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, eventAddr)
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 	}
 	return
 }
@@ -372,7 +376,7 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, config Bucket
 
 	_, err = d.queueAggregateEventFunc.Call(d.wasmStore, d.sdkKeyAddr, eventAddr, variationMapAddr)
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 	}
 	return
 }
@@ -394,12 +398,12 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 	if retryable {
 		_, err = d.onPayloadFailureFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr, 1)
 		if errorMessage != "" {
-			err = fmt.Errorf(errorMessage)
+			err = errorf(errorMessage)
 		}
 	} else {
 		_, err = d.onPayloadFailureFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr, 0)
 		if errorMessage != "" {
-			err = fmt.Errorf(errorMessage)
+			err = errorf(errorMessage)
 		}
 	}
 	return
@@ -419,10 +423,10 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 		return
 	}
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 		return
 	}
-	rawConfig, err := d.mallocAssemblyScriptBytes(configPtr.(int32))
+	rawConfig, err := d.readAssemblyScriptStringBytes(configPtr.(int32))
 	if err != nil {
 		return
 	}
@@ -430,63 +434,51 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	return ret, err
 }
 
-func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType VariableTypeCode) (ret Variable, err error) {
+/*
+ * This is a helper function to call the variableForUserPB function in the WASM module.
+ * It takes a serialized protobuf message as input and returns a serialized protobuf message as output.
+ */
+func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]byte, error) {
 	d.wasmMutex.Lock()
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	keyAddr, preAllocatedKey, err := d.newAssemblyScriptStringWithPool([]byte(key), 0)
+	paramsAddr, preallocated, err := d.newAssemblyScriptByteArray(serializedParams)
 
 	if err != nil {
-		return
+		return nil, errorf("Error allocating WASM string: %w", err)
 	}
 
 	defer func() {
-		if !preAllocatedKey {
-			err := d.assemblyScriptUnpin(keyAddr)
+		if !preallocated {
+			err := d.assemblyScriptUnpin(paramsAddr)
 			if err != nil {
 				errorf(err.Error())
 			}
 		}
 	}()
 
-	userAddr, preAllocatedUser, err := d.newAssemblyScriptStringWithPool(user, 1)
-
+	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr, int32(len(serializedParams)))
 	if err != nil {
-		return
-	}
-
-	defer func() {
-		if !preAllocatedUser {
-			err := d.assemblyScriptUnpin(userAddr)
-			if err != nil {
-				errorf(err.Error())
-			}
-		}
-	}()
-
-	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, len(user), keyAddr, len(key), int32(variableType), 1)
-	if err != nil {
-		return
+		return nil, errorf("Error calling variableForUserPB: %w", err)
 	}
 
 	var intPtr = varPtr.(int32)
 
 	if intPtr == 0 {
-		ret = Variable{}
-		return
+		return nil, nil
 	}
 
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
-		return
+		return nil, errorf(errorMessage)
 	}
-	rawVar, err := d.mallocAssemblyScriptBytes(intPtr)
+
+	rawVar, err := d.readAssemblyScriptByteArray(intPtr)
 	if err != nil {
-		return
+		return nil, errorf("Error converting WASM result to bytes: %w", err)
 	}
-	err = json.Unmarshal(rawVar, &ret)
-	return ret, err
+
+	return rawVar, nil
 }
 
 func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
@@ -509,7 +501,7 @@ func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
 		return err
 	}
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 	}
 	return err
 }
@@ -529,7 +521,7 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 		return err
 	}
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 	}
 	return err
 }
@@ -546,7 +538,7 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
 
 	_, err = d.setClientCustomDataFunc.Call(d.wasmStore, d.sdkKeyAddr, customDataAddr)
 	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
+		err = errorf(errorMessage)
 	}
 	return err
 }
@@ -575,45 +567,6 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, e
 	return ptr.(int32), nil
 }
 
-func (d *DevCycleLocalBucketing) newAssemblyScriptStringWithPool(param []byte, preAllocIndex int32) (int32, bool, error) {
-	ptr, preAllocated, err := d.allocMemForStringPool(int32(len(param)*2), preAllocIndex)
-
-	if err != nil {
-		return -1, false, err
-	}
-
-	data := d.wasmMemory.UnsafeData(d.wasmStore)
-	for i, c := range param {
-		data[ptr+int32(i*2)] = c
-	}
-
-	if ptr == 0 {
-		return -1, false, errorf("Failed to allocate memory for string")
-	}
-
-	return ptr, preAllocated, nil
-}
-
-func (d *DevCycleLocalBucketing) allocMemForStringPool(size int32, preAllocIndex int32) (addr int32, preAllocated bool, err error) {
-	if len(d.allocatedMemPool) == 0 {
-		// dont use the pool, fall through to alloc below
-	} else {
-		// index is the highest power value of 2 for the size we want, offset by the start of the allocation sizes
-		cachedIdx := int32(math.Max(memoryBucketOffset, math.Ceil(math.Log2(float64(size))))) - memoryBucketOffset
-		// if this index exceeds the max size of the pool, we'll just allocate the memory temporarily
-		if cachedIdx >= int32(len(d.allocatedMemPool)) {
-			warnf("String size exceeds max memory pool size, allocating new temporary block")
-		} else {
-			return d.allocatedMemPool[cachedIdx][preAllocIndex], true, nil
-		}
-	}
-
-	// malloc
-	ptr, err := d.allocMemForString(size)
-
-	return ptr, false, err
-}
-
 func (d *DevCycleLocalBucketing) allocMemForString(size int32) (addr int32, err error) {
 	const objectIdString int32 = 2
 
@@ -626,14 +579,92 @@ func (d *DevCycleLocalBucketing) allocMemForString(size int32) (addr int32, err 
 	if err := d.assemblyScriptPin(ptr.(int32)); err != nil {
 		return -1, err
 	}
-
 	return ptr.(int32), nil
+}
+
+func (d *DevCycleLocalBucketing) allocMemForBufferPool(size int32) (addr int32, preAllocated bool, err error) {
+	if len(d.allocatedMemPool) == 0 {
+		// dont use the pool, fall through to alloc below
+	} else {
+		// index is the highest power value of 2 for the size we want, offset by the start of the allocation sizes
+		cachedIdx := int32(math.Max(memoryBucketOffset, math.Ceil(math.Log2(float64(size))))) - memoryBucketOffset
+		// if this index exceeds the max size of the pool, we'll just allocate the memory temporarily
+		if cachedIdx >= int32(len(d.allocatedMemPool)) {
+			warnf("String size exceeds max memory pool size, allocating new temporary block")
+		} else {
+			return d.allocatedMemPool[cachedIdx], true, nil
+		}
+	}
+
+	// malloc
+	ptr, err := d.allocMemForBuffer(size, 1)
+
+	return ptr, false, err
+}
+
+func (d *DevCycleLocalBucketing) allocMemForBuffer(size int32, classId int32) (addr int32, err error) {
+	// malloc
+	ptr, err := d.__newFunc.Call(d.wasmStore, size, classId)
+	if err != nil {
+		return -1, err
+	}
+
+	if err := d.assemblyScriptPin(ptr.(int32)); err != nil {
+		return -1, err
+	}
+	return ptr.(int32), nil
+}
+
+func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32, bool, error) {
+	const align = 0
+	length := int32(len(param))
+
+	buffer, preallocated, err := d.allocMemForBufferPool(length << align)
+	// Allocate the full buffer of our data - this is a buffer
+	if err != nil {
+		return -1, false, err
+	}
+
+	// Create a binary buffer to write little endian format
+	littleEndianBufferAddress := bytes.NewBuffer([]byte{})
+
+	err = binary.Write(littleEndianBufferAddress, binary.LittleEndian, buffer)
+	if err != nil {
+		return 0, preallocated, err
+	}
+
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
+
+	// Write to the first 8 bytes of the header
+	for i, c := range littleEndianBufferAddress.Bytes() {
+		data[d.byteBufferHeader+int32(i)] = c
+		data[d.byteBufferHeader+int32(i)+4] = c
+	}
+
+	// Create another binary buffer to write the length of the buffer
+	lengthBuffer := bytes.NewBuffer([]byte{})
+	err = binary.Write(lengthBuffer, binary.LittleEndian, length<<align)
+	if err != nil {
+		return 0, preallocated, err
+	}
+	// Write the length to the last 4 bytes of the header
+	for i, c := range lengthBuffer.Bytes() {
+		data[d.byteBufferHeader+8+int32(i)] = c
+	}
+
+	// Write the buffer itself into WASM.
+	for i, c := range param {
+		data[buffer+int32(i)] = c
+	}
+
+	// Return the header address - as that's what's consumed on the WASM side.
+	return d.byteBufferHeader, preallocated, nil
 }
 
 // https://www.assemblyscript.org/runtime.html#memory-layout
 // This skips every other index in the resulting array because
 // there isn't a great way to parse UTF-16 cleanly that matches the WTF-16 format that ASC uses.
-func (d *DevCycleLocalBucketing) mallocAssemblyScriptBytes(pointer int32) ([]byte, error) {
+func (d *DevCycleLocalBucketing) readAssemblyScriptStringBytes(pointer int32) ([]byte, error) {
 	if pointer == 0 {
 		return nil, errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
 	}
@@ -651,6 +682,24 @@ func (d *DevCycleLocalBucketing) mallocAssemblyScriptBytes(pointer int32) ([]byt
 	return ret, nil
 }
 
+func (d *DevCycleLocalBucketing) readAssemblyScriptByteArray(pointer int32) ([]byte, error) {
+	if pointer == 0 {
+		return nil, errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
+	}
+
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
+	dataLength := byteArrayToInt(data[pointer+8 : pointer+12])
+
+	dataPointer := byteArrayToInt(data[pointer : pointer+4])
+
+	ret := make([]byte, dataLength)
+
+	for i := 0; i < int(dataLength); i++ {
+		ret[i] = data[int32(dataPointer)+int32(i)]
+	}
+
+	return ret, nil
+}
 func (d *DevCycleLocalBucketing) assemblyScriptPin(pointer int32) (err error) {
 	if pointer == 0 {
 		return errorf("null pointer passed to assemblyScriptPin - cannot pin")

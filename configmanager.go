@@ -81,7 +81,7 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 		break
 	case statusCode == http.StatusForbidden:
 		e.pollingStop <- true
-		return fmt.Errorf("invalid SDK key. Aborting config polling")
+		return errorf("invalid SDK key. Aborting config polling")
 	case statusCode >= 500:
 		// Retryable Errors. Continue polling.
 		if !retrying {
@@ -113,7 +113,7 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 	// Check
 	valid := json.Valid(raw)
 	if !valid {
-		return fmt.Errorf("invalid JSON data received for config")
+		return errorf("invalid JSON data received for config")
 	}
 
 	config := string(raw)

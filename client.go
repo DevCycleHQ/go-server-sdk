@@ -13,9 +13,11 @@ import (
 	"net/url"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/devcyclehq/go-server-sdk/v2/proto"
 	"github.com/matryer/try"
 )
 
@@ -105,7 +107,7 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 // optionally pass a custom http.Client to allow for advanced features such as caching.
 func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	if sdkKey == "" {
-		return nil, fmt.Errorf("missing sdk key! Call NewDVCClient with a valid sdk key")
+		return nil, errorf("missing sdk key! Call NewDVCClient with a valid sdk key")
 	}
 	if !sdkKeyIsValid(sdkKey) {
 		return nil, fmt.Errorf("Invalid sdk key. Call NewDVCClient with a valid sdk key.")
@@ -168,13 +170,120 @@ func (c *DVCClient) generateBucketedConfig(user DVCUser) (config BucketedUserCon
 	return
 }
 
-func (c *DVCClient) variableForUser(user DVCUser, key string, variableType VariableTypeCode) (variable Variable, err error) {
-	userJSON, err := json.Marshal(user)
-	if err != nil {
-		return Variable{}, err
+func createNullableString(val string) *proto.NullableString {
+	if val == "" {
+		return &proto.NullableString{Value: "", IsNull: true}
+	} else {
+		return &proto.NullableString{Value: val, IsNull: false}
 	}
-	variable, err = c.localBucketing.VariableForUser(userJSON, key, variableType)
-	return
+}
+
+func createNullableDouble(val float64) *proto.NullableDouble {
+	if val == math.NaN() {
+		return &proto.NullableDouble{Value: 0, IsNull: true}
+	} else {
+		return &proto.NullableDouble{Value: val, IsNull: false}
+	}
+}
+
+func createNullableCustomData(data map[string]interface{}) *proto.NullableCustomData {
+	dataMap := map[string]*proto.CustomDataValue{}
+
+	if data == nil || len(data) == 0 {
+		return &proto.NullableCustomData{
+			Value:  dataMap,
+			IsNull: true,
+		}
+	}
+	// pull the values from the map and convert to the nullable data objects for protobuf
+	for key, val := range data {
+		if val == nil {
+			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Null}
+			continue
+		}
+
+		switch val.(type) {
+		case string:
+			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Str, StringValue: val.(string)}
+		case float64:
+			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Num, DoubleValue: val.(float64)}
+		case bool:
+			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Bool, BoolValue: val.(bool)}
+		default:
+			// if we don't know what it is, just set it to null
+			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Null}
+		}
+	}
+
+	return &proto.NullableCustomData{
+		Value:  dataMap,
+		IsNull: false,
+	}
+}
+
+func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableType VariableTypeCode) (variable Variable, err error) {
+	// Take all the parameters and convert them to protobuf objects
+	appBuild := math.NaN()
+	if user.AppBuild != "" {
+		appBuild, err = strconv.ParseFloat(user.AppBuild, 64)
+		if err != nil {
+			appBuild = math.NaN()
+		}
+	}
+	userPB := &proto.DVCUser_PB{
+		UserId:            user.UserId,
+		Email:             createNullableString(user.Email),
+		Name:              createNullableString(user.Name),
+		Language:          createNullableString(user.Language),
+		Country:           createNullableString(user.Country),
+		AppBuild:          createNullableDouble(appBuild),
+		AppVersion:        createNullableString(user.AppVersion),
+		DeviceModel:       createNullableString(user.DeviceModel),
+		CustomData:        createNullableCustomData(user.CustomData),
+		PrivateCustomData: createNullableCustomData(user.PrivateCustomData),
+	}
+
+	// package everything into the root params object
+	paramsPB := proto.VariableForUserParams_PB{
+		SdkKey:           c.sdkKey,
+		VariableKey:      key,
+		VariableType:     proto.VariableType_PB(variableType),
+		User:             userPB,
+		ShouldTrackEvent: true,
+	}
+
+	// Generate the buffer
+	paramsBuffer, err := paramsPB.MarshalVT()
+
+	if err != nil {
+		return Variable{}, errorf("Error marshalling protobuf object in variableForUserProtobuf: %w", err)
+	}
+
+	variableBuffer, err := c.localBucketing.VariableForUser_PB(paramsBuffer)
+
+	if err != nil {
+		return Variable{}, errorf("Error calling variableForUserProtobuf: %w", err)
+	}
+
+	if variableBuffer == nil {
+		// If the variable is not bucketed, return an empty variable
+		return Variable{}, nil
+	}
+
+	// Decode the result
+	sdkVariable := proto.SDKVariable_PB{}
+	err = sdkVariable.UnmarshalVT(variableBuffer)
+
+	// turn sdkVariable into real Variable object
+	return Variable{
+		baseVariable: baseVariable{
+			Key:   sdkVariable.Key,
+			Type_: sdkVariable.Type.String(),
+			Value: sdkVariable.GetValue(),
+		},
+		DefaultValue: nil,
+		IsDefaulted:  false,
+	}, nil
 }
 
 func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
@@ -238,11 +347,13 @@ func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
 }
 
 /*
-DVCClientService Get variable by key for user data
+DVCClientService Get variable by key for user data using Protobuf encoding
+
   - @param body
+
   - @param key Variable key
 
-@return Variable
+    -@return Variable
 */
 func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
 	if key == "" {
@@ -279,7 +390,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 		if err != nil {
 			return Variable{}, err
 		}
-		bucketedVariable, err := c.variableForUser(userdata, key, variableTypeCode)
+		bucketedVariable, err := c.variableForUserProtobuf(userdata, key, variableTypeCode)
 
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
 		if bucketedVariable.Value != nil && sameTypeAsDefault {
@@ -642,7 +753,7 @@ func variableTypeFromValue(key string, value interface{}) (varType string, err e
 		return "JSON", nil
 	}
 
-	return "", fmt.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
+	return "", errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
 }
 
 func (c *DVCClient) variableTypeCodeFromType(varType string) (varTypeCode VariableTypeCode, err error) {
@@ -657,7 +768,7 @@ func (c *DVCClient) variableTypeCodeFromType(varType string) (varTypeCode Variab
 		return c.localBucketing.VariableTypeCodes.JSON, nil
 	}
 
-	return 0, fmt.Errorf("variable type %s is not a valid type", varType)
+	return 0, errorf("variable type %s is not a valid type", varType)
 }
 
 // callAPI do the request.
