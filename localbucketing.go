@@ -147,7 +147,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	d.setClientCustomDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
 	d.setConfigDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
 	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserPreallocated").Func()
-	d.variableForUser_PBFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser_PB").Func()
+	d.variableForUser_PBFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser_PB_Preallocated").Func()
 
 	// bind exported internal functions
 	d.__newFunc = d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
@@ -459,7 +459,7 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 		}
 	}()
 
-	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr)
+	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr, len(serializedParams))
 	if err != nil {
 		return nil, fmt.Errorf("Error calling variableForUserPB: %w", err)
 	}
