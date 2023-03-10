@@ -30,9 +30,18 @@ type LocalBucketingWorker struct {
 	id              int32
 }
 
+type WorkerPayloadType int32
+
+const (
+	VariableForUser WorkerPayloadType = iota
+	StoreConfig
+	SetClientCustomData
+	FlushEvents
+)
+
 type WorkerPoolPayload struct {
 	// TODO make this an enum
-	Type_              string
+	Type_              WorkerPayloadType
 	VariableEvalParams *[]byte
 	ConfigData         *[]byte
 	ClientCustomData   *[]byte
@@ -101,17 +110,17 @@ func (w *LocalBucketingWorker) Process(payload interface{}) interface{} {
 
 	var workerPayload = payload.(*WorkerPoolPayload)
 
-	if workerPayload.Type_ == "storeConfig" {
+	if workerPayload.Type_ == StoreConfig {
 		err := w.storeConfig(*workerPayload.ConfigData)
 		return WorkerPoolResponse{
 			Err: err,
 		}
-	} else if workerPayload.Type_ == "setClientCustomData" {
+	} else if workerPayload.Type_ == SetClientCustomData {
 		err := w.setClientCustomData(*workerPayload.ClientCustomData)
 		return WorkerPoolResponse{
 			Err: err,
 		}
-	} else if workerPayload.Type_ == "flushEvents" {
+	} else if workerPayload.Type_ == FlushEvents {
 		debugf("Flushing events from worker %d", w.id)
 		events, err := w.flushEvents()
 		return WorkerPoolResponse{
