@@ -21,6 +21,7 @@ var (
 
 const (
 	memoryBucketOffset = 5
+	bufferHeaderSize   = 12
 )
 
 type VariableTypeCode int32
@@ -67,10 +68,10 @@ type DevCycleLocalBucketing struct {
 
 	VariableTypeCodes VariableTypeCodes
 
-	// Holds pointers to pre-allocated blocks of memory. The first dimension is an index based on the size of the data
-	// The second dimension is a list of pointers to blocks of memory of that size
-	allocatedMemPool      [][]int32
-	allocatedBytesMemPool [][]int32
+	// Holds pointers to pre-allocated blocks of memory.
+	allocatedMemPool []int32
+	// Ptr to reserved block for byte buffer header
+	byteBufferHeader int32
 }
 
 func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
@@ -166,33 +167,31 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 		JSON:    VariableTypeCode(jsonType),
 	}
 
-	d.allocatedMemPool = make([][]int32, d.options.MaxMemoryAllocationBuckets)
-	d.allocatedBytesMemPool = make([][]int32, d.options.MaxMemoryAllocationBuckets)
+	d.allocatedMemPool = make([]int32, d.options.MaxMemoryAllocationBuckets)
+
+	ptr, err := d.allocMemForBuffer(bufferHeaderSize, 9)
+
+	if err != nil {
+		return err
+	}
+
+	// Allocate new memory for the header
+	// Format is
+	// 4 bytes: pointer address in LE to buffer
+	// 4 bytes: pointer address in LE to buffer
+	// 4 bytes: length of the buffer in LE
+	d.byteBufferHeader = ptr
 
 	// preallocate "buckets" of memory to write data buffers of different lengths to
 	// allocate 2^5 bytes to 2^(5+MaxMemoryAllocationBuckets) bytes
 	for i := memoryBucketOffset; i < d.options.MaxMemoryAllocationBuckets+memoryBucketOffset; i++ {
 		index := i - memoryBucketOffset
 		size := 1 << i
-
-		d.allocatedMemPool[index] = make([]int32, 2)
-		ptr1, err := d.allocMemForString(int32(size))
-
+		ptr, err := d.allocMemForString(int32(size))
 		if err != nil {
 			return err
 		}
-
-		ptr2, err := d.allocMemForString(int32(size))
-
-		if err != nil {
-			return err
-		}
-
-		// currently we know there can only be two strings allocated at a time in the VariableForUser method
-		// which is the only method using this pool. Knowing that, preallocate two blocks for each size bucket
-		// We can then use both blocks of a particular bucket in case of a size collision between the two strings
-		d.allocatedMemPool[index][0] = ptr1
-		d.allocatedMemPool[index][1] = ptr2
+		d.allocatedMemPool[index] = ptr
 	}
 
 	err = d.setSDKKey(sdkKey)
@@ -441,7 +440,7 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	keyAddr, preAllocatedKey, err := d.newAssemblyScriptStringWithPool([]byte(key), 0)
+	keyAddr, preAllocatedKey, err := d.newAssemblyScriptStringWithPool([]byte(key))
 
 	if err != nil {
 		return
@@ -456,7 +455,7 @@ func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variab
 		}
 	}()
 
-	userAddr, preAllocatedUser, err := d.newAssemblyScriptStringWithPool(user, 1)
+	userAddr, preAllocatedUser, err := d.newAssemblyScriptStringWithPool(user)
 
 	if err != nil {
 		return
@@ -504,11 +503,20 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 	errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	paramsAddr, err := d.newAssemblyScriptByteArray(serializedParams)
+	paramsAddr, preallocated, err := d.newAssemblyScriptByteArray(serializedParams)
 
 	if err != nil {
 		return nil, fmt.Errorf("Error allocating WASM string: %w", err)
 	}
+
+	defer func() {
+		if !preallocated {
+			err := d.assemblyScriptUnpin(paramsAddr)
+			if err != nil {
+				errorf(err.Error())
+			}
+		}
+	}()
 
 	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr)
 	if err != nil {
@@ -619,8 +627,8 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, e
 	return ptr.(int32), nil
 }
 
-func (d *DevCycleLocalBucketing) newAssemblyScriptStringWithPool(param []byte, preAllocIndex int32) (int32, bool, error) {
-	ptr, preAllocated, err := d.allocMemForStringPool(int32(len(param)*2), preAllocIndex)
+func (d *DevCycleLocalBucketing) newAssemblyScriptStringWithPool(param []byte) (int32, bool, error) {
+	ptr, preAllocated, err := d.allocMemForStringPool(int32(len(param) * 2))
 
 	if err != nil {
 		return -1, false, err
@@ -638,7 +646,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptStringWithPool(param []byte, p
 	return ptr, preAllocated, nil
 }
 
-func (d *DevCycleLocalBucketing) allocMemForStringPool(size int32, preAllocIndex int32) (addr int32, preAllocated bool, err error) {
+func (d *DevCycleLocalBucketing) allocMemForStringPool(size int32) (addr int32, preAllocated bool, err error) {
 	if len(d.allocatedMemPool) == 0 {
 		// dont use the pool, fall through to alloc below
 	} else {
@@ -648,7 +656,7 @@ func (d *DevCycleLocalBucketing) allocMemForStringPool(size int32, preAllocIndex
 		if cachedIdx >= int32(len(d.allocatedMemPool)) {
 			warnf("String size exceeds max memory pool size, allocating new temporary block")
 		} else {
-			return d.allocatedMemPool[cachedIdx][preAllocIndex], true, nil
+			return d.allocatedMemPool[cachedIdx], true, nil
 		}
 	}
 
@@ -673,33 +681,47 @@ func (d *DevCycleLocalBucketing) allocMemForString(size int32) (addr int32, err 
 	return ptr.(int32), nil
 }
 
-func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32, error) {
-	const byteArrayId int32 = 9
-	const bufferId int32 = 1
-	const align = 0
-	length := int32(len(param))
-	data := d.wasmMemory.UnsafeData(d.wasmStore)
-	// Allocate the full buffer of our data - this is a buffer
-	bufferPtr, err := d.__newFunc.Call(d.wasmStore, length<<align, bufferId)
+func (d *DevCycleLocalBucketing) allocMemForBufferPool(size int32) (addr int32, preAllocated bool, err error) {
+	if len(d.allocatedMemPool) == 0 {
+		// dont use the pool, fall through to alloc below
+	} else {
+		// index is the highest power value of 2 for the size we want, offset by the start of the allocation sizes
+		cachedIdx := int32(math.Max(memoryBucketOffset, math.Ceil(math.Log2(float64(size))))) - memoryBucketOffset
+		// if this index exceeds the max size of the pool, we'll just allocate the memory temporarily
+		if cachedIdx >= int32(len(d.allocatedMemPool)) {
+			warnf("String size exceeds max memory pool size, allocating new temporary block")
+		} else {
+			return d.allocatedMemPool[cachedIdx], true, nil
+		}
+	}
+
+	// malloc
+	ptr, err := d.allocMemForBuffer(size, 1)
+
+	return ptr, false, err
+}
+
+func (d *DevCycleLocalBucketing) allocMemForBuffer(size int32, classId int32) (addr int32, err error) {
+	// malloc
+	ptr, err := d.__newFunc.Call(d.wasmStore, size, classId)
 	if err != nil {
 		return -1, err
 	}
-	buffer := bufferPtr.(int32)
 
-	// Pin the buffer addres to prevent GC from moving it
-	pinAddr, err := d.__pinFunc.Call(d.wasmStore, buffer)
-	pinnedAddr := pinAddr.(int32)
+	if err := d.assemblyScriptPin(ptr.(int32)); err != nil {
+		return -1, err
+	}
+	return ptr.(int32), nil
+}
 
-	// Allocate new memory for the header
-	// Format is
-	// 4 bytes: pointer address in LE to buffer
-	// 4 bytes: pointer address in LE to buffer
-	// 4 bytes: length of the buffer in LE
-	headerPtr, err := d.__newFunc.Call(d.wasmStore, 12, byteArrayId)
-	header := headerPtr.(int32)
-	_, err = d.__unpinFunc.Call(d.wasmStore, pinnedAddr)
+func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32, bool, error) {
+	const align = 0
+	length := int32(len(param))
+
+	buffer, preallocated, err := d.allocMemForBufferPool(length << align)
+	// Allocate the full buffer of our data - this is a buffer
 	if err != nil {
-		return 0, err
+		return -1, false, err
 	}
 
 	// Create a binary buffer to write little endian format
@@ -707,24 +729,26 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32
 
 	err = binary.Write(littleEndianBufferAddress, binary.LittleEndian, buffer)
 	if err != nil {
-		return 0, err
+		return 0, preallocated, err
 	}
+
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
 
 	// Write to the first 8 bytes of the header
 	for i, c := range littleEndianBufferAddress.Bytes() {
-		data[header+int32(i)] = c
-		data[header+int32(i)+4] = c
+		data[d.byteBufferHeader+int32(i)] = c
+		data[d.byteBufferHeader+int32(i)+4] = c
 	}
 
 	// Create another binary buffer to write the length of the buffer
 	lengthBuffer := bytes.NewBuffer([]byte{})
 	err = binary.Write(lengthBuffer, binary.LittleEndian, length<<align)
 	if err != nil {
-		return 0, err
+		return 0, preallocated, err
 	}
 	// Write the length to the last 4 bytes of the header
 	for i, c := range lengthBuffer.Bytes() {
-		data[header+8+int32(i)] = c
+		data[d.byteBufferHeader+8+int32(i)] = c
 	}
 
 	// Write the buffer itself into WASM.
@@ -733,7 +757,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32
 	}
 
 	// Return the header address - as that's what's consumed on the WASM side.
-	return header, nil
+	return d.byteBufferHeader, preallocated, nil
 }
 
 // https://www.assemblyscript.org/runtime.html#memory-layout
