@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/proto"
 	"sync/atomic"
 )
 
@@ -31,16 +32,15 @@ type LocalBucketingWorker struct {
 
 type WorkerPoolPayload struct {
 	// TODO make this an enum
-	Type_            string
-	User             *[]byte
-	Key              *string
-	ConfigData       *[]byte
-	ClientCustomData *[]byte
-	VariableType     VariableTypeCode
+	Type_              string
+	VariableEvalParams *[]byte
+	ConfigData         *[]byte
+	ClientCustomData   *[]byte
+	VariableType       VariableTypeCode
 }
 
 type WorkerPoolResponse struct {
-	Variable *Variable
+	Variable *proto.SDKVariable_PB
 	Events   *PayloadsAndChannel
 	ImHere   bool
 	Err      error
@@ -121,20 +121,17 @@ func (w *LocalBucketingWorker) Process(payload interface{}) interface{} {
 	}
 
 	variable, err := w.variableForUser(
-		workerPayload.User,
-		workerPayload.Key,
-		workerPayload.VariableType,
-		true,
+		workerPayload.VariableEvalParams,
 	)
 
 	return WorkerPoolResponse{
-		Variable: &variable,
+		Variable: variable,
 		Err:      err,
 	}
 }
 
-func (w *LocalBucketingWorker) variableForUser(user *[]byte, key *string, variableType VariableTypeCode, shouldTrackEvents bool) (Variable, error) {
-	return w.localBucketing.VariableForUser(*user, *key, variableType, shouldTrackEvents)
+func (w *LocalBucketingWorker) variableForUser(params *[]byte) (*proto.SDKVariable_PB, error) {
+	return w.localBucketing.VariableForUser_PB(*params)
 }
 
 func (w *LocalBucketingWorker) storeConfig(configData []byte) error {
