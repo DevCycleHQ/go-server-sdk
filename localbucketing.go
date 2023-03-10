@@ -434,65 +434,6 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	return ret, err
 }
 
-func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType VariableTypeCode) (ret Variable, err error) {
-	d.wasmMutex.Lock()
-	errorMessage = ""
-	defer d.wasmMutex.Unlock()
-
-	keyAddr, preAllocatedKey, err := d.newAssemblyScriptStringWithPool([]byte(key))
-
-	if err != nil {
-		return
-	}
-
-	defer func() {
-		if !preAllocatedKey {
-			err := d.assemblyScriptUnpin(keyAddr)
-			if err != nil {
-				errorf(err.Error())
-			}
-		}
-	}()
-
-	userAddr, preAllocatedUser, err := d.newAssemblyScriptStringWithPool(user)
-
-	if err != nil {
-		return
-	}
-
-	defer func() {
-		if !preAllocatedUser {
-			err := d.assemblyScriptUnpin(userAddr)
-			if err != nil {
-				errorf(err.Error())
-			}
-		}
-	}()
-
-	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, len(user), keyAddr, len(key), int32(variableType), 1)
-	if err != nil {
-		return
-	}
-
-	var intPtr = varPtr.(int32)
-
-	if intPtr == 0 {
-		ret = Variable{}
-		return
-	}
-
-	if errorMessage != "" {
-		err = errorf(errorMessage)
-		return
-	}
-	rawVar, err := d.readAssemblyScriptStringBytes(intPtr)
-	if err != nil {
-		return
-	}
-	err = json.Unmarshal(rawVar, &ret)
-	return ret, err
-}
-
 /*
  * This is a helper function to call the variableForUserPB function in the WASM module.
  * It takes a serialized protobuf message as input and returns a serialized protobuf message as output.
