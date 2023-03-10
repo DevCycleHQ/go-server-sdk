@@ -75,7 +75,7 @@ func TestDVCClient_VariableLocalProtobuf(t *testing.T) {
 
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 
-	variable, err := c.VariableProtobuf(
+	variable, err := c.Variable(
 		DVCUser{UserId: "j_test", DeviceModel: "testing"},
 		"test", true)
 	fatalErr(t, err)
@@ -114,7 +114,7 @@ func TestDVCClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
 		"aPrivateValue": "asuh",
 	}
 
-	variable, err := c.VariableProtobuf(
+	variable, err := c.Variable(
 		DVCUser{
 			UserId:            "j_test",
 			DeviceModel:       "testing",
@@ -268,7 +268,7 @@ func BenchmarkDVCClient_Variable_Protobuf(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		variable, err := client.VariableProtobuf(user, test_large_config_variable, false)
+		variable, err := client.Variable(user, test_large_config_variable, false)
 		if err != nil {
 			b.Errorf("Failed to retrieve variable: %v", err)
 		}
