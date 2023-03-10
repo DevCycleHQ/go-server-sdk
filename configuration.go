@@ -56,8 +56,7 @@ type AdvancedOptions struct {
 	// Can be set to -1 to disable pre-allocated memory blocks entirely.
 	// This takes \sum_{k=5}^{n+5} 2^k memory usage
 	MaxMemoryAllocationBuckets int
-	MaxWasmWorkers int
-
+	MaxWasmWorkers             int
 }
 
 type DVCOptions struct {
@@ -117,7 +116,7 @@ func (o *DVCOptions) CheckDefaults() {
 	}
 
 	if o.MaxWasmWorkers <= 0 {
-		o.MaxWasmWorkers = runtime.NumCPU()
+		o.MaxWasmWorkers = runtime.GOMAXPROCS(0)
 	}
 }
 
