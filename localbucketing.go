@@ -435,65 +435,6 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	return ret, err
 }
 
-func (d *DevCycleLocalBucketing) VariableForUser(user []byte, key string, variableType VariableTypeCode) (ret Variable, err error) {
-	d.wasmMutex.Lock()
-	errorMessage = ""
-	defer d.wasmMutex.Unlock()
-
-	keyAddr, preAllocatedKey, err := d.newAssemblyScriptStringWithPool([]byte(key))
-
-	if err != nil {
-		return
-	}
-
-	defer func() {
-		if !preAllocatedKey {
-			err := d.assemblyScriptUnpin(keyAddr)
-			if err != nil {
-				errorf(err.Error())
-			}
-		}
-	}()
-
-	userAddr, preAllocatedUser, err := d.newAssemblyScriptStringWithPool(user)
-
-	if err != nil {
-		return
-	}
-
-	defer func() {
-		if !preAllocatedUser {
-			err := d.assemblyScriptUnpin(userAddr)
-			if err != nil {
-				errorf(err.Error())
-			}
-		}
-	}()
-
-	varPtr, err := d.variableForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, len(user), keyAddr, len(key), int32(variableType), 1)
-	if err != nil {
-		return
-	}
-
-	var intPtr = varPtr.(int32)
-
-	if intPtr == 0 {
-		ret = Variable{}
-		return
-	}
-
-	if errorMessage != "" {
-		err = fmt.Errorf(errorMessage)
-		return
-	}
-	rawVar, err := d.readAssemblyScriptStringBytes(intPtr)
-	if err != nil {
-		return
-	}
-	err = json.Unmarshal(rawVar, &ret)
-	return ret, err
-}
-
 /*
  * This is a helper function to call the variableForUserPB function in the WASM module.
  * It takes a serialized protobuf message as input and returns a serialized protobuf message as output.
@@ -625,45 +566,6 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, e
 		return -1, errorf("Failed to allocate memory for string")
 	}
 	return ptr.(int32), nil
-}
-
-func (d *DevCycleLocalBucketing) newAssemblyScriptStringWithPool(param []byte) (int32, bool, error) {
-	ptr, preAllocated, err := d.allocMemForStringPool(int32(len(param) * 2))
-
-	if err != nil {
-		return -1, false, err
-	}
-
-	data := d.wasmMemory.UnsafeData(d.wasmStore)
-	for i, c := range param {
-		data[ptr+int32(i*2)] = c
-	}
-
-	if ptr == 0 {
-		return -1, false, errorf("Failed to allocate memory for string")
-	}
-
-	return ptr, preAllocated, nil
-}
-
-func (d *DevCycleLocalBucketing) allocMemForStringPool(size int32) (addr int32, preAllocated bool, err error) {
-	if len(d.allocatedMemPool) == 0 {
-		// dont use the pool, fall through to alloc below
-	} else {
-		// index is the highest power value of 2 for the size we want, offset by the start of the allocation sizes
-		cachedIdx := int32(math.Max(memoryBucketOffset, math.Ceil(math.Log2(float64(size))))) - memoryBucketOffset
-		// if this index exceeds the max size of the pool, we'll just allocate the memory temporarily
-		if cachedIdx >= int32(len(d.allocatedMemPool)) {
-			warnf("String size exceeds max memory pool size, allocating new temporary block")
-		} else {
-			return d.allocatedMemPool[cachedIdx], true, nil
-		}
-	}
-
-	// malloc
-	ptr, err := d.allocMemForString(size)
-
-	return ptr, false, err
 }
 
 func (d *DevCycleLocalBucketing) allocMemForString(size int32) (addr int32, err error) {
