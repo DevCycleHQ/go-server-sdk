@@ -53,6 +53,29 @@ func TestDVCClient_VariableCloud(t *testing.T) {
 	fmt.Println(variable)
 }
 
+func TestDVCClient_VariableLocalNumber(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
+
+	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+
+	variable, err := c.Variable(
+		DVCUser{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}},
+		"v-key-76", 69)
+	fatalErr(t, err)
+
+	if variable.IsDefaulted || variable.Value == 69 {
+		t.Fatal("variable should not be defaulted")
+	}
+	fmt.Println(variable.Value)
+	if variable.Value.(float64) != 60.0 {
+		t.Fatal("variable should be 60")
+	}
+	fmt.Println(variable.IsDefaulted)
+	fmt.Println(variable)
+}
+
 func TestDVCClient_VariableLocal(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
