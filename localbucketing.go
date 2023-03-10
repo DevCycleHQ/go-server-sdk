@@ -689,9 +689,6 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32
 	// Pin the buffer addres to prevent GC from moving it
 	pinAddr, err := d.__pinFunc.Call(d.wasmStore, buffer)
 	pinnedAddr := pinAddr.(int32)
-	defer func() {
-		d.__unpinFunc.Call(d.wasmStore, pinnedAddr)
-	}()
 
 	// Allocate new memory for the header
 	// Format is
@@ -700,6 +697,10 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32
 	// 4 bytes: length of the buffer in LE
 	headerPtr, err := d.__newFunc.Call(d.wasmStore, 12, byteArrayId)
 	header := headerPtr.(int32)
+	_, err = d.__unpinFunc.Call(d.wasmStore, pinnedAddr)
+	if err != nil {
+		return 0, err
+	}
 
 	// Create a binary buffer to write little endian format
 	littleEndianBufferAddress := bytes.NewBuffer([]byte{})
