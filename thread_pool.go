@@ -21,12 +21,12 @@ type LocalBucketingWorker struct {
 	storeConfigResponseChan         chan error
 	setClientCustomDataChan         chan *[]byte
 	setClientCustomDataResponseChan chan error
-	// channel for passing back event payloads to the main event queue
-	eventsQueue chan<- PayloadsAndChannel
+	flushResultChannel              chan *FlushResult
 
-	hasConfig     bool
-	jobInProgress atomic.Bool
-	id            int32
+	hasConfig       bool
+	jobInProgress   atomic.Bool
+	flushInProgress atomic.Bool
+	id              int32
 }
 
 type WorkerPoolPayload struct {
@@ -41,6 +41,7 @@ type WorkerPoolPayload struct {
 
 type WorkerPoolResponse struct {
 	Variable *Variable
+	Events   *PayloadsAndChannel
 	Err      error
 }
 
@@ -50,14 +51,13 @@ type FlushResult struct {
 	FailureWithRetryPayloads []string
 }
 
-func (w *LocalBucketingWorker) Initialize(wasmMain *WASMMain, sdkKey string, eventsQueue chan PayloadsAndChannel, options *DVCOptions) (err error) {
+func (w *LocalBucketingWorker) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
 	w.localBucketing = &DevCycleLocalBucketing{}
 	err = w.localBucketing.Initialize(wasmMain, sdkKey, options)
 	w.storeConfigChan = make(chan *[]byte, 1)
 	w.storeConfigResponseChan = make(chan error, 1)
 	w.setClientCustomDataChan = make(chan *[]byte, 1)
 	w.setClientCustomDataResponseChan = make(chan error, 1)
-	w.eventsQueue = eventsQueue
 
 	var eventQueueOpt []byte
 	eventQueueOpt, err = json.Marshal(options.eventQueueOptions())
@@ -70,44 +70,28 @@ func (w *LocalBucketingWorker) Initialize(wasmMain *WASMMain, sdkKey string, eve
 	}
 
 	w.jobInProgress = atomic.Bool{}
+	w.flushInProgress = atomic.Bool{}
+	w.flushResultChannel = make(chan *FlushResult)
 
 	w.id = workerId.Add(1)
 	return
 }
 
-func (w *LocalBucketingWorker) flushEvents() error {
+func (w *LocalBucketingWorker) flushEvents() (*PayloadsAndChannel, error) {
 	payloads, err := w.localBucketing.flushEventQueue()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(payloads) == 0 {
-		return nil
+		return nil, nil
 	}
 
-	var responseChannel = make(chan FlushResult)
+	w.flushInProgress.Store(true)
 
-	w.eventsQueue <- PayloadsAndChannel{
+	return &PayloadsAndChannel{
 		payloads: payloads,
-		channel:  &responseChannel,
-	}
-
-	var result = <-responseChannel
-	for _, payloadId := range result.SuccessPayloads {
-		if err = w.localBucketing.onPayloadSuccess(payloadId); err != nil {
-			return err
-		}
-	}
-	for _, payloadId := range result.FailurePayloads {
-		if err = w.localBucketing.onPayloadFailure(payloadId, false); err != nil {
-			return err
-		}
-	}
-	for _, payloadId := range result.FailureWithRetryPayloads {
-		if err = w.localBucketing.onPayloadFailure(payloadId, true); err != nil {
-			return err
-		}
-	}
-	return nil
+		channel:  &w.flushResultChannel,
+	}, nil
 }
 
 func (w *LocalBucketingWorker) Process(payload interface{}) interface{} {
@@ -128,9 +112,10 @@ func (w *LocalBucketingWorker) Process(payload interface{}) interface{} {
 		}
 	} else if workerPayload.Type_ == "flushEvents" {
 		debugf("Flushing events from worker %d", w.id)
-		err := w.flushEvents()
+		events, err := w.flushEvents()
 		return WorkerPoolResponse{
-			Err: err,
+			Events: events,
+			Err:    err,
 		}
 	}
 
@@ -160,33 +145,6 @@ func (w *LocalBucketingWorker) setClientCustomData(customData []byte) error {
 	return w.localBucketing.SetClientCustomData(customData)
 }
 
-func (w *LocalBucketingWorker) checkForExternalWork() {
-	//if w.jobInProgress.Load() {
-	//	return
-	//}
-	//
-	//for {
-	//	select {
-	//	case configData := <-w.storeConfigChan:
-	//		err := w.storeConfig(*configData)
-	//		w.storeConfigResponseChan <- err
-	//	case customData := <-w.setClientCustomDataChan:
-	//		err := w.setClientCustomData(*customData)
-	//		w.setClientCustomDataResponseChan <- err
-	//	case <-w.flushEventsChan:
-	//		err := w.flushEvents()
-	//		if err != nil {
-	//			warnf("LocalBucketingWorker: Error flushing events: %s\n", err)
-	//		}
-	//	default:
-	//		// keep blocking this worker until it has a config
-	//		if w.hasConfig {
-	//			return
-	//		}
-	//	}
-	//}
-}
-
 /**
  * Called by the thread pool each time a job is completed.
  *	When the function returns, the worker will be returned to the pool and given a new job when needed.
@@ -194,7 +152,28 @@ func (w *LocalBucketingWorker) checkForExternalWork() {
  *  and process them since we are not currently busy with a job.
  */
 func (w *LocalBucketingWorker) BlockUntilReady() {
-	w.checkForExternalWork()
+	if w.flushInProgress.Load() {
+		select {
+		case result := <-w.flushResultChannel:
+			for _, payloadId := range result.SuccessPayloads {
+				if err := w.localBucketing.onPayloadSuccess(payloadId); err != nil {
+					_ = errorf("failed to mark event payloads as successful", err)
+				}
+			}
+			for _, payloadId := range result.FailurePayloads {
+				if err := w.localBucketing.onPayloadFailure(payloadId, false); err != nil {
+					_ = errorf("failed to mark event payloads as failed", err)
+
+				}
+			}
+			for _, payloadId := range result.FailureWithRetryPayloads {
+				if err := w.localBucketing.onPayloadFailure(payloadId, true); err != nil {
+					_ = errorf("failed to mark event payloads as failed", err)
+				}
+			}
+		}
+		w.flushInProgress.Store(false)
+	}
 }
 
 func (w *LocalBucketingWorker) Interrupt() {}

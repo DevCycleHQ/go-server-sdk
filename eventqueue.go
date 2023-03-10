@@ -26,7 +26,7 @@ type EventQueue struct {
 
 type PayloadsAndChannel struct {
 	payloads []FlushPayload
-	channel  *chan FlushResult
+	channel  *chan *FlushResult
 }
 
 func (e *EventQueue) initialize(eventsChan chan PayloadsAndChannel, options *DVCOptions, localBucketing *DevCycleLocalBucketing, bucketingWorkerPool *tunny.Pool, cfg *HTTPConfiguration) (err error) {
@@ -50,11 +50,6 @@ func (e *EventQueue) initialize(eventsChan chan PayloadsAndChannel, options *DVC
 		go func() {
 			for {
 				select {
-				case payloads := <-eventsChan:
-					err = e.flushEventPayloads(payloads)
-					if err != nil {
-						warnf("Error flushing worker events: %s\n", err)
-					}
 				case <-ticker.C:
 					debugf("Ticker for event flush triggered")
 					err = e.FlushEvents()
@@ -132,7 +127,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 		return err
 	}
 
-	err = e.flushEventPayloads(PayloadsAndChannel{payloads: payloads})
+	err = e.flushEventPayloads(&PayloadsAndChannel{payloads: payloads})
 
 	if err != nil {
 		return err
@@ -140,25 +135,30 @@ func (e *EventQueue) FlushEvents() (err error) {
 
 	// ask all the workers to send us their events.
 	// These will arrive on the events channel and be flushed on each worker thread
-	var errs []interface{}
+	var events []interface{}
 	if e.bucketingWorkerPool != nil {
 		debugf("Flushing events from all workers")
-		errs = e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
+		events = e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
 			Type_: "flushEvents",
 		})
 	}
 
-	for _, err := range errs {
+	for _, err := range events {
 		var response = err.(WorkerPoolResponse)
 		if response.Err != nil {
 			return response.Err
+		}
+		err := e.flushEventPayloads(response.Events)
+
+		if err != nil {
+			return err
 		}
 	}
 
 	return
 }
 
-func (e *EventQueue) flushEventPayloads(payloadsAndChannel PayloadsAndChannel) (err error) {
+func (e *EventQueue) flushEventPayloads(payloadsAndChannel *PayloadsAndChannel) (err error) {
 	eventsHost := e.cfg.EventsAPIBasePath
 	for _, payload := range payloadsAndChannel.payloads {
 		var req *http.Request
@@ -222,9 +222,9 @@ func (e *EventQueue) flushEventPayloads(payloadsAndChannel PayloadsAndChannel) (
 	return err
 }
 
-func (e *EventQueue) reportPayloadSuccess(payload FlushPayload, respChannel *chan FlushResult) (err error) {
+func (e *EventQueue) reportPayloadSuccess(payload FlushPayload, respChannel *chan *FlushResult) (err error) {
 	if respChannel != nil {
-		*respChannel <- FlushResult{SuccessPayloads: []string{payload.PayloadId}}
+		*respChannel <- &FlushResult{SuccessPayloads: []string{payload.PayloadId}}
 		return
 	}
 	err = e.localBucketing.onPayloadSuccess(payload.PayloadId)
@@ -234,12 +234,12 @@ func (e *EventQueue) reportPayloadSuccess(payload FlushPayload, respChannel *cha
 	return
 }
 
-func (e *EventQueue) reportPayloadFailure(payload FlushPayload, retry bool, respChannel *chan FlushResult) {
+func (e *EventQueue) reportPayloadFailure(payload FlushPayload, retry bool, respChannel *chan *FlushResult) {
 	if respChannel != nil {
 		if retry {
-			*respChannel <- FlushResult{FailureWithRetryPayloads: []string{payload.PayloadId}}
+			*respChannel <- &FlushResult{FailureWithRetryPayloads: []string{payload.PayloadId}}
 		} else {
-			*respChannel <- FlushResult{FailurePayloads: []string{payload.PayloadId}}
+			*respChannel <- &FlushResult{FailurePayloads: []string{payload.PayloadId}}
 		}
 		return
 	}
