@@ -151,7 +151,7 @@ func (e *EnvironmentConfigManager) setConfig(config []byte) (err error) {
 
 	if e.bucketingWorkerPool != nil {
 		errs := e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
-			Type_:      "storeConfig",
+			Type_:      StoreConfig,
 			ConfigData: &config,
 		})
 
