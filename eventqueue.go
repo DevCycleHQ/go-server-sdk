@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/DevCycleHQ/tunny"
@@ -22,6 +23,8 @@ type EventQueue struct {
 	flushStop           chan bool
 	eventsChan          chan PayloadsAndChannel
 	bucketingWorkerPool *tunny.Pool
+	eventsFlushed       atomic.Int32
+	eventsReported      atomic.Int32
 }
 
 type PayloadsAndChannel struct {
@@ -250,6 +253,10 @@ func (e *EventQueue) reportPayloadFailure(payload FlushPayload, retry bool, resp
 		_ = errorf("Failed to mark payload as failed: %s", err)
 	}
 	return
+}
+
+func (e *EventQueue) Metrics() (int32, int32) {
+	return e.eventsFlushed.Load(), e.eventsReported.Load()
 }
 
 func (e *EventQueue) Close() (err error) {
