@@ -196,10 +196,36 @@ func createNullableDouble(val float64) *proto.NullableDouble {
 }
 
 func createNullableCustomData(data map[string]interface{}) *proto.NullableCustomData {
-	// TODO figure out how to do this conversion, default to null prop for testing
-	emptyMap := map[string]*proto.CustomDataValue{}
+	dataMap := map[string]*proto.CustomDataValue{}
+
+	if data == nil || len(data) == 0 {
+		return &proto.NullableCustomData{
+			Value:  dataMap,
+			IsNull: true,
+		}
+	}
+	// pull the values from the map and convert to the nullable data objects for protobuf
+	for key, val := range data {
+		if val == nil {
+			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Null}
+			continue
+		}
+
+		switch val.(type) {
+		case string:
+			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Str, StringValue: val.(string)}
+		case float64:
+			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Num, DoubleValue: val.(float64)}
+		case bool:
+			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Bool, BoolValue: val.(bool)}
+		default:
+			// if we don't know what it is, just set it to null
+			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Null}
+		}
+	}
+
 	return &proto.NullableCustomData{
-		Value:  emptyMap,
+		Value:  dataMap,
 		IsNull: false,
 	}
 }
