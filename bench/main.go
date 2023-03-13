@@ -3,20 +3,58 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	devcycle "github.com/devcyclehq/go-server-sdk/v2"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"time"
-
-	devcycle "github.com/devcyclehq/go-server-sdk/v2"
 )
 
 var (
 	//go:embed testdata/fixture_large_config.json
 	test_large_config          []byte
 	test_large_config_variable = "v-key-25"
+	lettersAndNumbers          = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 )
+
+func randSeq(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = lettersAndNumbers[rand.Intn(len(lettersAndNumbers))]
+	}
+	return string(b)
+}
+
+func setupUserPool() []devcycle.DVCUser {
+	users := make([]devcycle.DVCUser, 10)
+	for i := 0; i < 10; i++ {
+		customData := map[string]interface{}{
+			"cacheKey":   randSeq(250),
+			"propInt":    rand.Intn(1000),
+			"propDouble": rand.Float32(),
+			"propBool":   rand.Intn(2) == 1,
+		}
+
+		customPrivateData := map[string]interface{}{
+			"aPrivateValue": "secret-data-here",
+		}
+
+		users[i] = devcycle.DVCUser{
+			UserId:            fmt.Sprintf("user_%d", i),
+			DeviceModel:       "testing",
+			Name:              fmt.Sprintf("Testing User %d", i),
+			Email:             fmt.Sprintf("test.user-%d@gmail.com", i),
+			AppBuild:          "1.0.0",
+			AppVersion:        "0.0.1",
+			Country:           "ca",
+			Language:          "en",
+			CustomData:        customData,
+			PrivateCustomData: customPrivateData,
+		}
+	}
+	return users
+}
 
 func main() {
 	configServer := newConfigServer()
@@ -27,7 +65,7 @@ func main() {
 	defer eventServer.Close()
 	log.Printf("Running stub event server at %v", eventServer.URL)
 
-	client, err := devcycle.NewDVCClient(os.Getenv("DVC_SERVER_SDK_KEY"), &devcycle.DVCOptions{
+	client, err := devcycle.NewDVCClient("dvc_server_hello", &devcycle.DVCOptions{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         false,
 		EventFlushIntervalMS:         time.Second,
@@ -40,33 +78,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error setting up DVC client: %v", err)
 	}
-	customData := map[string]interface{}{
-		"cacheKey":   "7ca4c7f2-8709-4098-9dd6-23adf879df87",
-		"propStr":    "hello",
-		"propInt":    1,
-		"propDouble": 3.14159265359,
-		"propBool":   true,
-	}
-	customPrivateData := map[string]interface{}{
-		"aPrivateValue": "secret-data-here",
-	}
 
-	dvcUser := devcycle.DVCUser{
-		UserId:            "user_680f420d-a65f-406c-8aaf-0b39a617e696",
-		DeviceModel:       "testing",
-		Name:              "Testing User",
-		Email:             "test.user@gmail.com",
-		AppBuild:          "1.0.0",
-		AppVersion:        "0.0.1",
-		Country:           "ca",
-		Language:          "en",
-		CustomData:        customData,
-		PrivateCustomData: customPrivateData,
-	}
-	
+	var userPool = setupUserPool()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/variable", func(res http.ResponseWriter, req *http.Request) {
-		variable, err := client.Variable(dvcUser, test_large_config_variable, false)
+		i := rand.Intn(len(userPool))
+		variable, err := client.Variable(userPool[i], test_large_config_variable, false)
 		if err != nil {
 			log.Printf("Error calling Variable: %v", err)
 			res.WriteHeader(http.StatusInternalServerError)
