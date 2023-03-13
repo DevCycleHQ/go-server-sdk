@@ -88,8 +88,6 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 		return err
 	}
 
-	eventsChan := make(chan PayloadsAndChannel)
-
 	c.localBucketing = localBucketing
 
 	if options.MaxWasmWorkers > 1 {
@@ -102,7 +100,7 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 	}
 
 	c.eventQueue = &EventQueue{}
-	err = c.eventQueue.initialize(eventsChan, options, localBucketing, c.bucketingWorkerPool, c.cfg)
+	err = c.eventQueue.initialize(options, localBucketing, c.bucketingWorkerPool, c.cfg)
 
 	if err != nil {
 		return err
