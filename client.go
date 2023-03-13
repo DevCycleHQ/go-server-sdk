@@ -663,7 +663,9 @@ func (c *DVCClient) Close() (err error) {
 		<-c.internalOnInitializedChannel
 	}
 
-	c.bucketingWorkerPool.Close()
+	if c.bucketingWorkerPool != nil {
+		c.bucketingWorkerPool.Close()
+	}
 
 	if c.eventQueue != nil {
 		err = c.eventQueue.Close()
