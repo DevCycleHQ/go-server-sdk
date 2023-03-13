@@ -5,8 +5,8 @@ import (
 	_ "embed"
 	"encoding/binary"
 	"encoding/json"
-	"github.com/devcyclehq/go-server-sdk/v2/proto"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/proto"
 	"math"
 	"math/rand"
 	"strings"
@@ -102,7 +102,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 		return
 	}
 
-	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
+	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
 
 		messagePtrData, err := d.readAssemblyScriptStringBytes(messagePtr)
 		if err != nil {
@@ -458,7 +458,7 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) (*p
 	return &sdkVariable, nil
 }
 
-func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
+func (d *DevCycleLocalBucketing) StoreConfig(config []byte) error {
 	defer func() {
 		if err := recover(); err != nil {
 			errorf("Failed to process config: ", err)

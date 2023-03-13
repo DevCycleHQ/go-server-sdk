@@ -171,7 +171,7 @@ func BenchmarkDevCycleLocalBucketing_VariableForUser_PB(b *testing.B) {
 	httpConfigMock(200)
 
 	wasmMain := WASMMain{}
-	err := wasmMain.Initialize(&DVCOptions{})
+	err := wasmMain.Initialize()
 	localBucketing := DevCycleLocalBucketing{}
 
 	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{
@@ -184,12 +184,12 @@ func BenchmarkDevCycleLocalBucketing_VariableForUser_PB(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	err = localBucketing.StoreConfig(test_config)
+	err = localBucketing.StoreConfig([]byte(test_config))
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	err = localBucketing.SetPlatformData(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`)
+	err = localBucketing.SetPlatformData([]byte(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`))
 	if err != nil {
 		b.Fatal(err)
 	}
