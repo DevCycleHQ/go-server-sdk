@@ -60,16 +60,16 @@ func main() {
 	log.Print(http.ListenAndServe(":8080", mux))
 }
 
-func newConfigServer() httptest.Server {
-	return *httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+func newConfigServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Etag", "TESTING")
 		res.WriteHeader(http.StatusOK)
 		_, _ = res.Write(test_large_config)
 	}))
 }
 
-func newEventServer() httptest.Server {
-	return *httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+func newEventServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusCreated)
 		_, _ = res.Write([]byte("{}"))
 	}))
