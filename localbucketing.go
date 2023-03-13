@@ -240,18 +240,8 @@ func (d *DevCycleLocalBucketing) initEventQueue(options []byte) (err error) {
 		return
 	}
 
-	if d.errorMessage != "" {
-		err = errorf(d.errorMessage)
-		return
-	}
-
 	_, err = d.initEventQueueFunc.Call(d.wasmStore, d.sdkKeyAddr, optionsAddr)
-	if err != nil || d.errorMessage != "" {
-		if d.errorMessage != "" {
-			err = errorf(d.errorMessage)
-		}
-		return
-	}
+	err = d.handleWASMErrors("initEventQueue", err)
 	return
 }
 
@@ -268,11 +258,8 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 	defer d.wasmMutex.Unlock()
 
 	addrResult, err := d.flushEventQueueFunc.Call(d.wasmStore, d.sdkKeyAddr)
+	err = d.handleWASMErrors("flushEventQueue", err)
 	if err != nil {
-		return
-	}
-	if d.errorMessage != "" {
-		err = errorf(d.errorMessage)
 		return
 	}
 	result, err := d.readAssemblyScriptStringBytes(addrResult.(int32))
@@ -289,10 +276,7 @@ func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
 	defer d.wasmMutex.Unlock()
 
 	result, err := d.eventQueueSizeFunc.Call(d.wasmStore, d.sdkKeyAddr)
-	if d.errorMessage != "" {
-		err = errorf(d.errorMessage)
-		return
-	}
+	err = d.handleWASMErrors("eventQueueSize", err)
 	if err != nil {
 		return
 	}
@@ -311,12 +295,7 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) 
 	}
 
 	_, err = d.onPayloadSuccessFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr)
-	if err != nil || d.errorMessage != "" {
-		if d.errorMessage != "" {
-			err = errorf(d.errorMessage)
-		}
-		return
-	}
+	err = d.handleWASMErrors("onPayloadSuccess", err)
 	return
 }
 
@@ -345,9 +324,7 @@ func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 	}
 
 	_, err = d.queueEventFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, eventAddr)
-	if d.errorMessage != "" {
-		err = errorf(d.errorMessage)
-	}
+	err = d.handleWASMErrors("queueEvent", err)
 	return
 }
 
@@ -380,9 +357,7 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, config Bucket
 	}
 
 	_, err = d.queueAggregateEventFunc.Call(d.wasmStore, d.sdkKeyAddr, eventAddr, variationMapAddr)
-	if d.errorMessage != "" {
-		err = errorf(d.errorMessage)
-	}
+	err = d.handleWASMErrors("queueAggregateEvent", err)
 	return
 }
 
@@ -402,14 +377,10 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 
 	if retryable {
 		_, err = d.onPayloadFailureFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr, 1)
-		if d.errorMessage != "" {
-			err = errorf(d.errorMessage)
-		}
+		err = d.handleWASMErrors("onPayloadFailure", err)
 	} else {
 		_, err = d.onPayloadFailureFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr, 0)
-		if d.errorMessage != "" {
-			err = errorf(d.errorMessage)
-		}
+		err = d.handleWASMErrors("onPayloadFailure", err)
 	}
 	return
 }
@@ -424,11 +395,8 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	}
 
 	configPtr, err := d.generateBucketedConfigForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr)
+	err = d.handleWASMErrors("generateBucketedConfig", err)
 	if err != nil {
-		return
-	}
-	if d.errorMessage != "" {
-		err = errorf(d.errorMessage)
 		return
 	}
 	rawConfig, err := d.readAssemblyScriptStringBytes(configPtr.(int32))
@@ -465,20 +433,10 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 
 	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr, int32(len(serializedParams)))
 
-	if d.errorMessage != "" {
-		if err != nil {
-			return nil, errorf(
-				"Error Message calling variableForUserPB: (result: %v) err: [%s] errorMessage:[%s]",
-				varPtr,
-				strings.ReplaceAll(err.Error(), "\n", ""),
-				d.errorMessage,
-			)
-		}
-		return nil, errorf(d.errorMessage)
-	}
+	err = d.handleWASMErrors("variableForUserPB", err)
 
 	if err != nil {
-		return nil, errorf("Error calling variableForUserPB: (result: %v) %w", varPtr, err)
+		return nil, err
 	}
 
 	var intPtr = varPtr.(int32)
@@ -511,12 +469,8 @@ func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
 	}
 
 	_, err = d.setConfigDataFunc.Call(d.wasmStore, d.sdkKeyAddr, configAddr)
-	if err != nil {
-		return err
-	}
-	if d.errorMessage != "" {
-		err = errorf(d.errorMessage)
-	}
+	err = d.handleWASMErrors("setConfigData", err)
+
 	return err
 }
 
@@ -531,12 +485,7 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 	}
 
 	_, err = d.setPlatformDataFunc.Call(d.wasmStore, configAddr)
-	if err != nil {
-		return err
-	}
-	if d.errorMessage != "" {
-		err = errorf(d.errorMessage)
-	}
+	err = d.handleWASMErrors("setPlatformData", err)
 	return err
 }
 
@@ -551,9 +500,7 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
 	}
 
 	_, err = d.setClientCustomDataFunc.Call(d.wasmStore, d.sdkKeyAddr, customDataAddr)
-	if d.errorMessage != "" {
-		err = errorf(d.errorMessage)
-	}
+	err = d.handleWASMErrors("setClientCustomData", err)
 	return err
 }
 
@@ -564,6 +511,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, e
 
 	// malloc
 	ptr, err := d.__newFunc.Call(d.wasmStore, int32(len(param)*2), objectIdString)
+	err = d.handleWASMErrors("__new", err)
 	if err != nil {
 		return -1, err
 	}
@@ -586,6 +534,7 @@ func (d *DevCycleLocalBucketing) allocMemForString(size int32) (addr int32, err 
 
 	// malloc
 	ptr, err := d.__newFunc.Call(d.wasmStore, size, objectIdString)
+	err = d.handleWASMErrors("__new", err)
 	if err != nil {
 		return -1, err
 	}
@@ -619,6 +568,7 @@ func (d *DevCycleLocalBucketing) allocMemForBufferPool(size int32) (addr int32, 
 func (d *DevCycleLocalBucketing) allocMemForBuffer(size int32, classId int32) (addr int32, err error) {
 	// malloc
 	ptr, err := d.__newFunc.Call(d.wasmStore, size, classId)
+	err = d.handleWASMErrors("__new", err)
 	if err != nil {
 		return -1, err
 	}
@@ -719,18 +669,14 @@ func (d *DevCycleLocalBucketing) assemblyScriptPin(pointer int32) (err error) {
 		return errorf("null pointer passed to assemblyScriptPin - cannot pin")
 	}
 	_, err = d.__pinFunc.Call(d.wasmStore, pointer)
-	if err != nil {
-		return err
-	}
-	return nil
+	err = d.handleWASMErrors("__pin", err)
+	return
 }
 
 func (d *DevCycleLocalBucketing) assemblyScriptCollect() (err error) {
 	_, err = d.__collectFunc.Call(d.wasmStore)
-	if err != nil {
-		return err
-	}
-	return nil
+	err = d.handleWASMErrors("__collect", err)
+	return
 }
 
 func (d *DevCycleLocalBucketing) assemblyScriptUnpin(pointer int32) (err error) {
@@ -739,9 +685,27 @@ func (d *DevCycleLocalBucketing) assemblyScriptUnpin(pointer int32) (err error) 
 	}
 
 	_, err = d.__unpinFunc.Call(d.wasmStore, pointer)
-	if err != nil {
-		return err
+	err = d.handleWASMErrors("__unpin", err)
+	return
+}
+
+func (d *DevCycleLocalBucketing) handleWASMErrors(prefix string, err error) error {
+	if d.errorMessage != "" {
+		if err != nil {
+			return errorf(
+				"Error Message calling %s: err: [%s] errorMessage:[%s]",
+				prefix,
+				strings.ReplaceAll(err.Error(), "\n", ""),
+				d.errorMessage,
+			)
+		}
+		return errorf(d.errorMessage)
 	}
+
+	if err != nil {
+		return errorf("Error calling %s: %w", prefix, err)
+	}
+
 	return nil
 }
 
