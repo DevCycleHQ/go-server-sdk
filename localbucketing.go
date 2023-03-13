@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -464,6 +465,18 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 
 	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr, int32(len(serializedParams)))
 
+	if d.errorMessage != "" {
+		if err != nil {
+			return nil, errorf(
+				"Error Message calling variableForUserPB: (result: %v) err: [%s] errorMessage:[%s]",
+				varPtr,
+				strings.ReplaceAll(err.Error(), "\n", ""),
+				d.errorMessage,
+			)
+		}
+		return nil, errorf(d.errorMessage)
+	}
+
 	if err != nil {
 		return nil, errorf("Error calling variableForUserPB: (result: %v) %w", varPtr, err)
 	}
@@ -472,10 +485,6 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 
 	if intPtr == 0 {
 		return nil, nil
-	}
-
-	if d.errorMessage != "" {
-		return nil, errorf(d.errorMessage)
 	}
 
 	rawVar, err := d.readAssemblyScriptByteArray(intPtr)
