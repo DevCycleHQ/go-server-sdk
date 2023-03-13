@@ -1,34 +1,37 @@
 package main
 
 import (
-	devcycle "github.com/devcyclehq/go-server-sdk/v2"
+	"fmt"
+	"log"
+	"net/http"
 	"os"
-	"strconv"
 
-	"github.com/gin-gonic/gin"
+	devcycle "github.com/devcyclehq/go-server-sdk/v2"
 )
 
 func main() {
-
 	variableKey := os.Getenv("DVC_VARIABLE_KEY")
 	userId := os.Getenv("DVC_USER_ID")
 	client, err := devcycle.NewDVCClient(os.Getenv("DVC_SERVER_SDK_KEY"), &devcycle.DVCOptions{})
 	if err != nil {
-		return
+		log.Fatalf("Error setting up DVC client: %v", err)
 	}
 	dvcUser := devcycle.DVCUser{
 		UserId: userId,
 	}
-	r := gin.Default()
-	r.GET("/variable", func(c *gin.Context) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/variable", func(res http.ResponseWriter, req *http.Request) {
 		variable, err := client.Variable(dvcUser, variableKey, false)
 		if err != nil {
+			log.Printf("Error calling Variable: %v", err)
+			res.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		c.String(200, strconv.FormatBool(variable.IsDefaulted))
+		fmt.Fprintf(res, "%v", variable.IsDefaulted)
 	})
-	r.GET("/empty", func(c *gin.Context) {
-		c.String(200, "")
+	mux.HandleFunc("/empty", func(res http.ResponseWriter, req *http.Request) {
+		res.WriteHeader(200)
 	})
-	r.Run()
+	log.Printf("Setting up http server")
+	log.Print(http.ListenAndServe(":8080", mux))
 }
