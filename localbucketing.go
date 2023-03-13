@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/rand"
 	"sync"
@@ -12,10 +13,6 @@ import (
 	"unsafe"
 
 	"github.com/bytecodealliance/wasmtime-go/v6"
-)
-
-var (
-	errorMessage = ""
 )
 
 const (
@@ -71,6 +68,7 @@ type DevCycleLocalBucketing struct {
 	allocatedMemPool []int32
 	// Ptr to reserved block for byte buffer header
 	byteBufferHeader int32
+	errorMessage     string
 }
 
 func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
@@ -97,13 +95,19 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	}
 
 	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
-		var errorMessage []byte
-		errorMessage, err = d.readAssemblyScriptStringBytes(messagePtr)
+
+		messagePtrData, err := d.readAssemblyScriptStringBytes(messagePtr)
 		if err != nil {
-			_ = errorf("WASM Error: %s", err)
+			_ = errorf("Failed to read abort function parameter values - WASM Error: %s", err)
 			return
 		}
-		_ = errorf("WASM Error: %s", string(errorMessage))
+		filenamePointerData, err := d.readAssemblyScriptStringBytes(filenamePointer)
+		if err != nil {
+			_ = errorf("Failed to read abort function parameter values - WASM Error: %s", err)
+			return
+		}
+		d.errorMessage = fmt.Sprintf("WASM Error: %s at %s:%d:%d", string(messagePtrData), string(filenamePointerData), lineNum, colNum)
+		_ = errorf("WASM Error: %s", d.errorMessage)
 		err = nil
 	})
 
@@ -227,7 +231,7 @@ func (d *DevCycleLocalBucketing) setSDKKey(sdkKey string) (err error) {
 
 func (d *DevCycleLocalBucketing) initEventQueue(options []byte) (err error) {
 	d.wasmMutex.Lock()
-	errorMessage = ""
+	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
 	optionsAddr, err := d.newAssemblyScriptString(options)
@@ -235,15 +239,15 @@ func (d *DevCycleLocalBucketing) initEventQueue(options []byte) (err error) {
 		return
 	}
 
-	if errorMessage != "" {
-		err = errorf(errorMessage)
+	if d.errorMessage != "" {
+		err = errorf(d.errorMessage)
 		return
 	}
 
 	_, err = d.initEventQueueFunc.Call(d.wasmStore, d.sdkKeyAddr, optionsAddr)
-	if err != nil || errorMessage != "" {
-		if errorMessage != "" {
-			err = errorf(errorMessage)
+	if err != nil || d.errorMessage != "" {
+		if d.errorMessage != "" {
+			err = errorf(d.errorMessage)
 		}
 		return
 	}
@@ -259,15 +263,15 @@ func (d *DevCycleLocalBucketing) finishFlushEvents() {
 }
 func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err error) {
 	d.wasmMutex.Lock()
-	errorMessage = ""
+	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
 	addrResult, err := d.flushEventQueueFunc.Call(d.wasmStore, d.sdkKeyAddr)
 	if err != nil {
 		return
 	}
-	if errorMessage != "" {
-		err = errorf(errorMessage)
+	if d.errorMessage != "" {
+		err = errorf(d.errorMessage)
 		return
 	}
 	result, err := d.readAssemblyScriptStringBytes(addrResult.(int32))
@@ -280,12 +284,12 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 
 func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
 	d.wasmMutex.Lock()
-	errorMessage = ""
+	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
 	result, err := d.eventQueueSizeFunc.Call(d.wasmStore, d.sdkKeyAddr)
-	if errorMessage != "" {
-		err = errorf(errorMessage)
+	if d.errorMessage != "" {
+		err = errorf(d.errorMessage)
 		return
 	}
 	if err != nil {
@@ -297,7 +301,7 @@ func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
 
 func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) {
 	d.wasmMutex.Lock()
-	errorMessage = ""
+	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
 	payloadIdAddr, err := d.newAssemblyScriptString([]byte(payloadId))
@@ -306,9 +310,9 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) 
 	}
 
 	_, err = d.onPayloadSuccessFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr)
-	if err != nil || errorMessage != "" {
-		if errorMessage != "" {
-			err = errorf(errorMessage)
+	if err != nil || d.errorMessage != "" {
+		if d.errorMessage != "" {
+			err = errorf(d.errorMessage)
 		}
 		return
 	}
@@ -317,7 +321,7 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) 
 
 func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 	d.wasmMutex.Lock()
-	errorMessage = ""
+	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
 	userAddr, err := d.newAssemblyScriptString([]byte(user))
@@ -340,15 +344,15 @@ func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 	}
 
 	_, err = d.queueEventFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr, eventAddr)
-	if errorMessage != "" {
-		err = errorf(errorMessage)
+	if d.errorMessage != "" {
+		err = errorf(d.errorMessage)
 	}
 	return
 }
 
 func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, config BucketedUserConfig) (err error) {
 	d.wasmMutex.Lock()
-	errorMessage = ""
+	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
 	variationMap, err := json.Marshal(config.VariableVariationMap)
@@ -375,15 +379,15 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, config Bucket
 	}
 
 	_, err = d.queueAggregateEventFunc.Call(d.wasmStore, d.sdkKeyAddr, eventAddr, variationMapAddr)
-	if errorMessage != "" {
-		err = errorf(errorMessage)
+	if d.errorMessage != "" {
+		err = errorf(d.errorMessage)
 	}
 	return
 }
 
 func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bool) (err error) {
 	d.wasmMutex.Lock()
-	errorMessage = ""
+	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
 	payloadIdAddr, err := d.newAssemblyScriptString([]byte(payloadId))
@@ -397,13 +401,13 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 
 	if retryable {
 		_, err = d.onPayloadFailureFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr, 1)
-		if errorMessage != "" {
-			err = errorf(errorMessage)
+		if d.errorMessage != "" {
+			err = errorf(d.errorMessage)
 		}
 	} else {
 		_, err = d.onPayloadFailureFunc.Call(d.wasmStore, d.sdkKeyAddr, payloadIdAddr, 0)
-		if errorMessage != "" {
-			err = errorf(errorMessage)
+		if d.errorMessage != "" {
+			err = errorf(d.errorMessage)
 		}
 	}
 	return
@@ -411,7 +415,7 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 
 func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret BucketedUserConfig, err error) {
 	d.wasmMutex.Lock()
-	errorMessage = ""
+	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 	userAddr, err := d.newAssemblyScriptString([]byte(user))
 	if err != nil {
@@ -422,8 +426,8 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
 	if err != nil {
 		return
 	}
-	if errorMessage != "" {
-		err = errorf(errorMessage)
+	if d.errorMessage != "" {
+		err = errorf(d.errorMessage)
 		return
 	}
 	rawConfig, err := d.readAssemblyScriptStringBytes(configPtr.(int32))
@@ -440,7 +444,7 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
  */
 func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]byte, error) {
 	d.wasmMutex.Lock()
-	errorMessage = ""
+	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
 	paramsAddr, preallocated, err := d.newAssemblyScriptByteArray(serializedParams)
@@ -459,8 +463,9 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 	}()
 
 	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr, int32(len(serializedParams)))
+
 	if err != nil {
-		return nil, errorf("Error calling variableForUserPB: %w", err)
+		return nil, errorf("Error calling variableForUserPB: (result: %v) %w", varPtr, err)
 	}
 
 	var intPtr = varPtr.(int32)
@@ -469,8 +474,8 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 		return nil, nil
 	}
 
-	if errorMessage != "" {
-		return nil, errorf(errorMessage)
+	if d.errorMessage != "" {
+		return nil, errorf(d.errorMessage)
 	}
 
 	rawVar, err := d.readAssemblyScriptByteArray(intPtr)
@@ -488,7 +493,7 @@ func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
 		}
 	}()
 	d.wasmMutex.Lock()
-	errorMessage = ""
+	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
 	configAddr, err := d.newAssemblyScriptString([]byte(config))
@@ -500,15 +505,15 @@ func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
 	if err != nil {
 		return err
 	}
-	if errorMessage != "" {
-		err = errorf(errorMessage)
+	if d.errorMessage != "" {
+		err = errorf(d.errorMessage)
 	}
 	return err
 }
 
 func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 	d.wasmMutex.Lock()
-	errorMessage = ""
+	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
 	configAddr, err := d.newAssemblyScriptString([]byte(platformData))
@@ -520,15 +525,15 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 	if err != nil {
 		return err
 	}
-	if errorMessage != "" {
-		err = errorf(errorMessage)
+	if d.errorMessage != "" {
+		err = errorf(d.errorMessage)
 	}
 	return err
 }
 
 func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
 	d.wasmMutex.Lock()
-	errorMessage = ""
+	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
 	customDataAddr, err := d.newAssemblyScriptString([]byte(customData))
@@ -537,8 +542,8 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
 	}
 
 	_, err = d.setClientCustomDataFunc.Call(d.wasmStore, d.sdkKeyAddr, customDataAddr)
-	if errorMessage != "" {
-		err = errorf(errorMessage)
+	if d.errorMessage != "" {
+		err = errorf(d.errorMessage)
 	}
 	return err
 }
