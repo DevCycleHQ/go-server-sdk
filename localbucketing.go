@@ -511,7 +511,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, e
 
 	// malloc
 	ptr, err := d.__newFunc.Call(d.wasmStore, int32(len(param)*2), objectIdString)
-	err = d.handleWASMErrors("__new", err)
+	err = d.handleWASMErrors("__new (newAssemblyScriptString)", err)
 	if err != nil {
 		return -1, err
 	}
@@ -534,7 +534,7 @@ func (d *DevCycleLocalBucketing) allocMemForString(size int32) (addr int32, err 
 
 	// malloc
 	ptr, err := d.__newFunc.Call(d.wasmStore, size, objectIdString)
-	err = d.handleWASMErrors("__new", err)
+	err = d.handleWASMErrors("__new (allocMemForString)", err)
 	if err != nil {
 		return -1, err
 	}
@@ -568,7 +568,7 @@ func (d *DevCycleLocalBucketing) allocMemForBufferPool(size int32) (addr int32, 
 func (d *DevCycleLocalBucketing) allocMemForBuffer(size int32, classId int32) (addr int32, err error) {
 	// malloc
 	ptr, err := d.__newFunc.Call(d.wasmStore, size, classId)
-	err = d.handleWASMErrors("__new", err)
+	err = d.handleWASMErrors("__new (allocMemForBuffer)", err)
 	if err != nil {
 		return -1, err
 	}
