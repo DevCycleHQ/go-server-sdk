@@ -286,7 +286,34 @@ func BenchmarkDVCClient_Variable_Protobuf(b *testing.B) {
 		b.Errorf("Failed to initialize client: %v", err)
 	}
 
-	user := DVCUser{UserId: "dontcare"}
+	customData := map[string]interface{}{
+		"propStr":          "hello",
+		"propLongString":   "Lorem ipsum 🖥️ dolor sit amet, consectetur adipiscing elit. Donec auctor⚔️🐍",
+		"lotremipsumQuote": "Swords are no more use here. Ingrates loses friendships! Watch jealous Cirith dungeons sack wore. Brewing warmth Goblin-town withhold credit deeds winter's wanna. Just Prancing Pony after stabs lift journey's learned. Bore splintered defied pottery proposition continue rebuilt track Bard. Imaginable hat stream grave marched both tomb goes concealment escape Hornburg. Anor riddles binding mere.",
+		"altQuote":         "Teeth Dimholt needed waited exist relight smote feasting. Branch whithertos racket protect might famous withdraw Think? Mongrel Easterlings brook hastens binding lurking amount. Spoken survives glass sort Rauros hunting everyone's cloud allowed grumbling consent bedroom? Flies garb Galadriel risk insect troublemaker canniest did. Tricksed courtyard ruin failing youngest eye graveyard Ravenhill. I bid you all a very fond farewell. Difficult going champion avalanche Sauron's laddie thoughts troublemakers entrusted lifetime. Attacks resides token Longshanks.",
+		"propInt":          1,
+		"propDouble":       3.14159265359,
+		"propBool":         true,
+		"propNull":         nil,
+		"longitude":        48.430744,
+		"latitude":         -123.369685,
+	}
+	customPrivateData := map[string]interface{}{
+		"aPrivateValue": "asuh",
+	}
+
+	user := DVCUser{
+		UserId:            "user_680f420d-a65f-406c-8aaf-0b39a617e696",
+		DeviceModel:       "testing",
+		Name:              "Pedro Pascal",
+		Email:             "pedro@pascal.com",
+		AppBuild:          "1.0.0",
+		AppVersion:        "1.0.0",
+		Country:           "ca",
+		Language:          "en",
+		CustomData:        customData,
+		PrivateCustomData: customPrivateData,
+	}
 
 	b.ResetTimer()
 	b.ReportAllocs()
