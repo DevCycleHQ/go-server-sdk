@@ -89,7 +89,7 @@ func main() {
 			res.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		fmt.Fprintf(res, "%v", variable.IsDefaulted)
+		fmt.Fprintf(res, "%v", variable)
 	})
 	mux.HandleFunc("/empty", func(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusOK)
