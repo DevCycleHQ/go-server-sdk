@@ -10,7 +10,6 @@ package devcycle
 
 import (
 	"net/http"
-	"runtime"
 	"time"
 )
 
@@ -116,7 +115,8 @@ func (o *DVCOptions) CheckDefaults() {
 	}
 
 	if o.MaxWasmWorkers <= 0 {
-		o.MaxWasmWorkers = runtime.GOMAXPROCS(0)
+		o.MaxWasmWorkers = 1
+		//o.MaxWasmWorkers = runtime.GOMAXPROCS(0)
 	}
 }
 
