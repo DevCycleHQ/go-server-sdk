@@ -42,7 +42,6 @@ type DVCClient struct {
 	eventQueue                   *EventQueue
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
-	bucketingWorkers             []*LocalBucketingWorker
 	bucketingWorkerPool          *tunny.Pool
 }
 
@@ -94,7 +93,6 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 		c.bucketingWorkerPool = tunny.New(options.MaxWasmWorkers, func() tunny.Worker {
 			worker := LocalBucketingWorker{}
 			err = worker.Initialize(wasmMain, sdkKey, options)
-			c.bucketingWorkers = append(c.bucketingWorkers, &worker)
 			return &worker
 		})
 	}
@@ -107,7 +105,7 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 	}
 
 	c.configManager = &EnvironmentConfigManager{localBucketing: localBucketing}
-	err = c.configManager.Initialize(sdkKey, localBucketing, c.bucketingWorkers, c.bucketingWorkerPool, c.cfg)
+	err = c.configManager.Initialize(sdkKey, localBucketing, c.bucketingWorkerPool, c.cfg)
 
 	if err != nil {
 		return err
@@ -616,21 +614,6 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 				Type_:            SetClientCustomData,
 				ClientCustomData: &data,
 			})
-
-			//var wg sync.WaitGroup
-			//errChan := make(chan error, len(c.bucketingWorkers))
-			//
-			//for _, w := range c.bucketingWorkers {
-			//	go func(w *LocalBucketingWorker) {
-			//		wg.Add(1)
-			//		defer wg.Done()
-			//		w.setClientCustomDataChan <- &data
-			//		err = <-w.setClientCustomDataResponseChan
-			//		errChan <- err
-			//	}(w)
-			//}
-			//
-			//wg.Wait()
 
 			for _, err := range errs {
 				var response = err.(WorkerPoolResponse)

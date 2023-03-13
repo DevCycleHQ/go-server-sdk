@@ -15,7 +15,6 @@ type EnvironmentConfigManager struct {
 	sdkKey              string
 	configETag          string
 	localBucketing      *DevCycleLocalBucketing
-	bucketingWorkers    []*LocalBucketingWorker
 	bucketingWorkerPool *tunny.Pool
 	firstLoad           bool
 	context             context.Context
@@ -30,12 +29,10 @@ type EnvironmentConfigManager struct {
 func (e *EnvironmentConfigManager) Initialize(
 	sdkKey string,
 	localBucketing *DevCycleLocalBucketing,
-	bucketingWorkers []*LocalBucketingWorker,
 	bucketingWorkerPool *tunny.Pool,
 	cfg *HTTPConfiguration,
 ) (err error) {
 	e.localBucketing = localBucketing
-	e.bucketingWorkers = bucketingWorkers
 	e.bucketingWorkerPool = bucketingWorkerPool
 	e.sdkKey = sdkKey
 	e.cfg = cfg
