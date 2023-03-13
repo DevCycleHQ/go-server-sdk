@@ -40,9 +40,30 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error setting up DVC client: %v", err)
 	}
-	dvcUser := devcycle.DVCUser{
-		UserId: "dontcare",
+	customData := map[string]interface{}{
+		"cacheKey":   "7ca4c7f2-8709-4098-9dd6-23adf879df87",
+		"propStr":    "hello",
+		"propInt":    1,
+		"propDouble": 3.14159265359,
+		"propBool":   true,
 	}
+	customPrivateData := map[string]interface{}{
+		"aPrivateValue": "secret-data-here",
+	}
+
+	dvcUser := devcycle.DVCUser{
+		UserId:            "user_680f420d-a65f-406c-8aaf-0b39a617e696",
+		DeviceModel:       "testing",
+		Name:              "Testing User",
+		Email:             "test.user@gmail.com",
+		AppBuild:          "1.0.0",
+		AppVersion:        "0.0.1",
+		Country:           "ca",
+		Language:          "en",
+		CustomData:        customData,
+		PrivateCustomData: customPrivateData,
+	}
+	
 	mux := http.NewServeMux()
 	mux.HandleFunc("/variable", func(res http.ResponseWriter, req *http.Request) {
 		variable, err := client.Variable(dvcUser, test_large_config_variable, false)
