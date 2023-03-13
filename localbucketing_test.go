@@ -3,6 +3,7 @@ package devcycle
 import (
 	_ "embed"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/proto"
 	"github.com/jarcoal/httpmock"
 	"testing"
 )
@@ -160,5 +161,72 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 		if err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+func BenchmarkDevCycleLocalBucketing_VariableForUser_PB(b *testing.B) {
+
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+
+	wasmMain := WASMMain{}
+	err := wasmMain.Initialize(&DVCOptions{})
+	localBucketing := DevCycleLocalBucketing{}
+
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{
+		AdvancedOptions: AdvancedOptions{
+			MaxMemoryAllocationBuckets: 1,
+		},
+	})
+
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	err = localBucketing.StoreConfig(test_config)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	err = localBucketing.SetPlatformData(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	userPB := &proto.DVCUser_PB{
+		UserId: "userid",
+	}
+
+	// package everything into the root params object
+	paramsPB := proto.VariableForUserParams_PB{
+		SdkKey:           test_environmentKey,
+		VariableKey:      "test",
+		VariableType:     proto.VariableType_PB(localBucketing.VariableTypeCodes.Boolean),
+		User:             userPB,
+		ShouldTrackEvent: false,
+	}
+
+	paramsBuffer, err := paramsPB.MarshalVT()
+
+	if err != nil {
+		b.Fatal(err)
+	}
+	_, err = localBucketing.VariableForUser_PB(paramsBuffer)
+
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	err = localBucketing.assemblyScriptCollect()
+
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	_, err = localBucketing.VariableForUser_PB(paramsBuffer)
+
+	if err != nil {
+		b.Fatal(err)
 	}
 }

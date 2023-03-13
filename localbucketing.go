@@ -173,7 +173,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 
 	d.allocatedMemPool = make([]int32, d.options.MaxMemoryAllocationBuckets)
 
-	ptr, err := d.allocMemForBuffer(bufferHeaderSize, 9)
+	ptr, err := d.allocMemForBuffer(bufferHeaderSize, 9, true)
 
 	if err != nil {
 		return err
@@ -416,20 +416,11 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	paramsAddr, preallocated, err := d.newAssemblyScriptByteArray(serializedParams)
+	paramsAddr, err := d.newAssemblyScriptByteArray(serializedParams)
 
 	if err != nil {
 		return nil, errorf("Error allocating WASM string: %w", err)
 	}
-
-	defer func() {
-		if !preallocated {
-			err := d.assemblyScriptUnpin(paramsAddr)
-			if err != nil {
-				errorf(err.Error())
-			}
-		}
-	}()
 
 	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr, int32(len(serializedParams)))
 
@@ -545,7 +536,7 @@ func (d *DevCycleLocalBucketing) allocMemForString(size int32) (addr int32, err 
 	return ptr.(int32), nil
 }
 
-func (d *DevCycleLocalBucketing) allocMemForBufferPool(size int32) (addr int32, preAllocated bool, err error) {
+func (d *DevCycleLocalBucketing) allocMemForBufferPool(size int32) (addr int32, err error) {
 	if len(d.allocatedMemPool) == 0 {
 		// dont use the pool, fall through to alloc below
 	} else {
@@ -555,38 +546,39 @@ func (d *DevCycleLocalBucketing) allocMemForBufferPool(size int32) (addr int32, 
 		if cachedIdx >= int32(len(d.allocatedMemPool)) {
 			warnf("String size exceeds max memory pool size, allocating new temporary block")
 		} else {
-			return d.allocatedMemPool[cachedIdx], true, nil
+			return d.allocatedMemPool[cachedIdx], nil
 		}
 	}
 
 	// malloc
-	ptr, err := d.allocMemForBuffer(size, 1)
+	ptr, err := d.allocMemForBuffer(size, 1, false)
 
-	return ptr, false, err
+	return ptr, err
 }
 
-func (d *DevCycleLocalBucketing) allocMemForBuffer(size int32, classId int32) (addr int32, err error) {
+func (d *DevCycleLocalBucketing) allocMemForBuffer(size int32, classId int32, shouldPin bool) (addr int32, err error) {
 	// malloc
 	ptr, err := d.__newFunc.Call(d.wasmStore, size, classId)
 	err = d.handleWASMErrors("__new (allocMemForBuffer)", err)
 	if err != nil {
 		return -1, err
 	}
-
-	if err := d.assemblyScriptPin(ptr.(int32)); err != nil {
-		return -1, err
+	if shouldPin {
+		if err := d.assemblyScriptPin(ptr.(int32)); err != nil {
+			return -1, err
+		}
 	}
 	return ptr.(int32), nil
 }
 
-func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32, bool, error) {
+func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32, error) {
 	const align = 0
 	length := int32(len(param))
 
-	buffer, preallocated, err := d.allocMemForBufferPool(length << align)
+	buffer, err := d.allocMemForBufferPool(length << align)
 	// Allocate the full buffer of our data - this is a buffer
 	if err != nil {
-		return -1, false, err
+		return -1, err
 	}
 
 	// Create a binary buffer to write little endian format
@@ -594,7 +586,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32
 
 	err = binary.Write(littleEndianBufferAddress, binary.LittleEndian, buffer)
 	if err != nil {
-		return 0, preallocated, err
+		return 0, err
 	}
 
 	data := d.wasmMemory.UnsafeData(d.wasmStore)
@@ -609,7 +601,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32
 	lengthBuffer := bytes.NewBuffer([]byte{})
 	err = binary.Write(lengthBuffer, binary.LittleEndian, length<<align)
 	if err != nil {
-		return 0, preallocated, err
+		return 0, err
 	}
 	// Write the length to the last 4 bytes of the header
 	for i, c := range lengthBuffer.Bytes() {
@@ -622,7 +614,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32
 	}
 
 	// Return the header address - as that's what's consumed on the WASM side.
-	return d.byteBufferHeader, preallocated, nil
+	return d.byteBufferHeader, nil
 }
 
 // https://www.assemblyscript.org/runtime.html#memory-layout
