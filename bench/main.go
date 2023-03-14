@@ -74,6 +74,7 @@ func main() {
 		DisableCustomEventLogging:    false,
 		ConfigCDNURI:                 configServer.URL,
 		EventsAPIURI:                 eventServer.URL,
+		UseDebugWasm:                 true,
 	})
 	if err != nil {
 		log.Fatalf("Error setting up DVC client: %v", err)

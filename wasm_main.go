@@ -8,6 +8,9 @@ import (
 //go:embed bucketing-lib.release.wasm
 var wasmMainBinary []byte
 
+//go:embed bucketing-lib.debug.wasm
+var wasmDebugBinary []byte
+
 type WASMMain struct {
 	wasm       []byte
 	wasmLinker *wasmtime.Linker
@@ -20,7 +23,9 @@ func (d *WASMMain) Initialize(options *DVCOptions) (err error) {
 	d.wasmEngine = wasmtime.NewEngine()
 	d.wasmLinker = wasmtime.NewLinker(d.wasmEngine)
 	err = d.wasmLinker.DefineWasi()
-
+	if options != nil && options.UseDebugWasm {
+		d.wasm = wasmDebugBinary
+	}
 	if err != nil {
 		return
 	}
