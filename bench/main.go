@@ -8,6 +8,8 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	_ "net/http/pprof"
+
 	"time"
 )
 
