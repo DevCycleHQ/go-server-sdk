@@ -14,7 +14,7 @@ func TestDevCycleLocalBucketing_Initialize(t *testing.T) {
 	httpConfigMock(200)
 
 	wasmMain := WASMMain{}
-	err := wasmMain.Initialize()
+	err := wasmMain.Initialize(nil)
 
 	localBucketing := DevCycleLocalBucketing{}
 	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
@@ -29,7 +29,7 @@ func BenchmarkDevCycleLocalBucketing_Initialize(b *testing.B) {
 	httpConfigMock(200)
 	for i := 0; i < b.N; i++ {
 		wasmMain := WASMMain{}
-		err := wasmMain.Initialize()
+		err := wasmMain.Initialize(nil)
 		localBucketing := DevCycleLocalBucketing{}
 		err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
 		if err != nil {
@@ -43,7 +43,7 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	wasmMain := WASMMain{}
-	err := wasmMain.Initialize()
+	err := wasmMain.Initialize(nil)
 	localBucketing := DevCycleLocalBucketing{}
 	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
 	if err != nil {
@@ -79,7 +79,7 @@ func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	wasmMain := WASMMain{}
-	err := wasmMain.Initialize()
+	err := wasmMain.Initialize(nil)
 	localBucketing := DevCycleLocalBucketing{}
 	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
 
@@ -98,7 +98,7 @@ func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	wasmMain := WASMMain{}
-	err := wasmMain.Initialize()
+	err := wasmMain.Initialize(nil)
 	localBucketing := DevCycleLocalBucketing{}
 	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
 	if err != nil {
@@ -118,7 +118,7 @@ func TestDevCycleLocalBucketing_SetPlatformData(t *testing.T) {
 	httpConfigMock(200)
 
 	wasmMain := WASMMain{}
-	err := wasmMain.Initialize()
+	err := wasmMain.Initialize(nil)
 	localBucketing := DevCycleLocalBucketing{}
 	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
 	if err != nil {
@@ -138,7 +138,7 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 	httpConfigMock(200)
 
 	wasmMain := WASMMain{}
-	err := wasmMain.Initialize()
+	err := wasmMain.Initialize(nil)
 	localBucketing := DevCycleLocalBucketing{}
 	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
 	if err != nil {
@@ -171,7 +171,7 @@ func BenchmarkDevCycleLocalBucketing_VariableForUser_PB(b *testing.B) {
 	httpConfigMock(200)
 
 	wasmMain := WASMMain{}
-	err := wasmMain.Initialize()
+	err := wasmMain.Initialize(nil)
 	localBucketing := DevCycleLocalBucketing{}
 
 	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{
