@@ -520,22 +520,6 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, e
 	return ptr.(int32), nil
 }
 
-func (d *DevCycleLocalBucketing) allocMemForString(size int32) (addr int32, err error) {
-	const objectIdString int32 = 2
-
-	// malloc
-	ptr, err := d.__newFunc.Call(d.wasmStore, size, objectIdString)
-	err = d.handleWASMErrors("__new (allocMemForString)", err)
-	if err != nil {
-		return -1, err
-	}
-
-	if err := d.assemblyScriptPin(ptr.(int32)); err != nil {
-		return -1, err
-	}
-	return ptr.(int32), nil
-}
-
 func (d *DevCycleLocalBucketing) allocMemForBufferPool(size int32) (addr int32, err error) {
 	if len(d.allocatedMemPool) == 0 {
 		// dont use the pool, fall through to alloc below
