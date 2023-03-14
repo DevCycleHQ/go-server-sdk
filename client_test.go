@@ -267,7 +267,7 @@ func BenchmarkDVCClient_Variable(b *testing.B) {
 	}
 }
 
-func BenchmarkDVCClient_Variable_Protobuf(b *testing.B) {
+func BenchmarkDVCClient_Variable_Protobuf_ComplexUser(b *testing.B) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
@@ -287,16 +287,14 @@ func BenchmarkDVCClient_Variable_Protobuf(b *testing.B) {
 	}
 
 	customData := map[string]interface{}{
-		"propStr":          "hello",
-		"propLongString":   "Lorem ipsum 🖥️ dolor sit amet, consectetur adipiscing elit. Donec auctor⚔️🐍",
-		"lotremipsumQuote": "Swords are no more use here. Ingrates loses friendships! Watch jealous Cirith dungeons sack wore. Brewing warmth Goblin-town withhold credit deeds winter's wanna. Just Prancing Pony after stabs lift journey's learned. Bore splintered defied pottery proposition continue rebuilt track Bard. Imaginable hat stream grave marched both tomb goes concealment escape Hornburg. Anor riddles binding mere.",
-		"altQuote":         "Teeth Dimholt needed waited exist relight smote feasting. Branch whithertos racket protect might famous withdraw Think? Mongrel Easterlings brook hastens binding lurking amount. Spoken survives glass sort Rauros hunting everyone's cloud allowed grumbling consent bedroom? Flies garb Galadriel risk insect troublemaker canniest did. Tricksed courtyard ruin failing youngest eye graveyard Ravenhill. I bid you all a very fond farewell. Difficult going champion avalanche Sauron's laddie thoughts troublemakers entrusted lifetime. Attacks resides token Longshanks.",
-		"propInt":          1,
-		"propDouble":       3.14159265359,
-		"propBool":         true,
-		"propNull":         nil,
-		"longitude":        48.430744,
-		"latitude":         -123.369685,
+		"propStr":            "hello",
+		"propWithEmojis":     "Some text with emojis in it 🖥️ ⚔ 🐍",
+		"prop400CharString":  "Swords are no more use here. Ingrates loses friendships! Watch jealous Cirith dungeons sack wore. Brewing warmth Goblin-town withhold credit deeds winter's wanna. Just Prancing Pony after stabs lift journey's learned. Bore splintered defied pottery proposition continue rebuilt track Bard. Imaginable hat stream grave marched both tomb goes concealment escape Hornburg. Anor riddles binding mere.1234",
+		"prop1000CharString": "Teeth Dimholt needed waited exist relight smote feasting. Branch whithertos racket protect might famous withdraw Think? Mongrel Easterlings brook hastens binding lurking amount. Spoken survives glass sort Rauros hunting everyone's cloud allowed grumbling consent bedroom? Flies garb Galadriel risk insect troublemaker canniest did. Tricksed courtyard ruin failing youngest eye graveyard Ravenhill. I bid you all a very fond farewell. Difficult going champion avalanche Sauron's laddie thoughts troublemakers entrusted lifetime. Attacks resides token Longshanks. Battered extraordinary squawk faded during Gandalf's signature? Doors plan leagues second value lightest Noldorin. Sauron youngest haunted? Sour last purring hear view Isildur's nature deepening mantelpiece talk flaming pa. Let the Ring-bearer decide. Lie beings sat root Greyhame check number stinking legend deserve protuberance dies. Torment Thorin irregular. Clouds Simbelmynë flatten heir. Place ask Galadhrim woman giant? 1234567890",
+		"propInt":            1,
+		"propDouble":         3.14159265359,
+		"propBool":           true,
+		"propNull":           nil,
 	}
 	customPrivateData := map[string]interface{}{
 		"aPrivateValue": "asuh",
@@ -317,6 +315,7 @@ func BenchmarkDVCClient_Variable_Protobuf(b *testing.B) {
 
 	b.ResetTimer()
 	b.ReportAllocs()
+
 	for i := 0; i < b.N; i++ {
 		variable, err := client.Variable(user, test_large_config_variable, false)
 		if err != nil {
