@@ -191,7 +191,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	for i := memoryBucketOffset; i < d.options.MaxMemoryAllocationBuckets+memoryBucketOffset; i++ {
 		index := i - memoryBucketOffset
 		size := 1 << i
-		ptr, err := d.allocMemForString(int32(size))
+		ptr, err := d.allocMemForBuffer(int32(size), 1, true)
 		if err != nil {
 			return err
 		}
