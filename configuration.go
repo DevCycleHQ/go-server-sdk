@@ -74,6 +74,7 @@ type DVCOptions struct {
 	OnInitializedChannel         chan bool
 	BucketingAPIURI              string
 	Logger                       Logger
+	UseDebugWASM                 bool
 	AdvancedOptions
 }
 
