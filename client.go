@@ -56,9 +56,9 @@ type service struct {
 	client *DVCClient
 }
 
-func initializeWasmMain() (ret *WASMMain, err error) {
+func initializeWasmMain(options *DVCOptions) (ret *WASMMain, err error) {
 	ret = &WASMMain{}
-	err = ret.Initialize()
+	err = ret.Initialize(options)
 	if err != nil {
 		errorf("error while initializing local bucketing", err)
 		return nil, err
@@ -79,7 +79,7 @@ func initializeLocalBucketing(wasmMain *WASMMain, sdkKey string, options *DVCOpt
 }
 
 func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
-	wasmMain, err := initializeWasmMain()
+	wasmMain, err := initializeWasmMain(options)
 	c.wasmMain = wasmMain
 	localBucketing, err := initializeLocalBucketing(wasmMain, sdkKey, options)
 
