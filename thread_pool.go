@@ -40,7 +40,6 @@ const (
 )
 
 type WorkerPoolPayload struct {
-	// TODO make this an enum
 	Type_              WorkerPayloadType
 	VariableEvalParams *[]byte
 	ConfigData         *[]byte
