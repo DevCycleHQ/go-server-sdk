@@ -71,6 +71,7 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
 		if err = e.setConfig(resp); err != nil {
@@ -105,11 +106,11 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 }
 
 func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
+
 	raw, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
-
 	// Check
 	valid := json.Valid(raw)
 	if !valid {
