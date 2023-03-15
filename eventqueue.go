@@ -158,6 +158,21 @@ func (e *EventQueue) FlushEvents() (err error) {
 			continue
 		}
 
+		// always ensure body is closed to avoid goroutine leak
+		defer resp.Body.Close()
+
+		// always read response body fully - from net/http docs:
+		// If the Body is not both read to EOF and closed, the Client's
+		// underlying RoundTripper (typically Transport) may not be able to
+		// re-use a persistent TCP connection to the server for a subsequent
+		// "keep-alive" request.
+		responseBody, readError := io.ReadAll(resp.Body)
+		if readError != nil {
+			errorf("Failed to read response body: %v", readError)
+			_ = reportPayloadFailure(e.localBucketing, payload.PayloadId, true)
+			continue
+		}
+
 		if resp.StatusCode >= 500 {
 			warnf("Events API Returned a 5xx error, retrying later.")
 			_ = reportPayloadFailure(e.localBucketing, payload.PayloadId, true)
@@ -166,15 +181,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 
 		if resp.StatusCode >= 400 {
 			_ = reportPayloadFailure(e.localBucketing, payload.PayloadId, false)
-			responseBody, readError := io.ReadAll(resp.Body)
-			if readError != nil {
-				errorf("Failed to read response body %s", readError)
-				continue
-			}
-			resp.Body.Close()
-
 			errorf("Error sending events - Response: %s", string(responseBody))
-
 			continue
 		}
 
