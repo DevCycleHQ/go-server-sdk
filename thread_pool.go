@@ -24,8 +24,6 @@ type LocalBucketingWorker struct {
 	setClientCustomDataResponseChan chan error
 	flushResultChannel              chan *FlushResult
 
-	hasConfig       bool
-	jobInProgress   atomic.Bool
 	flushInProgress atomic.Bool
 	id              int32
 }
@@ -78,7 +76,6 @@ func (w *LocalBucketingWorker) Initialize(wasmMain *WASMMain, sdkKey string, opt
 		return fmt.Errorf("error initializing worker event queue: %w", err)
 	}
 
-	w.jobInProgress = atomic.Bool{}
 	w.flushInProgress = atomic.Bool{}
 	w.flushResultChannel = make(chan *FlushResult)
 
@@ -104,9 +101,6 @@ func (w *LocalBucketingWorker) flushEvents() (*PayloadsAndChannel, error) {
 }
 
 func (w *LocalBucketingWorker) Process(payload interface{}) interface{} {
-	w.jobInProgress.Store(true)
-	defer w.jobInProgress.Store(false)
-
 	var workerPayload = payload.(*WorkerPoolPayload)
 
 	if workerPayload.Type_ == StoreConfig {
@@ -143,7 +137,6 @@ func (w *LocalBucketingWorker) variableForUser(params *[]byte) (*proto.SDKVariab
 }
 
 func (w *LocalBucketingWorker) storeConfig(configData []byte) error {
-	w.hasConfig = true
 	return w.localBucketing.StoreConfig(configData)
 }
 
