@@ -204,7 +204,7 @@ func (e *EventQueue) flushEventPayloads(payloadsAndChannel *PayloadsAndChannel) 
 		responseBody, readError := io.ReadAll(resp.Body)
 		if readError != nil {
 			errorf("Failed to read response body: %v", readError)
-			_ = e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
+			e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
 			continue
 		}
 
@@ -215,7 +215,7 @@ func (e *EventQueue) flushEventPayloads(payloadsAndChannel *PayloadsAndChannel) 
 		}
 
 		if resp.StatusCode >= 400 {
-			_ = e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
+			e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
 			errorf("Error sending events - Response: %s", string(responseBody))
 			continue
 		}
