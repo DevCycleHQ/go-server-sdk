@@ -662,7 +662,7 @@ func (c *DVCClient) Close() (err error) {
 }
 
 func (c *DVCClient) hasConfig() bool {
-	return c.configManager.hasConfig
+	return c.configManager.HasConfig()
 }
 
 func (c *DVCClient) performRequest(

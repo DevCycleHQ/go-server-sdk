@@ -162,97 +162,130 @@ func (e *EventQueue) FlushEvents() (err error) {
 	return
 }
 
+func (e *EventQueue) flushEventPayload(
+	payload *FlushPayload,
+	successes *[]string,
+	failures *[]string,
+	retryableFailures *[]string,
+) (err error) {
+	eventsHost := e.cfg.EventsAPIBasePath
+	var req *http.Request
+	var resp *http.Response
+	requestBody, err := json.Marshal(BatchEventsBody{Batch: payload.Records})
+	if err != nil {
+		_ = errorf("Failed to marshal batch events body: %s", err)
+		e.reportPayloadFailure(payload, false, failures, retryableFailures)
+		return
+	}
+	req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(requestBody))
+	if err != nil {
+		_ = errorf("Failed to create request to events api: %s", err)
+		e.reportPayloadFailure(payload, false, failures, retryableFailures)
+		return
+	}
+
+	req.Header.Set("Authorization", e.localBucketing.sdkKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err = e.cfg.HTTPClient.Do(req)
+
+	if err != nil {
+		_ = errorf("Failed to make request to events api: %s", err)
+		e.reportPayloadFailure(payload, false, failures, retryableFailures)
+		return
+	}
+
+	// always ensure body is closed to avoid goroutine leak
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	// always read response body fully - from net/http docs:
+	// If the Body is not both read to EOF and closed, the Client's
+	// underlying RoundTripper (typically Transport) may not be able to
+	// re-use a persistent TCP connection to the server for a subsequent
+	// "keep-alive" request.
+	responseBody, readError := io.ReadAll(resp.Body)
+	if readError != nil {
+		_ = errorf("Failed to read response body: %v", readError)
+		e.reportPayloadFailure(payload, false, failures, retryableFailures)
+		return
+	}
+
+	if resp.StatusCode >= 500 {
+		warnf("Events API Returned a 5xx error, retrying later.")
+		e.reportPayloadFailure(payload, true, failures, retryableFailures)
+		return
+	}
+
+	if resp.StatusCode >= 400 {
+		e.reportPayloadFailure(payload, false, failures, retryableFailures)
+		_ = errorf("Error sending events - Response: %s", string(responseBody))
+		return
+	}
+
+	if resp.StatusCode == 201 {
+		e.reportPayloadSuccess(payload, successes)
+		e.eventsReported.Add(1)
+		return
+	}
+
+	_ = errorf("unknown status code when flushing events %d", resp.StatusCode)
+	e.reportPayloadFailure(payload, false, failures, retryableFailures)
+
+	return err
+}
+
 func (e *EventQueue) flushEventPayloads(payloadsAndChannel *PayloadsAndChannel) (err error) {
 	e.eventsFlushed.Add(int32(len(payloadsAndChannel.payloads)))
-	eventsHost := e.cfg.EventsAPIBasePath
+	var successes []string
+	var failures []string
+	var retryableFailures []string
+
+	if payloadsAndChannel.channel != nil {
+		successes = make([]string, 0)
+		failures = make([]string, 0)
+		retryableFailures = make([]string, 0)
+	}
+
 	for _, payload := range payloadsAndChannel.payloads {
-		var req *http.Request
-		var resp *http.Response
-		requestBody, err := json.Marshal(BatchEventsBody{Batch: payload.Records})
-		if err != nil {
-			_ = errorf("Failed to marshal batch events body: %s", err)
-			e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
-			continue
+		err = e.flushEventPayload(&payload, &successes, &failures, &retryableFailures)
+	}
+
+	if payloadsAndChannel.channel != nil {
+		*payloadsAndChannel.channel <- &FlushResult{
+			SuccessPayloads:          successes,
+			FailurePayloads:          failures,
+			FailureWithRetryPayloads: retryableFailures,
 		}
-		req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(requestBody))
-		if err != nil {
-			_ = errorf("Failed to create request to events api: %s", err)
-			e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
-			continue
-		}
-
-		req.Header.Set("Authorization", e.localBucketing.sdkKey)
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json")
-
-		resp, err = e.cfg.HTTPClient.Do(req)
-
-		if err != nil {
-			_ = errorf("Failed to make request to events api: %s", err)
-			e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
-			continue
-		}
-
-		// always ensure body is closed to avoid goroutine leak
-		defer resp.Body.Close()
-
-		// always read response body fully - from net/http docs:
-		// If the Body is not both read to EOF and closed, the Client's
-		// underlying RoundTripper (typically Transport) may not be able to
-		// re-use a persistent TCP connection to the server for a subsequent
-		// "keep-alive" request.
-		responseBody, readError := io.ReadAll(resp.Body)
-		if readError != nil {
-			errorf("Failed to read response body: %v", readError)
-			e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
-			continue
-		}
-
-		if resp.StatusCode >= 500 {
-			warnf("Events API Returned a 5xx error, retrying later.")
-			e.reportPayloadFailure(payload, true, payloadsAndChannel.channel)
-			continue
-		}
-
-		if resp.StatusCode >= 400 {
-			e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
-			errorf("Error sending events - Response: %s", string(responseBody))
-			continue
-		}
-
-		if resp.StatusCode == 201 {
-			err = e.reportPayloadSuccess(payload, payloadsAndChannel.channel)
-			if err != nil {
-				_ = errorf("failed to mark payload as success %s", err)
-			}
-			e.eventsReported.Add(1)
-			continue
-		}
-
-		_ = errorf("unknown status code when flushing events %d", resp.StatusCode)
-		e.reportPayloadFailure(payload, false, payloadsAndChannel.channel)
 	}
 	return err
 }
 
-func (e *EventQueue) reportPayloadSuccess(payload FlushPayload, respChannel *chan *FlushResult) (err error) {
-	if respChannel != nil {
-		*respChannel <- &FlushResult{SuccessPayloads: []string{payload.PayloadId}}
+func (e *EventQueue) reportPayloadSuccess(payload *FlushPayload, successPayloads *[]string) {
+	if successPayloads != nil {
+		*successPayloads = append(*successPayloads, payload.PayloadId)
 		return
 	}
-	err = e.localBucketing.onPayloadSuccess(payload.PayloadId)
+	err := e.localBucketing.onPayloadSuccess(payload.PayloadId)
 	if err != nil {
-		_ = errorf("Failed to mark payload as failed: %s", err)
+		_ = errorf("Failed to mark payload as success: %s", err)
 	}
 	return
 }
 
-func (e *EventQueue) reportPayloadFailure(payload FlushPayload, retry bool, respChannel *chan *FlushResult) {
-	if respChannel != nil {
+func (e *EventQueue) reportPayloadFailure(
+	payload *FlushPayload,
+	retry bool,
+	failurePayloads *[]string,
+	retryableFailurePayloads *[]string,
+) {
+	if failurePayloads != nil {
 		if retry {
-			*respChannel <- &FlushResult{FailureWithRetryPayloads: []string{payload.PayloadId}}
+			*retryableFailurePayloads = append(*retryableFailurePayloads, payload.PayloadId)
 		} else {
-			*respChannel <- &FlushResult{FailurePayloads: []string{payload.PayloadId}}
+			*failurePayloads = append(*failurePayloads, payload.PayloadId)
 		}
 		return
 	}
