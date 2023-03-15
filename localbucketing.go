@@ -73,8 +73,6 @@ type DevCycleLocalBucketing struct {
 }
 
 func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
-	options.CheckDefaults()
-
 	d.options = options
 	d.wasmMain = wasmMain
 
