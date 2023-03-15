@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/DevCycleHQ/tunny"
@@ -21,7 +22,7 @@ type EnvironmentConfigManager struct {
 	cancel              context.CancelFunc
 	httpClient          *http.Client
 	cfg                 *HTTPConfiguration
-	hasConfig           bool
+	hasConfig           atomic.Bool
 	pollingStop         chan bool
 	ticker              *time.Ticker
 }
@@ -39,6 +40,7 @@ func (e *EnvironmentConfigManager) Initialize(
 	e.httpClient = &http.Client{Timeout: localBucketing.options.RequestTimeout}
 	e.context, e.cancel = context.WithCancel(context.Background())
 	e.pollingStop = make(chan bool, 2)
+	e.hasConfig = atomic.Bool{}
 
 	e.firstLoad = true
 
@@ -160,7 +162,7 @@ func (e *EnvironmentConfigManager) setConfig(config []byte) (err error) {
 		}
 	}
 
-	e.hasConfig = true
+	e.hasConfig.Store(true)
 	return
 }
 
@@ -171,7 +173,7 @@ func (e *EnvironmentConfigManager) getConfigURL() string {
 }
 
 func (e *EnvironmentConfigManager) HasConfig() bool {
-	return e.hasConfig
+	return e.hasConfig.Load()
 }
 
 func (e *EnvironmentConfigManager) Close() {

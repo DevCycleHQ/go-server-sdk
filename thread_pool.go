@@ -48,7 +48,6 @@ type WorkerPoolPayload struct {
 type WorkerPoolResponse struct {
 	Variable *proto.SDKVariable_PB
 	Events   *PayloadsAndChannel
-	ImHere   bool
 	Err      error
 }
 
