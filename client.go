@@ -54,7 +54,6 @@ type service struct {
 }
 
 func initializeWasmMain(options *DVCOptions) (ret *WASMMain, err error) {
-	options.CheckDefaults()
 	ret = &WASMMain{}
 	err = ret.Initialize(options)
 	if err != nil {
@@ -66,7 +65,6 @@ func initializeWasmMain(options *DVCOptions) (ret *WASMMain, err error) {
 }
 
 func initializeLocalBucketing(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
-	options.CheckDefaults()
 	ret = &DevCycleLocalBucketing{}
 	err = ret.Initialize(wasmMain, sdkKey, options)
 	if err != nil {
