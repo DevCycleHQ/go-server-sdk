@@ -264,7 +264,7 @@ func (e *EventQueue) flushEventPayloads(payloadsAndChannel *PayloadsAndChannel) 
 }
 
 func (e *EventQueue) reportPayloadSuccess(payload *FlushPayload, successPayloads *[]string) {
-	if successPayloads != nil {
+	if *successPayloads != nil {
 		*successPayloads = append(*successPayloads, payload.PayloadId)
 		return
 	}
@@ -281,7 +281,7 @@ func (e *EventQueue) reportPayloadFailure(
 	failurePayloads *[]string,
 	retryableFailurePayloads *[]string,
 ) {
-	if failurePayloads != nil {
+	if *failurePayloads != nil {
 		if retry {
 			*retryableFailurePayloads = append(*retryableFailurePayloads, payload.PayloadId)
 		} else {
