@@ -11,10 +11,10 @@ import (
 var (
 	test_environmentKey = "dvc_server_token_hash"
 
-	//go:embed testdata/fixture_small_config.json
+	//go:embed bench/testdata/fixture_small_config.json
 	test_config string
 
-	//go:embed testdata/fixture_large_config.json
+	//go:embed bench/testdata/fixture_large_config.json
 	test_large_config          string
 	test_large_config_variable = "v-key-25"
 )
