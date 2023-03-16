@@ -17,7 +17,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DevCycleHQ/tunny"
 	"github.com/devcyclehq/go-server-sdk/v2/proto"
+
 	"github.com/matryer/try"
 )
 
@@ -40,6 +42,7 @@ type DVCClient struct {
 	eventQueue                   *EventQueue
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
+	bucketingWorkerPool          *tunny.Pool
 }
 
 type SDKEvent struct {
@@ -83,16 +86,25 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 		return err
 	}
 
+	c.localBucketing = localBucketing
+
+	if options.MaxWasmWorkers > 1 {
+		c.bucketingWorkerPool = tunny.New(options.MaxWasmWorkers, func() tunny.Worker {
+			worker := LocalBucketingWorker{}
+			err = worker.Initialize(wasmMain, sdkKey, options)
+			return &worker
+		})
+	}
+
 	c.eventQueue = &EventQueue{}
-	err = c.eventQueue.initialize(options, localBucketing, c.cfg)
+	err = c.eventQueue.initialize(options, localBucketing, c.bucketingWorkerPool, c.cfg)
 
 	if err != nil {
 		return err
 	}
 
-	c.localBucketing = localBucketing
 	c.configManager = &EnvironmentConfigManager{localBucketing: localBucketing}
-	err = c.configManager.Initialize(sdkKey, localBucketing, c.cfg)
+	err = c.configManager.Initialize(sdkKey, localBucketing, c.bucketingWorkerPool, c.cfg)
 
 	if err != nil {
 		return err
@@ -125,6 +137,7 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		c.internalOnInitializedChannel = make(chan bool, 1)
+
 		err := setLBClient(sdkKey, options, c)
 		if err != nil {
 			return c, err
@@ -257,27 +270,33 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 		return Variable{}, errorf("Error marshalling protobuf object in variableForUserProtobuf: %w", err)
 	}
 
-	variableBuffer, err := c.localBucketing.VariableForUser_PB(paramsBuffer)
+	var variablePB *proto.SDKVariable_PB
+	if c.bucketingWorkerPool == nil {
+		variablePB, err = c.localBucketing.VariableForUser_PB(paramsBuffer)
+		if err != nil {
+			return Variable{}, err
+		}
+	} else {
+		result := c.bucketingWorkerPool.Process(&WorkerPoolPayload{
+			VariableEvalParams: &paramsBuffer,
+		})
 
-	if err != nil {
-		return Variable{}, errorf("Error calling variableForUserProtobuf: %w", err)
+		var variableResult = result.(WorkerPoolResponse)
+		if variableResult.Err != nil {
+			return Variable{}, variableResult.Err
+		}
+		variablePB = variableResult.Variable
 	}
 
-	if variableBuffer == nil {
-		// If the variable is not bucketed, return an empty variable
+	if variablePB == nil {
 		return Variable{}, nil
 	}
 
-	// Decode the result
-	sdkVariable := proto.SDKVariable_PB{}
-	err = sdkVariable.UnmarshalVT(variableBuffer)
-
-	// turn sdkVariable into real Variable object
 	return Variable{
 		baseVariable: baseVariable{
-			Key:   sdkVariable.Key,
-			Type_: sdkVariable.Type.String(),
-			Value: sdkVariable.GetValue(),
+			Key:   variablePB.Key,
+			Type_: variablePB.Type.String(),
+			Value: variablePB.GetValue(),
 		},
 		DefaultValue: nil,
 		IsDefaulted:  false,
@@ -565,7 +584,6 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 }
 
 func (c *DVCClient) FlushEvents() error {
-
 	if c.DevCycleOptions.EnableCloudBucketing || !c.isInitialized {
 		return nil
 	}
@@ -585,8 +603,27 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 			if err != nil {
 				return err
 			}
-			err = c.localBucketing.SetClientCustomData(string(data))
-			return err
+			err = c.localBucketing.SetClientCustomData(data)
+
+			if err != nil {
+				return err
+			}
+
+			if c.bucketingWorkerPool != nil {
+				errs := c.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
+					Type_:            SetClientCustomData,
+					ClientCustomData: &data,
+				})
+
+				for _, err := range errs {
+					var response = err.(WorkerPoolResponse)
+					if response.Err != nil {
+						return response.Err
+					}
+				}
+			}
+
+			return nil
 		} else {
 			warnf("SetClientCustomData called before client initialized")
 			return nil
@@ -609,6 +646,10 @@ func (c *DVCClient) Close() (err error) {
 		<-c.internalOnInitializedChannel
 	}
 
+	if c.bucketingWorkerPool != nil {
+		c.bucketingWorkerPool.Close()
+	}
+
 	if c.eventQueue != nil {
 		err = c.eventQueue.Close()
 	}
@@ -621,7 +662,7 @@ func (c *DVCClient) Close() (err error) {
 }
 
 func (c *DVCClient) hasConfig() bool {
-	return c.configManager.hasConfig
+	return c.configManager.HasConfig()
 }
 
 func (c *DVCClient) performRequest(

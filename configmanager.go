@@ -6,30 +6,41 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync/atomic"
 	"time"
+
+	"github.com/DevCycleHQ/tunny"
 )
 
 type EnvironmentConfigManager struct {
-	sdkKey         string
-	configETag     string
-	localBucketing *DevCycleLocalBucketing
-	firstLoad      bool
-	context        context.Context
-	cancel         context.CancelFunc
-	httpClient     *http.Client
-	cfg            *HTTPConfiguration
-	hasConfig      bool
-	pollingStop    chan bool
-	ticker         *time.Ticker
+	sdkKey              string
+	configETag          string
+	localBucketing      *DevCycleLocalBucketing
+	bucketingWorkerPool *tunny.Pool
+	firstLoad           bool
+	context             context.Context
+	cancel              context.CancelFunc
+	httpClient          *http.Client
+	cfg                 *HTTPConfiguration
+	hasConfig           atomic.Bool
+	pollingStop         chan bool
+	ticker              *time.Ticker
 }
 
-func (e *EnvironmentConfigManager) Initialize(sdkKey string, localBucketing *DevCycleLocalBucketing, cfg *HTTPConfiguration) (err error) {
+func (e *EnvironmentConfigManager) Initialize(
+	sdkKey string,
+	localBucketing *DevCycleLocalBucketing,
+	bucketingWorkerPool *tunny.Pool,
+	cfg *HTTPConfiguration,
+) (err error) {
 	e.localBucketing = localBucketing
+	e.bucketingWorkerPool = bucketingWorkerPool
 	e.sdkKey = sdkKey
 	e.cfg = cfg
 	e.httpClient = &http.Client{Timeout: localBucketing.options.RequestTimeout}
 	e.context, e.cancel = context.WithCancel(context.Background())
 	e.pollingStop = make(chan bool, 2)
+	e.hasConfig = atomic.Bool{}
 
 	e.firstLoad = true
 
@@ -74,7 +85,7 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 	defer resp.Body.Close()
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
-		if err = e.setConfig(resp); err != nil {
+		if err = e.setConfigFromResponse(resp); err != nil {
 			return err
 		}
 		break
@@ -105,24 +116,23 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 	return err
 }
 
-func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
-
-	raw, err := io.ReadAll(response.Body)
+func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response) error {
+	config, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
 	// Check
-	valid := json.Valid(raw)
+	valid := json.Valid(config)
 	if !valid {
 		return errorf("invalid JSON data received for config")
 	}
 
-	config := string(raw)
-	err = e.localBucketing.StoreConfig(config)
+	err = e.setConfig(config)
+
 	if err != nil {
 		return err
 	}
-	e.hasConfig = true
+
 	e.configETag = response.Header.Get("Etag")
 	infof("Config set. ETag: %s\n", e.configETag)
 	if e.firstLoad {
@@ -132,6 +142,30 @@ func (e *EnvironmentConfigManager) setConfig(response *http.Response) error {
 	return nil
 }
 
+func (e *EnvironmentConfigManager) setConfig(config []byte) (err error) {
+	err = e.localBucketing.StoreConfig(config)
+	if err != nil {
+		return
+	}
+
+	if e.bucketingWorkerPool != nil {
+		errs := e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
+			Type_:      StoreConfig,
+			ConfigData: &config,
+		})
+
+		for _, err := range errs {
+			var response = err.(WorkerPoolResponse)
+			if response.Err != nil {
+				return response.Err
+			}
+		}
+	}
+
+	e.hasConfig.Store(true)
+	return
+}
+
 func (e *EnvironmentConfigManager) getConfigURL() string {
 	configBasePath := e.cfg.ConfigCDNBasePath
 
@@ -139,7 +173,7 @@ func (e *EnvironmentConfigManager) getConfigURL() string {
 }
 
 func (e *EnvironmentConfigManager) HasConfig() bool {
-	return e.hasConfig
+	return e.hasConfig.Load()
 }
 
 func (e *EnvironmentConfigManager) Close() {

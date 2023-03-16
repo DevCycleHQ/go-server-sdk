@@ -10,6 +10,7 @@ package devcycle
 
 import (
 	"net/http"
+	"runtime"
 	"time"
 )
 
@@ -73,7 +74,22 @@ type DVCOptions struct {
 	OnInitializedChannel         chan bool
 	BucketingAPIURI              string
 	Logger                       Logger
+	UseDebugWASM                 bool
 	AdvancedOptions
+}
+
+type EventQueueOptions struct {
+	FlushEventsInterval          time.Duration `json:"flushEventsMS"`
+	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging"`
+	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging"`
+}
+
+func (options *DVCOptions) eventQueueOptions() *EventQueueOptions {
+	return &EventQueueOptions{
+		FlushEventsInterval:          options.EventFlushIntervalMS,
+		DisableAutomaticEventLogging: options.DisableAutomaticEventLogging,
+		DisableCustomEventLogging:    options.DisableCustomEventLogging,
+	}
 }
 
 func (o *DVCOptions) CheckDefaults() {
@@ -98,6 +114,10 @@ func (o *DVCOptions) CheckDefaults() {
 		o.MaxMemoryAllocationBuckets = 12
 	} else if o.MaxMemoryAllocationBuckets <= -1 {
 		o.MaxMemoryAllocationBuckets = 0
+	}
+
+	if o.MaxWasmWorkers <= 0 {
+		o.MaxWasmWorkers = runtime.GOMAXPROCS(0)
 	}
 }
 

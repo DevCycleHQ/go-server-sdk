@@ -8,9 +8,11 @@ import (
 //go:embed bucketing-lib.release.wasm
 var wasmMainBinary []byte
 
+//go:embed bucketing-lib.debug.wasm
+var wasmDebugBinary []byte
+
 type WASMMain struct {
 	wasm       []byte
-	wasmLinker *wasmtime.Linker
 	wasmEngine *wasmtime.Engine
 	wasmModule *wasmtime.Module
 }
@@ -18,18 +20,15 @@ type WASMMain struct {
 func (d *WASMMain) Initialize(options *DVCOptions) (err error) {
 	d.wasm = wasmMainBinary
 	d.wasmEngine = wasmtime.NewEngine()
-	d.wasmLinker = wasmtime.NewLinker(d.wasmEngine)
-	err = d.wasmLinker.DefineWasi()
+	if options != nil && options.UseDebugWASM {
+		infof("Using debug WASM binary. (This is not recommended for production use)")
+		d.wasm = wasmDebugBinary
+	}
+	d.wasmModule, err = wasmtime.NewModule(d.wasmEngine, d.wasm)
 
 	if err != nil {
 		return
 	}
 
-	d.wasmModule, err = wasmtime.NewModule(d.wasmEngine, d.wasm)
-
 	return
-}
-
-func (d *WASMMain) GetWasmLinker() *wasmtime.Linker {
-	return d.wasmLinker
 }

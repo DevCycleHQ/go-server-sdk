@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/proto"
 	"math"
 	"math/rand"
 	"strings"
@@ -31,11 +32,11 @@ type VariableTypeCodes struct {
 }
 
 type DevCycleLocalBucketing struct {
-	wasm         []byte
 	wasmStore    *wasmtime.Store
 	wasmInstance *wasmtime.Instance
 	wasmMemory   *wasmtime.Memory
 	wasiConfig   *wasmtime.WasiConfig
+	wasmLinker   *wasmtime.Linker
 	wasmMain     *WASMMain
 	sdkKey       string
 	options      *DVCOptions
@@ -76,6 +77,12 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	d.options = options
 	d.wasmMain = wasmMain
 
+	d.wasmLinker = wasmtime.NewLinker(d.wasmMain.wasmEngine)
+	err = d.wasmLinker.DefineWasi()
+
+	if err != nil {
+		return
+	}
 	d.wasiConfig = wasmtime.NewWasiConfig()
 	d.wasiConfig.InheritEnv()
 	d.wasiConfig.InheritStderr()
@@ -88,12 +95,12 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 		return
 	}
 
-	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "Date.now", func() float64 { return float64(time.Now().UnixMilli()) })
+	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "Date.now", func() float64 { return float64(time.Now().UnixMilli()) })
 	if err != nil {
 		return
 	}
 
-	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
+	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
 
 		messagePtrData, err := d.readAssemblyScriptStringBytes(messagePtr)
 		if err != nil {
@@ -114,7 +121,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 		return
 	}
 
-	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
+	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "console.log", func(messagePtr int32) {
 		var message []byte
 		message, err = d.readAssemblyScriptStringBytes(messagePtr)
 		printf(string(message))
@@ -123,14 +130,14 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 		return
 	}
 
-	err = d.wasmMain.wasmLinker.DefineFunc(d.wasmStore, "env", "seed", func() float64 {
+	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "seed", func() float64 {
 		return rand.Float64() * float64(time.Now().UnixMilli())
 	})
 	if err != nil {
 		return
 	}
 
-	d.wasmInstance, err = d.wasmMain.wasmLinker.Instantiate(d.wasmStore, d.wasmMain.wasmModule)
+	d.wasmInstance, err = d.wasmLinker.Instantiate(d.wasmStore, d.wasmMain.wasmModule)
 	if err != nil {
 		return
 	}
@@ -207,7 +214,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	if err != nil {
 		return
 	}
-	err = d.SetPlatformData(string(platformJSON))
+	err = d.SetPlatformData(platformJSON)
 
 	return
 }
@@ -409,7 +416,7 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret
  * This is a helper function to call the variableForUserPB function in the WASM module.
  * It takes a serialized protobuf message as input and returns a serialized protobuf message as output.
  */
-func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]byte, error) {
+func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) (*proto.SDKVariable_PB, error) {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -439,10 +446,17 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) ([]
 		return nil, errorf("Error converting WASM result to bytes: %w", err)
 	}
 
-	return rawVar, nil
+	sdkVariable := proto.SDKVariable_PB{}
+	err = sdkVariable.UnmarshalVT(rawVar)
+
+	if err != nil {
+		return nil, errorf("Error deserializing WASM result: %w", err)
+	}
+
+	return &sdkVariable, nil
 }
 
-func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
+func (d *DevCycleLocalBucketing) StoreConfig(config []byte) error {
 	defer func() {
 		if err := recover(); err != nil {
 			errorf("Failed to process config: ", err)
@@ -452,7 +466,7 @@ func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	configAddr, err := d.newAssemblyScriptString([]byte(config))
+	configAddr, err := d.newAssemblyScriptString(config)
 	if err != nil {
 		return err
 	}
@@ -463,12 +477,12 @@ func (d *DevCycleLocalBucketing) StoreConfig(config string) error {
 	return err
 }
 
-func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
+func (d *DevCycleLocalBucketing) SetPlatformData(platformData []byte) error {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	configAddr, err := d.newAssemblyScriptString([]byte(platformData))
+	configAddr, err := d.newAssemblyScriptString(platformData)
 	if err != nil {
 		return err
 	}
@@ -478,12 +492,12 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData string) error {
 	return err
 }
 
-func (d *DevCycleLocalBucketing) SetClientCustomData(customData string) error {
+func (d *DevCycleLocalBucketing) SetClientCustomData(customData []byte) error {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	customDataAddr, err := d.newAssemblyScriptString([]byte(customData))
+	customDataAddr, err := d.newAssemblyScriptString(customData)
 	if err != nil {
 		return err
 	}

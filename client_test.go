@@ -1,9 +1,14 @@
 package devcycle
 
 import (
+	"flag"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"reflect"
+	"runtime"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -233,11 +238,29 @@ func fatalErr(t *testing.T, err error) {
 	}
 }
 
-func BenchmarkDVCClient_Variable(b *testing.B) {
+var (
+	benchmarkEnableEvents        bool
+	benchmarkEnableConfigUpdates bool
+	benchmarkNumWorkers          int
+	benchmarkDisableLogs         bool
+)
+
+func init() {
+	flag.BoolVar(&benchmarkEnableEvents, "benchEnableEvents", false, "Custom test flag that enables event logging in benchmarks")
+	flag.BoolVar(&benchmarkEnableConfigUpdates, "benchEnableConfigUpdates", false, "Custom test flag that enables config updates in benchmarks")
+	flag.IntVar(&benchmarkNumWorkers, "benchNumWorkers", runtime.NumCPU(), "Custom test flag that sets the number of WASM workers in benchmarks")
+	flag.BoolVar(&benchmarkDisableLogs, "benchDisableLogs", false, "Custom test flag that disables logging in benchmarks")
+}
+
+func BenchmarkDVCClient_VariableSerial(b *testing.B) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
 	httpEventsApiMock()
+
+	if benchmarkDisableLogs {
+		log.SetOutput(io.Discard)
+	}
 
 	options := &DVCOptions{
 		EnableCloudBucketing:         false,
@@ -245,6 +268,15 @@ func BenchmarkDVCClient_Variable(b *testing.B) {
 		DisableCustomEventLogging:    true,
 		ConfigPollingIntervalMS:      time.Minute,
 		EventFlushIntervalMS:         time.Minute,
+		AdvancedOptions: AdvancedOptions{
+			MaxWasmWorkers: benchmarkNumWorkers,
+		},
+	}
+
+	if benchmarkEnableEvents {
+		options.DisableAutomaticEventLogging = false
+		options.DisableCustomEventLogging = false
+		options.EventFlushIntervalMS = 0
 	}
 
 	client, err := NewDVCClient(test_environmentKey, options)
@@ -256,6 +288,7 @@ func BenchmarkDVCClient_Variable(b *testing.B) {
 
 	b.ResetTimer()
 	b.ReportAllocs()
+
 	for i := 0; i < b.N; i++ {
 		variable, err := client.Variable(user, test_large_config_variable, false)
 		if err != nil {
@@ -267,11 +300,15 @@ func BenchmarkDVCClient_Variable(b *testing.B) {
 	}
 }
 
-func BenchmarkDVCClient_Variable_Protobuf(b *testing.B) {
+func BenchmarkDVCClient_VariableParallel(b *testing.B) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
 	httpEventsApiMock()
+
+	if benchmarkDisableLogs {
+		log.SetOutput(io.Discard)
+	}
 
 	options := &DVCOptions{
 		EnableCloudBucketing:         false,
@@ -279,6 +316,15 @@ func BenchmarkDVCClient_Variable_Protobuf(b *testing.B) {
 		DisableCustomEventLogging:    true,
 		ConfigPollingIntervalMS:      time.Minute,
 		EventFlushIntervalMS:         time.Minute,
+		AdvancedOptions: AdvancedOptions{
+			MaxWasmWorkers: benchmarkNumWorkers,
+		},
+	}
+	if benchmarkEnableEvents {
+		infof("Enabling event logging")
+		options.DisableAutomaticEventLogging = false
+		options.DisableCustomEventLogging = false
+		options.EventFlushIntervalMS = time.Millisecond * 500
 	}
 
 	client, err := NewDVCClient(test_environmentKey, options)
@@ -290,13 +336,46 @@ func BenchmarkDVCClient_Variable_Protobuf(b *testing.B) {
 
 	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		variable, err := client.Variable(user, test_large_config_variable, false)
-		if err != nil {
-			b.Errorf("Failed to retrieve variable: %v", err)
+
+	setConfigCount := atomic.Uint64{}
+	configCounter := atomic.Uint64{}
+
+	errors := make(chan error, b.N)
+
+	var opNanos atomic.Int64
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			start := time.Now()
+			variable, err := client.Variable(user, test_large_config_variable, false)
+			duration := time.Since(start)
+			opNanos.Add(duration.Nanoseconds())
+
+			if err != nil {
+				errors <- fmt.Errorf("Failed to retrieve variable: %v", err)
+			}
+			if benchmarkEnableConfigUpdates && configCounter.Add(1)%10000 == 0 {
+				go func() {
+					err = client.configManager.setConfig([]byte(test_large_config))
+					setConfigCount.Add(1)
+				}()
+			}
+			if variable.IsDefaulted {
+				errors <- fmt.Errorf("Expected variable to return a value")
+			}
 		}
-		if variable.IsDefaulted {
-			b.Fatal("Expected variable to return a value")
-		}
+	})
+
+	select {
+	case err := <-errors:
+		b.Error(err)
+	default:
 	}
+
+	b.ReportMetric(float64(benchmarkNumWorkers), "workers")
+	b.ReportMetric(float64(setConfigCount.Load()), "reconfigs")
+	b.ReportMetric(float64(opNanos.Load())/float64(b.N), "ns")
+	eventsFlushed, eventsReported := client.eventQueue.Metrics()
+	b.ReportMetric(float64(eventsFlushed), "eventsFlushed")
+	b.ReportMetric(float64(eventsReported), "eventsReported")
 }
