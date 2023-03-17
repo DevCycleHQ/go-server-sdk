@@ -10,4 +10,7 @@ require (
 	google.golang.org/protobuf v1.29.0
 )
 
-require github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
+require (
+	github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
+	github.com/jolestar/go-commons-pool/v2 v2.1.2 // indirect
+)

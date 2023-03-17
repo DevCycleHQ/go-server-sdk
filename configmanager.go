@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	pool "github.com/jolestar/go-commons-pool/v2"
 	"io"
 	"net/http"
 	"sync/atomic"
@@ -17,6 +18,7 @@ type EnvironmentConfigManager struct {
 	configETag          string
 	localBucketing      *DevCycleLocalBucketing
 	bucketingWorkerPool *tunny.Pool
+	bucketingObjectPool *pool.ObjectPool
 	firstLoad           bool
 	context             context.Context
 	cancel              context.CancelFunc
@@ -31,10 +33,12 @@ func (e *EnvironmentConfigManager) Initialize(
 	sdkKey string,
 	localBucketing *DevCycleLocalBucketing,
 	bucketingWorkerPool *tunny.Pool,
+	bucketingObjectPool *pool.ObjectPool,
 	cfg *HTTPConfiguration,
 ) (err error) {
 	e.localBucketing = localBucketing
 	e.bucketingWorkerPool = bucketingWorkerPool
+	e.bucketingObjectPool = bucketingObjectPool
 	e.sdkKey = sdkKey
 	e.cfg = cfg
 	e.httpClient = &http.Client{Timeout: localBucketing.options.RequestTimeout}
@@ -159,6 +163,22 @@ func (e *EnvironmentConfigManager) setConfig(config []byte) (err error) {
 			if response.Err != nil {
 				return response.Err
 			}
+		}
+	}
+
+	if e.bucketingObjectPool != nil {
+		for i := 0; i < e.bucketingObjectPool.Config.MaxTotal; i++ {
+			bucketingClient, err := e.bucketingObjectPool.BorrowObject(e.context)
+			if err != nil {
+				return err
+			}
+			//printf("Storing config in bucketing client %d", bucketingClient.(*BucketingPoolObject).id)
+			err = bucketingClient.(*BucketingPoolObject).localBucketing.StoreConfig(config)
+			if err != nil {
+				return err
+			}
+
+			err = e.bucketingObjectPool.ReturnObject(e.context, bucketingClient)
 		}
 	}
 

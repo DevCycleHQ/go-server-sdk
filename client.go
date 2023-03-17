@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	pool "github.com/jolestar/go-commons-pool/v2"
 	"io"
 	"math"
 	"math/rand"
@@ -19,7 +20,6 @@ import (
 
 	"github.com/DevCycleHQ/tunny"
 	"github.com/devcyclehq/go-server-sdk/v2/proto"
-
 	"github.com/matryer/try"
 )
 
@@ -32,6 +32,7 @@ var (
 // In most cases there should be only one, shared, DVCClient.
 type DVCClient struct {
 	cfg                          *HTTPConfiguration
+	ctx                          context.Context
 	common                       service // Reuse a single struct instead of allocating one for each service on the heap.
 	DevCycleOptions              *DVCOptions
 	sdkKey                       string
@@ -43,6 +44,7 @@ type DVCClient struct {
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
 	bucketingWorkerPool          *tunny.Pool
+	bucketingObjectPool          *pool.ObjectPool
 }
 
 type SDKEvent struct {
@@ -96,15 +98,38 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 		})
 	}
 
+	factory := pool.NewPooledObjectFactorySimple(
+		func(context.Context) (interface{}, error) {
+			var bucketing = &BucketingPoolObject{}
+			err = bucketing.Initialize(wasmMain, sdkKey, options)
+			return bucketing, err
+		})
+
+	config := pool.NewDefaultPoolConfig()
+	config.LIFO = false
+	config.MaxTotal = options.MaxWasmWorkers
+	config.MaxIdle = options.MaxWasmWorkers
+	config.MinEvictableIdleTime = -1
+	config.TimeBetweenEvictionRuns = -1
+
+	c.bucketingObjectPool = pool.NewObjectPool(c.ctx, factory, config)
+
+	for i := 0; i < options.MaxWasmWorkers; i++ {
+		err = c.bucketingObjectPool.AddObject(c.ctx)
+		if err != nil {
+			return err
+		}
+	}
+
 	c.eventQueue = &EventQueue{}
-	err = c.eventQueue.initialize(options, localBucketing, c.bucketingWorkerPool, c.cfg)
+	err = c.eventQueue.initialize(options, localBucketing, c.bucketingWorkerPool, c.bucketingObjectPool, c.cfg)
 
 	if err != nil {
 		return err
 	}
 
 	c.configManager = &EnvironmentConfigManager{localBucketing: localBucketing}
-	err = c.configManager.Initialize(sdkKey, localBucketing, c.bucketingWorkerPool, c.cfg)
+	err = c.configManager.Initialize(sdkKey, localBucketing, c.bucketingWorkerPool, c.bucketingObjectPool, c.cfg)
 
 	if err != nil {
 		return err
@@ -128,6 +153,7 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 
 	c := &DVCClient{sdkKey: sdkKey}
 	c.cfg = cfg
+	c.ctx = context.Background()
 	c.common.client = c
 	c.DevCycleOptions = options
 
@@ -271,7 +297,22 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 	}
 
 	var variablePB *proto.SDKVariable_PB
-	if c.bucketingWorkerPool == nil {
+	if c.bucketingObjectPool != nil {
+		result, err := c.bucketingObjectPool.BorrowObject(c.ctx)
+
+		if err != nil {
+			return Variable{}, err
+		}
+
+		b := result.(*BucketingPoolObject)
+		variablePB, err = b.localBucketing.VariableForUser_PB(paramsBuffer)
+
+		if err != nil {
+			return Variable{}, err
+		}
+
+		err = c.bucketingObjectPool.ReturnObject(c.ctx, result)
+	} else if c.bucketingWorkerPool == nil {
 		variablePB, err = c.localBucketing.VariableForUser_PB(paramsBuffer)
 		if err != nil {
 			return Variable{}, err

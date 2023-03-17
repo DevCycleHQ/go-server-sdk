@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	pool "github.com/jolestar/go-commons-pool/v2"
 	"io"
 	"net/http"
 	"sync/atomic"
@@ -22,6 +23,7 @@ type EventQueue struct {
 	ticker              *time.Ticker
 	flushStop           chan bool
 	bucketingWorkerPool *tunny.Pool
+	bucketingObjectPool *pool.ObjectPool
 	eventsFlushed       atomic.Int32
 	eventsReported      atomic.Int32
 }
@@ -31,12 +33,13 @@ type PayloadsAndChannel struct {
 	channel  *chan *FlushResult
 }
 
-func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing, bucketingWorkerPool *tunny.Pool, cfg *HTTPConfiguration) (err error) {
+func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing, bucketingWorkerPool *tunny.Pool, bucketingObjectPool *pool.ObjectPool, cfg *HTTPConfiguration) (err error) {
 	e.context = context.Background()
 	e.cfg = cfg
 	e.options = options
 	e.flushStop = make(chan bool, 1)
 	e.bucketingWorkerPool = bucketingWorkerPool
+	e.bucketingObjectPool = bucketingObjectPool
 
 	if !e.options.EnableCloudBucketing && localBucketing != nil {
 		e.localBucketing = localBucketing
