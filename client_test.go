@@ -269,7 +269,7 @@ func BenchmarkDVCClient_VariableSerial(b *testing.B) {
 		ConfigPollingIntervalMS:      time.Minute,
 		EventFlushIntervalMS:         time.Minute,
 		AdvancedOptions: AdvancedOptions{
-			MaxWasmWorkers: 8,
+			MaxWasmWorkers: 1,
 		},
 	}
 

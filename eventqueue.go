@@ -139,25 +139,21 @@ func (e *EventQueue) FlushEvents() (err error) {
 
 	// ask all the workers to send us their events.
 	// These will arrive on the events channel and be flushed on each worker thread
-	var workerFlushResponses []interface{}
-	if e.bucketingWorkerPool != nil {
+	var workerFlushResponses []PayloadsAndChannel
+	if e.bucketingObjectPool != nil {
 		debugf("Flushing events from all workers")
-		workerFlushResponses = e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
-			Type_: FlushEvents,
-		})
+		workerFlushResponses, err = e.bucketingObjectPool.FlushEvents()
+	}
+
+	if err != nil {
+		return err
 	}
 
 	for _, workerResponse := range workerFlushResponses {
-		var response = workerResponse.(WorkerPoolResponse)
-		if response.Err != nil {
-			return response.Err
-		}
-		if response.Events != nil {
-			err := e.flushEventPayloads(response.Events)
+		err := e.flushEventPayloads(&workerResponse)
 
-			if err != nil {
-				return err
-			}
+		if err != nil {
+			return err
 		}
 	}
 

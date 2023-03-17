@@ -151,20 +151,6 @@ func (e *EnvironmentConfigManager) setConfig(config []byte) (err error) {
 		return
 	}
 
-	if e.bucketingWorkerPool != nil {
-		errs := e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
-			Type_:      StoreConfig,
-			ConfigData: &config,
-		})
-
-		for _, err := range errs {
-			var response = err.(WorkerPoolResponse)
-			if response.Err != nil {
-				return response.Err
-			}
-		}
-	}
-
 	if e.bucketingObjectPool != nil {
 		err = e.bucketingObjectPool.SetConfig(config)
 		if err != nil {
