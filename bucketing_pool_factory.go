@@ -24,12 +24,10 @@ func MakeBucketingPoolFactory(wasmMain *WASMMain, sdkKey string, options *DVCOpt
 
 func (f *BucketingPoolFactory) MakeObject(ctx context.Context) (*pool.PooledObject, error) {
 	var bucketing = &BucketingPoolObject{}
-	err := bucketing.Initialize(f.wasmMain, f.sdkKey, f.options)
+	err := bucketing.Initialize(f.wasmMain, f.sdkKey, f.options, f.pool.eventFlushChan)
 	if err != nil {
 		return nil, err
 	}
-
-	f.pool.RegisterFlushChannel(bucketing.flushChan)
 
 	return pool.NewPooledObject(
 			bucketing),
@@ -74,7 +72,7 @@ func (f *BucketingPoolFactory) checkForWork(ctx context.Context, object *pool.Po
 	_ = bucketing.StoreConfig(f.pool.configData)
 	_ = bucketing.SetClientCustomData(f.pool.clientCustomData)
 
-	if f.pool.isFlushing.Load() {
+	if f.pool.isFlushing {
 		bucketing.FlushEvents(f.pool.lastFlushTime)
 	}
 

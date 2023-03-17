@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync/atomic"
-	"time"
 )
 
 var (
@@ -21,10 +20,10 @@ type BucketingPoolObject struct {
 	flushChan        chan *PayloadsAndChannel
 }
 
-func (o *BucketingPoolObject) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
+func (o *BucketingPoolObject) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions, flushChan chan *PayloadsAndChannel) (err error) {
 	o.localBucketing = &DevCycleLocalBucketing{}
 	err = o.localBucketing.Initialize(wasmMain, sdkKey, options)
-	o.flushChan = make(chan *PayloadsAndChannel)
+	o.flushChan = flushChan
 
 	var eventQueueOpt []byte
 	eventQueueOpt, err = json.Marshal(options.eventQueueOptions())
@@ -87,7 +86,6 @@ func (o *BucketingPoolObject) FlushEvents(lastFlushTime int64) {
 		return
 	}
 
-	o.lastFlushTime = time.Now().UnixMilli()
 	o.flushResultChan = make(chan *FlushResult)
 
 	o.writeToFlushChannel(lastFlushTime, &PayloadsAndChannel{

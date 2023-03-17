@@ -344,6 +344,7 @@ func BenchmarkDVCClient_VariableParallel(b *testing.B) {
 
 	var opNanos atomic.Int64
 
+	printf("STARTING TEST")
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			start := time.Now()

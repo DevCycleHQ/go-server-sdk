@@ -2,9 +2,10 @@ package devcycle
 
 import (
 	"context"
+	"fmt"
 	"github.com/devcyclehq/go-server-sdk/v2/proto"
 	pool "github.com/jolestar/go-commons-pool/v2"
-	"sync/atomic"
+	"sync"
 	"time"
 )
 
@@ -15,8 +16,9 @@ type BucketingPool struct {
 	configData       *[]byte
 	clientCustomData *[]byte
 	lastFlushTime    int64
-	eventFlushChans  []chan *PayloadsAndChannel
-	isFlushing       atomic.Bool
+	eventFlushChan   chan *PayloadsAndChannel
+	isFlushingMutex  sync.Mutex
+	isFlushing       bool
 }
 
 func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, options *DVCOptions) (*BucketingPool, error) {
@@ -33,10 +35,10 @@ func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, op
 
 	bucketingPool.factory = MakeBucketingPoolFactory(wasmMain, sdkKey, options, bucketingPool)
 
-	bucketingPool.isFlushing = atomic.Bool{}
+	bucketingPool.isFlushingMutex = sync.Mutex{}
 
 	bucketingPool.pool = pool.NewObjectPool(ctx, bucketingPool.factory, config)
-	bucketingPool.eventFlushChans = make([]chan *PayloadsAndChannel, options.MaxWasmWorkers)
+	bucketingPool.eventFlushChan = make(chan *PayloadsAndChannel)
 
 	for i := 0; i < options.MaxWasmWorkers; i++ {
 		err := bucketingPool.pool.AddObject(ctx)
@@ -77,11 +79,13 @@ func (p *BucketingPool) pokeOne() error {
 	}
 
 	defer func() {
-		err = p.pool.ReturnObject(p.ctx, bucketing)
-		if err != nil {
-			// TODO do we need to panic here?
-			panic(err)
-		}
+		go func() {
+			err = p.pool.ReturnObject(p.ctx, bucketing)
+			if err != nil {
+				// TODO do we need to panic here?
+				panic(err)
+			}
+		}()
 	}()
 
 	return nil
@@ -112,29 +116,34 @@ func (p *BucketingPool) SetClientCustomData(customData []byte) error {
 }
 
 func (p *BucketingPool) FlushEvents() (flushPayloads []PayloadsAndChannel, err error) {
-	if p.isFlushing.Load() {
+	p.isFlushingMutex.Lock()
+	defer p.isFlushingMutex.Unlock()
+	if p.isFlushing {
 		return
 	}
+	printf("Starting to flush events")
 	p.lastFlushTime = time.Now().UnixMilli()
-	p.isFlushing.Store(true)
-	defer p.isFlushing.Store(false)
+	p.isFlushing = true
+	defer func() { p.isFlushing = false }()
 
 	// Trigger everyone to wake up and check the lastFlushTime
 	err = p.PokeAll()
 	if err != nil {
+		errorf("error", err)
 		return nil, err
 	}
 
-	for _, channel := range p.eventFlushChans {
-		payloads := <-channel
-
-		flushPayloads = append(flushPayloads, *payloads)
+	printf("Waiting for all channels to report in to flush events")
+	count := 0
+	for count < p.pool.Config.MaxTotal {
+		select {
+		case payload := <-p.eventFlushChan:
+			flushPayloads = append(flushPayloads, *payload)
+			count += 1
+		case <-time.After(60 * time.Second):
+			return nil, fmt.Errorf("Timed out while waiting for events to flush")
+		}
 	}
 
-	return
-}
-
-func (p *BucketingPool) RegisterFlushChannel(channel chan *PayloadsAndChannel) {
-	p.eventFlushChans = append(p.eventFlushChans, channel)
 	return
 }
