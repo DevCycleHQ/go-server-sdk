@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	pool "github.com/jolestar/go-commons-pool/v2"
 	"io"
 	"math"
 	"math/rand"
@@ -44,7 +43,7 @@ type DVCClient struct {
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
 	bucketingWorkerPool          *tunny.Pool
-	bucketingObjectPool          *pool.ObjectPool
+	bucketingObjectPool          *BucketingPool
 }
 
 type SDKEvent struct {
@@ -98,27 +97,10 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 		})
 	}
 
-	factory := pool.NewPooledObjectFactorySimple(
-		func(context.Context) (interface{}, error) {
-			var bucketing = &BucketingPoolObject{}
-			err = bucketing.Initialize(wasmMain, sdkKey, options)
-			return bucketing, err
-		})
+	c.bucketingObjectPool, err = NewBucketingPool(c.ctx, c.wasmMain, sdkKey, options)
 
-	config := pool.NewDefaultPoolConfig()
-	config.LIFO = false
-	config.MaxTotal = options.MaxWasmWorkers
-	config.MaxIdle = options.MaxWasmWorkers
-	config.MinEvictableIdleTime = -1
-	config.TimeBetweenEvictionRuns = -1
-
-	c.bucketingObjectPool = pool.NewObjectPool(c.ctx, factory, config)
-
-	for i := 0; i < options.MaxWasmWorkers; i++ {
-		err = c.bucketingObjectPool.AddObject(c.ctx)
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return err
 	}
 
 	c.eventQueue = &EventQueue{}
@@ -298,20 +280,7 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 
 	var variablePB *proto.SDKVariable_PB
 	if c.bucketingObjectPool != nil {
-		result, err := c.bucketingObjectPool.BorrowObject(c.ctx)
-
-		if err != nil {
-			return Variable{}, err
-		}
-
-		b := result.(*BucketingPoolObject)
-		variablePB, err = b.localBucketing.VariableForUser_PB(paramsBuffer)
-
-		if err != nil {
-			return Variable{}, err
-		}
-
-		err = c.bucketingObjectPool.ReturnObject(c.ctx, result)
+		variablePB, err = c.bucketingObjectPool.VariableForUser(paramsBuffer)
 	} else if c.bucketingWorkerPool == nil {
 		variablePB, err = c.localBucketing.VariableForUser_PB(paramsBuffer)
 		if err != nil {
