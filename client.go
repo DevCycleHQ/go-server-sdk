@@ -619,21 +619,11 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 				return err
 			}
 
-			if c.bucketingWorkerPool != nil {
-				errs := c.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
-					Type_:            SetClientCustomData,
-					ClientCustomData: &data,
-				})
-
-				for _, err := range errs {
-					var response = err.(WorkerPoolResponse)
-					if response.Err != nil {
-						return response.Err
-					}
-				}
+			if c.bucketingObjectPool != nil {
+				err = c.bucketingObjectPool.SetClientCustomData(data)
 			}
 
-			return nil
+			return err
 		} else {
 			warnf("SetClientCustomData called before client initialized")
 			return nil
