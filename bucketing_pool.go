@@ -67,11 +67,7 @@ func (p *BucketingPool) VariableForUser(paramsBuffer []byte) (*proto.SDKVariable
 		return nil, err
 	}
 	defer func() {
-		err = currentPool.ReturnObject(p.ctx, bucketing)
-		if err != nil {
-			// TODO do we need to panic here?
-			panic(err)
-		}
+		_ = currentPool.ReturnObject(p.ctx, bucketing)
 	}()
 
 	b := bucketing.(*BucketingPoolObject)
@@ -92,11 +88,7 @@ func (p *BucketingPool) pokeOne(currentPool *pool.ObjectPool) error {
 
 	defer func() {
 		go func() {
-			err = currentPool.ReturnObject(p.ctx, bucketing)
-			if err != nil {
-				// TODO do we need to panic here?
-				panic(err)
-			}
+			_ = currentPool.ReturnObject(p.ctx, bucketing)
 		}()
 	}()
 
@@ -198,42 +190,3 @@ func (p *BucketingPool) SetClientCustomData(customData []byte) error {
 		return object.SetClientCustomData(&customData)
 	})
 }
-
-//func (p *BucketingPool) FlushEvents() (flushPayloads []PayloadsAndChannel, err error) {
-//	p.isFlushingMutex.Lock()
-//	defer p.isFlushingMutex.Unlock()
-//	if p.isFlushing {
-//		return
-//	}
-//	printf("Starting to flush events")
-//	p.lastFlushTime = time.Now().UnixMilli()
-//	p.isFlushing = true
-//	defer func() { p.isFlushing = false }()
-//
-//	// Trigger everyone to wake up and check the lastFlushTime
-//	err = p.PokeAll()
-//	if err != nil {
-//		errorf("error", err)
-//		return nil, err
-//	}
-//
-//	printf("Waiting for all channels to report in to flush events")
-//	count := 0
-//	flushPayloads = make([]PayloadsAndChannel, 0)
-//	for count < p.pool.Config.MaxTotal {
-//		select {
-//		case payload := <-p.eventFlushChan:
-//			printf("received events on channel!")
-//			if payload != nil {
-//				flushPayloads = append(flushPayloads, *payload)
-//			}
-//			count += 1
-//		case <-time.After(60 * time.Second):
-//			return nil, fmt.Errorf("Timed out while waiting for events to flush")
-//		}
-//	}
-//
-//	printf("Finished receiving events on channels")
-//
-//	return
-//}
