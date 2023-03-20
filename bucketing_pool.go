@@ -6,7 +6,6 @@ import (
 	pool "github.com/jolestar/go-commons-pool/v2"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 type BucketingPool struct {
@@ -22,6 +21,7 @@ type BucketingPool struct {
 	eventFlushChan   chan *PayloadsAndChannel
 	isFlushingMutex  sync.Mutex
 	isFlushing       bool
+	closed           bool
 }
 
 func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, options *DVCOptions) (*BucketingPool, error) {
@@ -61,6 +61,9 @@ func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, op
 }
 
 func (p *BucketingPool) VariableForUser(paramsBuffer []byte) (*proto.SDKVariable_PB, error) {
+	if p.closed {
+		return nil, errorf("Cannot evaluate variable on closed pool")
+	}
 	currentPool := p.currentPool.Load()
 	bucketing, err := currentPool.BorrowObject(p.ctx)
 	if err != nil {
@@ -97,7 +100,7 @@ func (p *BucketingPool) pokeOne(currentPool *pool.ObjectPool) error {
 
 // borrow N objects and return them immediately. This will trigger the passivate handler for any idle objects, while
 // assuming that any objects that weren't borrowed during this process were busy and thus passivate will be called anyway
-func (p *BucketingPool) PokeAll() error {
+func (p *BucketingPool) pokeAll() error {
 	printf("Poking all workers")
 	currentPool := p.currentPool.Load()
 
@@ -119,6 +122,9 @@ func (p *BucketingPool) ProcessAll(
 	operationName string,
 	process func(object *BucketingPoolObject) error,
 ) (err error) {
+	if p.closed {
+		return errorf("Cannot process task on closed pool")
+	}
 	p.poolSwapMutex.Lock()
 	defer p.poolSwapMutex.Unlock()
 
@@ -129,10 +135,9 @@ func (p *BucketingPool) ProcessAll(
 		inactivePool = p.pool2
 	}
 
-	start := time.Now()
+	//start := time.Now()
 
 	processAll := func(processPool *pool.ObjectPool) error {
-		debugf("Processing for pool %p", processPool)
 		i := 0
 		curObjects := make([]*BucketingPoolObject, processPool.Config.MaxTotal)
 		for i < processPool.Config.MaxTotal {
@@ -170,12 +175,15 @@ func (p *BucketingPool) ProcessAll(
 	p.currentPool.Swap(inactivePool)
 	err = processAll(currentPool)
 
-	debugf("Borrowed all objects from pool for %s in %s", operationName, time.Since(start))
+	//debugf("Borrowed all objects from pool for %s in %s", operationName, time.Since(start))
 
 	return err
 }
 
 func (p *BucketingPool) SetConfig(config []byte) error {
+	if p.closed {
+		return errorf("Cannot set config on closed pool")
+	}
 	p.configData = &config
 	debugf("Setting config on all workers")
 	return p.ProcessAll("SetConfig", func(object *BucketingPoolObject) error {
@@ -184,9 +192,18 @@ func (p *BucketingPool) SetConfig(config []byte) error {
 }
 
 func (p *BucketingPool) SetClientCustomData(customData []byte) error {
+	if p.closed {
+		return errorf("Cannot set client custom data on closed pool")
+	}
 	p.clientCustomData = &customData
 	debugf("Setting client custom data on all workers")
 	return p.ProcessAll("SetClientCustomData", func(object *BucketingPoolObject) error {
 		return object.SetClientCustomData(&customData)
 	})
+}
+
+func (p *BucketingPool) Close() {
+	p.pool1.Close(p.ctx)
+	p.pool2.Close(p.ctx)
+	p.closed = true
 }

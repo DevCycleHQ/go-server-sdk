@@ -2,7 +2,6 @@ package devcycle
 
 import (
 	"context"
-	"fmt"
 	pool "github.com/jolestar/go-commons-pool/v2"
 )
 
@@ -35,7 +34,6 @@ func (f *BucketingPoolFactory) MakeObject(ctx context.Context) (*pool.PooledObje
 }
 
 func (f *BucketingPoolFactory) DestroyObject(ctx context.Context, object *pool.PooledObject) error {
-	panic(fmt.Errorf("local bucketing borrow pool should never destroy objects"))
 	return nil
 }
 

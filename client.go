@@ -646,16 +646,16 @@ func (c *DVCClient) Close() (err error) {
 		<-c.internalOnInitializedChannel
 	}
 
-	if c.bucketingWorkerPool != nil {
-		c.bucketingWorkerPool.Close()
-	}
-
 	if c.eventQueue != nil {
 		err = c.eventQueue.Close()
 	}
 
 	if c.configManager != nil {
 		c.configManager.Close()
+	}
+
+	if c.bucketingObjectPool != nil {
+		c.bucketingObjectPool.Close()
 	}
 
 	return err
