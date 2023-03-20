@@ -71,27 +71,26 @@ func (o *BucketingPoolObject) writeToFlushChannel(lastFlushTime int64, payloads 
 	o.flushChan <- payloads
 }
 
-func (o *BucketingPoolObject) FlushEvents(lastFlushTime int64) {
-	if o.lastFlushTime > lastFlushTime {
-		return
+func (o *BucketingPoolObject) FlushEvents() ([]FlushPayload, error) {
+	return o.localBucketing.flushEventQueue()
+}
+
+func (o *BucketingPoolObject) HandleFlushResults(result *FlushResult) (err error) {
+	for _, payloadId := range result.SuccessPayloads {
+		if err = o.localBucketing.onPayloadSuccess(payloadId); err != nil {
+			err = errorf("failed to mark event payloads as successful", err)
+		}
 	}
-	payloads, err := o.localBucketing.flushEventQueue()
-	if err != nil {
-		o.writeToFlushChannel(lastFlushTime, nil)
-		return
+	for _, payloadId := range result.FailurePayloads {
+		if err = o.localBucketing.onPayloadFailure(payloadId, false); err != nil {
+			err = errorf("failed to mark event payloads as failed", err)
+
+		}
 	}
-
-	if len(payloads) == 0 {
-		o.writeToFlushChannel(lastFlushTime, nil)
-		return
+	for _, payloadId := range result.FailureWithRetryPayloads {
+		if err = o.localBucketing.onPayloadFailure(payloadId, true); err != nil {
+			err = errorf("failed to mark event payloads as failed", err)
+		}
 	}
-
-	o.flushResultChan = make(chan *FlushResult)
-
-	o.writeToFlushChannel(lastFlushTime, &PayloadsAndChannel{
-		payloads: payloads,
-		channel:  &o.flushResultChan,
-	})
-
-	return
+	return err
 }
