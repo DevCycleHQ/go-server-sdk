@@ -156,7 +156,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 				return nil
 			}
 		}
-	}, 5*time.Second)
+	})
 
 	debugf("Finished flushing events")
 

@@ -2,7 +2,6 @@ package devcycle
 
 import (
 	"context"
-	"fmt"
 	"github.com/devcyclehq/go-server-sdk/v2/proto"
 	pool "github.com/jolestar/go-commons-pool/v2"
 	"sync"
@@ -127,7 +126,6 @@ func (p *BucketingPool) PokeAll() error {
 func (p *BucketingPool) ProcessAll(
 	operationName string,
 	process func(object *BucketingPoolObject) error,
-	timeout time.Duration,
 ) (err error) {
 	p.poolSwapMutex.Lock()
 	defer p.poolSwapMutex.Unlock()
@@ -139,42 +137,33 @@ func (p *BucketingPool) ProcessAll(
 		inactivePool = p.pool2
 	}
 
-	idMap := make(map[int32]bool)
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(p.ctx, timeout)
-
-	defer cancel()
-
-	wrongObjectCount := 0
 
 	processAll := func(processPool *pool.ObjectPool) error {
-		for len(idMap) < processPool.Config.MaxTotal && ctx.Err() == nil {
-			var curObj *BucketingPoolObject
-			for curObj == nil {
-				borrowed, err := processPool.BorrowObject(ctx)
-				curObj = borrowed.(*BucketingPoolObject)
-				if err != nil {
-					_ = processPool.ReturnObject(p.ctx, curObj)
-					if ctx.Err() != nil {
-						return fmt.Errorf("timed out after %s while processing %s on all workers", timeout, operationName)
-					}
-					return err
-				}
-
-				if idMap[curObj.id] {
-					_ = processPool.ReturnObject(p.ctx, curObj)
-					wrongObjectCount += 1
-					curObj = nil
-				}
+		debugf("Processing for pool %p", processPool)
+		i := 0
+		curObjects := make([]*BucketingPoolObject, processPool.Config.MaxTotal)
+		for i < processPool.Config.MaxTotal {
+			borrowed, err := processPool.BorrowObject(p.ctx)
+			curObj := borrowed.(*BucketingPoolObject)
+			if err != nil {
+				_ = processPool.ReturnObject(p.ctx, curObj)
+				return err
 			}
 
-			idMap[curObj.id] = true
-
-			err := process(curObj)
-			_ = processPool.ReturnObject(p.ctx, curObj)
+			err = process(curObj)
 
 			if err != nil {
+				_ = processPool.ReturnObject(p.ctx, curObj)
 				return err
+			}
+			curObjects[i] = curObj
+			i += 1
+		}
+
+		for _, curObj := range curObjects {
+			if curObj != nil {
+				_ = processPool.ReturnObject(p.ctx, curObj)
 			}
 		}
 
@@ -189,11 +178,9 @@ func (p *BucketingPool) ProcessAll(
 	p.currentPool.Swap(inactivePool)
 	err = processAll(currentPool)
 
-	//debugf("Borrowing all objects from pool for %s (max %d)", operationName, p.pool.Config.MaxTotal)
+	debugf("Borrowed all objects from pool for %s in %s", operationName, time.Since(start))
 
-	debugf("Borrowed all objects from pool for %s in %s with %d repeated objects", operationName, time.Since(start), wrongObjectCount)
-
-	return nil
+	return err
 }
 
 func (p *BucketingPool) SetConfig(config []byte) error {
@@ -201,7 +188,7 @@ func (p *BucketingPool) SetConfig(config []byte) error {
 	debugf("Setting config on all workers")
 	return p.ProcessAll("SetConfig", func(object *BucketingPoolObject) error {
 		return object.StoreConfig(&config)
-	}, 5*time.Second)
+	})
 }
 
 func (p *BucketingPool) SetClientCustomData(customData []byte) error {
@@ -209,7 +196,7 @@ func (p *BucketingPool) SetClientCustomData(customData []byte) error {
 	debugf("Setting client custom data on all workers")
 	return p.ProcessAll("SetClientCustomData", func(object *BucketingPoolObject) error {
 		return object.SetClientCustomData(&customData)
-	}, 5*time.Second)
+	})
 }
 
 //func (p *BucketingPool) FlushEvents() (flushPayloads []PayloadsAndChannel, err error) {
