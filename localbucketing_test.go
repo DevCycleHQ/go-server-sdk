@@ -230,3 +230,22 @@ func BenchmarkDevCycleLocalBucketing_VariableForUser_PB(b *testing.B) {
 		b.Fatal(err)
 	}
 }
+
+func TestDevCycleLocalBucketing_StoreConfigUTF8(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+	wasmMain := WASMMain{}
+	err := wasmMain.Initialize(&DVCOptions{UseDebugWASM: true})
+	localBucketing := DevCycleLocalBucketing{}
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = localBucketing.StoreConfigUTF8([]byte(test_config))
+	if err != nil {
+		t.Fatal(err)
+	}
+}

@@ -64,6 +64,7 @@ type DevCycleLocalBucketing struct {
 	setClientCustomDataFunc           *wasmtime.Func
 	variableForUserFunc               *wasmtime.Func
 	variableForUser_PBFunc            *wasmtime.Func
+	setConfigDataUTF8Func             *wasmtime.Func
 
 	VariableTypeCodes VariableTypeCodes
 
@@ -158,6 +159,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	d.setConfigDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
 	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserPreallocated").Func()
 	d.variableForUser_PBFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser_PB_Preallocated").Func()
+	d.setConfigDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setConfigDataUTF8").Func()
 
 	// bind exported internal functions
 	d.__newFunc = d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
@@ -482,6 +484,28 @@ func (d *DevCycleLocalBucketing) StoreConfig(config []byte) error {
 	}
 
 	_, err = d.setConfigDataFunc.Call(d.wasmStore, d.sdkKeyAddr, configAddr)
+	err = d.handleWASMErrors("setConfigData", err)
+
+	return err
+	//return d.StoreConfigUTF8(config)
+}
+
+func (d *DevCycleLocalBucketing) StoreConfigUTF8(config []byte) error {
+	defer func() {
+		if err := recover(); err != nil {
+			errorf("Failed to process config: ", err)
+		}
+	}()
+	d.wasmMutex.Lock()
+	d.errorMessage = ""
+	defer d.wasmMutex.Unlock()
+
+	configParam, err := d.newAssemblyScriptByteArray(config)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.setConfigDataUTF8Func.Call(d.wasmStore, d.sdkKeyAddr, configParam)
 	err = d.handleWASMErrors("setConfigData", err)
 
 	return err
