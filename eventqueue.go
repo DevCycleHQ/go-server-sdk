@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"sync/atomic"
 	"time"
-
-	"github.com/DevCycleHQ/tunny"
 )
 
 type EventQueue struct {
@@ -21,9 +19,15 @@ type EventQueue struct {
 	closed              bool
 	ticker              *time.Ticker
 	flushStop           chan bool
-	bucketingWorkerPool *tunny.Pool
+	bucketingObjectPool *BucketingPool
 	eventsFlushed       atomic.Int32
 	eventsReported      atomic.Int32
+}
+
+type FlushResult struct {
+	SuccessPayloads          []string
+	FailurePayloads          []string
+	FailureWithRetryPayloads []string
 }
 
 type PayloadsAndChannel struct {
@@ -31,12 +35,12 @@ type PayloadsAndChannel struct {
 	channel  *chan *FlushResult
 }
 
-func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing, bucketingWorkerPool *tunny.Pool, cfg *HTTPConfiguration) (err error) {
+func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing, bucketingObjectPool *BucketingPool, cfg *HTTPConfiguration) (err error) {
 	e.context = context.Background()
 	e.cfg = cfg
 	e.options = options
 	e.flushStop = make(chan bool, 1)
-	e.bucketingWorkerPool = bucketingWorkerPool
+	e.bucketingObjectPool = bucketingObjectPool
 
 	if !e.options.EnableCloudBucketing && localBucketing != nil {
 		e.localBucketing = localBucketing
@@ -121,6 +125,8 @@ func (e *EventQueue) checkEventQueueSize() (bool, error) {
 }
 
 func (e *EventQueue) FlushEvents() (err error) {
+	debugf("Started flushing events")
+
 	e.localBucketing.startFlushEvents()
 	defer e.localBucketing.finishFlushEvents()
 	payloads, err := e.localBucketing.flushEventQueue()
@@ -132,32 +138,29 @@ func (e *EventQueue) FlushEvents() (err error) {
 	err = e.flushEventPayloads(&PayloadsAndChannel{payloads: payloads})
 
 	if err != nil {
-		return err
+		return
 	}
 
-	// ask all the workers to send us their events.
-	// These will arrive on the events channel and be flushed on each worker thread
-	var workerFlushResponses []interface{}
-	if e.bucketingWorkerPool != nil {
-		debugf("Flushing events from all workers")
-		workerFlushResponses = e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
-			Type_: FlushEvents,
-		})
-	}
-
-	for _, workerResponse := range workerFlushResponses {
-		var response = workerResponse.(WorkerPoolResponse)
-		if response.Err != nil {
-			return response.Err
+	err = e.bucketingObjectPool.ProcessAll("FlushEvents", func(object *BucketingPoolObject) error {
+		payloads, err := object.FlushEvents()
+		if err != nil {
+			return err
 		}
-		if response.Events != nil {
-			err := e.flushEventPayloads(response.Events)
 
-			if err != nil {
-				return err
+		respChan := make(chan *FlushResult, 1)
+
+		err = e.flushEventPayloads(&PayloadsAndChannel{payloads: payloads, channel: &respChan})
+
+		for {
+			select {
+			case result := <-respChan:
+				err = object.HandleFlushResults(result)
+				return nil
 			}
 		}
-	}
+	})
+
+	debugf("Finished flushing events")
 
 	return
 }

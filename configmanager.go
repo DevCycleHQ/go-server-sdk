@@ -8,15 +8,13 @@ import (
 	"net/http"
 	"sync/atomic"
 	"time"
-
-	"github.com/DevCycleHQ/tunny"
 )
 
 type EnvironmentConfigManager struct {
 	sdkKey              string
 	configETag          string
 	localBucketing      *DevCycleLocalBucketing
-	bucketingWorkerPool *tunny.Pool
+	bucketingObjectPool *BucketingPool
 	firstLoad           bool
 	context             context.Context
 	cancel              context.CancelFunc
@@ -30,11 +28,11 @@ type EnvironmentConfigManager struct {
 func (e *EnvironmentConfigManager) Initialize(
 	sdkKey string,
 	localBucketing *DevCycleLocalBucketing,
-	bucketingWorkerPool *tunny.Pool,
+	bucketingObjectPool *BucketingPool,
 	cfg *HTTPConfiguration,
 ) (err error) {
 	e.localBucketing = localBucketing
-	e.bucketingWorkerPool = bucketingWorkerPool
+	e.bucketingObjectPool = bucketingObjectPool
 	e.sdkKey = sdkKey
 	e.cfg = cfg
 	e.httpClient = &http.Client{Timeout: localBucketing.options.RequestTimeout}
@@ -148,18 +146,9 @@ func (e *EnvironmentConfigManager) setConfig(config []byte) (err error) {
 		return
 	}
 
-	if e.bucketingWorkerPool != nil {
-		errs := e.bucketingWorkerPool.ProcessAll(&WorkerPoolPayload{
-			Type_:      StoreConfig,
-			ConfigData: &config,
-		})
-
-		for _, err := range errs {
-			var response = err.(WorkerPoolResponse)
-			if response.Err != nil {
-				return response.Err
-			}
-		}
+	err = e.bucketingObjectPool.SetConfig(config)
+	if err != nil {
+		return
 	}
 
 	e.hasConfig.Store(true)
