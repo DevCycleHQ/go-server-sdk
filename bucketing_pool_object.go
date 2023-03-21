@@ -12,7 +12,6 @@ var (
 
 type BucketingPoolObject struct {
 	localBucketing   *DevCycleLocalBucketing
-	flushResultChan  chan *FlushResult
 	id               int32
 	configData       *[]byte
 	clientCustomData *[]byte
@@ -22,6 +21,10 @@ type BucketingPoolObject struct {
 func (o *BucketingPoolObject) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
 	o.localBucketing = &DevCycleLocalBucketing{}
 	err = o.localBucketing.Initialize(wasmMain, sdkKey, options)
+
+	if err != nil {
+		return
+	}
 
 	var eventQueueOpt []byte
 	eventQueueOpt, err = json.Marshal(options.eventQueueOptions())

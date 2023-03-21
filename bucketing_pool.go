@@ -9,15 +9,13 @@ import (
 )
 
 type BucketingPool struct {
-	pool1            *pool.ObjectPool
-	pool2            *pool.ObjectPool
-	currentPool      atomic.Pointer[pool.ObjectPool]
-	poolSwapMutex    sync.Mutex
-	ctx              context.Context
-	factory          *BucketingPoolFactory
-	configData       *[]byte
-	clientCustomData *[]byte
-	closed           bool
+	pool1         *pool.ObjectPool
+	pool2         *pool.ObjectPool
+	currentPool   atomic.Pointer[pool.ObjectPool]
+	poolSwapMutex sync.Mutex
+	ctx           context.Context
+	factory       *BucketingPoolFactory
+	closed        atomic.Bool
 }
 
 func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, options *DVCOptions) (*BucketingPool, error) {
@@ -35,6 +33,7 @@ func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, op
 	bucketingPool.factory = MakeBucketingPoolFactory(wasmMain, sdkKey, options, bucketingPool)
 
 	bucketingPool.poolSwapMutex = sync.Mutex{}
+	bucketingPool.closed = atomic.Bool{}
 
 	bucketingPool.pool1 = pool.NewObjectPool(ctx, bucketingPool.factory, config)
 	bucketingPool.pool2 = pool.NewObjectPool(ctx, bucketingPool.factory, config)
@@ -55,7 +54,7 @@ func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, op
 }
 
 func (p *BucketingPool) VariableForUser(paramsBuffer []byte) (*proto.SDKVariable_PB, error) {
-	if p.closed {
+	if p.closed.Load() {
 		return nil, errorf("Cannot evaluate variable on closed pool")
 	}
 	currentPool := p.currentPool.Load()
@@ -84,7 +83,7 @@ func (p *BucketingPool) ProcessAll(
 	operationName string,
 	process func(object *BucketingPoolObject) error,
 ) (err error) {
-	if p.closed {
+	if p.closed.Load() {
 		return errorf("Cannot process task on closed pool")
 	}
 	p.poolSwapMutex.Lock()
@@ -97,18 +96,16 @@ func (p *BucketingPool) ProcessAll(
 		inactivePool = p.pool2
 	}
 
-	//start := time.Now()
-
 	processAll := func(processPool *pool.ObjectPool) error {
 		i := 0
 		curObjects := make([]*BucketingPoolObject, processPool.Config.MaxTotal)
 		for i < processPool.Config.MaxTotal {
 			borrowed, err := processPool.BorrowObject(p.ctx)
-			curObj := borrowed.(*BucketingPoolObject)
 			if err != nil {
-				_ = processPool.ReturnObject(p.ctx, curObj)
 				return err
 			}
+
+			curObj := borrowed.(*BucketingPoolObject)
 
 			err = process(curObj)
 
@@ -137,16 +134,13 @@ func (p *BucketingPool) ProcessAll(
 	p.currentPool.Swap(inactivePool)
 	err = processAll(currentPool)
 
-	//debugf("Borrowed all objects from pool for %s in %s", operationName, time.Since(start))
-
 	return err
 }
 
 func (p *BucketingPool) SetConfig(config []byte) error {
-	if p.closed {
+	if p.closed.Load() {
 		return errorf("Cannot set config on closed pool")
 	}
-	p.configData = &config
 	debugf("Setting config on all workers")
 	return p.ProcessAll("SetConfig", func(object *BucketingPoolObject) error {
 		return object.StoreConfig(&config)
@@ -154,10 +148,9 @@ func (p *BucketingPool) SetConfig(config []byte) error {
 }
 
 func (p *BucketingPool) SetClientCustomData(customData []byte) error {
-	if p.closed {
+	if p.closed.Load() {
 		return errorf("Cannot set client custom data on closed pool")
 	}
-	p.clientCustomData = &customData
 	debugf("Setting client custom data on all workers")
 	return p.ProcessAll("SetClientCustomData", func(object *BucketingPoolObject) error {
 		return object.SetClientCustomData(&customData)
@@ -167,5 +160,5 @@ func (p *BucketingPool) SetClientCustomData(customData []byte) error {
 func (p *BucketingPool) Close() {
 	p.pool1.Close(p.ctx)
 	p.pool2.Close(p.ctx)
-	p.closed = true
+	p.closed.Store(true)
 }

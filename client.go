@@ -270,6 +270,10 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 
 	variablePB, err := c.bucketingObjectPool.VariableForUser(paramsBuffer)
 
+	if err != nil {
+		_ = errorf("Error getting variable for user: %w", err)
+	}
+
 	if variablePB == nil {
 		return Variable{}, nil
 	}
