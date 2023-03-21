@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DevCycleHQ/tunny"
 	"github.com/devcyclehq/go-server-sdk/v2/proto"
 	"github.com/matryer/try"
 )
@@ -42,7 +41,6 @@ type DVCClient struct {
 	eventQueue                   *EventQueue
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
-	bucketingWorkerPool          *tunny.Pool
 	bucketingObjectPool          *BucketingPool
 }
 
@@ -89,14 +87,6 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 
 	c.localBucketing = localBucketing
 
-	if options.MaxWasmWorkers > 1 {
-		c.bucketingWorkerPool = tunny.New(options.MaxWasmWorkers, func() tunny.Worker {
-			worker := LocalBucketingWorker{}
-			err = worker.Initialize(wasmMain, sdkKey, options)
-			return &worker
-		})
-	}
-
 	c.bucketingObjectPool, err = NewBucketingPool(c.ctx, c.wasmMain, sdkKey, options)
 
 	if err != nil {
@@ -104,14 +94,14 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 	}
 
 	c.eventQueue = &EventQueue{}
-	err = c.eventQueue.initialize(options, localBucketing, c.bucketingWorkerPool, c.bucketingObjectPool, c.cfg)
+	err = c.eventQueue.initialize(options, localBucketing, c.bucketingObjectPool, c.cfg)
 
 	if err != nil {
 		return err
 	}
 
 	c.configManager = &EnvironmentConfigManager{localBucketing: localBucketing}
-	err = c.configManager.Initialize(sdkKey, localBucketing, c.bucketingWorkerPool, c.bucketingObjectPool, c.cfg)
+	err = c.configManager.Initialize(sdkKey, localBucketing, c.bucketingObjectPool, c.cfg)
 
 	if err != nil {
 		return err
@@ -278,25 +268,7 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 		return Variable{}, errorf("Error marshalling protobuf object in variableForUserProtobuf: %w", err)
 	}
 
-	var variablePB *proto.SDKVariable_PB
-	if c.bucketingObjectPool != nil {
-		variablePB, err = c.bucketingObjectPool.VariableForUser(paramsBuffer)
-	} else if c.bucketingWorkerPool == nil {
-		variablePB, err = c.localBucketing.VariableForUser_PB(paramsBuffer)
-		if err != nil {
-			return Variable{}, err
-		}
-	} else {
-		result := c.bucketingWorkerPool.Process(&WorkerPoolPayload{
-			VariableEvalParams: &paramsBuffer,
-		})
-
-		var variableResult = result.(WorkerPoolResponse)
-		if variableResult.Err != nil {
-			return Variable{}, variableResult.Err
-		}
-		variablePB = variableResult.Variable
-	}
+	variablePB, err := c.bucketingObjectPool.VariableForUser(paramsBuffer)
 
 	if variablePB == nil {
 		return Variable{}, nil
@@ -619,11 +591,7 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 				return err
 			}
 
-			if c.bucketingObjectPool != nil {
-				err = c.bucketingObjectPool.SetClientCustomData(data)
-			}
-
-			return err
+			return c.bucketingObjectPool.SetClientCustomData(data)
 		} else {
 			warnf("SetClientCustomData called before client initialized")
 			return nil

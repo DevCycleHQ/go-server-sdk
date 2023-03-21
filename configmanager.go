@@ -8,15 +8,12 @@ import (
 	"net/http"
 	"sync/atomic"
 	"time"
-
-	"github.com/DevCycleHQ/tunny"
 )
 
 type EnvironmentConfigManager struct {
 	sdkKey              string
 	configETag          string
 	localBucketing      *DevCycleLocalBucketing
-	bucketingWorkerPool *tunny.Pool
 	bucketingObjectPool *BucketingPool
 	firstLoad           bool
 	context             context.Context
@@ -31,12 +28,10 @@ type EnvironmentConfigManager struct {
 func (e *EnvironmentConfigManager) Initialize(
 	sdkKey string,
 	localBucketing *DevCycleLocalBucketing,
-	bucketingWorkerPool *tunny.Pool,
 	bucketingObjectPool *BucketingPool,
 	cfg *HTTPConfiguration,
 ) (err error) {
 	e.localBucketing = localBucketing
-	e.bucketingWorkerPool = bucketingWorkerPool
 	e.bucketingObjectPool = bucketingObjectPool
 	e.sdkKey = sdkKey
 	e.cfg = cfg
@@ -151,11 +146,9 @@ func (e *EnvironmentConfigManager) setConfig(config []byte) (err error) {
 		return
 	}
 
-	if e.bucketingObjectPool != nil {
-		err = e.bucketingObjectPool.SetConfig(config)
-		if err != nil {
-			return
-		}
+	err = e.bucketingObjectPool.SetConfig(config)
+	if err != nil {
+		return
 	}
 
 	e.hasConfig.Store(true)

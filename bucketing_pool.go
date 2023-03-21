@@ -77,38 +77,6 @@ func (p *BucketingPool) VariableForUser(paramsBuffer []byte) (*proto.SDKVariable
 	return variablePB, nil
 }
 
-func (p *BucketingPool) pokeOne(currentPool *pool.ObjectPool) error {
-	bucketing, err := currentPool.BorrowObject(p.ctx)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		go func() {
-			_ = currentPool.ReturnObject(p.ctx, bucketing)
-		}()
-	}()
-
-	return nil
-}
-
-// borrow N objects and return them immediately. This will trigger the passivate handler for any idle objects, while
-// assuming that any objects that weren't borrowed during this process were busy and thus passivate will be called anyway
-func (p *BucketingPool) pokeAll() error {
-	printf("Poking all workers")
-	currentPool := p.currentPool.Load()
-
-	for i := 0; i < currentPool.Config.MaxTotal; i++ {
-		err := p.pokeOne(currentPool)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // ProcessAll will func the "process" handler function on every object in the pool. It will block until the operation
 // has completed for every object, or there was an error. It naively grabs the longest idle object from the pool each
 // time and checks if it has seen it before. If it has, it will immediately return it and try again.

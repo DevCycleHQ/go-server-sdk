@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"sync/atomic"
 	"time"
-
-	"github.com/DevCycleHQ/tunny"
 )
 
 type EventQueue struct {
@@ -21,10 +19,15 @@ type EventQueue struct {
 	closed              bool
 	ticker              *time.Ticker
 	flushStop           chan bool
-	bucketingWorkerPool *tunny.Pool
 	bucketingObjectPool *BucketingPool
 	eventsFlushed       atomic.Int32
 	eventsReported      atomic.Int32
+}
+
+type FlushResult struct {
+	SuccessPayloads          []string
+	FailurePayloads          []string
+	FailureWithRetryPayloads []string
 }
 
 type PayloadsAndChannel struct {
@@ -32,12 +35,11 @@ type PayloadsAndChannel struct {
 	channel  *chan *FlushResult
 }
 
-func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing, bucketingWorkerPool *tunny.Pool, bucketingObjectPool *BucketingPool, cfg *HTTPConfiguration) (err error) {
+func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing, bucketingObjectPool *BucketingPool, cfg *HTTPConfiguration) (err error) {
 	e.context = context.Background()
 	e.cfg = cfg
 	e.options = options
 	e.flushStop = make(chan bool, 1)
-	e.bucketingWorkerPool = bucketingWorkerPool
 	e.bucketingObjectPool = bucketingObjectPool
 
 	if !e.options.EnableCloudBucketing && localBucketing != nil {
