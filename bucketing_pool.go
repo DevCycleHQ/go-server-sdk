@@ -17,10 +17,6 @@ type BucketingPool struct {
 	factory          *BucketingPoolFactory
 	configData       *[]byte
 	clientCustomData *[]byte
-	lastFlushTime    int64
-	eventFlushChan   chan *PayloadsAndChannel
-	isFlushingMutex  sync.Mutex
-	isFlushing       bool
 	closed           bool
 }
 
@@ -38,12 +34,10 @@ func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, op
 
 	bucketingPool.factory = MakeBucketingPoolFactory(wasmMain, sdkKey, options, bucketingPool)
 
-	bucketingPool.isFlushingMutex = sync.Mutex{}
 	bucketingPool.poolSwapMutex = sync.Mutex{}
 
 	bucketingPool.pool1 = pool.NewObjectPool(ctx, bucketingPool.factory, config)
 	bucketingPool.pool2 = pool.NewObjectPool(ctx, bucketingPool.factory, config)
-	bucketingPool.eventFlushChan = make(chan *PayloadsAndChannel)
 
 	bucketingPool.currentPool.Store(bucketingPool.pool1)
 

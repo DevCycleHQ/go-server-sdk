@@ -23,7 +23,7 @@ func MakeBucketingPoolFactory(wasmMain *WASMMain, sdkKey string, options *DVCOpt
 
 func (f *BucketingPoolFactory) MakeObject(ctx context.Context) (*pool.PooledObject, error) {
 	var bucketing = &BucketingPoolObject{}
-	err := bucketing.Initialize(f.wasmMain, f.sdkKey, f.options, f.pool.eventFlushChan)
+	err := bucketing.Initialize(f.wasmMain, f.sdkKey, f.options)
 	if err != nil {
 		return nil, err
 	}

@@ -17,13 +17,11 @@ type BucketingPoolObject struct {
 	configData       *[]byte
 	clientCustomData *[]byte
 	lastFlushTime    int64
-	flushChan        chan *PayloadsAndChannel
 }
 
-func (o *BucketingPoolObject) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions, flushChan chan *PayloadsAndChannel) (err error) {
+func (o *BucketingPoolObject) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
 	o.localBucketing = &DevCycleLocalBucketing{}
 	err = o.localBucketing.Initialize(wasmMain, sdkKey, options)
-	o.flushChan = flushChan
 
 	var eventQueueOpt []byte
 	eventQueueOpt, err = json.Marshal(options.eventQueueOptions())
@@ -64,11 +62,6 @@ func (o *BucketingPoolObject) SetClientCustomData(clientCustomData *[]byte) (err
 
 	o.clientCustomData = clientCustomData
 	return
-}
-
-func (o *BucketingPoolObject) writeToFlushChannel(lastFlushTime int64, payloads *PayloadsAndChannel) {
-	o.lastFlushTime = lastFlushTime
-	o.flushChan <- payloads
 }
 
 func (o *BucketingPoolObject) FlushEvents() ([]FlushPayload, error) {
