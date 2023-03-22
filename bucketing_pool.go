@@ -9,13 +9,15 @@ import (
 )
 
 type BucketingPool struct {
-	pool1         *pool.ObjectPool
-	pool2         *pool.ObjectPool
-	currentPool   atomic.Pointer[pool.ObjectPool]
-	poolSwapMutex sync.Mutex
-	ctx           context.Context
-	factory       *BucketingPoolFactory
-	closed        atomic.Bool
+	pool1            *pool.ObjectPool
+	pool2            *pool.ObjectPool
+	currentPool      atomic.Pointer[pool.ObjectPool]
+	poolSwapMutex    sync.Mutex
+	ctx              context.Context
+	factory          *BucketingPoolFactory
+	closed           atomic.Bool
+	configData       *[]byte
+	clientCustomData *[]byte
 }
 
 func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, options *DVCOptions) (*BucketingPool, error) {
@@ -142,6 +144,7 @@ func (p *BucketingPool) SetConfig(config []byte) error {
 		return errorf("Cannot set config on closed pool")
 	}
 	debugf("Setting config on all workers")
+	p.configData = &config
 	return p.ProcessAll("SetConfig", func(object *BucketingPoolObject) error {
 		return object.StoreConfig(&config)
 	})
@@ -152,6 +155,7 @@ func (p *BucketingPool) SetClientCustomData(customData []byte) error {
 		return errorf("Cannot set client custom data on closed pool")
 	}
 	debugf("Setting client custom data on all workers")
+	p.clientCustomData = &customData
 	return p.ProcessAll("SetClientCustomData", func(object *BucketingPoolObject) error {
 		return object.SetClientCustomData(&customData)
 	})

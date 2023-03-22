@@ -27,6 +27,19 @@ func (f *BucketingPoolFactory) MakeObject(ctx context.Context) (*pool.PooledObje
 	if err != nil {
 		return nil, err
 	}
+	if f.pool.configData != nil {
+		err = bucketing.StoreConfig(f.pool.configData)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if f.pool.clientCustomData != nil {
+		err = bucketing.SetClientCustomData(f.pool.clientCustomData)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return pool.NewPooledObject(
 			bucketing),
