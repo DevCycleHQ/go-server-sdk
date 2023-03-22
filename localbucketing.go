@@ -159,7 +159,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	d.setConfigDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
 	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserPreallocated").Func()
 	d.variableForUser_PBFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser_PB_Preallocated").Func()
-	d.setConfigDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setConfigDataUTF8").Func()
+	d.setConfigDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setConfigDataUTF8Preallocated").Func()
 
 	// bind exported internal functions
 	d.__newFunc = d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
@@ -505,7 +505,7 @@ func (d *DevCycleLocalBucketing) StoreConfigUTF8(config []byte) error {
 		return err
 	}
 
-	_, err = d.setConfigDataUTF8Func.Call(d.wasmStore, d.sdkKeyAddr, configParam)
+	_, err = d.setConfigDataUTF8Func.Call(d.wasmStore, d.sdkKeyAddr, configParam, int32(len(config)))
 	err = d.handleWASMErrors("setConfigData", err)
 
 	return err

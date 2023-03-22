@@ -93,6 +93,25 @@ func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
 	}
 }
 
+func TestDevCycleLocalBucketing_StoreConfigUTF8(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+	wasmMain := WASMMain{}
+	err := wasmMain.Initialize(nil)
+	localBucketing := DevCycleLocalBucketing{}
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = localBucketing.StoreConfigUTF8([]byte(test_config))
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -228,24 +247,5 @@ func BenchmarkDevCycleLocalBucketing_VariableForUser_PB(b *testing.B) {
 
 	if err != nil {
 		b.Fatal(err)
-	}
-}
-
-func TestDevCycleLocalBucketing_StoreConfigUTF8(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
-	wasmMain := WASMMain{}
-	err := wasmMain.Initialize(&DVCOptions{UseDebugWASM: true})
-	localBucketing := DevCycleLocalBucketing{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = localBucketing.StoreConfigUTF8([]byte(test_config))
-	if err != nil {
-		t.Fatal(err)
 	}
 }
