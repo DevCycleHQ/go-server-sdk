@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf16"
 	"unsafe"
 
 	"github.com/bytecodealliance/wasmtime-go/v6"
@@ -530,6 +531,67 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, e
 		return -1, errorf("Failed to allocate memory for string")
 	}
 	return ptr.(int32), nil
+}
+
+func (d *DevCycleLocalBucketing) newAssemblyScriptUTF16StringNoPoolByteArray(param string) (int32, error) {
+	utf16Output := utf16.Encode(([]rune)(param))
+	var rawBytes []byte
+	for _, i := range utf16Output {
+		rawBytes = binary.LittleEndian.AppendUint16(rawBytes, i)
+	}
+	return d.newAssemblyScriptNoPoolByteArray(rawBytes)
+}
+
+func (d *DevCycleLocalBucketing) newAssemblyScriptNoPoolByteArray(param []byte) (int32, error) {
+	const objectIdByteArray int32 = 1
+	const align = 0
+
+	length := len(param)
+
+	headerPtr, err := d.__newFunc.Call(d.wasmStore, 12, 9)
+	if err != nil {
+		return -1, err
+	}
+	headerAddr := headerPtr.(int32)
+
+	pinnedAddr, err := d.__pinFunc.Call(d.wasmStore, headerAddr)
+	if err != nil {
+		return -1, err
+	}
+	defer d.__unpinFunc.Call(d.wasmStore, pinnedAddr.(int32))
+
+	buffer, err := d.allocMemForBuffer(int32(length), objectIdByteArray, false)
+	littleEndianBufferAddress := bytes.NewBuffer([]byte{})
+
+	err = binary.Write(littleEndianBufferAddress, binary.LittleEndian, buffer)
+	if err != nil {
+		return 0, err
+	}
+
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
+
+	// Write to the first 8 bytes of the header
+	for i, c := range littleEndianBufferAddress.Bytes() {
+		data[headerAddr+int32(i)] = c
+		data[headerAddr+int32(i)+4] = c
+	}
+
+	// Create another binary buffer to write the length of the buffer
+	lengthBuffer := bytes.NewBuffer([]byte{})
+	err = binary.Write(lengthBuffer, binary.LittleEndian, length<<align)
+	if err != nil {
+		return 0, err
+	}
+	// Write the length to the last 4 bytes of the header
+	for i, c := range lengthBuffer.Bytes() {
+		data[headerAddr+8+int32(i)] = c
+	}
+
+	// Write the buffer itself into WASM.
+	for i, c := range param {
+		data[buffer+int32(i)] = c
+	}
+	return headerAddr, err
 }
 
 func (d *DevCycleLocalBucketing) allocMemForBufferPool(size int32) (addr int32, err error) {
