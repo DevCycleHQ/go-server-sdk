@@ -544,9 +544,9 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptUTF16StringNoPoolByteArray(par
 
 func (d *DevCycleLocalBucketing) newAssemblyScriptNoPoolByteArray(param []byte) (int32, error) {
 	const objectIdByteArray int32 = 1
-	const align = 0
+	var align int32 = 0
 
-	length := len(param)
+	length := int32(len(param))
 
 	headerPtr, err := d.__newFunc.Call(d.wasmStore, 12, 9)
 	if err != nil {
@@ -560,7 +560,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptNoPoolByteArray(param []byte) 
 	}
 	defer d.__unpinFunc.Call(d.wasmStore, pinnedAddr.(int32))
 
-	buffer, err := d.allocMemForBuffer(int32(length), objectIdByteArray, false)
+	buffer, err := d.allocMemForBuffer(length, objectIdByteArray, false)
 	littleEndianBufferAddress := bytes.NewBuffer([]byte{})
 
 	err = binary.Write(littleEndianBufferAddress, binary.LittleEndian, buffer)
