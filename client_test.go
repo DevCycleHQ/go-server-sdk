@@ -214,7 +214,7 @@ func TestDVCClient_VariableLocalProtobuf_StringEncoding(t *testing.T) {
 		baseVariable: baseVariable{
 			Key:   "test",
 			Type_: "String",
-			Value: "ö",
+			Value: "öé 🐍 ¥",
 		},
 		DefaultValue: "default_value",
 		IsDefaulted:  false,
