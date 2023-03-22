@@ -65,6 +65,8 @@ type DevCycleLocalBucketing struct {
 	variableForUserFunc               *wasmtime.Func
 	variableForUser_PBFunc            *wasmtime.Func
 	setConfigDataUTF8Func             *wasmtime.Func
+	setPlatformDataUTF8Func           *wasmtime.Func
+	setClientCustomDataUTF8Func       *wasmtime.Func
 
 	VariableTypeCodes VariableTypeCodes
 
@@ -159,7 +161,9 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	d.setConfigDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
 	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserPreallocated").Func()
 	d.variableForUser_PBFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser_PB_Preallocated").Func()
-	d.setConfigDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setConfigDataUTF8Preallocated").Func()
+	d.setConfigDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setConfigDataUTF8").Func()
+	d.setPlatformDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setPlatformDataUTF8").Func()
+	d.setClientCustomDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomDataUTF8").Func()
 
 	// bind exported internal functions
 	d.__newFunc = d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
@@ -478,35 +482,13 @@ func (d *DevCycleLocalBucketing) StoreConfig(config []byte) error {
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	configAddr, err := d.newAssemblyScriptString(config)
+	configParam, err := d.newAssemblyScriptNoPoolByteArray(config)
 	if err != nil {
 		return err
 	}
 
-	_, err = d.setConfigDataFunc.Call(d.wasmStore, d.sdkKeyAddr, configAddr)
-	err = d.handleWASMErrors("setConfigData", err)
-
-	return err
-	//return d.StoreConfigUTF8(config)
-}
-
-func (d *DevCycleLocalBucketing) StoreConfigUTF8(config []byte) error {
-	defer func() {
-		if err := recover(); err != nil {
-			errorf("Failed to process config: ", err)
-		}
-	}()
-	d.wasmMutex.Lock()
-	d.errorMessage = ""
-	defer d.wasmMutex.Unlock()
-
-	configParam, err := d.newAssemblyScriptByteArray(config)
-	if err != nil {
-		return err
-	}
-
-	_, err = d.setConfigDataUTF8Func.Call(d.wasmStore, d.sdkKeyAddr, configParam, int32(len(config)))
-	err = d.handleWASMErrors("setConfigData", err)
+	_, err = d.setConfigDataUTF8Func.Call(d.wasmStore, d.sdkKeyAddr, configParam)
+	err = d.handleWASMErrors("setConfigDataUTF8", err)
 
 	return err
 }
@@ -516,13 +498,13 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData []byte) error {
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	configAddr, err := d.newAssemblyScriptString(platformData)
+	dataAddr, err := d.newAssemblyScriptNoPoolByteArray(platformData)
 	if err != nil {
 		return err
 	}
 
-	_, err = d.setPlatformDataFunc.Call(d.wasmStore, configAddr)
-	err = d.handleWASMErrors("setPlatformData", err)
+	_, err = d.setPlatformDataUTF8Func.Call(d.wasmStore, dataAddr)
+	err = d.handleWASMErrors("setPlatformDataUTF", err)
 	return err
 }
 
@@ -531,12 +513,12 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(customData []byte) error {
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
-	customDataAddr, err := d.newAssemblyScriptString(customData)
+	customDataAddr, err := d.newAssemblyScriptNoPoolByteArray(customData)
 	if err != nil {
 		return err
 	}
 
-	_, err = d.setClientCustomDataFunc.Call(d.wasmStore, d.sdkKeyAddr, customDataAddr)
+	_, err = d.setClientCustomDataUTF8Func.Call(d.wasmStore, d.sdkKeyAddr, customDataAddr)
 	err = d.handleWASMErrors("setClientCustomData", err)
 	return err
 }
@@ -602,9 +584,9 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptUTF16StringNoPoolByteArray(par
 
 func (d *DevCycleLocalBucketing) newAssemblyScriptNoPoolByteArray(param []byte) (int32, error) {
 	const objectIdByteArray int32 = 1
-	const align = 0
+	var align int32 = 0
 
-	length := len(param)
+	length := int32(len(param))
 
 	headerPtr, err := d.__newFunc.Call(d.wasmStore, 12, 9)
 	if err != nil {
@@ -618,7 +600,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptNoPoolByteArray(param []byte) 
 	}
 	defer d.__unpinFunc.Call(d.wasmStore, pinnedAddr.(int32))
 
-	buffer, err := d.allocMemForBuffer(int32(length), objectIdByteArray, false)
+	buffer, err := d.allocMemForBuffer(length, objectIdByteArray, false)
 	littleEndianBufferAddress := bytes.NewBuffer([]byte{})
 
 	err = binary.Write(littleEndianBufferAddress, binary.LittleEndian, buffer)

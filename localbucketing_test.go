@@ -93,31 +93,12 @@ func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
 	}
 }
 
-func TestDevCycleLocalBucketing_StoreConfigUTF8(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
-	wasmMain := WASMMain{}
-	err := wasmMain.Initialize(nil)
-	localBucketing := DevCycleLocalBucketing{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = localBucketing.StoreConfigUTF8([]byte(test_config))
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	wasmMain := WASMMain{}
-	err := wasmMain.Initialize(nil)
+	err := wasmMain.Initialize(&DVCOptions{UseDebugWASM: true})
 	localBucketing := DevCycleLocalBucketing{}
 	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
 	if err != nil {
@@ -247,5 +228,29 @@ func BenchmarkDevCycleLocalBucketing_VariableForUser_PB(b *testing.B) {
 
 	if err != nil {
 		b.Fatal(err)
+	}
+}
+
+func TestDevCycleLocalBucketing_newAssemblyScriptNoPoolByteArray(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+	wasmMain := WASMMain{}
+	err := wasmMain.Initialize(nil)
+	localBucketing := DevCycleLocalBucketing{}
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	var memPtr int32 = 0
+	memPtr, err = localBucketing.newAssemblyScriptNoPoolByteArray([]byte(test_config))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if memPtr == 0 {
+		t.Fatal("Pointer to byte array header is 0")
 	}
 }
