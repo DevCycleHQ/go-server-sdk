@@ -184,6 +184,48 @@ func TestDVCClient_VariableLocal_403(t *testing.T) {
 	}
 }
 
+func TestDVCClient_VariableLocalProtobuf_StringEncoding(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpCustomConfigMock(test_environmentKey, 200, test_config_special_characters_var)
+
+	options := &DVCOptions{
+		UseDebugWASM: true,
+	}
+
+	c, err := NewDVCClient("dvc_server_token_hash", options)
+
+	variable, err := c.Variable(
+		DVCUser{
+			UserId: "someuser",
+		},
+		"test", "default_value")
+	fatalErr(t, err)
+
+	fmt.Printf("Value: %v | bytes %v\n", variable.Value, []byte(variable.Value.(string)))
+	fmt.Printf("Is Valid UTF-8 String: %v\n", utf8.ValidString(variable.Value.(string)))
+
+	fmt.Println(variable)
+	if variable.IsDefaulted {
+		t.Fatal("Expected variable to return a value")
+	}
+
+	expected := Variable{
+		baseVariable: baseVariable{
+			Key:   "test",
+			Type_: "String",
+			Value: "ö",
+		},
+		DefaultValue: "default_value",
+		IsDefaulted:  false,
+	}
+	if !reflect.DeepEqual(expected, variable) {
+		fmt.Println("got", variable)
+		fmt.Println("expected", expected)
+		t.Fatal("Expected variable to be equal to expected variable")
+	}
+}
+
 func TestDVCClient_TrackLocal_QueueEvent(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -379,45 +421,4 @@ func BenchmarkDVCClient_VariableParallel(b *testing.B) {
 	eventsFlushed, eventsReported := client.eventQueue.Metrics()
 	b.ReportMetric(float64(eventsFlushed), "eventsFlushed")
 	b.ReportMetric(float64(eventsReported), "eventsReported")
-}
-
-func TestDVCClient_VariableLocalProtobuf_StringEncoding(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpCustomConfigMock(test_environmentKey, 200, test_config)
-	httpConfigMock(200)
-
-	options := &DVCOptions{
-		EnableCloudBucketing:         false,
-		DisableAutomaticEventLogging: true,
-		DisableCustomEventLogging:    true,
-		ConfigPollingIntervalMS:      time.Minute,
-		EventFlushIntervalMS:         time.Minute,
-		AdvancedOptions: AdvancedOptions{
-			MaxWasmWorkers: 0,
-		},
-		UseDebugWASM: true,
-	}
-
-	c, err := NewDVCClient("dvc_server_token_hash", options)
-
-	variable, err := c.Variable(
-		DVCUser{
-			UserId: "someuser",
-		},
-		"test", "default_value")
-	fatalErr(t, err)
-
-	fmt.Println("Evaluate Variable Data from WASM")
-	fmt.Printf("Value: %v\n", variable.Value)
-	fmt.Printf("Is Valid UTF-8 String: %v\n", utf8.ValidString(variable.Value.(string)))
-	raw := []byte(variable.Value.(string))
-	fmt.Println("String bytes:", variable.Value.(string))
-	fmt.Printf("Raw bytes:\t %v \n", raw)
-	fmt.Printf("Back to string:\t %v \n", string(raw))
-
-	fmt.Println(variable)
-	if variable.IsDefaulted {
-		t.Fatal("Expected variable to return a value")
-	}
 }
