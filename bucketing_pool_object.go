@@ -71,22 +71,6 @@ func (o *BucketingPoolObject) FlushEvents() ([]FlushPayload, error) {
 	return o.localBucketing.flushEventQueue()
 }
 
-func (o *BucketingPoolObject) HandleFlushResults(result *FlushResult) (err error) {
-	for _, payloadId := range result.SuccessPayloads {
-		if err = o.localBucketing.onPayloadSuccess(payloadId); err != nil {
-			err = errorf("failed to mark event payloads as successful", err)
-		}
-	}
-	for _, payloadId := range result.FailurePayloads {
-		if err = o.localBucketing.onPayloadFailure(payloadId, false); err != nil {
-			err = errorf("failed to mark event payloads as failed", err)
-
-		}
-	}
-	for _, payloadId := range result.FailureWithRetryPayloads {
-		if err = o.localBucketing.onPayloadFailure(payloadId, true); err != nil {
-			err = errorf("failed to mark event payloads as failed", err)
-		}
-	}
-	return err
+func (o *BucketingPoolObject) HandleFlushResults(result *FlushResult) {
+	o.localBucketing.HandleFlushResults(result)
 }

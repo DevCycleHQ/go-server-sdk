@@ -135,11 +135,13 @@ func (e *EventQueue) FlushEvents() (err error) {
 	}
 	e.eventsFlushed.Add(int32(len(payloads)))
 
-	err = e.flushEventPayloads(&PayloadsAndChannel{payloads: payloads})
+	result, err := e.flushEventPayloads(payloads)
 
 	if err != nil {
 		return
 	}
+
+	e.localBucketing.HandleFlushResults(result)
 
 	err = e.bucketingObjectPool.ProcessAll("FlushEvents", func(object *BucketingPoolObject) error {
 		payloads, err := object.FlushEvents()
@@ -147,17 +149,11 @@ func (e *EventQueue) FlushEvents() (err error) {
 			return err
 		}
 
-		respChan := make(chan *FlushResult, 1)
+		result, err = e.flushEventPayloads(payloads)
 
-		err = e.flushEventPayloads(&PayloadsAndChannel{payloads: payloads, channel: &respChan})
+		object.HandleFlushResults(result)
 
-		for {
-			select {
-			case result := <-respChan:
-				err = object.HandleFlushResults(result)
-				return nil
-			}
-		}
+		return nil
 	})
 
 	debugf("Finished flushing events")
@@ -170,7 +166,7 @@ func (e *EventQueue) flushEventPayload(
 	successes *[]string,
 	failures *[]string,
 	retryableFailures *[]string,
-) (err error) {
+) {
 	eventsHost := e.cfg.EventsAPIBasePath
 	var req *http.Request
 	var resp *http.Response
@@ -237,33 +233,24 @@ func (e *EventQueue) flushEventPayload(
 	_ = errorf("unknown status code when flushing events %d", resp.StatusCode)
 	e.reportPayloadFailure(payload, false, failures, retryableFailures)
 
-	return err
+	return
 }
 
-func (e *EventQueue) flushEventPayloads(payloadsAndChannel *PayloadsAndChannel) (err error) {
-	e.eventsFlushed.Add(int32(len(payloadsAndChannel.payloads)))
-	var successes []string
-	var failures []string
-	var retryableFailures []string
+func (e *EventQueue) flushEventPayloads(payloads []FlushPayload) (result *FlushResult, err error) {
+	e.eventsFlushed.Add(int32(len(payloads)))
+	successes := make([]string, 0)
+	failures := make([]string, 0)
+	retryableFailures := make([]string, 0)
 
-	if payloadsAndChannel.channel != nil {
-		successes = make([]string, 0)
-		failures = make([]string, 0)
-		retryableFailures = make([]string, 0)
+	for _, payload := range payloads {
+		e.flushEventPayload(&payload, &successes, &failures, &retryableFailures)
 	}
 
-	for _, payload := range payloadsAndChannel.payloads {
-		err = e.flushEventPayload(&payload, &successes, &failures, &retryableFailures)
-	}
-
-	if payloadsAndChannel.channel != nil {
-		*payloadsAndChannel.channel <- &FlushResult{
-			SuccessPayloads:          successes,
-			FailurePayloads:          failures,
-			FailureWithRetryPayloads: retryableFailures,
-		}
-	}
-	return err
+	return &FlushResult{
+		SuccessPayloads:          successes,
+		FailurePayloads:          failures,
+		FailureWithRetryPayloads: retryableFailures,
+	}, nil
 }
 
 func (e *EventQueue) reportPayloadSuccess(payload *FlushPayload, successPayloads *[]string) {
