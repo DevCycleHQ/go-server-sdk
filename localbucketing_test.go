@@ -98,14 +98,18 @@ func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	wasmMain := WASMMain{}
-	err := wasmMain.Initialize(&DVCOptions{UseDebugWASM: true})
+	err := wasmMain.Initialize(&DVCOptions{})
 	localBucketing := DevCycleLocalBucketing{}
 	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
 	for i := 0; i < b.N; i++ {
-		err = localBucketing.StoreConfig([]byte(test_config))
+		err = localBucketing.StoreConfig([]byte(test_large_config))
 		if err != nil {
 			b.Fatal(err)
 		}
