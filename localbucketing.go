@@ -289,11 +289,15 @@ func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
 	return int(queueLen), nil
 }
 
-func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) {
+func (d *DevCycleLocalBucketing) OnPayloadSuccess(payloadId string) (err error) {
 	d.wasmMutex.Lock()
-	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
 
+	return d.onPayloadSuccess(payloadId)
+}
+
+func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) {
+	d.errorMessage = ""
 	payloadIdAddr, err := d.newAssemblyScriptString([]byte(payloadId))
 	if err != nil {
 		return
@@ -366,10 +370,15 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, config Bucket
 	return
 }
 
-func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bool) (err error) {
+func (d *DevCycleLocalBucketing) OnPayloadFailure(payloadId string, retryable bool) (err error) {
 	d.wasmMutex.Lock()
-	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
+
+	return d.onPayloadFailure(payloadId, retryable)
+}
+
+func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bool) (err error) {
+	d.errorMessage = ""
 
 	payloadIdAddr, err := d.newAssemblyScriptString([]byte(payloadId))
 	if err != nil {
@@ -505,6 +514,31 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(customData []byte) error {
 	_, err = d.setClientCustomDataFunc.Call(d.wasmStore, d.sdkKeyAddr, customDataAddr)
 	err = d.handleWASMErrors("setClientCustomData", err)
 	return err
+}
+
+func (d *DevCycleLocalBucketing) HandleFlushResults(result *FlushResult) {
+	d.wasmMutex.Lock()
+	d.errorMessage = ""
+	defer d.wasmMutex.Unlock()
+
+	for _, payloadId := range result.SuccessPayloads {
+		if err := d.onPayloadSuccess(payloadId); err != nil {
+			_ = errorf("failed to mark event payloads as successful", err)
+		}
+	}
+	for _, payloadId := range result.FailurePayloads {
+		if err := d.onPayloadFailure(payloadId, false); err != nil {
+			_ = errorf("failed to mark event payloads as failed", err)
+
+		}
+	}
+	for _, payloadId := range result.FailureWithRetryPayloads {
+		if err := d.onPayloadFailure(payloadId, true); err != nil {
+			_ = errorf("failed to mark event payloads as failed", err)
+		}
+	}
+
+	return
 }
 
 // Due to WTF-16, we're double-allocating because utf8 -> utf16 doesn't zero-pad
