@@ -388,6 +388,14 @@ func (d *DevCycleLocalBucketing) OnPayloadFailure(payloadId string, retryable bo
 	return d.onPayloadFailure(payloadId, retryable)
 }
 
+func (d *DevCycleLocalBucketing) MemorySize() int {
+	d.wasmMutex.Lock()
+	d.errorMessage = ""
+	defer d.wasmMutex.Unlock()
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
+	return len(data)
+}
+
 func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bool) (err error) {
 	d.errorMessage = ""
 

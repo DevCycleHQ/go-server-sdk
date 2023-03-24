@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"io"
 	"math"
 	"math/rand"
@@ -42,6 +43,7 @@ type DVCClient struct {
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
 	bucketingObjectPool          *BucketingPool
+	statsd                       *statsd.Client
 }
 
 type SDKEvent struct {
@@ -112,7 +114,7 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 
 // NewDVCClient creates a new API client.
 // optionally pass a custom http.Client to allow for advanced features such as caching.
-func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
+func NewDVCClient(sdkKey string, options *DVCOptions, statsdClient *statsd.Client) (*DVCClient, error) {
 	if sdkKey == "" {
 		return nil, errorf("missing sdk key! Call NewDVCClient with a valid sdk key")
 	}
@@ -128,6 +130,22 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	c.ctx = context.Background()
 	c.common.client = c
 	c.DevCycleOptions = options
+
+	if statsdClient != nil {
+		c.statsd = statsdClient
+		memoryTicker := time.NewTicker(2 * time.Second)
+		go func() {
+			for {
+				select {
+				case <-memoryTicker.C:
+					err := c.statsd.Gauge("mem_size", float64(c.localBucketing.MemorySize()), nil, 1)
+					if err != nil {
+						_ = errorf("error while sending memory size to datadog", err)
+					}
+				}
+			}
+		}()
+	}
 
 	if c.DevCycleOptions.Logger != nil {
 		SetLogger(c.DevCycleOptions.Logger)
