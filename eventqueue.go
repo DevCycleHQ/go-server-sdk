@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"sync/atomic"
@@ -50,14 +51,24 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 			return err
 		}
 		err = e.localBucketing.initEventQueue(eventQueueOpt)
+		if err != nil {
+			return fmt.Errorf("Error initializing WASM event queue: %s", err)
+		}
+
+		// Disable automatic flushing of events if all sources of events are disabled
+		// DisableAutomaticEventLogging is passed into the WASM to disable events
+		// from being emitted, so we don't need to flush them.
+		if e.options.DisableAutomaticEventLogging && e.options.DisableCustomEventLogging {
+			return nil
+		}
+
 		ticker := time.NewTicker(e.options.EventFlushIntervalMS)
 
 		go func() {
 			for {
 				select {
 				case <-ticker.C:
-					debugf("Ticker for event flush triggered")
-					err = e.FlushEvents()
+					err := e.FlushEvents()
 					if err != nil {
 						warnf("Error flushing primary events queue: %s\n", err)
 					}
@@ -68,7 +79,8 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLoc
 				}
 			}
 		}()
-		return err
+
+		return nil
 	}
 	return err
 }
