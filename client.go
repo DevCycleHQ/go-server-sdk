@@ -299,6 +299,10 @@ func (c *DVCClient) queueAggregateEvent(bucketed BucketedUserConfig, event DVCEv
 	return
 }
 
+func (c *DVCClient) Noop() (err error) {
+	return c.bucketingObjectPool.Noop()
+}
+
 /*
 DVCClientService Get all features by key for user data
   - @param body

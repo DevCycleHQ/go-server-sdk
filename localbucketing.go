@@ -63,6 +63,7 @@ type DevCycleLocalBucketing struct {
 	setClientCustomDataFunc           *wasmtime.Func
 	variableForUserFunc               *wasmtime.Func
 	variableForUser_PBFunc            *wasmtime.Func
+	noopFunc                          *wasmtime.Func
 
 	VariableTypeCodes VariableTypeCodes
 
@@ -157,6 +158,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	d.setConfigDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
 	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserPreallocated").Func()
 	d.variableForUser_PBFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser_PB_Preallocated").Func()
+	d.noopFunc = d.wasmInstance.GetExport(d.wasmStore, "noop").Func()
 
 	// bind exported internal functions
 	d.__newFunc = d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
@@ -273,6 +275,15 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 	}
 	err = json.Unmarshal(result, &payload)
 	return
+}
+
+func (d *DevCycleLocalBucketing) noop() error {
+	d.wasmMutex.Lock()
+	d.errorMessage = ""
+	defer d.wasmMutex.Unlock()
+
+	_, err := d.noopFunc.Call(d.wasmStore)
+	return d.handleWASMErrors("noop", err)
 }
 
 func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {

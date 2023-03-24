@@ -157,6 +157,29 @@ func (p *BucketingPool) SetClientCustomData(customData []byte) error {
 	})
 }
 
+func (p *BucketingPool) Noop() error {
+	if p.closed.Load() {
+		return errorf("Cannot noop on closed pool")
+	}
+	currentPool := p.currentPool.Load()
+	bucketing, err := currentPool.BorrowObject(p.ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = currentPool.ReturnObject(p.ctx, bucketing)
+	}()
+
+	b := bucketing.(*BucketingPoolObject)
+	err = b.localBucketing.noop()
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (p *BucketingPool) Close() {
 	p.pool1.Close(p.ctx)
 	p.pool2.Close(p.ctx)
