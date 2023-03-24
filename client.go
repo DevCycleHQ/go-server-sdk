@@ -303,6 +303,24 @@ func (c *DVCClient) Noop() (err error) {
 	return c.bucketingObjectPool.Noop()
 }
 
+func (c *DVCClient) NoopBorrowReturn() {
+	pool := c.bucketingObjectPool.currentPool.Load()
+	obj, err := pool.BorrowObject(c.ctx)
+	if err != nil {
+		_ = errorf("Error getting object from pool: %w", err)
+	}
+
+	defer func() {
+		if obj != nil {
+			_ = pool.ReturnObject(c.ctx, obj)
+		}
+	}()
+}
+
+func (c *DVCClient) NoopNoWasm() {
+	return
+}
+
 /*
 DVCClientService Get all features by key for user data
   - @param body
