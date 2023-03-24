@@ -362,6 +362,10 @@ func (c *DVCClient) Noop() (err error) {
 	return c.bucketingObjectPool.Noop()
 }
 
+func (c *DVCClient) NoopNoBorrow() (err error) {
+	return c.localBucketing.noop()
+}
+
 func (c *DVCClient) NoopBorrowReturn() {
 	pool := c.bucketingObjectPool.currentPool.Load()
 	obj, err := pool.BorrowObject(c.ctx)
