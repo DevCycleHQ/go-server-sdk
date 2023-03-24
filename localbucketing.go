@@ -51,22 +51,23 @@ type DevCycleLocalBucketing struct {
 	__collectFunc *wasmtime.Func
 	__pinFunc     *wasmtime.Func
 
-	flushEventQueueFunc               *wasmtime.Func
-	eventQueueSizeFunc                *wasmtime.Func
-	onPayloadSuccessFunc              *wasmtime.Func
-	queueEventFunc                    *wasmtime.Func
-	onPayloadFailureFunc              *wasmtime.Func
-	generateBucketedConfigForUserFunc *wasmtime.Func
-	setPlatformDataFunc               *wasmtime.Func
-	setConfigDataFunc                 *wasmtime.Func
-	initEventQueueFunc                *wasmtime.Func
-	queueAggregateEventFunc           *wasmtime.Func
-	setClientCustomDataFunc           *wasmtime.Func
-	variableForUserFunc               *wasmtime.Func
-	variableForUser_PBFunc            *wasmtime.Func
-	setConfigDataUTF8Func             *wasmtime.Func
-	setPlatformDataUTF8Func           *wasmtime.Func
-	setClientCustomDataUTF8Func       *wasmtime.Func
+	flushEventQueueFunc                   *wasmtime.Func
+	eventQueueSizeFunc                    *wasmtime.Func
+	onPayloadSuccessFunc                  *wasmtime.Func
+	queueEventFunc                        *wasmtime.Func
+	onPayloadFailureFunc                  *wasmtime.Func
+	generateBucketedConfigForUserFunc     *wasmtime.Func
+	setPlatformDataFunc                   *wasmtime.Func
+	setConfigDataFunc                     *wasmtime.Func
+	initEventQueueFunc                    *wasmtime.Func
+	queueAggregateEventFunc               *wasmtime.Func
+	setClientCustomDataFunc               *wasmtime.Func
+	variableForUserFunc                   *wasmtime.Func
+	variableForUser_PBFunc                *wasmtime.Func
+	setConfigDataUTF8Func                 *wasmtime.Func
+	setPlatformDataUTF8Func               *wasmtime.Func
+	setClientCustomDataUTF8Func           *wasmtime.Func
+	generateBucketedConfigForUserUTF8Func *wasmtime.Func
 
 	VariableTypeCodes VariableTypeCodes
 
@@ -164,6 +165,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	d.setConfigDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setConfigDataUTF8").Func()
 	d.setPlatformDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setPlatformDataUTF8").Func()
 	d.setClientCustomDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomDataUTF8").Func()
+	d.generateBucketedConfigForUserUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "generateBucketedConfigForUserUTF8").Func()
 
 	// bind exported internal functions
 	d.__newFunc = d.wasmInstance.GetExport(d.wasmStore, "__new").Func()
@@ -406,21 +408,22 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 	return
 }
 
-func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(user string) (ret BucketedUserConfig, err error) {
+func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(userData string) (ret BucketedUserConfig, err error) {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
-	userAddr, err := d.newAssemblyScriptString([]byte(user))
+	userAddr, err := d.newAssemblyScriptNoPoolByteArray([]byte(userData))
 	if err != nil {
 		return
 	}
 
-	configPtr, err := d.generateBucketedConfigForUserFunc.Call(d.wasmStore, d.sdkKeyAddr, userAddr)
-	err = d.handleWASMErrors("generateBucketedConfig", err)
+	configPtr, err := d.generateBucketedConfigForUserUTF8Func.Call(d.wasmStore, d.sdkKeyAddr, userAddr)
+	err = d.handleWASMErrors("generateBucketedConfigUTF8", err)
 	if err != nil {
 		return
 	}
-	rawConfig, err := d.readAssemblyScriptStringBytes(configPtr.(int32))
+
+	rawConfig, err := d.readAssemblyScriptByteArray(configPtr.(int32))
 	if err != nil {
 		return
 	}

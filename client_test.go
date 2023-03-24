@@ -45,6 +45,21 @@ func TestDVCClient_AllVariablesLocal(t *testing.T) {
 	fmt.Println(variables)
 }
 
+func TestDVCClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
+
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpCustomConfigMock(test_environmentKey, 200, test_config_special_characters_var)
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	fatalErr(t, err)
+
+	variables, err := c.AllVariables(
+		DVCUser{UserId: "j_test", DeviceModel: "testing"})
+	fatalErr(t, err)
+
+	fmt.Println(variables)
+}
+
 func TestDVCClient_VariableCloud(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
