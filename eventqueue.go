@@ -101,7 +101,7 @@ func (e *EventQueue) QueueEvent(user DVCUser, event DVCEvent) error {
 		if err != nil {
 			return err
 		}
-		err = e.localBucketing.queueEvent(string(userstring), string(eventstring))
+		err = e.localBucketing.queueEvent(userstring, eventstring)
 		return err
 	}
 	return nil
@@ -113,7 +113,7 @@ func (e *EventQueue) QueueAggregateEvent(config BucketedUserConfig, event DVCEve
 	}
 	if !e.options.EnableCloudBucketing {
 		eventstring, err := json.Marshal(event)
-		err = e.localBucketing.queueAggregateEvent(string(eventstring), config)
+		err = e.localBucketing.queueAggregateEvent(eventstring, config)
 		return err
 	}
 	return nil

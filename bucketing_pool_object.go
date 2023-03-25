@@ -18,9 +18,9 @@ type BucketingPoolObject struct {
 	lastFlushTime    int64
 }
 
-func (o *BucketingPoolObject) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
+func (o *BucketingPoolObject) Initialize(sdkKey string, options *DVCOptions) (err error) {
 	o.localBucketing = &DevCycleLocalBucketing{}
-	err = o.localBucketing.Initialize(wasmMain, sdkKey, options)
+	err = o.localBucketing.Initialize(sdkKey, options)
 
 	if err != nil {
 		return

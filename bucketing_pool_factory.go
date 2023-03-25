@@ -2,28 +2,27 @@ package devcycle
 
 import (
 	"context"
+
 	pool "github.com/jolestar/go-commons-pool/v2"
 )
 
 type BucketingPoolFactory struct {
-	wasmMain *WASMMain
-	sdkKey   string
-	options  *DVCOptions
-	pool     *BucketingPool
+	sdkKey  string
+	options *DVCOptions
+	pool    *BucketingPool
 }
 
-func MakeBucketingPoolFactory(wasmMain *WASMMain, sdkKey string, options *DVCOptions, pool *BucketingPool) *BucketingPoolFactory {
+func MakeBucketingPoolFactory(sdkKey string, options *DVCOptions, pool *BucketingPool) *BucketingPoolFactory {
 	return &BucketingPoolFactory{
-		wasmMain: wasmMain,
-		sdkKey:   sdkKey,
-		options:  options,
-		pool:     pool,
+		sdkKey:  sdkKey,
+		options: options,
+		pool:    pool,
 	}
 }
 
 func (f *BucketingPoolFactory) MakeObject(ctx context.Context) (*pool.PooledObject, error) {
 	var bucketing = &BucketingPoolObject{}
-	err := bucketing.Initialize(f.wasmMain, f.sdkKey, f.options)
+	err := bucketing.Initialize(f.sdkKey, f.options)
 	if err != nil {
 		return nil, err
 	}

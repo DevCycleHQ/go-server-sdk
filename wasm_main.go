@@ -1,8 +1,11 @@
 package devcycle
 
 import (
+	"context"
 	_ "embed"
-	"github.com/bytecodealliance/wasmtime-go/v6"
+	"fmt"
+
+	"github.com/tetratelabs/wazero"
 )
 
 //go:embed bucketing-lib.release.wasm
@@ -12,23 +15,22 @@ var wasmMainBinary []byte
 var wasmDebugBinary []byte
 
 type WASMMain struct {
-	wasm       []byte
-	wasmEngine *wasmtime.Engine
-	wasmModule *wasmtime.Module
+	wasm          []byte
+	wazeroRuntime wazero.Runtime
+	wazeroModule  wazero.CompiledModule
 }
 
 func (d *WASMMain) Initialize(options *DVCOptions) (err error) {
 	d.wasm = wasmMainBinary
-	d.wasmEngine = wasmtime.NewEngine()
 	if options != nil && options.UseDebugWASM {
 		infof("Using debug WASM binary. (This is not recommended for production use)")
 		d.wasm = wasmDebugBinary
 	}
-	d.wasmModule, err = wasmtime.NewModule(d.wasmEngine, d.wasm)
-
+	d.wazeroRuntime = wazero.NewRuntimeWithConfig(context.Background(), wazero.NewRuntimeConfigCompiler())
+	d.wazeroModule, err = d.wazeroRuntime.CompileModule(context.Background(), d.wasm)
 	if err != nil {
-		return
+		return fmt.Errorf("failed to compile wasm module: %w", err)
 	}
 
-	return
+	return nil
 }

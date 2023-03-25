@@ -66,9 +66,9 @@ func initializeWasmMain(options *DVCOptions) (ret *WASMMain, err error) {
 	return
 }
 
-func initializeLocalBucketing(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
+func initializeLocalBucketing(c *DVCClient, sdkKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
 	ret = &DevCycleLocalBucketing{}
-	err = ret.Initialize(wasmMain, sdkKey, options)
+	err = ret.Initialize(sdkKey, options)
 	if err != nil {
 		errorf("error while initializing local bucketing", err)
 		return nil, err
@@ -79,7 +79,8 @@ func initializeLocalBucketing(wasmMain *WASMMain, sdkKey string, options *DVCOpt
 func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 	wasmMain, err := initializeWasmMain(options)
 	c.wasmMain = wasmMain
-	localBucketing, err := initializeLocalBucketing(wasmMain, sdkKey, options)
+
+	localBucketing, err := initializeLocalBucketing(c, sdkKey, options)
 
 	if err != nil {
 		return err
@@ -87,7 +88,7 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 
 	c.localBucketing = localBucketing
 
-	c.bucketingObjectPool, err = NewBucketingPool(c.ctx, c.wasmMain, sdkKey, options)
+	c.bucketingObjectPool, err = NewBucketingPool(c.ctx, sdkKey, options)
 
 	if err != nil {
 		return err
@@ -171,7 +172,7 @@ func (c *DVCClient) generateBucketedConfig(user DVCUser) (config BucketedUserCon
 	if err != nil {
 		return BucketedUserConfig{}, err
 	}
-	config, err = c.localBucketing.GenerateBucketedConfigForUser(string(userJSON))
+	config, err = c.localBucketing.GenerateBucketedConfigForUser(userJSON)
 	if err != nil {
 		return BucketedUserConfig{}, err
 	}

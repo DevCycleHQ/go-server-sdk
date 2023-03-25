@@ -2,10 +2,11 @@ package devcycle
 
 import (
 	"context"
-	"github.com/devcyclehq/go-server-sdk/v2/proto"
-	pool "github.com/jolestar/go-commons-pool/v2"
 	"sync"
 	"sync/atomic"
+
+	"github.com/devcyclehq/go-server-sdk/v2/proto"
+	pool "github.com/jolestar/go-commons-pool/v2"
 )
 
 type BucketingPool struct {
@@ -18,7 +19,7 @@ type BucketingPool struct {
 	closed        atomic.Bool
 }
 
-func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, options *DVCOptions) (*BucketingPool, error) {
+func NewBucketingPool(ctx context.Context, sdkKey string, options *DVCOptions) (*BucketingPool, error) {
 	bucketingPool := &BucketingPool{
 		ctx: ctx,
 	}
@@ -30,7 +31,7 @@ func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, op
 	config.MinEvictableIdleTime = -1
 	config.TimeBetweenEvictionRuns = -1
 
-	bucketingPool.factory = MakeBucketingPoolFactory(wasmMain, sdkKey, options, bucketingPool)
+	bucketingPool.factory = MakeBucketingPoolFactory(sdkKey, options, bucketingPool)
 
 	bucketingPool.poolSwapMutex = sync.Mutex{}
 	bucketingPool.closed = atomic.Bool{}
