@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"io"
 	"math"
 	"math/rand"
@@ -42,6 +43,7 @@ type DVCClient struct {
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
 	bucketingObjectPool          *BucketingPool
+	statsd                       *statsd.Client
 }
 
 type SDKEvent struct {
@@ -112,7 +114,7 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 
 // NewDVCClient creates a new API client.
 // optionally pass a custom http.Client to allow for advanced features such as caching.
-func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
+func NewDVCClient(sdkKey string, options *DVCOptions, statsdClient *statsd.Client) (*DVCClient, error) {
 	if sdkKey == "" {
 		return nil, errorf("missing sdk key! Call NewDVCClient with a valid sdk key")
 	}
@@ -128,6 +130,22 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	c.ctx = context.Background()
 	c.common.client = c
 	c.DevCycleOptions = options
+
+	if statsdClient != nil {
+		c.statsd = statsdClient
+		memoryTicker := time.NewTicker(2 * time.Second)
+		go func() {
+			for {
+				select {
+				case <-memoryTicker.C:
+					err := c.statsd.Gauge("mem_size", float64(c.localBucketing.MemorySize()), nil, 1)
+					if err != nil {
+						_ = errorf("error while sending memory size to datadog", err)
+					}
+				}
+			}
+		}()
+	}
 
 	if c.DevCycleOptions.Logger != nil {
 		SetLogger(c.DevCycleOptions.Logger)
@@ -289,6 +307,65 @@ func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableTy
 	}, nil
 }
 
+func (c *DVCClient) variableForUserProtobufNoBorrow(user DVCUser, key string, variableType VariableTypeCode) (variable Variable, err error) {
+	// Take all the parameters and convert them to protobuf objects
+	appBuild := math.NaN()
+	if user.AppBuild != "" {
+		appBuild, err = strconv.ParseFloat(user.AppBuild, 64)
+		if err != nil {
+			appBuild = math.NaN()
+		}
+	}
+	userPB := &proto.DVCUser_PB{
+		UserId:            user.UserId,
+		Email:             createNullableString(user.Email),
+		Name:              createNullableString(user.Name),
+		Language:          createNullableString(user.Language),
+		Country:           createNullableString(user.Country),
+		AppBuild:          createNullableDouble(appBuild),
+		AppVersion:        createNullableString(user.AppVersion),
+		DeviceModel:       createNullableString(user.DeviceModel),
+		CustomData:        createNullableCustomData(user.CustomData),
+		PrivateCustomData: createNullableCustomData(user.PrivateCustomData),
+	}
+
+	// package everything into the root params object
+	paramsPB := proto.VariableForUserParams_PB{
+		SdkKey:           c.sdkKey,
+		VariableKey:      key,
+		VariableType:     proto.VariableType_PB(variableType),
+		User:             userPB,
+		ShouldTrackEvent: true,
+	}
+
+	// Generate the buffer
+	paramsBuffer, err := paramsPB.MarshalVT()
+
+	if err != nil {
+		return Variable{}, errorf("Error marshalling protobuf object in variableForUserProtobuf: %w", err)
+	}
+
+	variablePB, err := c.localBucketing.VariableForUser_PB(paramsBuffer)
+
+	if err != nil {
+		_ = errorf("Error getting variable for user: %w", err)
+	}
+
+	if variablePB == nil {
+		return Variable{}, nil
+	}
+
+	return Variable{
+		baseVariable: baseVariable{
+			Key:   variablePB.Key,
+			Type_: variablePB.Type.String(),
+			Value: variablePB.GetValue(),
+		},
+		DefaultValue: nil,
+		IsDefaulted:  false,
+	}, nil
+}
+
 func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
 	err = c.eventQueue.QueueEvent(user, event)
 	return
@@ -296,6 +373,24 @@ func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
 
 func (c *DVCClient) queueAggregateEvent(bucketed BucketedUserConfig, event DVCEvent) (err error) {
 	err = c.eventQueue.QueueAggregateEvent(bucketed, event)
+	return
+}
+
+func (c *DVCClient) NoopBorrowReturn() {
+	pool := c.bucketingObjectPool.currentPool.Load()
+	obj, err := pool.BorrowObject(c.ctx)
+	if err != nil {
+		_ = errorf("Error getting object from pool: %w", err)
+	}
+
+	defer func() {
+		if obj != nil {
+			_ = pool.ReturnObject(c.ctx, obj)
+		}
+	}()
+}
+
+func (c *DVCClient) NoopNoWasm() {
 	return
 }
 
@@ -394,6 +489,112 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 			return Variable{}, err
 		}
 		bucketedVariable, err := c.variableForUserProtobuf(userdata, key, variableTypeCode)
+
+		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
+		if bucketedVariable.Value != nil && sameTypeAsDefault {
+			variable.Value = bucketedVariable.Value
+			variable.IsDefaulted = false
+		} else {
+			if !sameTypeAsDefault && bucketedVariable.Value != nil {
+				warnf("Type mismatch for variable %s. Expected type %s, got %s",
+					key,
+					reflect.TypeOf(defaultValue).String(),
+					reflect.TypeOf(bucketedVariable.Value).String(),
+				)
+			}
+		}
+		return variable, err
+	}
+
+	populatedUser := userdata.getPopulatedUser()
+
+	var (
+		httpMethod          = strings.ToUpper("Post")
+		postBody            interface{}
+		localVarReturnValue Variable
+	)
+
+	// create path and map variables
+	path := c.cfg.BasePath + "/v1/variables/{key}"
+	path = strings.Replace(path, "{"+"key"+"}", fmt.Sprintf("%v", key), -1)
+
+	headers := make(map[string]string)
+	queryParams := url.Values{}
+
+	// userdata params
+	postBody = &populatedUser
+
+	r, body, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
+
+	if err != nil {
+		return variable, err
+	}
+
+	if r.StatusCode < 300 {
+		// If we succeed, return the data, otherwise pass on to decode error.
+		err = decode(&localVarReturnValue, body, r.Header.Get("Content-Type"))
+		if err == nil && localVarReturnValue.Value != nil {
+			if compareTypes(localVarReturnValue.Value, convertedDefaultValue) {
+				variable.Value = localVarReturnValue.Value
+				variable.IsDefaulted = false
+			} else {
+				warnf("Type mismatch for variable %s. Expected type %s, got %s",
+					key,
+					reflect.TypeOf(defaultValue).String(),
+					reflect.TypeOf(localVarReturnValue.Value).String(),
+				)
+			}
+
+			return variable, err
+		}
+	}
+
+	var v ErrorResponse
+	err = decode(&v, body, r.Header.Get("Content-Type"))
+	if err != nil {
+		warnf("Error decoding response body %s", err)
+		return variable, nil
+	}
+	warnf(v.Message)
+	return variable, nil
+}
+
+func (c *DVCClient) VariableNoBorrow(userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
+	if key == "" {
+		return Variable{}, errors.New("invalid key provided for call to Variable")
+	}
+
+	convertedDefaultValue := convertDefaultValueType(defaultValue)
+	variableType, err := variableTypeFromValue(key, convertedDefaultValue)
+
+	if err != nil {
+		return Variable{}, err
+	}
+
+	baseVar := baseVariable{Key: key, Value: convertedDefaultValue, Type_: variableType}
+	variable := Variable{baseVariable: baseVar, DefaultValue: convertedDefaultValue, IsDefaulted: true}
+
+	if !c.DevCycleOptions.EnableCloudBucketing {
+		if !c.hasConfig() {
+			warnf("Variable called before client initialized, returning default value")
+			err = c.queueAggregateEvent(BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, DVCEvent{
+				Type_:  EventType_AggVariableDefaulted,
+				Target: key,
+			})
+
+			if err != nil {
+				warnf("Error queuing aggregate event: ", err)
+				err = nil
+			}
+
+			return variable, nil
+		}
+		variableTypeCode, err := c.variableTypeCodeFromType(variableType)
+
+		if err != nil {
+			return Variable{}, err
+		}
+		bucketedVariable, err := c.variableForUserProtobufNoBorrow(userdata, key, variableTypeCode)
 
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
 		if bucketedVariable.Value != nil && sameTypeAsDefault {

@@ -43,6 +43,7 @@ func main() {
 	client, err := devcycle.NewDVCClient("dvc_server_hello", &devcycle.DVCOptions{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         false,
+		UseDebugWASM:                 true,
 		EventFlushIntervalMS:         eventFlushInterval,
 		ConfigPollingIntervalMS:      configInterval,
 		DisableAutomaticEventLogging: !enableEvents,
@@ -53,7 +54,7 @@ func main() {
 			MaxMemoryAllocationBuckets: maxMemoryBuckets,
 			MaxWasmWorkers:             maxWASMWorkers,
 		},
-	})
+	}, nil)
 
 	if err != nil {
 		log.Fatalf("Error setting up DVC client: %v", err)

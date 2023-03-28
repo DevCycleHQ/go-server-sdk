@@ -153,13 +153,13 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	d.eventQueueSizeFunc = d.wasmInstance.GetExport(d.wasmStore, "eventQueueSize").Func()
 	d.onPayloadSuccessFunc = d.wasmInstance.GetExport(d.wasmStore, "onPayloadSuccess").Func()
 	d.onPayloadFailureFunc = d.wasmInstance.GetExport(d.wasmStore, "onPayloadFailure").Func()
-	d.generateBucketedConfigForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "generateBucketedConfigForUser").Func()
-	d.queueEventFunc = d.wasmInstance.GetExport(d.wasmStore, "queueEvent").Func()
-	d.queueAggregateEventFunc = d.wasmInstance.GetExport(d.wasmStore, "queueAggregateEvent").Func()
+	//d.generateBucketedConfigForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "generateBucketedConfigForUser").Func()
+	//d.queueEventFunc = d.wasmInstance.GetExport(d.wasmStore, "queueEvent").Func()
+	//d.queueAggregateEventFunc = d.wasmInstance.GetExport(d.wasmStore, "queueAggregateEvent").Func()
 	d.setPlatformDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setPlatformData").Func()
-	d.setClientCustomDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
+	//d.setClientCustomDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
 	d.setConfigDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
-	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserPreallocated").Func()
+	//d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserPreallocated").Func()
 	d.variableForUser_PBFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser_PB_Preallocated").Func()
 	d.setConfigDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setConfigDataUTF8").Func()
 	d.setPlatformDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setPlatformDataUTF8").Func()
@@ -383,6 +383,14 @@ func (d *DevCycleLocalBucketing) OnPayloadFailure(payloadId string, retryable bo
 	defer d.wasmMutex.Unlock()
 
 	return d.onPayloadFailure(payloadId, retryable)
+}
+
+func (d *DevCycleLocalBucketing) MemorySize() int {
+	d.wasmMutex.Lock()
+	d.errorMessage = ""
+	defer d.wasmMutex.Unlock()
+	data := d.wasmMemory.UnsafeData(d.wasmStore)
+	return len(data)
 }
 
 func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bool) (err error) {
