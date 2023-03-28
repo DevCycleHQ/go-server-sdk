@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf16"
 	"unsafe"
 
 	"github.com/bytecodealliance/wasmtime-go/v6"
@@ -574,15 +573,6 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, e
 		return -1, errorf("Failed to allocate memory for string")
 	}
 	return ptr.(int32), nil
-}
-
-func (d *DevCycleLocalBucketing) newAssemblyScriptUTF16StringNoPoolByteArray(param string) (int32, error) {
-	utf16Output := utf16.Encode(([]rune)(param))
-	var rawBytes []byte
-	for _, i := range utf16Output {
-		rawBytes = binary.LittleEndian.AppendUint16(rawBytes, i)
-	}
-	return d.newAssemblyScriptNoPoolByteArray(rawBytes)
 }
 
 func (d *DevCycleLocalBucketing) newAssemblyScriptNoPoolByteArray(param []byte) (int32, error) {
