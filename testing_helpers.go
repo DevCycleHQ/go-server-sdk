@@ -14,6 +14,9 @@ var (
 	//go:embed bench/testdata/fixture_small_config.json
 	test_config string
 
+	//go:embed bench/testdata/fixture_small_config_special_characters.json
+	test_config_special_characters_var string
+
 	//go:embed bench/testdata/fixture_large_config.json
 	test_large_config          string
 	test_large_config_variable = "v-key-25"
@@ -22,6 +25,7 @@ var (
 func init() {
 	// Remove newlines in configs
 	test_config = strings.ReplaceAll(test_config, "\n", "")
+	test_config_special_characters_var = strings.ReplaceAll(test_config_special_characters_var, "\n", "")
 	test_large_config = strings.ReplaceAll(test_large_config, "\n", "")
 }
 

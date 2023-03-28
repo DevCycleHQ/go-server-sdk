@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jarcoal/httpmock"
 )
@@ -42,6 +43,44 @@ func TestDVCClient_AllVariablesLocal(t *testing.T) {
 	fatalErr(t, err)
 
 	fmt.Println(variables)
+	if len(variables) != 1 {
+		t.Error("Expected 1 variable, got", len(variables))
+	}
+}
+
+func TestDVCClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
+
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpCustomConfigMock(test_environmentKey, 200, test_config_special_characters_var)
+	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	fatalErr(t, err)
+
+	variables, err := c.AllVariables(
+		DVCUser{UserId: "j_test", DeviceModel: "testing"})
+	fatalErr(t, err)
+
+	fmt.Println(variables)
+	if len(variables) != 1 {
+		t.Error("Expected 1 variable, got", len(variables))
+	}
+
+	expected := Variable{
+		baseVariable: baseVariable{
+			Key:   "test",
+			Type_: "String",
+			Value: "öé 🐍 ¥",
+		},
+	}
+	if variables["test"].Key != expected.Key {
+		t.Fatal("Variable key to be equal to expected variable")
+	}
+	if variables["test"].Type_ != expected.Type_ {
+		t.Fatal("Variable type to be equal to expected variable")
+	}
+	if variables["test"].Value != expected.Value {
+		t.Fatal("Variable value to be equal to expected variable")
+	}
 }
 
 func TestDVCClient_VariableCloud(t *testing.T) {
@@ -180,6 +219,48 @@ func TestDVCClient_VariableLocal_403(t *testing.T) {
 	_, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
 	if err == nil {
 		t.Fatal("Expected error from configmanager")
+	}
+}
+
+func TestDVCClient_VariableLocalProtobuf_StringEncoding(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpCustomConfigMock(test_environmentKey, 200, test_config_special_characters_var)
+
+	options := &DVCOptions{
+		UseDebugWASM: true,
+	}
+
+	c, err := NewDVCClient("dvc_server_token_hash", options)
+
+	variable, err := c.Variable(
+		DVCUser{
+			UserId: "someuser",
+		},
+		"test", "default_value")
+	fatalErr(t, err)
+
+	fmt.Printf("Value: %v | bytes %v\n", variable.Value, []byte(variable.Value.(string)))
+	fmt.Printf("Is Valid UTF-8 String: %v\n", utf8.ValidString(variable.Value.(string)))
+
+	fmt.Println(variable)
+	if variable.IsDefaulted {
+		t.Fatal("Expected variable to return a value")
+	}
+
+	expected := Variable{
+		baseVariable: baseVariable{
+			Key:   "test",
+			Type_: "String",
+			Value: "öé 🐍 ¥",
+		},
+		DefaultValue: "default_value",
+		IsDefaulted:  false,
+	}
+	if !reflect.DeepEqual(expected, variable) {
+		fmt.Println("got", variable)
+		fmt.Println("expected", expected)
+		t.Fatal("Expected variable to be equal to expected variable")
 	}
 }
 
