@@ -112,10 +112,6 @@ func doesUserPassRollout(rollout Rollout, boundedHash float64) bool {
 	return rolloutPercentage == 0 && (boundedHash <= rolloutPercentage)
 }
 
-func bucketForSegmentedFeature(boundedHash float64, target Target) string {
-	return _decideTargetVariation(target, boundedHash)
-}
-
 type SegmentedFeatureData struct {
 	Feature Feature `json:"feature"`
 	Target  Target  `json:"target"`
@@ -124,27 +120,59 @@ type SegmentedFeatureData struct {
 func getSegmentedFeatureDataFromConfig(config ConfigBody, user DVCPopulatedUser) []SegmentedFeatureData {
 	var accumulator []SegmentedFeatureData
 	for _, feature := range config.Features {
-		var segmentedFeatureTarget Target
+		var segmentedFeatureTarget *Target
 		{
 		}
 		for _, target := range feature.Configuration.Targets {
 			if _evaluateOperator(target.Audience.Filters, user) {
-				segmentedFeatureTarget = target
+				segmentedFeatureTarget = &target
 				break
 			}
 		}
-		if segmentedFeatureTarget != (Target{}) {
+		if segmentedFeatureTarget != nil {
 			featureData := SegmentedFeatureData{
 				Feature: feature,
-				Target:  segmentedFeatureTarget,
+				Target:  *segmentedFeatureTarget,
 			}
 			accumulator = append(accumulator, featureData)
-
 		}
 	}
 	return accumulator
 }
 
+
+func generateBucketedVariableForUser(config ConfigBody, user DVCPopulatedUser, key string, clientCustomData map[string]any) (error, map[string]SDKVariable) {
+	err, variable := config.FindVariable(key)
+	if err!= nil {
+		return err, nil
+	}
+
+	const featureForVariable = config.getFeatureForVariableId(variable._id)
+	if (!featureForVariable) return null
+
+	const targetAndHashes = doesUserQualifyForFeature(
+		config,
+		featureForVariable,
+		user,
+		clientCustomData
+	)
+	if (!targetAndHashes) return null
+
+	const variation = bucketUserForVariation(featureForVariable, targetAndHashes)
+	const variationVar = variation.getVariableById(variable._id)
+	if (!variationVar) {
+		throw new Error('Internal error processing configuration')
+	}
+
+	const sdkVar = new SDKVariable(
+		variable._id,
+		variable.type,
+	variable.key,
+		variationVar.value,
+		null
+	)
+	return { variable: sdkVar, variation, feature: featureForVariable }
+}
 func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser) BucketedUserConfig {
 	variableMap := make(map[string]SDKVariable)
 	featureKeyMap := make(map[string]SDKFeature)
@@ -182,14 +210,15 @@ func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser) BucketedU
 		featureVariationMap[feature.Id] = variation_id)
 
 		for _, variationVar := range variation.Variables {
-			var variable Variable
+			var variable *Variable
 			for _, configVar := range config.Variables {
 				if configVar.Id == variationVar.Var {
-					variable = configVar
+					variable = &configVar
 					break
 				}
 			}
-			if !variable {
+			if  {
+
 			}
 			newVar := SDKVariable{
 				Id:         variable.Id,
@@ -208,6 +237,5 @@ func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser) BucketedU
 		Features:          featureKeyMap,
 		FeatureVariations: featureVariationMap,
 		Variables:         variableMap,
-		KnownVariableKeys: generateKnownVariableKeys(config.VariableHashes, variableMap),
 	}
 }

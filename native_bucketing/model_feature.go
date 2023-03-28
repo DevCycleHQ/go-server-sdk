@@ -14,13 +14,14 @@ type Feature struct {
 	Settings      map[string]interface{} `json:"settings"`
 }
 
-func (f *Feature) FromJSON(js string) (err error, rt Feature) {
+func (f *Feature) FromJSON(js []byte) (err error, rt Feature) {
 	var clss Feature
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }
 
 type Variation struct {
@@ -30,13 +31,14 @@ type Variation struct {
 	Variables []VariationVariable `json:"variables"`
 }
 
-func (v *Variation) FromJSON(js string) (err error, rt Variation) {
+func (v *Variation) FromJSON(js []byte) (err error, rt Variation) {
 	var clss Variation
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }
 
 type VariationVariable struct {
@@ -44,11 +46,12 @@ type VariationVariable struct {
 	Value string `json:"value"`
 }
 
-func (v *VariationVariable) FromJSON(js string) (err error, rt VariationVariable) {
+func (v *VariationVariable) FromJSON(js []byte) (err error, rt VariationVariable) {
 	var clss VariationVariable
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }

@@ -12,11 +12,12 @@ type PlatformData struct {
 	SdkVersion      string `json:"sdkVersion"`
 }
 
-func (p *PlatformData) FromJSON(js string) (err error, rt PlatformData) {
+func (p *PlatformData) FromJSON(js []byte) (err error, rt PlatformData) {
 	var clss PlatformData
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }

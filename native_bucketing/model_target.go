@@ -2,6 +2,7 @@ package native_bucketing
 
 import (
 	"encoding/json"
+	"fmt"
 	"gopkg.in/validator.v2"
 	"time"
 )
@@ -13,13 +14,26 @@ type Target struct {
 	Distribution []TargetDistribution `json:"distribution"`
 }
 
-func (t *Target) FromJSON(js string) (err error, rt Target) {
+func (t *Target) FromJSON(js []byte) (err error, rt Target) {
 	var clss Target
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
+}
+
+func (t *Target) DecideTargetVariation(boundedHash float64) (error, string) {
+	var distributionIndex float64 = 0
+	const previousDistributionIndex = 0
+	for _, d := range t.Distribution {
+		distributionIndex += d.Percentage
+		if boundedHash >= previousDistributionIndex && boundedHash < distributionIndex {
+			return nil, d.Variation
+		}
+	}
+	return fmt.Errorf("failed to decide target variation: %s", t.Id), ""
 }
 
 type Audience struct {
@@ -27,13 +41,14 @@ type Audience struct {
 	Filters TopLevelOperator `json:"filters"`
 }
 
-func (a *Audience) FromJSON(js string) (err error, rt Audience) {
+func (a *Audience) FromJSON(js []byte) (err error, rt Audience) {
 	var clss Audience
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }
 
 type TopLevelOperator struct {
@@ -41,13 +56,14 @@ type TopLevelOperator struct {
 	Operator string                     `json:"operator" validate:"regexp=^(and|or)$"`
 }
 
-func (t *TopLevelOperator) FromJSON(js string) (err error, rt TopLevelOperator) {
+func (t *TopLevelOperator) FromJSON(js []byte) (err error, rt TopLevelOperator) {
 	var clss TopLevelOperator
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }
 
 type AudienceFilterOrOperator struct {
@@ -61,13 +77,14 @@ type AudienceFilterOrOperator struct {
 	Filters     []AudienceFilterOrOperator `json:"filters"`
 }
 
-func (a *AudienceFilterOrOperator) FromJSON(js string) (err error, rt AudienceFilterOrOperator) {
+func (a *AudienceFilterOrOperator) FromJSON(js []byte) (err error, rt AudienceFilterOrOperator) {
 	var clss AudienceFilterOrOperator
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }
 
 type UserFilter struct {
@@ -78,13 +95,14 @@ type UserFilter struct {
 	Values     []interface{}
 }
 
-func (u *UserFilter) FromJSON(js string) (err error, rt UserFilter) {
+func (u *UserFilter) FromJSON(js []byte) (err error, rt UserFilter) {
 	var clss UserFilter
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }
 
 type CustomDataFilter struct {
@@ -93,13 +111,14 @@ type CustomDataFilter struct {
 	DataKeyType string `json:"dataKeyType" validate:"regexp=^(String|Boolean|Number)$"`
 }
 
-func (c *CustomDataFilter) FromJSON(js string) (err error, rt CustomDataFilter) {
+func (c *CustomDataFilter) FromJSON(js []byte) (err error, rt CustomDataFilter) {
 	var clss CustomDataFilter
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }
 
 type Rollout struct {
@@ -109,13 +128,14 @@ type Rollout struct {
 	Stages          []RolloutStage `json:"stages"`
 }
 
-func (r *Rollout) FromJSON(js string) (err error, rt Rollout) {
+func (r *Rollout) FromJSON(js []byte) (err error, rt Rollout) {
 	var clss Rollout
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }
 
 type RolloutStage struct {
@@ -124,13 +144,14 @@ type RolloutStage struct {
 	Percentage float64   `json:"percentage" validate:"regexp=^(linear|discrete)$"`
 }
 
-func (r *RolloutStage) FromJSON(js string) (err error, rt RolloutStage) {
+func (r *RolloutStage) FromJSON(js []byte) (err error, rt RolloutStage) {
 	var clss RolloutStage
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }
 
 type TargetDistribution struct {
@@ -145,4 +166,9 @@ func (t *TargetDistribution) FromJSON(js string) (err error, rt TargetDistributi
 		return errs, clss
 	}
 	return nil, clss
+}
+
+type AudienceOperator struct {
+	Operator string                     `json:"operator" validate:"regexp=^(and|or)$"`
+	Filters  []AudienceFilterOrOperator `json:"filters"`
 }

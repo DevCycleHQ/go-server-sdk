@@ -14,13 +14,14 @@ type FeatureConfiguration struct {
 	Targets          []Target                `json:"targets"`
 }
 
-func (f *FeatureConfiguration) FromJSON(js string) (err error, rt FeatureConfiguration) {
+func (f *FeatureConfiguration) FromJSON(js []byte) (err error, rt FeatureConfiguration) {
 	var clss FeatureConfiguration
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }
 
 type FeaturePrerequisites struct {
@@ -28,13 +29,14 @@ type FeaturePrerequisites struct {
 	Comparator string `json:"comparator" validate:"regexp=^(=|!=)$"`
 }
 
-func (f *FeaturePrerequisites) FromJSON(js string) (err error, rt FeaturePrerequisites) {
+func (f *FeaturePrerequisites) FromJSON(js []byte) (err error, rt FeaturePrerequisites) {
 	var clss FeaturePrerequisites
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }
 
 type FeatureWinningVariation struct {
@@ -42,11 +44,12 @@ type FeatureWinningVariation struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
-func (f *FeatureWinningVariation) FromJSON(js string) (err error, rt FeatureWinningVariation) {
+func (f *FeatureWinningVariation) FromJSON(js []byte) (err error, rt FeatureWinningVariation) {
 	var clss FeatureWinningVariation
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }

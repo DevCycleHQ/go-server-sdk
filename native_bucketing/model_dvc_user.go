@@ -20,13 +20,14 @@ type DVCUser struct {
 	PrivateCustomData map[string]interface{} `json:"privateCustomData"`
 }
 
-func (u *DVCUser) FromJSON(js string) (err error, rt DVCUser) {
+func (u *DVCUser) FromJSON(js []byte) (err error, rt DVCUser) {
 	var clss DVCUser
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }
 
 type DVCPopulatedUser struct {
@@ -48,13 +49,14 @@ type DVCPopulatedUser struct {
 	SdkVersion        string                 `json:"sdkVersion"`
 }
 
-func (u *DVCPopulatedUser) FromJSON(js string) (err error, rt DVCPopulatedUser) {
+func (u *DVCPopulatedUser) FromJSON(js []byte) (err error, rt DVCPopulatedUser) {
 	var clss DVCPopulatedUser
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return err, clss
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }
 func (p *DVCPopulatedUser) CombinedCustomData() map[string]interface{} {
 	var ret map[string]interface{}
