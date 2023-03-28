@@ -79,7 +79,7 @@ type AudienceFilter interface {
 }
 
 type UserFilter struct {
-	AudienceFilterOrOperator
+	AudienceFilter
 	FType              string `json:"type" validate:"regexp=^(all|user|optIn)$"`
 	SubType            string `json:"subType" validate:"regexp=^(|user_id|email|ip|country|platform|platformVersion|appVersion|deviceModel|customData)$"`
 	Comparator         string `json:"comparator" validate:"regexp=^(=|!=|>|>=|<|<=|exist|!exist|contain|!contain)$"`

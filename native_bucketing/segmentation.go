@@ -1,6 +1,7 @@
 package native_bucketing
 
 import (
+	"fmt"
 	"math"
 	"regexp"
 	"strings"
@@ -53,11 +54,9 @@ func doesUserPassFilter(filter AudienceFilter, audiences map[string]NoIdAudience
 		}
 	}
 
-
 }
 
 func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
-
 
 	if audience, ok := configAudiences[filter.AudienceId]; ok {
 		return _evaluateOperator(audience.Filters, configAudiences, user, clientCustomData)
@@ -69,29 +68,26 @@ func getFilterAudiencesAsStrings(filter AudienceMatchFilter) []string {
 	return []string{filter.AudienceId}
 }
 
-
-func filterFunctionsBySubtype(subType string, user DVCPopulatedUser, filter UserFilter, clientCustomData map[string]interface{}) bool {
+func filterFunctionsBySubtype(subType string, user DVCPopulatedUser, filter AudienceFilter, clientCustomData map[string]interface{}) bool {
 	if subType == "country" {
-		return _checkStringsFilter(user.country, filter)
+		return _checkStringsFilter(user.Country, filter.(UserFilter))
 	} else if subType == "email" {
-		return _checkStringsFilter(user.email, filter)
+		return _checkStringsFilter(user.Email, filter.(UserFilter))
 	} else if subType == "user_id" {
-		return _checkStringsFilter(user.user_id, filter)
+		return _checkStringsFilter(user.UserId, filter.(UserFilter))
 	} else if subType == "appVersion" {
-		return _checkVersionFilters(user.appVersion, filter)
+		return _checkVersionFilters(user.AppVersion, filter.(UserFilter))
 	} else if subType == "platformVersion" {
-		return _checkVersionFilters(user.platformVersion, filter)
+		return _checkVersionFilters(user.PlatformVersion, filter.(UserFilter))
 	} else if subType == "deviceModel" {
-		return _checkStringsFilter(user.deviceModel, filter)
+		return _checkStringsFilter(user.DeviceModel, filter.(UserFilter))
 	} else if subType == "platform" {
-		return _checkStringsFilter(user.platform, filter)
+		return _checkStringsFilter(user.Platform, filter.(UserFilter))
 	} else if subType == "customData" {
 		if cdf := filter.(CustomDataFilter); !cdf.IsValid {
-
+			return false
 		}
-		return _checkCustomData(user.getCombinedCustomData(), filter
-		as
-		CustomDataFilter)
+		return _checkCustomData(user.getCombinedCustomData(), clientCustomData, filter.(CustomDataFilter))
 	} else {
 		return false
 	}
@@ -114,11 +110,7 @@ func convertToSemanticVersion(version string) string {
 	return strings.Join(splitVersion, ".")
 }
 
-func checkVersionValue(
-	filterVersion string,
-	version string,
-	operator string,
-) bool {
+func checkVersionValue(filterVersion string, version string, operator string) bool {
 	if version != "" && len(filterVersion) > 0 {
 		options := OptionsType{
 			Lexicographical: false,
@@ -126,7 +118,7 @@ func checkVersionValue(
 		}
 		result := versionCompare(version, filterVersion, options)
 
-		if isNaN(result) {
+		if math.IsNaN(result) {
 			return false
 		} else if result == 0 && strings.Contains(operator, "=") {
 			return true
@@ -140,11 +132,8 @@ func checkVersionValue(
 	return false
 }
 
-func checkVersionFilter(
-	version string,
-	filterVersions []string,
-	operator string) bool {
-	if !version {
+func checkVersionFilter(version string, filterVersions []string, operator string) bool {
+	if version == "" {
 		return false
 	}
 
@@ -158,185 +147,186 @@ func checkVersionFilter(
 	}
 
 	var parsedFilterVersions = filterVersions
-	if (parsedOperator != = "=") {
+	if parsedOperator != "=" {
 		// remove any non-number and . characters, and remove everything after a hyphen
 		// eg. 1.2.3a-b6 becomes 1.2.3
 		regex1, err := regexp.Compile("[^(\\d|.|\\-)]/g")
+		if err != nil {
+			fmt.Println("Error compiling regex: ", err)
+		}
 		regex2, err := regexp.Compile("-.*/g")
+		if err != nil {
+			fmt.Println("Error compiling regex: ", err)
+		}
 
-		parsedVersion = replace(replace(parsedVersion, regex1, ""), regex2, "")
+		parsedVersion = regex2.ReplaceAllString(regex1.ReplaceAllString(parsedVersion, ""), "")
 
 		var mappedFilterVersions []string
 		for _, filterVersion := range parsedFilterVersions {
-			mappedFilterVersions = append(mappedFilterVersions, replace(
-				regex1.
-					replace(filterVersion, regex1, ""), regex2, ""))
-		}
-		// Replace Array.map(), because you can"t access captured data in a closure
-		for let
-		i = 0
-		i < filterVersions.length
-		i++) {
-			mappedFilterVersions.push(replace(replace(filterVersions[i], regex1, ""), regex2, ""))
+			mappedFilterVersions = append(mappedFilterVersions, regex2.ReplaceAllString(regex1.ReplaceAllString(filterVersion, ""), ""))
 		}
 		parsedFilterVersions = mappedFilterVersions
 	}
 
 	parsedVersion = convertToSemanticVersion(parsedVersion)
 
-	let
-	passed = false
+	passed := false
 	// Replace Array.some(), because you can"t access captured data in a closure
-	for let
-	i = 0
-	i < parsedFilterVersions.length
-	i++) {
-		if checkVersionValue(parsedFilterVersions[i], parsedVersion, operator) {
+	for _, filterVersion := range parsedFilterVersions {
+		if checkVersionValue(filterVersion, parsedVersion, operator) {
 			passed = true
 			break
 		}
 	}
 
-	return !not ? passed:
-	!passed
+	if !not {
+		return passed
+	}
+	return !passed
 }
 
-export function _checkNumberFilter(num: f64, filterNums: f64[], operator: string | null): bool {
-if (operator && isString(operator)) {
-if (operator == = "exist") {
-return !isNaN(num)
-} else if (operator == = "!exist") {
-return isNaN(num)
-}
+func _checkNumberFilter(num float64, filterNums []float64, operator string) bool {
+	if operator != "" {
+		if operator == "exist" {
+			return !math.IsNaN(num)
+		} else if operator == "!exist" {
+			return math.IsNaN(num)
+		}
+	}
+
+	if math.IsNaN(num) {
+		return false
+	}
+
+	// replace filterNums.some() logic
+	someValue := false
+	for _, filterNum := range filterNums {
+		if math.IsNaN(filterNum) {
+			continue
+		}
+
+		if operator == "=" {
+			someValue = num == filterNum
+		} else if operator == "!=" {
+			someValue = num != filterNum
+		} else if operator == ">" {
+			someValue = num > filterNum
+		} else if operator == ">=" {
+			someValue = num >= filterNum
+		} else if operator == "<" {
+			someValue = num < filterNum
+		} else if operator == "<=" {
+			someValue = num <= filterNum
+		} else {
+			continue
+		}
+
+		if someValue {
+			return true
+		}
+	}
+	return someValue
 }
 
-if (isNaN(num)) {
-return false
+func checkNumbersFilterJSONValue(jsonValue interface{}, filter UserFilter) bool {
+	return _checkNumbersFilter(jsonValue.(float64), filter)
 }
 
-// replace filterNums.some() logic
-let someValue = false
-for (let i = 0; i < filterNums.length; i++) {
-const filterNum = filterNums[i]
-if (isNaN(filterNum)) {
-continue
+func _checkNumbersFilter(number float64, filter UserFilter) bool {
+	operator := filter.Comparator
+	values := getFilterValuesAsF64(filter)
+	return _checkNumberFilter(number, values, operator)
 }
-
-if (operator == = "=") {
-someValue = num == = filterNum
-} else if (operator == = "!=") {
-someValue = num != = filterNum
-} else if (operator == = ">") {
-someValue = num > filterNum
-} else if (operator == = ">=") {
-someValue = num >= filterNum
-} else if (operator == = "<") {
-someValue = num < filterNum
-} else if (operator == = "<=") {
-someValue = num <= filterNum
-} else {
-continue
-}
-
-if (someValue) {
-return true
-}
-}
-return someValue
-}
-
-export function checkNumbersFilterJSONValue(jsonValue: JSON.Value, filter: UserFilter): bool {
-return _checkNumbersFilter(getF64FromJSONValue(jsonValue), filter)
-}
-
-function _checkNumbersFilter(number: f64, filter: UserFilter): bool {
-const operator = filter.comparator
-const values = getFilterValuesAsF64(filter)
-return _checkNumberFilter(number, values, operator)
-}
-
 
 func _checkStringsFilter(str string, filter UserFilter) bool {
+	contains := func(arr []string, substr string) bool {
+		for _, s := range arr {
+			if strings.Contains(s, substr) {
+				return true
+			}
+		}
+		return false
+	}
 	operator := filter.Comparator
 	values := getFilterValuesAsString(filter)
-}
-export function _checkStringsFilter(string: string | null, filter: UserFilter): bool {
-const operator = filter.comparator
-const values = getFilterValuesAsStrings(filter)
-
-if (operator == = "=") {
-return string != = null && values.includes(string)
-} else if (operator == = "!=") {
-return string != = null && !values.includes(string)
-} else if (operator == = "exist") {
-return string != = null && string != = ""
-} else if (operator == = "!exist") {
-return string == = null || string == = ""
-} else if (operator == = "contain") {
-return string != = null && !!findString(values, string)
-} else if (operator == = "!contain") {
-return string == = null || !findString(values, string)
-} else {
-return isString(string)
-}
+	if operator == "=" {
+		return str != "" && contains(values, str)
+	} else if operator == "!=" {
+		return str != "" && !contains(values, str)
+	} else if operator == "exist" {
+		return str != ""
+	} else if operator == "!exist" {
+		return str == ""
+	} else if operator == "contain" {
+		return str != "" && !!contains(values, str)
+	} else if operator == "!contain" {
+		return str == "" || !contains(values, str)
+	} else {
+		return true
+	}
 }
 
-export function _checkBooleanFilter(bool: bool, filter: UserFilter): bool {
-const operator = filter.comparator
-const values = getFilterValuesAsBoolean(filter)
+func _checkBooleanFilter(b bool, filter UserFilter) bool {
+	contains := func(arr []bool, search bool) bool {
+		for _, s := range arr {
+			if s == search {
+				return true
+			}
+		}
+		return false
+	}
+	operator := filter.Comparator
+	values := getFilterValuesAsBoolean(filter)
 
-if (operator == = "contain" || operator == = "=") {
-return isBoolean(bool) && values.includes(bool)
-} else if (operator == = "!contain" || operator === "!=") {
-return isBoolean(bool) && !values.includes(bool)
-} else if (operator == = "exist") {
-return isBoolean(bool)
-} else if (operator == = "!exist") {
-return !isBoolean(bool)
-} else {
-return false
-}
-}
-
-export function _checkVersionFilters(appVersion: string | null, filter: UserFilter): bool {
-const operator = filter.comparator
-const values = getFilterValuesAsStrings(filter)
-// dont need to do semver if they"re looking for an exact match. Adds support for non semver versions.
-if (operator == = "=") {
-return _checkStringsFilter(appVersion, filter)
-} else {
-return checkVersionFilter(appVersion, values, operator)
-}
+	if operator == "contain" || operator == "=" {
+		return contains(values, b)
+	} else if operator == "!contain" || operator == "!=" {
+		return !contains(values, b)
+	} else if operator == "exist" {
+		return true
+	} else if operator == "!exist" {
+		return false
+	} else {
+		return false
+	}
 }
 
-export function _checkCustomData(data: JSON.Obj | null, filter: CustomDataFilter): bool {
-const operator = filter.comparator
-
-const dataValue = data ? data.get(filter.dataKey) : null
-
-if (operator == = "exist") {
-return checkValueExists(dataValue)
-} else if (operator == = "!exist") {
-return !checkValueExists(dataValue)
-} else if (filter.dataKeyType == = "String" && dataValue && (dataValue.isString || dataValue.isNull)) {
-if (dataValue.isNull) {
-return _checkStringsFilter(null, filter)
-} else {
-const jsonStr = dataValue as JSON.Str
-return _checkStringsFilter(jsonStr.valueOf(), filter)
+func _checkVersionFilters(appVersion string, filter UserFilter) bool {
+	operator := filter.Comparator
+	values := getFilterValuesAsString(filter)
+	// dont need to do semver if they"re looking for an exact match. Adds support for non semver versions.
+	if operator == "=" {
+		return _checkStringsFilter(appVersion, filter)
+	} else {
+		return checkVersionFilter(appVersion, values, operator)
+	}
 }
-} else if (filter.dataKeyType == = "Number"
-&& dataValue && (dataValue.isFloat || dataValue.isInteger)) {
-return checkNumbersFilterJSONValue(dataValue, filter)
-} else if (filter.dataKeyType == = "Boolean" && dataValue && dataValue.isBool) {
-const boolValue = dataValue as JSON.Bool
-const result = _checkBooleanFilter(boolValue.valueOf(), filter)
-return result
-} else if (!dataValue && operator == = "!=") {
-return true
-} else {
-return false
-}
+
+func _checkCustomData(data map[string]interface{}, filter CustomDataFilter) bool {
+	operator := filter.Comparator
+
+	dataValue := data[filter.DataKey]
+
+	if operator == "exist" {
+		return checkValueExists(dataValue)
+	} else if operator == "!exist" {
+		return !checkValueExists(dataValue)
+	} else if v, ok := dataValue.(string); ok && filter.DataKeyType == "String" {
+		if dataValue == nil {
+			// TODO Need to redo the interface inheritance to make this work
+			return _checkStringsFilter("", filter.(UserFilter))
+		} else {
+
+			return _checkStringsFilter(v, filter)
+		}
+	} else if v, ok := dataValue.(float64); ok && filter.DataKeyType == "Number" {
+		return checkNumbersFilterJSONValue(dataValue, filter)
+	} else if v, ok := dataValue.(bool); ok && filter.DataKeyType == "Boolean" {
+		return _checkBooleanFilter(v, filter)
+	} else if dataValue == nil && operator == "!=" {
+		return true
+	}
+	return false
 }
 
 func getFilterValues(filter UserFilter) []interface{} {
