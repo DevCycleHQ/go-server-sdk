@@ -1,8 +1,7 @@
 package native_bucketing
 
 import (
-	"errors"
-	"sort"
+	"fmt"
 	"time"
 )
 
@@ -15,11 +14,11 @@ type BoundedHash struct {
 	BucketingHash float64 `json:"bucketingHash"`
 }
 
-func GenerateBoundedHashes(user_id, target_id string) BoundedHash {
-	var targetHash = Murmurhashv3([]byte(target_id), baseSeed)
+func GenerateBoundedHashes(userId, targetId string) BoundedHash {
+	var targetHash = Murmurhashv3([]byte(targetId), baseSeed)
 	var bhash = BoundedHash{
-		RolloutHash:   generateBoundedHash(user_id+"_rollout", targetHash),
-		BucketingHash: generateBoundedHash(user_id, targetHash),
+		RolloutHash:   generateBoundedHash(userId+"_rollout", targetHash),
+		BucketingHash: generateBoundedHash(userId, targetHash),
 	}
 	return bhash
 }
@@ -27,32 +26,6 @@ func GenerateBoundedHashes(user_id, target_id string) BoundedHash {
 func generateBoundedHash(input string, hashSeed uint32) float64 {
 	return float64(Murmurhashv3([]byte(input), hashSeed) / MaxHashValue)
 }
-
-
-
-/**
- * Given the feature and a hash of the user_id, bucket the user according to the variation distribution percentages
- */
-func DecideTargetVariation(target Target, boundedHash float64) (error, string) {
-	var sortingArray []TargetDistribution
-	for _, dist := range target.Distribution {
-		sortingArray = append(sortingArray, dist)
-	}
-	sort.Slice(sortingArray[:], func(i, j int) bool {
-		return sortingArray[i].Variation < sortingArray[j].Variation
-	})
-	variations := sortingArray
-	distributionIndex := 0.0
-	previousDistributionIndex := 0.0
-	for _, variation := range variations {
-		if boundedHash >= previousDistributionIndex && boundedHash < distributionIndex {
-			return nil, variation.Variation
-		}
-	}
-	return errors.New("failed to decide target variation"), ""
-}
-
-
 
 func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64 {
 	var start = rollout.StartPercentage
@@ -78,20 +51,20 @@ func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64
 		}
 	}
 	_currentStage := currentStages[len(currentStages)-1]
-	nextStage := nextStages[0]
+	nextStage := &nextStages[0]
 
-	currentStage := _currentStage
+	currentStage := &_currentStage
 	if (_currentStage != RolloutStage{} && startDateTime.Before(currentDateTime)) {
-		currentStage = RolloutStage{
+		currentStage = &RolloutStage{
 			Type:       "discrete",
 			Date:       rollout.StartDate,
 			Percentage: start,
 		}
 	}
-	if currentStage == (RolloutStage{}) {
+	if currentStage == nil {
 		return 0
 	}
-	if nextStage == (RolloutStage{}) || nextStage.Type == "discrete" {
+	if nextStage == nil || nextStage.Type == "discrete" {
 		return currentStage.Percentage
 	}
 
@@ -109,7 +82,7 @@ func doesUserPassRollout(rollout Rollout, boundedHash float64) bool {
 		return true
 	}
 	var rolloutPercentage = getCurrentRolloutPercentage(rollout, time.Now())
-	return rolloutPercentage == 0 && (boundedHash <= rolloutPercentage)
+	return rolloutPercentage != 0 && (boundedHash <= rolloutPercentage)
 }
 
 type SegmentedFeatureData struct {
@@ -117,17 +90,26 @@ type SegmentedFeatureData struct {
 	Target  Target  `json:"target"`
 }
 
-func getSegmentedFeatureDataFromConfig(config ConfigBody, user DVCPopulatedUser) []SegmentedFeatureData {
+func evaluateSegmentationForFeature(config ConfigBody, feature Feature, user DVCPopulatedUser, clientCustomData map[string]interface{}) (error, Target) {
+	if len(feature.Configuration.Targets) == 0 {
+		return fmt.Errorf("feature %s has no targets", feature.Key), Target{}
+	}
+	for _, target := range feature.Configuration.Targets {
+		if _evaluateOperator(&target.Audience.Filters, config.Audiences, user, clientCustomData) {
+			return nil, target
+		}
+	}
+	return fmt.Errorf("user %s does not qualify for any targets for feature %s", user.UserId, feature.Key), Target{}
+}
+
+func getSegmentedFeatureDataFromConfig(config ConfigBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) []SegmentedFeatureData {
 	var accumulator []SegmentedFeatureData
 	for _, feature := range config.Features {
 		var segmentedFeatureTarget *Target
-		{
-		}
-		for _, target := range feature.Configuration.Targets {
-			if _evaluateOperator(target.Audience.Filters, user) {
-				segmentedFeatureTarget = &target
-				break
-			}
+
+		if err, t2 := evaluateSegmentationForFeature(config, feature, user, clientCustomData); err != nil {
+			segmentedFeatureTarget = &t2
+			break
 		}
 		if segmentedFeatureTarget != nil {
 			featureData := SegmentedFeatureData{
@@ -140,102 +122,98 @@ func getSegmentedFeatureDataFromConfig(config ConfigBody, user DVCPopulatedUser)
 	return accumulator
 }
 
-
-func generateBucketedVariableForUser(config ConfigBody, user DVCPopulatedUser, key string, clientCustomData map[string]any) (error, map[string]SDKVariable) {
-	err, variable := config.FindVariable(key)
-	if err!= nil {
-		return err, nil
-	}
-
-	const featureForVariable = config.getFeatureForVariableId(variable._id)
-	if (!featureForVariable) return null
-
-	const targetAndHashes = doesUserQualifyForFeature(
-		config,
-		featureForVariable,
-		user,
-		clientCustomData
-	)
-	if (!targetAndHashes) return null
-
-	const variation = bucketUserForVariation(featureForVariable, targetAndHashes)
-	const variationVar = variation.getVariableById(variable._id)
-	if (!variationVar) {
-		throw new Error('Internal error processing configuration')
-	}
-
-	const sdkVar = new SDKVariable(
-		variable._id,
-		variable.type,
-	variable.key,
-		variationVar.value,
-		null
-	)
-	return { variable: sdkVar, variation, feature: featureForVariable }
+type TargetAndHashes struct {
+	Target Target
+	Hashes BoundedHash
 }
-func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser) BucketedUserConfig {
+
+func doesUserQualifyForFeature(config ConfigBody, feature Feature, user DVCPopulatedUser, clientCustomData map[string]interface{}) (error, TargetAndHashes) {
+	err, target := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
+	if err != nil {
+		return fmt.Errorf("user %s does not qualify for any targets for feature %s", user.UserId, feature.Key), TargetAndHashes{}
+	}
+
+	boundedHashes := GenerateBoundedHashes(user.UserId, target.Id)
+	rolloutHash := boundedHashes.RolloutHash
+
+	if target.Rollout != nil && !doesUserPassRollout(*target.Rollout, rolloutHash) {
+		return fmt.Errorf("user %s does not qualify for feature %s rollout", user.UserId, feature.Key), TargetAndHashes{}
+	}
+	return nil, TargetAndHashes{
+		Target: target,
+		Hashes: boundedHashes,
+	}
+}
+
+func bucketUserForVariation(feature Feature, hashes TargetAndHashes) (error, Variation) {
+	err, variationId := hashes.Target.DecideTargetVariation(hashes.Hashes.BucketingHash)
+	if err != nil {
+		return err, Variation{}
+	}
+	var variation *Variation
+	for _, v := range feature.Variations {
+		if v.Id == variationId {
+			variation = &v
+		}
+	}
+	if variation == nil {
+		return fmt.Errorf("config missing variation %s", variationId), Variation{}
+	}
+	return nil, *variation
+}
+
+func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) BucketedUserConfig {
 	variableMap := make(map[string]SDKVariable)
 	featureKeyMap := make(map[string]SDKFeature)
 	featureVariationMap := make(map[string]string)
-	segmentedFeatures := getSegmentedFeatureDataFromConfig(config, user)
+	variableVariationMap := make(map[string]FeatureVariation)
 
-	for _, segmentedFeaturesData := range segmentedFeatures {
-		feature := segmentedFeaturesData.Feature
-		target := segmentedFeaturesData.Target
-		boundedHash := GenerateBoundedHashes(user.UserId, target.Id)
-		rolloutHash := boundedHash.RolloutHash
-		bucketingHash := boundedHash.BucketingHash
-		if target.Rollout && !doesUserPassRollout(target.Rollout, rolloutHash) {
+	for _, feature := range config.Features {
+		err, targetAndHashes := doesUserQualifyForFeature(config, feature, user, clientCustomData)
+		if err != nil {
 			continue
 		}
-		variation_id := bucketForSegmentedFeature(bucketingHash, target)
-		var variation Variation
-		for _, featVariation := range feature.Variations {
-			if featVariation.Id == variation_id {
-				variation = featVariation
-				break
-			}
-		}
-		if variation != Variation{} {
+
+		err, variation := bucketUserForVariation(feature, targetAndHashes)
+		if err != nil {
+			continue
 		}
 		featureKeyMap[feature.Key] = SDKFeature{
 			Id:            feature.Id,
 			Type:          feature.Type,
 			Key:           feature.Key,
-			Variation:     variation_id,
-			VariationName: variation.Name,
+			VariationId:   variation.Id,
 			VariationKey:  variation.Key,
-			EvalReason:    "",
+			VariationName: variation.Name,
 		}
-		featureVariationMap[feature.Id] = variation_id)
+		featureVariationMap[feature.Id] = variation.Id
 
 		for _, variationVar := range variation.Variables {
-			var variable *Variable
-			for _, configVar := range config.Variables {
-				if configVar.Id == variationVar.Var {
-					variable = &configVar
-					break
-				}
+			variable := config.GetVariableForId(variationVar.Var)
+			if variable == nil {
+				panic(fmt.Sprintf("Config missing variable: %s", variationVar.Var))
 			}
-			if  {
 
+			variableVariationMap[variable.Key] = FeatureVariation{
+				Variation: variation.Id,
+				Feature:   feature.Id,
 			}
 			newVar := SDKVariable{
-				Id:         variable.Id,
-				Type:       variable.Type,
-				Key:        variable.Key,
-				Value:      variationVar.Value,
-				EvalReason: "",
+				Id:    variable.Id,
+				Type:  variable.Type,
+				Key:   variable.Key,
+				Value: variationVar.Value,
 			}
 			variableMap[variable.Key] = newVar
 		}
 	}
 
 	return BucketedUserConfig{
-		Project:           config.Project,
-		Environment:       config.Environment,
-		Features:          featureKeyMap,
-		FeatureVariations: featureVariationMap,
-		Variables:         variableMap,
+		Project:            config.Project,
+		Environment:        config.Environment,
+		Features:           featureKeyMap,
+		FeatureVariations:  featureVariationMap,
+		VariableVariations: variableVariationMap,
+		Variables:          variableMap,
 	}
 }

@@ -6,49 +6,71 @@ import (
 	"strings"
 )
 
-func _evaluateOperator(operator TopLevelOperator, user DVCPopulatedUser) bool {
+func _evaluateOperator(operator *AudienceOperator, audiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
 	if len(operator.Filters) == 0 {
 		return false
 	}
 	if operator.Operator == "or" {
 		for _, f := range operator.Filters {
-			if doesUserPassFilter(f, user) {
+			if f.OperatorClass != nil {
+				return _evaluateOperator(f.OperatorClass, audiences, user, clientCustomData)
+			} else if f.FilterClass != nil && doesUserPassFilter(*f.FilterClass, audiences, user, clientCustomData)) {
 				return true
 			}
 		}
 		return false
-	} else {
+	} else if operator.Operator == "and" {
 		for _, f := range operator.Filters {
-			if !doesUserPassFilter(f, user) {
+			if f.OperatorClass != nil {
+				return _evaluateOperator(f.OperatorClass, audiences, user, clientCustomData)
+			} else if f.FilterClass != nil && !doesUserPassFilter(*f.FilterClass, audiences, user, clientCustomData) {
 				return false
 			}
 		}
 		return true
 	}
+	return false
 }
 
-func doesUserPassFilter(filter AudienceFilterOrOperator, user DVCPopulatedUser) bool {
-	if filter.Operator == "all" {
+func doesUserPassFilter(filter AudienceFilter, audiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
+	isValid := true
+
+	if filter.Type() == "all" {
 		return true
-	}
-	if filter.Operator == "optIn" {
+	} else if filter.Type() == "optIn" {
 		return false
+	} else if filter.Type() == "audienceMatch" {
+		if amF := filter.(AudienceMatchFilter); amF.IsValid {
+			return filterForAudienceMatch(amF, audiences, user, clientCustomData)
+		}
+		isValid = false
 	}
-	// Check userfilter
-	if filter.Type == "user" {
-		// throw err
+
+	if isValid {
+		userFilter := filter.(UserFilter)
+		if userFilter.IsValid {
+			return filterFunctionsBySubtype(userFilter.SubType, user, userFilter, clientCustomData)
+		}
 	}
-	userFilter := cast
-	as
-	userfilter
-	if !validSubTypes.includes(userFilter.SubType) {
-		// invalid subtype - should be caught by validator
-		return false
-	}
-	return filterFunctionsBySubtype(userFilter.SubType, user, userFilter)
+
+
 }
 
-func filterFunctionsBySubtype(subType string, user DVCPopulatedUser, filter UserFilter) bool {
+func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
+
+
+	if audience, ok := configAudiences[filter.AudienceId]; ok {
+		return _evaluateOperator(audience.Filters, configAudiences, user, clientCustomData)
+	}
+	return false
+}
+
+func getFilterAudiencesAsStrings(filter AudienceMatchFilter) []string {
+	return []string{filter.AudienceId}
+}
+
+
+func filterFunctionsBySubtype(subType string, user DVCPopulatedUser, filter UserFilter, clientCustomData map[string]interface{}) bool {
 	if subType == "country" {
 		return _checkStringsFilter(user.country, filter)
 	} else if subType == "email" {
@@ -64,9 +86,8 @@ func filterFunctionsBySubtype(subType string, user DVCPopulatedUser, filter User
 	} else if subType == "platform" {
 		return _checkStringsFilter(user.platform, filter)
 	} else if subType == "customData" {
-		if !(filter instanceof
-		CustomDataFilter)) {
-		throw new Error("Invalid filter data")
+		if cdf := filter.(CustomDataFilter); !cdf.IsValid {
+
 		}
 		return _checkCustomData(user.getCombinedCustomData(), filter
 		as

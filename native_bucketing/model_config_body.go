@@ -25,21 +25,34 @@ type Variable struct {
 	Key  string `json:"key"`
 }
 type ConfigBody struct {
-	Project        PublicProject           `json:"project"`
-	Audience       map[string]NoIdAudience `json:"audiences"`
-	Environment    PublicEnvironment       `json:"environment"`
-	Features       []Feature               `json:"features"`
-	Variables      []Variable              `json:"variables"`
-	VariableHashes map[string]int64        `json:"variableHashes"`
+	Project                PublicProject           `json:"project"`
+	Audiences              map[string]NoIdAudience `json:"audiences"`
+	Environment            PublicEnvironment       `json:"environment"`
+	Features               []Feature               `json:"features"`
+	Variables              []Variable              `json:"variables"`
+	etag                   string
+	variableIdMap          map[string]Variable
+	variableKeyMap         map[string]Variable
+	variableIdToFeatureMap map[string]Feature
 }
 
-func NewConfigBody(configJSONObj map[string]interface{}, etag *string) ConfigBody {
+func (c *ConfigBody) GetVariableForId(id string) *Variable {
+	for _, v := range c.variableIdMap {
+		if id == v.Id {
+			return &v
+		}
+	}
+	return nil
+}
+
+func NewConfig(configJSONObj map[string]interface{}, etag string) ConfigBody {
 	var audiencesJSON interface{}
 	if val, ok := configJSONObj["audiences"]; ok {
 		audiencesJSON = val
 	} else {
 		audiencesJSON = nil
 	}
+	// TODO This blatantly doens't work - chatgpt ain't perfect
 	var audiences map[string]NoIdAudience
 	if audiencesJSON != nil {
 		audiences = make(map[string]NoIdAudience)

@@ -3,15 +3,14 @@ package native_bucketing
 import (
 	"encoding/json"
 	"gopkg.in/validator.v2"
-	"time"
 )
 
 type FeatureConfiguration struct {
-	Id               string                  `json:"_id"`
-	Prerequisites    []FeaturePrerequisites  `json:"prerequisites"`
-	WinningVariation FeatureWinningVariation `json:"winningVariation"`
-	ForcedUsers      map[string]string       `json:"forcedUsers"`
-	Targets          []Target                `json:"targets"`
+	Id               string                 `json:"_id"`
+	Prerequisites    []FeaturePrerequisites `json:"prerequisites"`
+	WinningVariation FeatureVariation       `json:"winningVariation"`
+	ForcedUsers      map[string]string      `json:"forcedUsers"`
+	Targets          []Target               `json:"targets"`
 }
 
 func (f *FeatureConfiguration) FromJSON(js []byte) (err error, rt FeatureConfiguration) {
@@ -39,13 +38,13 @@ func (f *FeaturePrerequisites) FromJSON(js []byte) (err error, rt FeaturePrerequ
 	return
 }
 
-type FeatureWinningVariation struct {
-	Variation string    `json:"_variation"`
-	UpdatedAt time.Time `json:"updatedAt"`
+type FeatureVariation struct {
+	Variation string `json:"_variation"`
+	Feature   string `json:"_feature"`
 }
 
-func (f *FeatureWinningVariation) FromJSON(js []byte) (err error, rt FeatureWinningVariation) {
-	var clss FeatureWinningVariation
+func (f *FeatureVariation) FromJSON(js []byte) (err error, rt FeatureVariation) {
+	var clss FeatureVariation
 	err = json.Unmarshal(js, &clss)
 	if err != nil {
 		return err, clss
