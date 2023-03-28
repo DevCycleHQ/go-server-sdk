@@ -43,6 +43,9 @@ func TestDVCClient_AllVariablesLocal(t *testing.T) {
 	fatalErr(t, err)
 
 	fmt.Println(variables)
+	if len(variables) != 1 {
+		t.Error("Expected 1 variable, got", len(variables))
+	}
 }
 
 func TestDVCClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
@@ -58,6 +61,26 @@ func TestDVCClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
 	fatalErr(t, err)
 
 	fmt.Println(variables)
+	if len(variables) != 1 {
+		t.Error("Expected 1 variable, got", len(variables))
+	}
+
+	expected := Variable{
+		baseVariable: baseVariable{
+			Key:   "test",
+			Type_: "String",
+			Value: "öé 🐍 ¥",
+		},
+	}
+	if variables["test"].Key != expected.Key {
+		t.Fatal("Variable key to be equal to expected variable")
+	}
+	if variables["test"].Type_ != expected.Type_ {
+		t.Fatal("Variable type to be equal to expected variable")
+	}
+	if variables["test"].Value != expected.Value {
+		t.Fatal("Variable value to be equal to expected variable")
+	}
 }
 
 func TestDVCClient_VariableCloud(t *testing.T) {
