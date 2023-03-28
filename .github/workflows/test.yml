@@ -19,3 +19,6 @@ jobs:
 
     - name: Test
       run: go test -v ./...
+
+    - name: Test Native Bucketing build
+      run: go test -tags native_bucketing -v ./...
