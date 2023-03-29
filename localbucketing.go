@@ -55,14 +55,9 @@ type DevCycleLocalBucketing struct {
 	onPayloadSuccessFunc                  *wasmtime.Func
 	queueEventFunc                        *wasmtime.Func
 	onPayloadFailureFunc                  *wasmtime.Func
-	generateBucketedConfigForUserFunc     *wasmtime.Func
-	setPlatformDataFunc                   *wasmtime.Func
-	setConfigDataFunc                     *wasmtime.Func
 	initEventQueueFunc                    *wasmtime.Func
 	queueAggregateEventFunc               *wasmtime.Func
-	setClientCustomDataFunc               *wasmtime.Func
-	variableForUserFunc                   *wasmtime.Func
-	variableForUser_PBFunc                *wasmtime.Func
+	variableForUser_PB_Preallocated       *wasmtime.Func
 	setConfigDataUTF8Func                 *wasmtime.Func
 	setPlatformDataUTF8Func               *wasmtime.Func
 	setClientCustomDataUTF8Func           *wasmtime.Func
@@ -153,14 +148,9 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	d.eventQueueSizeFunc = d.wasmInstance.GetExport(d.wasmStore, "eventQueueSize").Func()
 	d.onPayloadSuccessFunc = d.wasmInstance.GetExport(d.wasmStore, "onPayloadSuccess").Func()
 	d.onPayloadFailureFunc = d.wasmInstance.GetExport(d.wasmStore, "onPayloadFailure").Func()
-	d.generateBucketedConfigForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "generateBucketedConfigForUser").Func()
 	d.queueEventFunc = d.wasmInstance.GetExport(d.wasmStore, "queueEvent").Func()
 	d.queueAggregateEventFunc = d.wasmInstance.GetExport(d.wasmStore, "queueAggregateEvent").Func()
-	d.setPlatformDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setPlatformData").Func()
-	d.setClientCustomDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomData").Func()
-	d.setConfigDataFunc = d.wasmInstance.GetExport(d.wasmStore, "setConfigData").Func()
-	d.variableForUserFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUserPreallocated").Func()
-	d.variableForUser_PBFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser_PB_Preallocated").Func()
+	d.variableForUser_PB_Preallocated = d.wasmInstance.GetExport(d.wasmStore, "variableForUser_PB_Preallocated").Func()
 	d.setConfigDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setConfigDataUTF8").Func()
 	d.setPlatformDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setPlatformDataUTF8").Func()
 	d.setClientCustomDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomDataUTF8").Func()
@@ -445,7 +435,7 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) (*p
 		return nil, errorf("Error allocating WASM string: %w", err)
 	}
 
-	varPtr, err := d.variableForUser_PBFunc.Call(d.wasmStore, paramsAddr, int32(len(serializedParams)))
+	varPtr, err := d.variableForUser_PB_Preallocated.Call(d.wasmStore, paramsAddr, int32(len(serializedParams)))
 
 	err = d.handleWASMErrors("variableForUserPB", err)
 
