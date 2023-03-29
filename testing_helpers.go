@@ -20,6 +20,8 @@ var (
 	//go:embed bench/testdata/fixture_large_config.json
 	test_large_config          string
 	test_large_config_variable = "v-key-25"
+
+	test_options = &DVCOptions{}
 )
 
 func init() {
@@ -27,6 +29,9 @@ func init() {
 	test_config = strings.ReplaceAll(test_config, "\n", "")
 	test_config_special_characters_var = strings.ReplaceAll(test_config_special_characters_var, "\n", "")
 	test_large_config = strings.ReplaceAll(test_large_config, "\n", "")
+
+	// Set default options
+	test_options.CheckDefaults()
 }
 
 func httpBucketingAPIMock() {
@@ -45,16 +50,16 @@ func httpEventsApiMock() {
 		httpmock.NewStringResponder(201, `{}`))
 }
 
-func httpConfigMock(respcode int) {
-	httpCustomConfigMock(test_environmentKey, respcode, test_config)
+func httpConfigMock(respcode int) httpmock.Responder {
+	return httpCustomConfigMock(test_environmentKey, respcode, test_config)
 }
 
-func httpCustomConfigMock(sdkKey string, respcode int, config string) {
-	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
-		func(req *http.Request) (*http.Response, error) {
-			resp := httpmock.NewStringResponse(respcode, config)
-			resp.Header.Set("Etag", "TESTING")
-			return resp, nil
-		},
-	)
+func httpCustomConfigMock(sdkKey string, respcode int, config string) httpmock.Responder {
+	responder := func(req *http.Request) (*http.Response, error) {
+		resp := httpmock.NewStringResponse(respcode, config)
+		resp.Header.Set("Etag", "TESTING")
+		return resp, nil
+	}
+	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json", responder)
+	return responder
 }

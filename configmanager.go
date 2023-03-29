@@ -10,64 +10,75 @@ import (
 	"time"
 )
 
+const CONFIG_RETRIES = 1
+
+type ConfigReceiver interface {
+	StoreConfig([]byte) error
+}
+
 type EnvironmentConfigManager struct {
 	sdkKey              string
 	configETag          string
-	localBucketing      *DevCycleLocalBucketing
-	bucketingObjectPool *BucketingPool
+	localBucketing      ConfigReceiver
+	bucketingObjectPool ConfigReceiver
 	firstLoad           bool
 	context             context.Context
-	cancel              context.CancelFunc
+	stopPolling         context.CancelFunc
 	httpClient          *http.Client
 	cfg                 *HTTPConfiguration
 	hasConfig           atomic.Bool
-	pollingStop         chan bool
 	ticker              *time.Ticker
 }
 
-func (e *EnvironmentConfigManager) Initialize(
+func NewEnvironmentConfigManager(
 	sdkKey string,
-	localBucketing *DevCycleLocalBucketing,
-	bucketingObjectPool *BucketingPool,
+	localBucketing ConfigReceiver,
+	bucketingObjectPool ConfigReceiver,
+	options *DVCOptions,
 	cfg *HTTPConfiguration,
-) (err error) {
-	e.localBucketing = localBucketing
-	e.bucketingObjectPool = bucketingObjectPool
-	e.sdkKey = sdkKey
-	e.cfg = cfg
-	e.httpClient = &http.Client{Timeout: localBucketing.options.RequestTimeout}
-	e.context, e.cancel = context.WithCancel(context.Background())
-	e.pollingStop = make(chan bool, 2)
-	e.hasConfig = atomic.Bool{}
+) (e *EnvironmentConfigManager) {
+	configManager := &EnvironmentConfigManager{
+		sdkKey:              sdkKey,
+		localBucketing:      localBucketing,
+		bucketingObjectPool: bucketingObjectPool,
+		cfg:                 cfg,
+		httpClient:          &http.Client{Timeout: options.RequestTimeout},
+		hasConfig:           atomic.Bool{},
+		firstLoad:           true,
+	}
 
-	e.firstLoad = true
+	configManager.context, configManager.stopPolling = context.WithCancel(context.Background())
 
-	e.ticker = time.NewTicker(e.localBucketing.options.ConfigPollingIntervalMS)
+	return configManager
+}
+
+func (e *EnvironmentConfigManager) StartPolling(
+	interval time.Duration,
+) {
+	e.ticker = time.NewTicker(interval)
 
 	go func() {
 		for {
 			select {
-			case <-e.pollingStop:
+			case <-e.context.Done():
 				warnf("Stopping config polling.")
 				e.ticker.Stop()
 				return
 			case <-e.ticker.C:
-				err = e.fetchConfig(false)
+				err := e.fetchConfig(CONFIG_RETRIES)
 				if err != nil {
 					warnf("Error fetching config: %s\n", err)
 				}
 			}
 		}
 	}()
-	return
 }
 
-func (e *EnvironmentConfigManager) initialFetch() (err error) {
-	err = e.fetchConfig(false)
-	return
+func (e *EnvironmentConfigManager) initialFetch() error {
+	return e.fetchConfig(CONFIG_RETRIES)
 }
 
-func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
+func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) error {
 	req, err := http.NewRequest("GET", e.getConfigURL(), nil)
 	if err != nil {
 		return err
@@ -86,31 +97,29 @@ func (e *EnvironmentConfigManager) fetchConfig(retrying bool) error {
 		if err = e.setConfigFromResponse(resp); err != nil {
 			return err
 		}
-		break
+		return nil
 	case statusCode == http.StatusNotModified:
-		break
+		return nil
 	case statusCode == http.StatusForbidden:
-		e.pollingStop <- true
+		e.stopPolling()
 		return errorf("invalid SDK key. Aborting config polling")
 	case statusCode >= 500:
 		// Retryable Errors. Continue polling.
-		if !retrying {
-			warnf("Retrying config fetch. Status:" + resp.Status)
-			return e.fetchConfig(true)
+		if numRetriesRemaining > 0 {
+			warnf("Retrying config fetch %d more times. Status: %s", numRetriesRemaining, resp.Status)
+			return e.fetchConfig(numRetriesRemaining - 1)
 		}
 		warnf("Config fetch failed. Status:" + resp.Status)
-		break
 	default:
+		// TODO: Do we want to retry here as well?
 		err = errorf("Unexpected response code: %d\n"+
 			"Body: %s\n"+
 			"URL: %s\n"+
 			"Headers: %s\n"+
 			"Could not download configuration. Using cached version if available %s\n",
 			resp.StatusCode, resp.Body, e.getConfigURL(), resp.Header, resp.Header.Get("ETag"))
-		e.context.Done()
-		e.cancel()
-		break
 	}
+
 	return err
 }
 
@@ -146,7 +155,7 @@ func (e *EnvironmentConfigManager) setConfig(config []byte) (err error) {
 		return
 	}
 
-	err = e.bucketingObjectPool.SetConfig(config)
+	err = e.bucketingObjectPool.StoreConfig(config)
 	if err != nil {
 		return
 	}
@@ -166,5 +175,5 @@ func (e *EnvironmentConfigManager) HasConfig() bool {
 }
 
 func (e *EnvironmentConfigManager) Close() {
-	e.pollingStop <- true
+	e.stopPolling()
 }

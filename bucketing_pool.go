@@ -2,10 +2,11 @@ package devcycle
 
 import (
 	"context"
-	"github.com/devcyclehq/go-server-sdk/v2/proto"
-	pool "github.com/jolestar/go-commons-pool/v2"
 	"sync"
 	"sync/atomic"
+
+	"github.com/devcyclehq/go-server-sdk/v2/proto"
+	pool "github.com/jolestar/go-commons-pool/v2"
 )
 
 type BucketingPool struct {
@@ -137,12 +138,12 @@ func (p *BucketingPool) ProcessAll(
 	return err
 }
 
-func (p *BucketingPool) SetConfig(config []byte) error {
+func (p *BucketingPool) StoreConfig(config []byte) error {
 	if p.closed.Load() {
 		return errorf("Cannot set config on closed pool")
 	}
 	debugf("Setting config on all workers")
-	return p.ProcessAll("SetConfig", func(object *BucketingPoolObject) error {
+	return p.ProcessAll("StoreConfig", func(object *BucketingPoolObject) error {
 		return object.StoreConfig(&config)
 	})
 }
