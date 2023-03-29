@@ -95,7 +95,7 @@ func evaluateSegmentationForFeature(config ConfigBody, feature Feature, user DVC
 		return fmt.Errorf("feature %s has no targets", feature.Key), Target{}
 	}
 	for _, target := range feature.Configuration.Targets {
-		if _evaluateOperator(&target.Audience.Filters, config.Audiences, user, clientCustomData) {
+		if _evaluateOperator(target.Audience.Filters, config.Audiences, user, clientCustomData) {
 			return nil, target
 		}
 	}

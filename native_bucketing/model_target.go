@@ -26,16 +26,16 @@ func (t *Target) FromJSON(js []byte) (err error, rt Target) {
 	return
 }
 
-func (t *Target) DecideTargetVariation(boundedHash float64) (error, string) {
+func (t *Target) DecideTargetVariation(boundedHash float64) (string, error) {
 	var distributionIndex float64 = 0
 	const previousDistributionIndex = 0
 	for _, d := range t.Distribution {
 		distributionIndex += d.Percentage
 		if boundedHash >= previousDistributionIndex && boundedHash < distributionIndex {
-			return nil, d.Variation
+			return d.Variation, nil
 		}
 	}
-	return fmt.Errorf("failed to decide target variation: %s", t.Id), ""
+	return "", fmt.Errorf("failed to decide target variation: %s", t.Id)
 }
 
 type NoIdAudience struct {
@@ -102,8 +102,18 @@ type AudienceFilter interface {
 	Type() string
 }
 
-type UserFilter struct {
+type UserFilterInterface interface {
 	AudienceFilter
+	SubType() string
+	Comparator() string
+	Values() []interface{}
+	IsValid() bool
+	CompiledStringVals() []string
+	CompiledBoolVals() []bool
+	CompiledNumVals() []float64
+}
+
+type UserFilter struct {
 	FType              string `json:"type" validate:"regexp=^(all|user|optIn)$"`
 	SubType            string `json:"subType" validate:"regexp=^(|user_id|email|ip|country|platform|platformVersion|appVersion|deviceModel|customData)$"`
 	Comparator         string `json:"comparator" validate:"regexp=^(=|!=|>|>=|<|<=|exist|!exist|contain|!contain)$"`
@@ -120,7 +130,7 @@ func (u UserFilter) Type() string {
 
 func NewUserFilter(json []byte) (error, *UserFilter) {
 	u := UserFilter{}
-	err, uf := u.FromJSON(json)
+	uf, err := u.FromJSON(json)
 	if err != nil {
 		return err, nil
 	}
@@ -197,11 +207,10 @@ func (u *UserFilter) GetNumberValues() []float64 {
 		return []float64{}
 	}
 }
-func (u *UserFilter) FromJSON(js []byte) (err error, rt UserFilter) {
-	var clss UserFilter
+func (u *UserFilter) FromJSON(js []byte) (clss UserFilter, err error) {
 	err = json.Unmarshal(js, &clss)
 	if err != nil {
-		return err, clss
+		return
 	}
 	err = validator.Validate(clss)
 	return
@@ -246,11 +255,10 @@ type RolloutStage struct {
 	Percentage float64   `json:"percentage" validate:"regexp=^(linear|discrete)$"`
 }
 
-func (r *RolloutStage) FromJSON(js []byte) (err error, rt RolloutStage) {
-	var clss RolloutStage
+func (r *RolloutStage) FromJSON(js []byte) (clss RolloutStage, err error) {
 	err = json.Unmarshal(js, &clss)
 	if err != nil {
-		return err, clss
+		return
 	}
 	err = validator.Validate(clss)
 	return
@@ -261,13 +269,13 @@ type TargetDistribution struct {
 	Percentage float64 `json:"percentage"`
 }
 
-func (t *TargetDistribution) FromJSON(js string) (err error, rt TargetDistribution) {
-	var clss TargetDistribution
-	json.Unmarshal([]byte(js), &clss)
-	if errs := validator.Validate(clss); errs != nil {
-		return errs, clss
+func (t *TargetDistribution) FromJSON(js []byte) (clss TargetDistribution, err error) {
+	err = json.Unmarshal(js, &clss)
+	if err != nil {
+		return clss, err
 	}
-	return nil, clss
+	err = validator.Validate(clss)
+	return
 }
 
 type AudienceOperator struct {

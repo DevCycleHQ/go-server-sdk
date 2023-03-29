@@ -43,10 +43,7 @@ type DVCPopulatedUser struct {
 	PrivateCustomData map[string]interface{} `json:"privateCustomData"`
 	CreatedDate       time.Time              `json:"createdDate"`
 	LastSeenDate      time.Time              `json:"lastSeenDate"`
-	Platform          string                 `json:"platform"`
-	PlatformVersion   string                 `json:"platformVersion"`
-	SdkType           string                 `json:"sdkType"`
-	SdkVersion        string                 `json:"sdkVersion"`
+	PlatformData
 }
 
 func (u *DVCPopulatedUser) FromJSON(js []byte) (err error, rt DVCPopulatedUser) {

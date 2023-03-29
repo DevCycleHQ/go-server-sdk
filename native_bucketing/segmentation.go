@@ -15,7 +15,7 @@ func _evaluateOperator(operator *AudienceOperator, audiences map[string]NoIdAudi
 		for _, f := range operator.Filters {
 			if f.OperatorClass != nil {
 				return _evaluateOperator(f.OperatorClass, audiences, user, clientCustomData)
-			} else if f.FilterClass != nil && doesUserPassFilter(*f.FilterClass, audiences, user, clientCustomData)) {
+			} else if f.FilterClass != nil && doesUserPassFilter(*f.FilterClass, audiences, user, clientCustomData) {
 				return true
 			}
 		}
@@ -54,18 +54,47 @@ func doesUserPassFilter(filter AudienceFilter, audiences map[string]NoIdAudience
 		}
 	}
 
+	return false
+
 }
 
 func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
 
-	if audience, ok := configAudiences[filter.AudienceId]; ok {
-		return _evaluateOperator(audience.Filters, configAudiences, user, clientCustomData)
+	audiences := getFilterAudiencesAsStrings(filter)
+	comparator := filter.Comparator
+
+	for _, audience := range audiences {
+		a, ok := configAudiences[audience]
+		if !ok {
+			return false
+		}
+		if _evaluateOperator(a.Filters, configAudiences, user, clientCustomData) {
+			return comparator == "="
+		}
 	}
-	return false
+	return comparator == "!="
+}
+
+func getFilterAudiences(filter AudienceMatchFilter) []interface{} {
+	audiences := filter.Audiences
+	var acc []interface{}
+	for _, audience := range audiences {
+		if audience != nil {
+			acc = append(acc, audience)
+		}
+	}
+	return acc
 }
 
 func getFilterAudiencesAsStrings(filter AudienceMatchFilter) []string {
-	return []string{filter.AudienceId}
+	jsonAud := getFilterAudiences(filter)
+	var ret []string
+	for _, aud := range jsonAud {
+		if v, ok := aud.(string); ok {
+			ret = append(ret, v)
+		}
+	}
+	return ret
 }
 
 func filterFunctionsBySubtype(subType string, user DVCPopulatedUser, filter AudienceFilter, clientCustomData map[string]interface{}) bool {
@@ -87,7 +116,7 @@ func filterFunctionsBySubtype(subType string, user DVCPopulatedUser, filter Audi
 		if cdf := filter.(CustomDataFilter); !cdf.IsValid {
 			return false
 		}
-		return _checkCustomData(user.getCombinedCustomData(), clientCustomData, filter.(CustomDataFilter))
+		return _checkCustomData(user.CombinedCustomData(), clientCustomData, filter.(CustomDataFilter))
 	} else {
 		return false
 	}
@@ -302,16 +331,24 @@ func _checkVersionFilters(appVersion string, filter UserFilter) bool {
 	}
 }
 
-func _checkCustomData(data map[string]interface{}, filter CustomDataFilter) bool {
-	operator := filter.Comparator
+func _checkCustomData(data map[string]interface{}, clientCustomData map[string]interface{}, filter UserFilterInterface) bool {
+	operator := filter.Comparator()
+	var dataValue interface{}
+	customDataFilter := filter.(CustomDataFilter)
 
-	dataValue := data[filter.DataKey]
+	if _, ok := data[customDataFilter.DataKey]; !ok {
+		if v2, ok2 := clientCustomData[customDataFilter.DataKey]; ok2 {
+			dataValue = v2
+		}
+	} else {
+		dataValue = data[customDataFilter.DataKey]
+	}
 
 	if operator == "exist" {
 		return checkValueExists(dataValue)
 	} else if operator == "!exist" {
 		return !checkValueExists(dataValue)
-	} else if v, ok := dataValue.(string); ok && filter.DataKeyType == "String" {
+	} else if v, ok := dataValue.(string); ok && customDataFilter.DataKeyType == "String" {
 		if dataValue == nil {
 			// TODO Need to redo the interface inheritance to make this work
 			return _checkStringsFilter("", filter.(UserFilter))
@@ -319,10 +356,10 @@ func _checkCustomData(data map[string]interface{}, filter CustomDataFilter) bool
 
 			return _checkStringsFilter(v, filter)
 		}
-	} else if v, ok := dataValue.(float64); ok && filter.DataKeyType == "Number" {
-		return checkNumbersFilterJSONValue(dataValue, filter)
-	} else if v, ok := dataValue.(bool); ok && filter.DataKeyType == "Boolean" {
-		return _checkBooleanFilter(v, filter)
+	} else if v, ok := dataValue.(float64); ok && customDataFilter.DataKeyType == "Number" {
+		return checkNumbersFilterJSONValue(dataValue, filter.(UserFilter)
+	} else if v, ok := dataValue.(bool); ok && customDataFilter.DataKeyType == "Boolean" {
+		return _checkBooleanFilter(v, filter.(UserFilter))
 	} else if dataValue == nil && operator == "!=" {
 		return true
 	}

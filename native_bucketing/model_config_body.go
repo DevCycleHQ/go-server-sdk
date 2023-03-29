@@ -47,17 +47,22 @@ func (c *ConfigBody) GetVariableForId(id string) *Variable {
 
 func NewConfig(configJSONObj map[string]interface{}, etag string) ConfigBody {
 	var audiencesJSON interface{}
+	var err error
 	if val, ok := configJSONObj["audiences"]; ok {
 		audiencesJSON = val
 	} else {
 		audiencesJSON = nil
 	}
-	// TODO This blatantly doens't work - chatgpt ain't perfect
 	var audiences map[string]NoIdAudience
 	if audiencesJSON != nil {
 		audiences = make(map[string]NoIdAudience)
 		for audience_id, aud := range audiencesJSON.(map[string]interface{}) {
-			audiences[audience_id] = NewNoIdAudience(aud.(map[string]interface{}))
+			audiences[audience_id], err = NewNoIdAudience(aud.(map[string]interface{}))
+			if err != nil {
+				fmt.Println("Error parsing audience: ", err)
+				fmt.Println(reflect.TypeOf(aud))
+				fmt.Println(aud)
+			}
 		}
 	} else {
 		audiences = nil
