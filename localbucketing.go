@@ -163,7 +163,7 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	d.variableForUser_PBFunc = d.wasmInstance.GetExport(d.wasmStore, "variableForUser_PB_Preallocated").Func()
 	d.setConfigDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setConfigDataUTF8").Func()
 	d.setPlatformDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setPlatformDataUTF8").Func()
-	d.setClientCustomDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomDataUTF8").Func()
+	//d.setClientCustomDataUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "setClientCustomDataUTF8").Func()
 	d.generateBucketedConfigForUserUTF8Func = d.wasmInstance.GetExport(d.wasmStore, "generateBucketedConfigForUserUTF8").Func()
 
 	// bind exported internal functions
