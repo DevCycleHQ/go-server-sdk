@@ -264,7 +264,7 @@ func (u *UserFilter) CompileValues() {
 	}
 }
 
-func (u *UserFilter) GetStringValues() []string {
+func (u UserFilter) GetStringValues() []string {
 	if u.CompiledStringVals != nil {
 		return u.CompiledStringVals
 	} else {
@@ -272,7 +272,7 @@ func (u *UserFilter) GetStringValues() []string {
 	}
 }
 
-func (u *UserFilter) GetBooleanValues() []bool {
+func (u UserFilter) GetBooleanValues() []bool {
 	if u.CompiledBoolVals != nil {
 		return u.CompiledBoolVals
 	} else {
@@ -280,7 +280,7 @@ func (u *UserFilter) GetBooleanValues() []bool {
 	}
 }
 
-func (u *UserFilter) GetNumberValues() []float64 {
+func (u UserFilter) GetNumberValues() []float64 {
 	if u.CompiledNumVals != nil {
 		return u.CompiledNumVals
 	} else {
