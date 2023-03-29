@@ -146,7 +146,7 @@ func doesUserQualifyForFeature(config ConfigBody, feature Feature, user DVCPopul
 }
 
 func bucketUserForVariation(feature Feature, hashes TargetAndHashes) (error, Variation) {
-	err, variationId := hashes.Target.DecideTargetVariation(hashes.Hashes.BucketingHash)
+	variationId, err := hashes.Target.DecideTargetVariation(hashes.Hashes.BucketingHash)
 	if err != nil {
 		return err, Variation{}
 	}

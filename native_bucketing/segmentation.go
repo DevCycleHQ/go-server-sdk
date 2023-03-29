@@ -7,23 +7,23 @@ import (
 	"strings"
 )
 
-func _evaluateOperator(operator *AudienceOperator, audiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
-	if len(operator.Filters) == 0 {
+func _evaluateOperator(operator BaseOperator, audiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
+	if len(operator.Filters()) == 0 {
 		return false
 	}
-	if operator.Operator == "or" {
-		for _, f := range operator.Filters {
+	if operator.Operator() == "or" {
+		for _, f := range operator.Filters() {
 			if f.OperatorClass != nil {
-				return _evaluateOperator(f.OperatorClass, audiences, user, clientCustomData)
+				return _evaluateOperator(*f.OperatorClass, audiences, user, clientCustomData)
 			} else if f.FilterClass != nil && doesUserPassFilter(*f.FilterClass, audiences, user, clientCustomData) {
 				return true
 			}
 		}
 		return false
-	} else if operator.Operator == "and" {
-		for _, f := range operator.Filters {
+	} else if operator.Operator() == "and" {
+		for _, f := range operator.Filters() {
 			if f.OperatorClass != nil {
-				return _evaluateOperator(f.OperatorClass, audiences, user, clientCustomData)
+				return _evaluateOperator(*f.OperatorClass, audiences, user, clientCustomData)
 			} else if f.FilterClass != nil && !doesUserPassFilter(*f.FilterClass, audiences, user, clientCustomData) {
 				return false
 			}
@@ -33,7 +33,7 @@ func _evaluateOperator(operator *AudienceOperator, audiences map[string]NoIdAudi
 	return false
 }
 
-func doesUserPassFilter(filter AudienceFilter, audiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
+func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
 	isValid := true
 
 	if filter.Type() == "all" {
@@ -49,8 +49,8 @@ func doesUserPassFilter(filter AudienceFilter, audiences map[string]NoIdAudience
 
 	if isValid {
 		userFilter := filter.(UserFilter)
-		if userFilter.IsValid {
-			return filterFunctionsBySubtype(userFilter.SubType, user, userFilter, clientCustomData)
+		if err := userFilter.Validate(); err != nil {
+			return filterFunctionsBySubtype(userFilter.SubType(), user, userFilter, clientCustomData)
 		}
 	}
 
@@ -97,26 +97,26 @@ func getFilterAudiencesAsStrings(filter AudienceMatchFilter) []string {
 	return ret
 }
 
-func filterFunctionsBySubtype(subType string, user DVCPopulatedUser, filter AudienceFilter, clientCustomData map[string]interface{}) bool {
+func filterFunctionsBySubtype(subType string, user DVCPopulatedUser, filter BaseFilter, clientCustomData map[string]interface{}) bool {
 	if subType == "country" {
-		return _checkStringsFilter(user.Country, filter.(UserFilter))
+		return checkStringsFilter(user.Country, filter.(UserFilter))
 	} else if subType == "email" {
-		return _checkStringsFilter(user.Email, filter.(UserFilter))
+		return checkStringsFilter(user.Email, filter.(UserFilter))
 	} else if subType == "user_id" {
-		return _checkStringsFilter(user.UserId, filter.(UserFilter))
+		return checkStringsFilter(user.UserId, filter.(UserFilter))
 	} else if subType == "appVersion" {
-		return _checkVersionFilters(user.AppVersion, filter.(UserFilter))
+		return checkVersionFilters(user.AppVersion, filter.(UserFilter))
 	} else if subType == "platformVersion" {
-		return _checkVersionFilters(user.PlatformVersion, filter.(UserFilter))
+		return checkVersionFilters(user.PlatformVersion, filter.(UserFilter))
 	} else if subType == "deviceModel" {
-		return _checkStringsFilter(user.DeviceModel, filter.(UserFilter))
+		return checkStringsFilter(user.DeviceModel, filter.(UserFilter))
 	} else if subType == "platform" {
-		return _checkStringsFilter(user.Platform, filter.(UserFilter))
+		return checkStringsFilter(user.Platform, filter.(UserFilter))
 	} else if subType == "customData" {
-		if cdf := filter.(CustomDataFilter); !cdf.IsValid {
+		if err := filter.(CustomDataFilter).Validate(); err != nil {
 			return false
 		}
-		return _checkCustomData(user.CombinedCustomData(), clientCustomData, filter.(CustomDataFilter))
+		return checkCustomData(user.CombinedCustomData(), clientCustomData, filter.(CustomDataFilter))
 	} else {
 		return false
 	}
@@ -255,169 +255,6 @@ func _checkNumberFilter(num float64, filterNums []float64, operator string) bool
 		}
 	}
 	return someValue
-}
-
-func checkNumbersFilterJSONValue(jsonValue interface{}, filter UserFilter) bool {
-	return _checkNumbersFilter(jsonValue.(float64), filter)
-}
-
-func _checkNumbersFilter(number float64, filter UserFilter) bool {
-	operator := filter.Comparator
-	values := getFilterValuesAsF64(filter)
-	return _checkNumberFilter(number, values, operator)
-}
-
-func _checkStringsFilter(str string, filter UserFilter) bool {
-	contains := func(arr []string, substr string) bool {
-		for _, s := range arr {
-			if strings.Contains(s, substr) {
-				return true
-			}
-		}
-		return false
-	}
-	operator := filter.Comparator
-	values := getFilterValuesAsString(filter)
-	if operator == "=" {
-		return str != "" && contains(values, str)
-	} else if operator == "!=" {
-		return str != "" && !contains(values, str)
-	} else if operator == "exist" {
-		return str != ""
-	} else if operator == "!exist" {
-		return str == ""
-	} else if operator == "contain" {
-		return str != "" && !!contains(values, str)
-	} else if operator == "!contain" {
-		return str == "" || !contains(values, str)
-	} else {
-		return true
-	}
-}
-
-func _checkBooleanFilter(b bool, filter UserFilter) bool {
-	contains := func(arr []bool, search bool) bool {
-		for _, s := range arr {
-			if s == search {
-				return true
-			}
-		}
-		return false
-	}
-	operator := filter.Comparator
-	values := getFilterValuesAsBoolean(filter)
-
-	if operator == "contain" || operator == "=" {
-		return contains(values, b)
-	} else if operator == "!contain" || operator == "!=" {
-		return !contains(values, b)
-	} else if operator == "exist" {
-		return true
-	} else if operator == "!exist" {
-		return false
-	} else {
-		return false
-	}
-}
-
-func _checkVersionFilters(appVersion string, filter UserFilter) bool {
-	operator := filter.Comparator
-	values := getFilterValuesAsString(filter)
-	// dont need to do semver if they"re looking for an exact match. Adds support for non semver versions.
-	if operator == "=" {
-		return _checkStringsFilter(appVersion, filter)
-	} else {
-		return checkVersionFilter(appVersion, values, operator)
-	}
-}
-
-func _checkCustomData(data map[string]interface{}, clientCustomData map[string]interface{}, filter UserFilterInterface) bool {
-	operator := filter.Comparator()
-	var dataValue interface{}
-	customDataFilter := filter.(CustomDataFilter)
-
-	if _, ok := data[customDataFilter.DataKey]; !ok {
-		if v2, ok2 := clientCustomData[customDataFilter.DataKey]; ok2 {
-			dataValue = v2
-		}
-	} else {
-		dataValue = data[customDataFilter.DataKey]
-	}
-
-	if operator == "exist" {
-		return checkValueExists(dataValue)
-	} else if operator == "!exist" {
-		return !checkValueExists(dataValue)
-	} else if v, ok := dataValue.(string); ok && customDataFilter.DataKeyType == "String" {
-		if dataValue == nil {
-			// TODO Need to redo the interface inheritance to make this work
-			return _checkStringsFilter("", filter.(UserFilter))
-		} else {
-
-			return _checkStringsFilter(v, filter)
-		}
-	} else if v, ok := dataValue.(float64); ok && customDataFilter.DataKeyType == "Number" {
-		return checkNumbersFilterJSONValue(dataValue, filter.(UserFilter)
-	} else if v, ok := dataValue.(bool); ok && customDataFilter.DataKeyType == "Boolean" {
-		return _checkBooleanFilter(v, filter.(UserFilter))
-	} else if dataValue == nil && operator == "!=" {
-		return true
-	}
-	return false
-}
-
-func getFilterValues(filter UserFilter) []interface{} {
-	values := filter.Values
-	var ret []interface{}
-	for _, value := range values {
-		if value != nil {
-			ret = append(ret, value)
-		}
-	}
-	return ret
-}
-
-func getFilterValuesAsString(filter UserFilter) []string {
-	var ret []string
-	jsonValues := getFilterValues(filter)
-	for _, jsonValue := range jsonValues {
-		switch v := jsonValue.(type) {
-		case string:
-			ret = append(ret, v)
-		default:
-			continue
-		}
-	}
-	return ret
-}
-
-func getFilterValuesAsF64(filter UserFilter) []float64 {
-	var ret []float64
-	jsonValues := getFilterValues(filter)
-	for _, jsonValue := range jsonValues {
-		switch v := jsonValue.(type) {
-		case int:
-		case float64:
-			ret = append(ret, v)
-		default:
-			continue
-		}
-	}
-	return ret
-}
-
-func getFilterValuesAsBoolean(filter UserFilter) []bool {
-	var ret []bool
-	jsonValues := getFilterValues(filter)
-	for _, jsonValue := range jsonValues {
-		switch v := jsonValue.(type) {
-		case bool:
-			ret = append(ret, v)
-		default:
-			continue
-		}
-	}
-	return ret
 }
 
 /**

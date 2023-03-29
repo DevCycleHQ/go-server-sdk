@@ -78,160 +78,6 @@ func (a *Audience) FromJSON(js []byte) (err error, rt Audience) {
 	return
 }
 
-type TopLevelOperator struct {
-	Filters  []AudienceFilterOrOperator `json:"filters"`
-	Operator string                     `json:"operator" validate:"regexp=^(and|or)$"`
-}
-
-func (t *TopLevelOperator) FromJSON(js []byte) (err error, rt TopLevelOperator) {
-	var clss TopLevelOperator
-	err = json.Unmarshal(js, &clss)
-	if err != nil {
-		return err, clss
-	}
-	err = validator.Validate(clss)
-	return
-}
-
-type AudienceFilterOrOperator struct {
-	OperatorClass *AudienceOperator
-	FilterClass   *AudienceFilter
-}
-
-type AudienceFilter interface {
-	Type() string
-}
-
-type UserFilterInterface interface {
-	AudienceFilter
-	SubType() string
-	Comparator() string
-	Values() []interface{}
-	IsValid() bool
-	CompiledStringVals() []string
-	CompiledBoolVals() []bool
-	CompiledNumVals() []float64
-}
-
-type UserFilter struct {
-	FType              string `json:"type" validate:"regexp=^(all|user|optIn)$"`
-	SubType            string `json:"subType" validate:"regexp=^(|user_id|email|ip|country|platform|platformVersion|appVersion|deviceModel|customData)$"`
-	Comparator         string `json:"comparator" validate:"regexp=^(=|!=|>|>=|<|<=|exist|!exist|contain|!contain)$"`
-	Values             []interface{}
-	IsValid            bool
-	CompiledStringVals []string
-	CompiledBoolVals   []bool
-	CompiledNumVals    []float64
-}
-
-func (u UserFilter) Type() string {
-	return u.FType
-}
-
-func NewUserFilter(json []byte) (error, *UserFilter) {
-	u := UserFilter{}
-	uf, err := u.FromJSON(json)
-	if err != nil {
-		return err, nil
-	}
-	uf.CompileValues()
-
-	return nil, &uf
-}
-
-func (u *UserFilter) CompileValues() {
-	if len(u.Values) == 0 {
-		return
-	}
-
-	firstValue := u.Values[0]
-
-	if _, bok := firstValue.(bool); bok {
-		boolValues := make([]bool, 0)
-
-		for _, value := range u.Values {
-			if val, ok := value.(bool); ok {
-				boolValues = append(boolValues, val)
-			} else {
-				fmt.Printf("[DevCycle] Warning: Filter values must be all of the same type. Expected: bool, got: %v\n", value)
-			}
-		}
-		u.CompiledBoolVals = boolValues
-	} else if _, sok := firstValue.(string); sok {
-		stringValues := make([]string, 0)
-
-		for _, value := range u.Values {
-			if val, ok := value.(string); ok {
-				stringValues = append(stringValues, val)
-			} else {
-				fmt.Printf("[DevCycle] Warning: Filter values must be all of the same type. Expected: string, got: %v\n", value)
-			}
-		}
-		u.CompiledStringVals = stringValues
-	} else if _, fok := firstValue.(float64); fok {
-		numValues := make([]float64, 0)
-
-		for _, value := range u.Values {
-			if val, ok := value.(float64); ok {
-				numValues = append(numValues, val)
-			} else {
-				fmt.Printf("[DevCycle] Warning: Filter values must be all of the same type. Expected: number, got: %v\n", value)
-			}
-		}
-		u.CompiledNumVals = numValues
-	} else {
-		fmt.Printf("Filter values of unknown type. %v\n", firstValue)
-	}
-}
-
-func (u *UserFilter) GetStringValues() []string {
-	if u.CompiledStringVals != nil {
-		return u.CompiledStringVals
-	} else {
-		return []string{}
-	}
-}
-
-func (u *UserFilter) GetBooleanValues() []bool {
-	if u.CompiledBoolVals != nil {
-		return u.CompiledBoolVals
-	} else {
-		return []bool{}
-	}
-}
-
-func (u *UserFilter) GetNumberValues() []float64 {
-	if u.CompiledNumVals != nil {
-		return u.CompiledNumVals
-	} else {
-		return []float64{}
-	}
-}
-func (u *UserFilter) FromJSON(js []byte) (clss UserFilter, err error) {
-	err = json.Unmarshal(js, &clss)
-	if err != nil {
-		return
-	}
-	err = validator.Validate(clss)
-	return
-}
-
-type CustomDataFilter struct {
-	UserFilter
-	DataKey     string `json:"dataKey"`
-	DataKeyType string `json:"dataKeyType" validate:"regexp=^(String|Boolean|Number)$"`
-}
-
-func (c *CustomDataFilter) FromJSON(js []byte) (err error, rt CustomDataFilter) {
-	var clss CustomDataFilter
-	err = json.Unmarshal(js, &clss)
-	if err != nil {
-		return err, clss
-	}
-	err = validator.Validate(clss)
-	return
-}
-
 type Rollout struct {
 	Type            string         `json:"type" validate:"regexp=^(schedule|gradual|stepped)$"`
 	StartPercentage float64        `json:"startPercentage"`
@@ -278,11 +124,6 @@ func (t *TargetDistribution) FromJSON(js []byte) (clss TargetDistribution, err e
 	return
 }
 
-type AudienceOperator struct {
-	Operator string                     `json:"operator" validate:"regexp=^(and|or)$"`
-	Filters  []AudienceFilterOrOperator `json:"filters"`
-}
-
 func NewAudienceOperator(filter map[string]interface{}) (*AudienceOperator, error) {
 	operatorObj, ok := filter["operator"]
 	if !ok {
@@ -309,24 +150,20 @@ func NewAudienceOperator(filter map[string]interface{}) (*AudienceOperator, erro
 		return nil, fmt.Errorf("expected string for key: filters, found: %T", filtersObj)
 	}
 
-	audienceFilters := []AudienceFilterOrOperator{}
+	audienceFilters := []FilterOrOperator{}
 	for _, filter := range filters {
-		audienceFilter, err := NewAudienceFilterOrOperator(filter)
+		fmt.Println("filter: ", filter)
+		audienceFilter := FilterOrOperator{}
+		var err error
 		if err != nil {
 			return nil, err
 		}
-		audienceFilters = append(audienceFilters, *audienceFilter)
+		audienceFilters = append(audienceFilters, audienceFilter)
+	}
+	audOp := AudienceOperator{
+		operator: operator,
+		filters:  audienceFilters,
 	}
 
-	return &AudienceOperator{
-		Operator: operator,
-		Filters:  audienceFilters,
-	}, nil
-}
-
-type AudienceMatchFilter struct {
-	AudienceFilter
-	Audiences  []interface{} `json:"_audiences"`
-	Comparator string        `json:"comparator" validate:"regexp=^(=|!=)$"`
-	IsValid    bool
+	return &audOp, nil
 }
