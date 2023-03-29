@@ -89,6 +89,10 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) error {
 	}
 	resp, err := e.httpClient.Do(req)
 	if err != nil {
+		if numRetriesRemaining > 0 {
+			warnf("Retrying config fetch %d more times. Error: %s", numRetriesRemaining, err)
+			return e.fetchConfig(numRetriesRemaining - 1)
+		}
 		return err
 	}
 	defer resp.Body.Close()
@@ -105,19 +109,19 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) error {
 		return errorf("invalid SDK key. Aborting config polling")
 	case statusCode >= 500:
 		// Retryable Errors. Continue polling.
-		if numRetriesRemaining > 0 {
-			warnf("Retrying config fetch %d more times. Status: %s", numRetriesRemaining, resp.Status)
-			return e.fetchConfig(numRetriesRemaining - 1)
-		}
 		warnf("Config fetch failed. Status:" + resp.Status)
 	default:
-		// TODO: Do we want to retry here as well?
 		err = errorf("Unexpected response code: %d\n"+
 			"Body: %s\n"+
 			"URL: %s\n"+
 			"Headers: %s\n"+
 			"Could not download configuration. Using cached version if available %s\n",
 			resp.StatusCode, resp.Body, e.getConfigURL(), resp.Header, resp.Header.Get("ETag"))
+	}
+
+	if numRetriesRemaining > 0 {
+		warnf("Retrying config fetch %d more times. Status: %s", numRetriesRemaining, resp.Status)
+		return e.fetchConfig(numRetriesRemaining - 1)
 	}
 
 	return err
