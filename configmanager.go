@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const CONFIG_RETRIES = 3
+const CONFIG_RETRIES = 1
 
 type ConfigReceiver interface {
 	StoreConfig([]byte) error
