@@ -100,8 +100,8 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 		return err
 	}
 
-	c.configManager = &EnvironmentConfigManager{localBucketing: localBucketing}
-	err = c.configManager.Initialize(sdkKey, localBucketing, c.bucketingObjectPool, c.cfg)
+	c.configManager = NewEnvironmentConfigManager(sdkKey, localBucketing, c.bucketingObjectPool, options, c.cfg)
+	c.configManager.StartPolling(options.ConfigPollingIntervalMS)
 
 	if err != nil {
 		return err
