@@ -11,11 +11,11 @@ type TopLevelOperator struct {
 	filters  []FilterOrOperator
 }
 
-func (t *TopLevelOperator) Operator() string {
+func (t TopLevelOperator) Operator() string {
 	return t.operator
 }
 
-func (t *TopLevelOperator) Filters() []FilterOrOperator {
+func (t TopLevelOperator) Filters() []FilterOrOperator {
 	return t.filters
 }
 
@@ -25,10 +25,10 @@ type AudienceOperator struct {
 	filters  []FilterOrOperator
 }
 
-func (t *AudienceOperator) Operator() string {
+func (t AudienceOperator) Operator() string {
 	return t.operator
 }
 
-func (t *AudienceOperator) Filters() []FilterOrOperator {
+func (t AudienceOperator) Filters() []FilterOrOperator {
 	return t.filters
 }

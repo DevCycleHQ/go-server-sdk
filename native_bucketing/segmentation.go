@@ -14,8 +14,8 @@ func _evaluateOperator(operator BaseOperator, audiences map[string]NoIdAudience,
 	if operator.Operator() == "or" {
 		for _, f := range operator.Filters() {
 			if f.OperatorClass != nil {
-				return _evaluateOperator(*f.OperatorClass, audiences, user, clientCustomData)
-			} else if f.FilterClass != nil && doesUserPassFilter(*f.FilterClass, audiences, user, clientCustomData) {
+				return _evaluateOperator(f.OperatorClass, audiences, user, clientCustomData)
+			} else if f.FilterClass != nil && doesUserPassFilter(f.FilterClass, audiences, user, clientCustomData) {
 				return true
 			}
 		}
@@ -23,8 +23,8 @@ func _evaluateOperator(operator BaseOperator, audiences map[string]NoIdAudience,
 	} else if operator.Operator() == "and" {
 		for _, f := range operator.Filters() {
 			if f.OperatorClass != nil {
-				return _evaluateOperator(*f.OperatorClass, audiences, user, clientCustomData)
-			} else if f.FilterClass != nil && !doesUserPassFilter(*f.FilterClass, audiences, user, clientCustomData) {
+				return _evaluateOperator(f.OperatorClass, audiences, user, clientCustomData)
+			} else if f.FilterClass != nil && !doesUserPassFilter(f.FilterClass, audiences, user, clientCustomData) {
 				return false
 			}
 		}
@@ -41,7 +41,7 @@ func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, us
 	} else if filter.Type() == "optIn" {
 		return false
 	} else if filter.Type() == "audienceMatch" {
-		if amF := filter.(AudienceMatchFilter); amF.IsValid {
+		if amF := filter.(AudienceMatchFilter); amF.Validate() == nil {
 			return filterForAudienceMatch(amF, audiences, user, clientCustomData)
 		}
 		isValid = false
@@ -61,7 +61,7 @@ func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, us
 func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
 
 	audiences := getFilterAudiencesAsStrings(filter)
-	comparator := filter.Comparator
+	comparator := filter.Comparator()
 
 	for _, audience := range audiences {
 		a, ok := configAudiences[audience]
@@ -76,7 +76,7 @@ func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[stri
 }
 
 func getFilterAudiences(filter AudienceMatchFilter) []interface{} {
-	audiences := filter.Audiences
+	audiences := filter.Audiences()
 	var acc []interface{}
 	for _, audience := range audiences {
 		if audience != nil {

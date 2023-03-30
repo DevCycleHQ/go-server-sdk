@@ -15,22 +15,22 @@ type BaseFilter interface {
 }
 
 type filter struct {
-	ftype      string `json:"type" validate:"regexp=^(all|user|optIn)$"`
-	subType    string `json:"subType" validate:"regexp=^(|user_id|email|ip|country|platform|platformVersion|appVersion|deviceModel|customData)$"`
-	comparator string `json:"comparator" validate:"regexp=^(=|!=|>|>=|<|<=|exist|!exist|contain|!contain)$"`
-	values     []interface{}
+	Ftype       string `json:"type" validate:"regexp=^(all|user|optIn)$"`
+	FsubType    string `json:"subType" validate:"regexp=^(|user_id|email|ip|country|platform|platformVersion|appVersion|deviceModel|customData)$"`
+	Fcomparator string `json:"comparator" validate:"regexp=^(=|!=|>|>=|<|<=|exist|!exist|contain|!contain)$"`
+	values      []interface{}
 }
 
 func (f filter) Type() string {
-	return f.ftype
+	return f.Ftype
 }
 
 func (f filter) Comparator() string {
-	return f.comparator
+	return f.Fcomparator
 }
 
 func (f filter) SubType() string {
-	return f.subType
+	return f.FsubType
 }
 
 func (f filter) Values() []interface{} {
@@ -200,8 +200,8 @@ func getFilterValuesAsBoolean(filter BaseFilter) []bool {
 }
 
 type FilterOrOperator struct {
-	OperatorClass *BaseOperator
-	FilterClass   *BaseFilter
+	OperatorClass BaseOperator
+	FilterClass   BaseFilter
 }
 
 type UserFilter struct {
@@ -304,9 +304,16 @@ func (c CustomDataFilter) Validate() error {
 
 type AudienceMatchFilter struct {
 	filter
-	Audiences  []interface{} `json:"_audiences"`
-	Comparator string        `json:"comparator" validate:"regexp=^(=|!=)$"`
-	IsValid    bool
+	audiences  []interface{} `json:"_audiences"`
+	comparator string        `json:"comparator" validate:"regexp=^(=|!=)$"`
+}
+
+func (a AudienceMatchFilter) Comparator() string {
+	return a.comparator
+}
+
+func (a AudienceMatchFilter) Audiences() []interface{} {
+	return a.audiences
 }
 
 func (a AudienceMatchFilter) Validate() error {
