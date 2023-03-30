@@ -3,7 +3,6 @@ package native_bucketing
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/validator.v2"
 	"reflect"
 )
 
@@ -121,14 +120,4 @@ func (c *ConfigBody) FindVariable(key string) (error, Variable) {
 
 func (c *ConfigBody) Equals(c2 ConfigBody) bool {
 	return reflect.DeepEqual(*c, c2)
-}
-
-func (c *ConfigBody) FromJSON(js []byte) (err error, rt ConfigBody) {
-	var clss ConfigBody
-	err = json.Unmarshal(js, &clss)
-	if err != nil {
-		return err, clss
-	}
-	err = validator.Validate(clss)
-	return
 }

@@ -1,12 +1,10 @@
 package native_bucketing
 
 import (
-	"encoding/json"
 	"fmt"
+
 	"log"
 	"time"
-
-	"gopkg.in/validator.v2"
 )
 
 type Target struct {
@@ -14,16 +12,6 @@ type Target struct {
 	Audience     *Audience            `json:"_audience"`
 	Rollout      *Rollout             `json:"rollout"`
 	Distribution []TargetDistribution `json:"distribution"`
-}
-
-func (t *Target) FromJSON(js []byte) (err error, rt Target) {
-	var clss Target
-	err = json.Unmarshal(js, &clss)
-	if err != nil {
-		return err, clss
-	}
-	err = validator.Validate(clss)
-	return
 }
 
 func (t *Target) DecideTargetVariation(boundedHash float64) (string, error) {
@@ -68,31 +56,11 @@ type Audience struct {
 	Id string `json:"_id"`
 }
 
-func (a *Audience) FromJSON(js []byte) (err error, rt Audience) {
-	var clss Audience
-	err = json.Unmarshal(js, &clss)
-	if err != nil {
-		return err, clss
-	}
-	err = validator.Validate(clss)
-	return
-}
-
 type Rollout struct {
 	Type            string         `json:"type" validate:"regexp=^(schedule|gradual|stepped)$"`
 	StartPercentage float64        `json:"startPercentage"`
 	StartDate       time.Time      `json:"startDate"`
 	Stages          []RolloutStage `json:"stages"`
-}
-
-func (r *Rollout) FromJSON(js []byte) (err error, rt Rollout) {
-	var clss Rollout
-	err = json.Unmarshal(js, &clss)
-	if err != nil {
-		return err, clss
-	}
-	err = validator.Validate(clss)
-	return
 }
 
 type RolloutStage struct {
@@ -101,27 +69,9 @@ type RolloutStage struct {
 	Percentage float64   `json:"percentage" validate:"regexp=^(linear|discrete)$"`
 }
 
-func (r *RolloutStage) FromJSON(js []byte) (clss RolloutStage, err error) {
-	err = json.Unmarshal(js, &clss)
-	if err != nil {
-		return
-	}
-	err = validator.Validate(clss)
-	return
-}
-
 type TargetDistribution struct {
 	Variation  string  `json:"_variation"`
 	Percentage float64 `json:"percentage"`
-}
-
-func (t *TargetDistribution) FromJSON(js []byte) (clss TargetDistribution, err error) {
-	err = json.Unmarshal(js, &clss)
-	if err != nil {
-		return clss, err
-	}
-	err = validator.Validate(clss)
-	return
 }
 
 func NewAudienceOperator(filter map[string]interface{}) (*AudienceOperator, error) {

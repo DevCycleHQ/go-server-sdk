@@ -2,7 +2,6 @@ package native_bucketing
 
 import (
 	"fmt"
-	"github.com/go-playground/validator/v10"
 	"strings"
 )
 
@@ -212,10 +211,7 @@ type UserFilter struct {
 }
 
 func (u UserFilter) Validate() error {
-	err := validator.New().Struct(u)
-	if err != nil {
-		return err
-	}
+
 	return nil
 }
 
@@ -295,10 +291,7 @@ type CustomDataFilter struct {
 }
 
 func (c CustomDataFilter) Validate() error {
-	err := validator.New().Struct(c)
-	if err != nil {
-		return err
-	}
+
 	return nil
 }
 
@@ -317,9 +310,6 @@ func (a AudienceMatchFilter) Audiences() []interface{} {
 }
 
 func (a AudienceMatchFilter) Validate() error {
-	err := validator.New().Struct(a)
-	if err != nil {
-		return err
-	}
+
 	return nil
 }
