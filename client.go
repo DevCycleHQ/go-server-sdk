@@ -112,9 +112,17 @@ func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
 	return err
 }
 
+func NewDVCClientWithStatsd(sdkKey string, options *DVCOptions, statsdClient *statsd.Client) (*DVCClient, error) {
+	return newDVCClient(sdkKey, options, statsdClient)
+}
+
+func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
+	return newDVCClient(sdkKey, options, nil)
+}
+
 // NewDVCClient creates a new API client.
 // optionally pass a custom http.Client to allow for advanced features such as caching.
-func NewDVCClient(sdkKey string, options *DVCOptions, statsdClient *statsd.Client) (*DVCClient, error) {
+func newDVCClient(sdkKey string, options *DVCOptions, statsdClient *statsd.Client) (*DVCClient, error) {
 	if sdkKey == "" {
 		return nil, errorf("missing sdk key! Call NewDVCClient with a valid sdk key")
 	}
