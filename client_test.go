@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"reflect"
 	"runtime"
@@ -271,6 +272,29 @@ func TestDVCClient_TrackLocal_QueueEvent(t *testing.T) {
 	dvcOptions := DVCOptions{ConfigPollingIntervalMS: 10 * time.Second}
 
 	c, err := NewDVCClient(test_environmentKey, &dvcOptions)
+
+	track, err := c.Track(DVCUser{UserId: "j_test", DeviceModel: "testing"}, DVCEvent{
+		Target:      "customEvent",
+		Value:       0,
+		Type_:       "someType",
+		FeatureVars: nil,
+		MetaData:    nil,
+	})
+	fatalErr(t, err)
+
+	fmt.Println(track)
+}
+
+func TestDVCClient_TrackLocal_QueueEventBeforeConfig(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	// Config will fail to load on HTTP 500 after several retries without an error
+	httpConfigMock(http.StatusInternalServerError)
+	dvcOptions := DVCOptions{ConfigPollingIntervalMS: 10 * time.Second}
+
+	c, err := NewDVCClient(test_environmentKey, &dvcOptions)
+	fatalErr(t, err)
 
 	track, err := c.Track(DVCUser{UserId: "j_test", DeviceModel: "testing"}, DVCEvent{
 		Target:      "customEvent",

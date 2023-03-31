@@ -29,19 +29,20 @@ var (
 // DVCClient
 // In most cases there should be only one, shared, DVCClient.
 type DVCClient struct {
-	cfg                          *HTTPConfiguration
-	ctx                          context.Context
-	common                       service // Reuse a single struct instead of allocating one for each service on the heap.
-	DevCycleOptions              *DVCOptions
-	sdkKey                       string
-	auth                         context.Context
-	wasmMain                     *WASMMain
-	localBucketing               *DevCycleLocalBucketing
-	configManager                *EnvironmentConfigManager
-	eventQueue                   *EventQueue
+	cfg                 *HTTPConfiguration
+	ctx                 context.Context
+	common              service // Reuse a single struct instead of allocating one for each service on the heap.
+	DevCycleOptions     *DVCOptions
+	sdkKey              string
+	wasmMain            *WASMMain
+	localBucketing      *DevCycleLocalBucketing
+	bucketingObjectPool *BucketingPool
+	configManager       *EnvironmentConfigManager
+	eventQueue          *EventQueue
+
+	// Set to true when the client has been initialized, regardless of whether the config has loaded successfully.
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
-	bucketingObjectPool          *BucketingPool
 }
 
 type SDKEvent struct {
@@ -525,7 +526,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 	}
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
-		if c.isInitialized {
+		if c.hasConfig() {
 			err := c.eventQueue.QueueEvent(user, event)
 			return err == nil, err
 		} else {
