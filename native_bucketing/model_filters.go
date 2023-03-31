@@ -297,12 +297,11 @@ func (c CustomDataFilter) Validate() error {
 
 type AudienceMatchFilter struct {
 	filter
-	audiences  []interface{} `json:"_audiences"`
-	comparator string        `json:"comparator" validate:"regexp=^(=|!=)$"`
+	audiences []interface{} `json:"_audiences"`
 }
 
 func (a AudienceMatchFilter) Comparator() string {
-	return a.comparator
+	return a.filter.Comparator()
 }
 
 func (a AudienceMatchFilter) Audiences() []interface{} {
@@ -310,6 +309,5 @@ func (a AudienceMatchFilter) Audiences() []interface{} {
 }
 
 func (a AudienceMatchFilter) Validate() error {
-
 	return nil
 }
