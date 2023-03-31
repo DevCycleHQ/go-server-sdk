@@ -124,11 +124,6 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 
 	options.CheckDefaults()
 
-	err := options.Validate()
-	if err != nil {
-		return nil, err
-	}
-
 	c := &DVCClient{sdkKey: sdkKey}
 	c.cfg = cfg
 	c.ctx = context.Background()
@@ -157,6 +152,10 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 			c.handleInitialization()
 			return c, err
 		}
+	} else if c.DevCycleOptions.OnInitializedChannel != nil && c.DevCycleOptions.EnableCloudBucketing {
+		go func() {
+			c.DevCycleOptions.OnInitializedChannel <- true
+		}()
 	}
 	return c, nil
 }

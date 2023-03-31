@@ -336,19 +336,37 @@ func TestProduction_Local(t *testing.T) {
 	}
 }
 
-func TestDVCClient_InvalidOptions(t *testing.T) {
+func TestDVCClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
 	onInitialized := make(chan bool)
+
+	// Try each of the combos to make sure they all act as expected and don't hang
 	dvcOptions := DVCOptions{OnInitializedChannel: onInitialized, EnableCloudBucketing: true}
-
 	_, err := NewDVCClient(test_environmentKey, &dvcOptions)
-
-	if err == nil {
-		t.Fatal(t, "Expected error from invalid options")
+	fatalErr(t, err)
+	val := <-onInitialized
+	if !val {
+		t.Fatal("Expected true from onInitialized channel")
 	}
+
+	dvcOptions = DVCOptions{OnInitializedChannel: onInitialized, EnableCloudBucketing: false}
+	_, err = NewDVCClient(test_environmentKey, &dvcOptions)
+	fatalErr(t, err)
+	val = <-onInitialized
+	if !val {
+		t.Fatal("Expected true from onInitialized channel")
+	}
+
+	dvcOptions = DVCOptions{OnInitializedChannel: nil, EnableCloudBucketing: true}
+	_, err = NewDVCClient(test_environmentKey, &dvcOptions)
+	fatalErr(t, err)
+
+	dvcOptions = DVCOptions{OnInitializedChannel: nil, EnableCloudBucketing: false}
+	_, err = NewDVCClient(test_environmentKey, &dvcOptions)
+	fatalErr(t, err)
 }
 
 func fatalErr(t *testing.T, err error) {
