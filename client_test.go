@@ -336,6 +336,21 @@ func TestProduction_Local(t *testing.T) {
 	}
 }
 
+func TestDVCClient_InvalidOptions(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+
+	onInitialized := make(chan bool)
+	dvcOptions := DVCOptions{OnInitializedChannel: onInitialized, EnableCloudBucketing: true}
+
+	_, err := NewDVCClient(test_environmentKey, &dvcOptions)
+
+	if err == nil {
+		t.Fatal(t, "Expected error from invalid options")
+	}
+}
+
 func fatalErr(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {

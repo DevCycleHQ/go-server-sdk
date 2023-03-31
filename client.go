@@ -124,6 +124,11 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 
 	options.CheckDefaults()
 
+	err := options.Validate()
+	if err != nil {
+		return nil, err
+	}
+
 	c := &DVCClient{sdkKey: sdkKey}
 	c.cfg = cfg
 	c.ctx = context.Background()

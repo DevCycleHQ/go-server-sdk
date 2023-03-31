@@ -121,6 +121,15 @@ func (o *DVCOptions) CheckDefaults() {
 	}
 }
 
+// Ensure the options are in a non-conflicted state
+func (o *DVCOptions) Validate() error {
+	// OnInitialization is not triggered when cloud bucketing is enabled
+	if o.EnableCloudBucketing && o.OnInitializedChannel != nil {
+		return errorf("OnInitializedChannel cannot be set when EnableCloudBucketing is true")
+	}
+	return nil
+}
+
 type HTTPConfiguration struct {
 	BasePath          string            `json:"basePath,omitempty"`
 	ConfigCDNBasePath string            `json:"configCDNBasePath,omitempty"`
