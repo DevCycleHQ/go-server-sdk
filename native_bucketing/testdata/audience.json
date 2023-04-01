@@ -1,0 +1,33 @@
+{
+    "_id": "2d61e8001089444e9270bc316c294828",
+    "filters": {
+        "operator": "and",
+        "filters": [
+            {
+                "type": "user",
+                "subType": "customData",
+                "comparator": "=",
+                "dataKey": "data-key-6",
+                "dataKeyType": "String",
+                "_audiences": [],
+                "values": [
+                    "iYI6uwZed0ip",
+                    "QqDKIhOwJqGz",
+                    "BkWS2ug4LiRg",
+                    "h6fCse1VCIo1"
+                ],
+                "filters": []
+            },
+            {
+                "type": "user",
+                "subType": "user_id",
+                "comparator": "=",
+                "_audiences": [],
+                "values": [
+                    "user_680f420d-a65f-406c-8aaf-0b39a617e696"
+                ],
+                "filters": []
+            }
+        ]
+    }
+}
