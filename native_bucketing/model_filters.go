@@ -1,9 +1,53 @@
 package native_bucketing
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
+
+type MixedFilters []BaseFilter
+
+func (m MixedFilters) UnmarshalJSON(data []byte) error {
+	// Parse into a list of RawMessages
+	var rawItems []json.RawMessage
+	err := json.Unmarshal(data, &rawItems)
+	if err != nil {
+		return err
+	}
+
+	m = make([]BaseFilter, len(rawItems))
+
+	for _, rawItem := range rawItems {
+		// Parse each filter again to get the type
+		var partial filter
+		err = json.Unmarshal(rawItem, &partial)
+		if err != nil {
+			return err
+		}
+
+		var filter BaseFilter
+
+		switch partial.Ftype {
+		// This is not correct, but it shows the pattern I think we can follow
+		case "user":
+			filter = &UserFilter{}
+		case "audienceMatch":
+			filter = &AudienceMatchFilter{}
+		case "customData":
+			filter = &CustomDataFilter{}
+		default:
+			return fmt.Errorf("unknown filter type: %s", partial.Ftype)
+		}
+		err = json.Unmarshal(rawItem, &filter)
+		if err != nil {
+			return err
+		}
+		m = append(m, filter)
+	}
+
+	return nil
+}
 
 type BaseFilter interface {
 	Type() string

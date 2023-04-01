@@ -23,6 +23,10 @@ type AudienceOperator struct {
 	BaseOperator
 	operator string
 	filters  []FilterOrOperator
+
+	// Just duplicating these fields here with the alternate structure so things still compile
+	Operator_ string       `json:"operator"`
+	Filters_  MixedFilters `json:"filters"`
 }
 
 func (t AudienceOperator) Operator() string {
