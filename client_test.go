@@ -336,6 +336,65 @@ func TestProduction_Local(t *testing.T) {
 	}
 }
 
+func TestDVCClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+
+	onInitialized := make(chan bool)
+
+	// Try each of the combos to make sure they all act as expected and don't hang
+	dvcOptions := DVCOptions{OnInitializedChannel: onInitialized, EnableCloudBucketing: true}
+	c, err := NewDVCClient(test_environmentKey, &dvcOptions)
+	fatalErr(t, err)
+	val := <-onInitialized
+	if !val {
+		t.Fatal("Expected true from onInitialized channel")
+	}
+
+	if c.isInitialized {
+		// isInitialized is only relevant when using Local Bucketing
+		t.Fatal("Expected isInitialized to be false")
+	}
+
+	dvcOptions = DVCOptions{OnInitializedChannel: onInitialized, EnableCloudBucketing: false}
+	c, err = NewDVCClient(test_environmentKey, &dvcOptions)
+	fatalErr(t, err)
+	val = <-onInitialized
+	if !val {
+		t.Fatal("Expected true from onInitialized channel")
+	}
+
+	if !c.isInitialized {
+		t.Fatal("Expected isInitialized to be true")
+	}
+
+	if !c.hasConfig() {
+		t.Fatal("Expected config to be loaded")
+	}
+
+	dvcOptions = DVCOptions{OnInitializedChannel: nil, EnableCloudBucketing: true}
+	c, err = NewDVCClient(test_environmentKey, &dvcOptions)
+	fatalErr(t, err)
+
+	if c.isInitialized {
+		// isInitialized is only relevant when using Local Bucketing
+		t.Fatal("Expected isInitialized to be false")
+	}
+
+	dvcOptions = DVCOptions{OnInitializedChannel: nil, EnableCloudBucketing: false}
+	c, err = NewDVCClient(test_environmentKey, &dvcOptions)
+	fatalErr(t, err)
+
+	if !c.isInitialized {
+		t.Fatal("Expected isInitialized to be true")
+	}
+
+	if !c.hasConfig() {
+		t.Fatal("Expected config to be loaded")
+	}
+}
+
 func fatalErr(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
