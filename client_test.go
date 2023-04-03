@@ -369,6 +369,10 @@ func TestDVCClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t 
 		t.Fatal("Expected isInitialized to be true")
 	}
 
+	if !c.hasConfig() {
+		t.Fatal("Expected config to be loaded")
+	}
+
 	dvcOptions = DVCOptions{OnInitializedChannel: nil, EnableCloudBucketing: true}
 	c, err = NewDVCClient(test_environmentKey, &dvcOptions)
 	fatalErr(t, err)
@@ -384,6 +388,10 @@ func TestDVCClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t 
 
 	if !c.isInitialized {
 		t.Fatal("Expected isInitialized to be true")
+	}
+
+	if !c.hasConfig() {
+		t.Fatal("Expected config to be loaded")
 	}
 }
 
