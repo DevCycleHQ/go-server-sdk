@@ -15,7 +15,7 @@ type Target struct {
 
 func (t *Target) DecideTargetVariation(boundedHash float64) (string, error) {
 	var distributionIndex float64 = 0
-	const previousDistributionIndex = 0
+	var previousDistributionIndex float64 = 0
 	for _, d := range t.Distribution {
 		distributionIndex += d.Percentage
 		if boundedHash >= previousDistributionIndex && boundedHash < distributionIndex {

@@ -6,7 +6,7 @@ import (
 )
 
 // Max value of an unsigned 32-bit integer, which is what murmurhash returns
-const MaxHashValue = 4294967295
+const MaxHashValue uint32 = 4294967295
 const baseSeed = 1
 
 type BoundedHash struct {
@@ -15,7 +15,7 @@ type BoundedHash struct {
 }
 
 func GenerateBoundedHashes(userId, targetId string) BoundedHash {
-	var targetHash = Murmurhashv3([]byte(targetId), baseSeed)
+	var targetHash = murmurhashV3([]byte(targetId), baseSeed)
 	var bhash = BoundedHash{
 		RolloutHash:   generateBoundedHash(userId+"_rollout", targetHash),
 		BucketingHash: generateBoundedHash(userId, targetHash),
@@ -24,7 +24,8 @@ func GenerateBoundedHashes(userId, targetId string) BoundedHash {
 }
 
 func generateBoundedHash(input string, hashSeed uint32) float64 {
-	return float64(Murmurhashv3([]byte(input), hashSeed) / MaxHashValue)
+	mh := murmurhashV3([]byte(input), hashSeed)
+	return float64(mh) / float64(MaxHashValue)
 }
 
 func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64 {
@@ -41,20 +42,29 @@ func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64
 	var stages = rollout.Stages
 	var currentStages []RolloutStage
 	var nextStages []RolloutStage
-	if len(stages) > 0 {
-		for _, stage := range stages {
-			if stage.Date.Before(currentDateTime) {
-				currentStages = append(currentStages, stage)
-			} else {
-				nextStages = append(nextStages, stage)
-			}
+
+	for _, stage := range stages {
+		if stage.Date.Before(currentDateTime) {
+			currentStages = append(currentStages, stage)
+		} else {
+			nextStages = append(nextStages, stage)
 		}
 	}
-	_currentStage := currentStages[len(currentStages)-1]
-	nextStage := &nextStages[0]
 
-	currentStage := &_currentStage
-	if (_currentStage != RolloutStage{} && startDateTime.Before(currentDateTime)) {
+	var _currentStage *RolloutStage
+	var nextStage *RolloutStage
+	if len(currentStages) == 0 {
+		_currentStage = nil
+	} else {
+		_currentStage = &currentStages[len(currentStages)-1]
+	}
+	if len(nextStages) == 0 {
+		nextStage = nil
+	} else {
+		nextStage = &nextStages[0]
+	}
+	currentStage := _currentStage
+	if _currentStage == nil && startDateTime.Before(currentDateTime) {
 		currentStage = &RolloutStage{
 			Type:       "discrete",
 			Date:       rollout.StartDate,
@@ -68,8 +78,8 @@ func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64
 		return currentStage.Percentage
 	}
 
-	currentDatePercentage := float64(currentDateTime.Sub(currentStage.Date).Milliseconds() /
-		(nextStage.Date.Sub(currentStage.Date).Milliseconds()))
+	currentDatePercentage := float64(currentDateTime.Sub(currentStage.Date).Milliseconds()) /
+		float64(nextStage.Date.Sub(currentStage.Date).Milliseconds())
 	if currentDatePercentage == 0 {
 		return 0
 	}
