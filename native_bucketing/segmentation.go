@@ -34,27 +34,25 @@ func _evaluateOperator(operator BaseOperator, audiences map[string]NoIdAudience,
 }
 
 func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
-	isValid := true
-
 	if filter.GetType() == "all" {
 		return true
 	} else if filter.GetType() == "optIn" {
 		return false
 	} else if filter.GetType() == "audienceMatch" {
-		if amF := filter.(AudienceMatchFilter); amF.Validate() == nil {
-			return filterForAudienceMatch(amF, audiences, user, clientCustomData)
+		amF, ok := filter.(AudienceMatchFilter)
+		if !ok {
+			return false
 		}
-		isValid = false
+		if amF.Validate() != nil {
+			return false
+		}
+		return filterForAudienceMatch(amF, audiences, user, clientCustomData)
 	}
 
-	if isValid {
-		userFilter := filter.(UserFilter)
-		if err := userFilter.Validate(); err != nil {
-			return filterFunctionsBySubtype(userFilter.GetSubType(), user, userFilter, clientCustomData)
-		}
+	if err := filter.Validate(); err != nil {
+		return false
 	}
-
-	return false
+	return filterFunctionsBySubtype(filter.GetSubType(), user, filter, clientCustomData)
 
 }
 
@@ -92,7 +90,11 @@ func filterFunctionsBySubtype(subType string, user DVCPopulatedUser, filter Base
 	} else if subType == "platform" {
 		return checkStringsFilter(user.Platform, filter.(*UserFilter))
 	} else if subType == "customData" {
-		if err := filter.(*CustomDataFilter).Validate(); err != nil {
+		customDataFilter, ok := filter.(*CustomDataFilter)
+		if !ok {
+			return false
+		}
+		if err := customDataFilter.Validate(); err != nil {
 			return false
 		}
 		return checkCustomData(user.CombinedCustomData(), clientCustomData, filter.(CustomDataFilter))
