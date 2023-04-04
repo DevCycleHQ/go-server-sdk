@@ -254,7 +254,7 @@ func (f CustomDataFilter) Validate() error {
 
 type AudienceMatchFilter struct {
 	filter
-	Audiences []interface{} `json:"_audiences"`
+	Audiences []string `json:"_audiences"`
 }
 
 func (f AudienceMatchFilter) Type() string {

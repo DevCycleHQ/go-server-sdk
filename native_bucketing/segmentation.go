@@ -60,7 +60,7 @@ func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, us
 
 func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
 
-	audiences := getFilterAudiencesAsStrings(filter)
+	audiences := filter.Audiences
 	comparator := filter.GetComparator()
 
 	for _, audience := range audiences {
@@ -73,28 +73,6 @@ func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[stri
 		}
 	}
 	return comparator == "!="
-}
-
-func getFilterAudiences(filter AudienceMatchFilter) []interface{} {
-	audiences := filter.Audiences
-	var acc []interface{}
-	for _, audience := range audiences {
-		if audience != nil {
-			acc = append(acc, audience)
-		}
-	}
-	return acc
-}
-
-func getFilterAudiencesAsStrings(filter AudienceMatchFilter) []string {
-	jsonAud := getFilterAudiences(filter)
-	var ret []string
-	for _, aud := range jsonAud {
-		if v, ok := aud.(string); ok {
-			ret = append(ret, v)
-		}
-	}
-	return ret
 }
 
 // TODO: Make this work with less casting

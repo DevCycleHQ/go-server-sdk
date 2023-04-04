@@ -141,14 +141,14 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 			Type:       "audienceMatch",
 			Comparator: "=",
 		},
-		Audiences: []interface{}{"test"},
+		Audiences: []string{"test"},
 	}
 	_ = AudienceMatchFilter{
 		filter: filter{
 			Type:       "audienceMatch",
 			Comparator: "!=",
 		},
-		Audiences: []interface{}{"test"},
+		Audiences: []string{"test"},
 	}
 	var filters = []BaseFilter{audienceMatchEqual}
 
