@@ -20,10 +20,22 @@ func TestAudience_Parsing(t *testing.T) {
 	require.Equal(t, Audience{
 		NoIdAudience: NoIdAudience{
 			Filters: &AudienceOperator{
-				Operator_: "and",
-				Filters_: MixedFilters{
-					&UserFilter{},
-					&UserFilter{},
+				Operator: "and",
+				Filters: MixedFilters{
+					&UserFilter{
+						filter: filter{
+							Type:       "user",
+							SubType:    "customData",
+							Comparator: "=",
+						},
+					},
+					&UserFilter{
+						filter: filter{
+							Type:       "user",
+							SubType:    "user_id",
+							Comparator: "=",
+						},
+					},
 				},
 			},
 		},

@@ -8,23 +8,23 @@ import (
 )
 
 func _evaluateOperator(operator BaseOperator, audiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
-	if len(operator.Filters()) == 0 {
+	if len(operator.GetFilters()) == 0 {
 		return false
 	}
-	if operator.Operator() == "or" {
-		for _, f := range operator.Filters() {
-			if f.OperatorClass != nil {
-				return _evaluateOperator(f.OperatorClass, audiences, user, clientCustomData)
-			} else if f.FilterClass != nil && doesUserPassFilter(f.FilterClass, audiences, user, clientCustomData) {
+	if operator.GetOperator() == "or" {
+		for _, f := range operator.GetFilters() {
+			if filterOperator, ok := f.GetOperator(); ok {
+				return _evaluateOperator(filterOperator, audiences, user, clientCustomData)
+			} else if doesUserPassFilter(f, audiences, user, clientCustomData) {
 				return true
 			}
 		}
 		return false
-	} else if operator.Operator() == "and" {
-		for _, f := range operator.Filters() {
-			if f.OperatorClass != nil {
-				return _evaluateOperator(f.OperatorClass, audiences, user, clientCustomData)
-			} else if f.FilterClass != nil && !doesUserPassFilter(f.FilterClass, audiences, user, clientCustomData) {
+	} else if operator.GetOperator() == "and" {
+		for _, f := range operator.GetFilters() {
+			if filterOperator, ok := f.GetOperator(); ok {
+				return _evaluateOperator(filterOperator, audiences, user, clientCustomData)
+			} else if !doesUserPassFilter(f, audiences, user, clientCustomData) {
 				return false
 			}
 		}
@@ -36,11 +36,11 @@ func _evaluateOperator(operator BaseOperator, audiences map[string]NoIdAudience,
 func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
 	isValid := true
 
-	if filter.Type() == "all" {
+	if filter.GetType() == "all" {
 		return true
-	} else if filter.Type() == "optIn" {
+	} else if filter.GetType() == "optIn" {
 		return false
-	} else if filter.Type() == "audienceMatch" {
+	} else if filter.GetType() == "audienceMatch" {
 		if amF := filter.(AudienceMatchFilter); amF.Validate() == nil {
 			return filterForAudienceMatch(amF, audiences, user, clientCustomData)
 		}
@@ -50,7 +50,7 @@ func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, us
 	if isValid {
 		userFilter := filter.(UserFilter)
 		if err := userFilter.Validate(); err != nil {
-			return filterFunctionsBySubtype(userFilter.SubType(), user, userFilter, clientCustomData)
+			return filterFunctionsBySubtype(userFilter.GetSubType(), user, userFilter, clientCustomData)
 		}
 	}
 
@@ -61,7 +61,7 @@ func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, us
 func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
 
 	audiences := getFilterAudiencesAsStrings(filter)
-	comparator := filter.Comparator()
+	comparator := filter.GetComparator()
 
 	for _, audience := range audiences {
 		a, ok := configAudiences[audience]
@@ -76,7 +76,7 @@ func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[stri
 }
 
 func getFilterAudiences(filter AudienceMatchFilter) []interface{} {
-	audiences := filter.Audiences()
+	audiences := filter.audiences
 	var acc []interface{}
 	for _, audience := range audiences {
 		if audience != nil {

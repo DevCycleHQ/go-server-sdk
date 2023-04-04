@@ -1,0 +1,44 @@
+package native_bucketing
+
+const (
+	OperatorAnd = "and"
+	OperatorOr  = "or"
+)
+
+const (
+	TypeAll           = "all"
+	TypeUser          = "user"
+	TypeOptIn         = "optIn"
+	TypeAudienceMatch = "audienceMatch"
+)
+
+const (
+	SubTypeUserID          = "user_id"
+	SubTypeEmail           = "email"
+	SubTypeIP              = "ip"
+	SubTypeCountry         = "country"
+	SubTypePlatform        = "platform"
+	SubTypePlatformVersion = "platformVersion"
+	SubTypeAppVersion      = "appVersion"
+	SubTypeDeviceModel     = "deviceModel"
+	SubTypeCustomData      = "customData"
+)
+
+const (
+	ComparatorEqual        = "="
+	ComparatorNotEqual     = "!="
+	ComparatorGreater      = ">"
+	ComparatorGreaterEqual = ">="
+	ComparatorLess         = "<"
+	ComparatorLessEqual    = "<="
+	ComparatorExist        = "exist"
+	ComparatorNotExist     = "!exist"
+	ComparatorContain      = "contain"
+	ComparatorNotContain   = "!contain"
+)
+
+const (
+	DataKeyTypeString  = "String"
+	DataKeyTypeBoolean = "Boolean"
+	DataKeyTypeNumber  = "Number"
+)
