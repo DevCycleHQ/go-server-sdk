@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: DevCycleHQ/test-harness@main
         with:
-          sdks-to-test: go
+          sdks-to-test: '["go", "gonative"]'
           sdk-github-sha: ${{github.event.pull_request.head.sha}}
           github-token: ${{ secrets.TEST_HARNESS_GH_SECRET }}
 
