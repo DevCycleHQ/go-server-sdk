@@ -43,6 +43,23 @@
                 "_audiences": [],
                 "values": [],
                 "filters": []
+            },
+            {
+                "type": "optIn",
+                "_audiences": [],
+                "values": [],
+                "filters": []
+            },
+            {
+                "operator": "and",
+                "filters": [
+                    {
+                        "type": "all",
+                        "_audiences": [],
+                        "values": [],
+                        "filters": []
+                    }
+                ]
             }
         ]
     }
