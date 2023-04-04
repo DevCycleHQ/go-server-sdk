@@ -35,6 +35,5 @@ jobs:
           fail-on-alert: true
           # Enable Job Summary for PRs
           summary-always: true
-          comment-on-alert: true
 
       # Upload the updated cache file for the next job by actions/cache
