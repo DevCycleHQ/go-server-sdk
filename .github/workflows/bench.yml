@@ -16,7 +16,7 @@ jobs:
           go-version: 1.19
       # Run benchmark with `go test -bench` and stores the output to a file
       - name: Run benchmark
-        run: go test -bench=. -run=^# -benchDisableLogs | tee output.txt
+        run: go test -bench=. -run=^# -benchDisableLogs | tee bench_output.txt
       # Download previous benchmark result from cache (if exists)
       - name: Download previous benchmark data
         uses: actions/cache@v3
@@ -30,12 +30,15 @@ jobs:
           # What benchmark tool the output.txt came from
           tool: 'go'
           # Where the output from the benchmark tool is stored
-          output-file-path: output.txt
+          output-file-path: bench_output.txt
           # Where the previous data file is stored
           external-data-json-path: ./cache/benchmark-data.json
-          # Workflow will fail when an alert happens
-          fail-on-alert: true
-          # Enable Job Summary for PRs
           summary-always: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-always: true
+          fail-on-alert: true
+          fail-threshold: 25%
+          comment-on-alert: true
+          alert-threshold: 25%
 
       # Upload the updated cache file for the next job by actions/cache
