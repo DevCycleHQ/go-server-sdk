@@ -6,7 +6,6 @@ type BaseOperator interface {
 }
 
 type AudienceOperator struct {
-	BaseOperator
 	Operator string       `json:"operator"`
 	Filters  MixedFilters `json:"filters"`
 }

@@ -134,7 +134,7 @@ func (f OperatorFilter) GetComparator() string {
 }
 
 func (f OperatorFilter) GetOperator() (*AudienceOperator, bool) {
-	return f.Operator, false
+	return f.Operator, true
 }
 
 func (f OperatorFilter) Validate() error {

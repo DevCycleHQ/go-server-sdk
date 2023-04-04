@@ -61,9 +61,7 @@ func TestAudience_Parsing(t *testing.T) {
 					&AudienceMatchFilter{
 						filter: filter{
 							Type:       "audienceMatch",
-							SubType:    "",
 							Comparator: "!=",
-							Operator:   "",
 						},
 						Audiences: []string{
 							"7db4d6f7e53543e4a413ac539477bac6",
@@ -72,10 +70,24 @@ func TestAudience_Parsing(t *testing.T) {
 					},
 					&AudienceFilter{
 						filter: filter{
-							Type:       "all",
-							SubType:    "",
-							Comparator: "",
-							Operator:   "",
+							Type: "all",
+						},
+					},
+					&AudienceFilter{
+						filter: filter{
+							Type: "optIn",
+						},
+					},
+					OperatorFilter{
+						Operator: &AudienceOperator{
+							Operator: "and",
+							Filters: []BaseFilter{
+								&AudienceFilter{
+									filter: filter{
+										Type: "all",
+									},
+								},
+							},
 						},
 					},
 				},
@@ -84,4 +96,24 @@ func TestAudience_Parsing(t *testing.T) {
 		Id: "2d61e8001089444e9270bc316c294828",
 	}, audience)
 
+	filters := audience.NoIdAudience.Filters.Filters
+
+	require.Equal(t, "user", filters[0].GetType())
+	require.Equal(t, "customData", filters[0].GetSubType())
+	require.Equal(t, "=", filters[0].GetComparator())
+
+	require.Equal(t, "user", filters[1].GetType())
+	require.Equal(t, "user_id", filters[1].GetSubType())
+	require.Equal(t, "=", filters[1].GetComparator())
+
+	require.Equal(t, "audienceMatch", filters[2].GetType())
+	require.Equal(t, "!=", filters[2].GetComparator())
+
+	require.Equal(t, "all", filters[3].GetType())
+
+	require.Equal(t, "optIn", filters[4].GetType())
+
+	operator, isOperator := filters[5].GetOperator()
+	require.True(t, isOperator)
+	require.NotNil(t, operator)
 }
