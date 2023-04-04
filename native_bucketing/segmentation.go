@@ -76,7 +76,7 @@ func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[stri
 }
 
 func getFilterAudiences(filter AudienceMatchFilter) []interface{} {
-	audiences := filter.audiences
+	audiences := filter.Audiences
 	var acc []interface{}
 	for _, audience := range audiences {
 		if audience != nil {
@@ -97,23 +97,24 @@ func getFilterAudiencesAsStrings(filter AudienceMatchFilter) []string {
 	return ret
 }
 
+// TODO: Make this work with less casting
 func filterFunctionsBySubtype(subType string, user DVCPopulatedUser, filter BaseFilter, clientCustomData map[string]interface{}) bool {
 	if subType == "country" {
-		return checkStringsFilter(user.Country, filter.(UserFilter))
+		return checkStringsFilter(user.Country, filter.(*UserFilter))
 	} else if subType == "email" {
-		return checkStringsFilter(user.Email, filter.(UserFilter))
+		return checkStringsFilter(user.Email, filter.(*UserFilter))
 	} else if subType == "user_id" {
-		return checkStringsFilter(user.UserId, filter.(UserFilter))
+		return checkStringsFilter(user.UserId, filter.(*UserFilter))
 	} else if subType == "appVersion" {
-		return checkVersionFilters(user.AppVersion, filter.(UserFilter))
+		return checkVersionFilters(user.AppVersion, filter.(*UserFilter))
 	} else if subType == "platformVersion" {
-		return checkVersionFilters(user.PlatformVersion, filter.(UserFilter))
+		return checkVersionFilters(user.PlatformVersion, filter.(*UserFilter))
 	} else if subType == "deviceModel" {
-		return checkStringsFilter(user.DeviceModel, filter.(UserFilter))
+		return checkStringsFilter(user.DeviceModel, filter.(*UserFilter))
 	} else if subType == "platform" {
-		return checkStringsFilter(user.Platform, filter.(UserFilter))
+		return checkStringsFilter(user.Platform, filter.(*UserFilter))
 	} else if subType == "customData" {
-		if err := filter.(CustomDataFilter).Validate(); err != nil {
+		if err := filter.(*CustomDataFilter).Validate(); err != nil {
 			return false
 		}
 		return checkCustomData(user.CombinedCustomData(), clientCustomData, filter.(CustomDataFilter))
