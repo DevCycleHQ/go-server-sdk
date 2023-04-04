@@ -13,3 +13,4 @@ type PublicEnvironment = api.Environment
 type SDKFeature = api.Feature
 type BaseVariable = api.BaseVariable
 type ReadOnlyVariable = api.ReadOnlyVariable
+type EventQueueOptions = api.EventQueueOptions

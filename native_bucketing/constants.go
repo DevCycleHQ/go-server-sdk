@@ -10,6 +10,13 @@ const (
 )
 
 const (
+	VariableEvaluatedEvent    = "variableEvaluated"
+	VariableDefaultedEvent    = "variableDefaulted"
+	AggVariableEvaluatedEvent = "aggVariableEvaluated"
+	AggVariableDefaultedEvent = "aggVariableDefaulted"
+)
+
+const (
 	TypeAll           = "all"
 	TypeUser          = "user"
 	TypeOptIn         = "optIn"

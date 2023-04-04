@@ -22,8 +22,13 @@ func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {
 	c.localBucketing = localBucketing
 
 	// Event queue stub that does nothing
-	c.eventQueue = &NativeEventQueue{}
-
+	err := native_bucketing.InitEventQueue(sdkKey, options.eventQueueOptions())
+	if err != nil {
+		return err
+	}
+	c.eventQueue = &NativeEventQueue{
+		NativeLocalBucketing: localBucketing,
+	}
 	return nil
 }
 
@@ -32,6 +37,7 @@ type NativeLocalBucketing struct {
 	options      *DVCOptions
 	configMutex  sync.RWMutex
 	platformData *api.PlatformData
+	eventQueue   *NativeEventQueue
 }
 
 func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, options *DVCOptions) *NativeLocalBucketing {
@@ -86,19 +92,21 @@ func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variab
 }
 
 func (n *NativeLocalBucketing) Close() {
-	// TODO: implement
+	native_bucketing.Close(n.sdkKey)
 }
 
-type NativeEventQueue struct{}
+type NativeEventQueue struct {
+	NativeLocalBucketing *NativeLocalBucketing
+}
 
 func (queue *NativeEventQueue) QueueEvent(user DVCUser, event DVCEvent) error {
-	// TODO: implement
-	return nil
+	err := native_bucketing.QueueEvent(queue.NativeLocalBucketing.sdkKey, user, event)
+	return err
 }
 
 func (queue *NativeEventQueue) QueueAggregateEvent(config BucketedUserConfig, event DVCEvent) error {
-	// TODO: implement
-	return nil
+	err := native_bucketing.QueueAggregateEvent(queue.NativeLocalBucketing.sdkKey, &event, config.VariableVariationMap, event.Type_ == api.EventType_AggVariableEvaluated)
+	return err
 }
 
 func (queue *NativeEventQueue) FlushEvents() (err error) {
@@ -107,7 +115,6 @@ func (queue *NativeEventQueue) FlushEvents() (err error) {
 }
 
 func (queue *NativeEventQueue) Metrics() (int32, int32) {
-	// TODO: implement
 	return 0, 0
 }
 

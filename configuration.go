@@ -9,6 +9,7 @@
 package devcycle
 
 import (
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"net/http"
 	"runtime"
 	"time"
@@ -17,6 +18,8 @@ import (
 // contextKeys are used to identify the type of value in the context.
 // Since these are string, it is possible to get a short description of the
 // context key for logging and debugging using key.String().
+
+type EventQueueOptions = api.EventQueueOptions
 
 type contextKey string
 
@@ -78,17 +81,13 @@ type DVCOptions struct {
 	AdvancedOptions
 }
 
-type EventQueueOptions struct {
-	FlushEventsInterval          time.Duration `json:"flushEventsMS"`
-	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging"`
-	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging"`
-}
-
-func (options *DVCOptions) eventQueueOptions() *EventQueueOptions {
+func (o *DVCOptions) eventQueueOptions() *EventQueueOptions {
 	return &EventQueueOptions{
-		FlushEventsInterval:          options.EventFlushIntervalMS,
-		DisableAutomaticEventLogging: options.DisableAutomaticEventLogging,
-		DisableCustomEventLogging:    options.DisableCustomEventLogging,
+		FlushEventsInterval:          o.EventFlushIntervalMS,
+		DisableAutomaticEventLogging: o.DisableAutomaticEventLogging,
+		DisableCustomEventLogging:    o.DisableCustomEventLogging,
+		MaxEventQueueSize:            o.MaxEventQueueSize,
+		FlushEventQueueSize:          o.FlushEventQueueSize,
 	}
 }
 
