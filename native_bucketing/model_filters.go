@@ -6,12 +6,18 @@ import (
 	"strings"
 )
 
+// All filter types must implement this
 type BaseFilter interface {
 	GetType() string
 	GetComparator() string
 	GetSubType() string
 	GetOperator() (*AudienceOperator, bool)
 	Validate() error
+}
+
+// For compiling values inside a filter after parsing, or other optimizations
+type InitializedFilter interface {
+	Initialize() error
 }
 
 // Represents a partially parsed filter object from the JSON, before parsing a specific filter type
@@ -44,7 +50,7 @@ func (f filter) Validate() error {
 
 type MixedFilters []BaseFilter
 
-func (m MixedFilters) UnmarshalJSON(data []byte) error {
+func (m *MixedFilters) UnmarshalJSON(data []byte) error {
 	// Parse into a list of RawMessages
 	var rawItems []json.RawMessage
 	err := json.Unmarshal(data, &rawItems)
@@ -52,9 +58,9 @@ func (m MixedFilters) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	m = make([]BaseFilter, len(rawItems))
+	filters := make([]BaseFilter, len(rawItems))
 
-	for _, rawItem := range rawItems {
+	for index, rawItem := range rawItems {
 		// Parse each filter again to get the type
 		var partial filter
 		err = json.Unmarshal(rawItem, &partial)
@@ -70,7 +76,7 @@ func (m MixedFilters) UnmarshalJSON(data []byte) error {
 			if err != nil {
 				return fmt.Errorf("Error unmarshalling filter: %w", err)
 			}
-			m = append(m, OperatorFilter{Operator: &operator})
+			filters[index] = OperatorFilter{Operator: &operator}
 			continue
 		}
 
@@ -93,12 +99,20 @@ func (m MixedFilters) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("Error unmarshalling filter: %w", err)
 		}
 
+		if filter, ok := filter.(InitializedFilter); ok {
+			if err := filter.Initialize(); err != nil {
+				return fmt.Errorf("Error initializing filter: %w", err)
+			}
+		}
+
 		if err := filter.Validate(); err != nil {
 			return fmt.Errorf("Error validating filter: %w", err)
 		}
 
-		m = append(m, filter)
+		filters[index] = filter
 	}
+
+	*m = filters
 
 	return nil
 }
@@ -145,8 +159,11 @@ func (f UserFilter) Type() string {
 }
 
 func (f UserFilter) Validate() error {
-	f.compileValues()
 	return nil
+}
+
+func (f *UserFilter) Initialize() error {
+	return f.compileValues()
 }
 
 func (u *UserFilter) compileValues() error {
@@ -162,35 +179,32 @@ func (u *UserFilter) compileValues() error {
 			if val, ok := value.(bool); ok {
 				boolValues = append(boolValues, val)
 			} else {
-				return fmt.Errorf("Filter values must be all of the same type. Expected: bool, got: %v\n", value)
+				return fmt.Errorf("Filter values must be all of the same type. Expected: bool, got: %T %#v\n", value, value)
 			}
 		}
 		u.CompiledBoolVals = boolValues
-		break
 	case string:
 		var stringValues []string
 		for _, value := range u.Values {
 			if val, ok := value.(string); ok {
 				stringValues = append(stringValues, val)
 			} else {
-				fmt.Errorf("Filter values must be all of the same type. Expected: string, got: %v\n", value)
+				return fmt.Errorf("Filter values must be all of the same type. Expected: string, got: %T %#v\n", value, value)
 			}
 		}
 		u.CompiledStringVals = stringValues
-		break
 	case float64:
 		var numValues []float64
 		for _, value := range u.Values {
 			if val, ok := value.(float64); ok {
 				numValues = append(numValues, val)
 			} else {
-				fmt.Errorf("Filter values must be all of the same type. Expected: number, got: %v\n", value)
+				return fmt.Errorf("Filter values must be all of the same type. Expected: number, got: %T %#v\n", value, value)
 			}
 		}
 		u.CompiledNumVals = numValues
-		break
 	default:
-		fmt.Errorf("Filter values must be of type bool, string, or float64. Got: %v\n", firstValue)
+		return fmt.Errorf("Filter values must be of type bool, string, or float64. Got: %T %#v\n", firstValue, firstValue)
 	}
 
 	return nil
@@ -221,7 +235,7 @@ func (u UserFilter) GetNumberValues() []float64 {
 }
 
 type CustomDataFilter struct {
-	UserFilter
+	*UserFilter
 	DataKey     string `json:"dataKey"`
 	DataKeyType string `json:"dataKeyType" validate:"regexp=^(String|Boolean|Number)$"`
 }
@@ -240,7 +254,7 @@ func (f CustomDataFilter) Validate() error {
 
 type AudienceMatchFilter struct {
 	filter
-	audiences []interface{} `json:"_audiences"`
+	Audiences []interface{} `json:"_audiences"`
 }
 
 func (f AudienceMatchFilter) Type() string {
@@ -283,17 +297,17 @@ func checkCustomData(data map[string]interface{}, clientCustomData map[string]in
 	return false
 }
 
-func checkNumbersFilterJSONValue(jsonValue interface{}, filter UserFilter) bool {
+func checkNumbersFilterJSONValue(jsonValue interface{}, filter *UserFilter) bool {
 	return _checkNumbersFilter(jsonValue.(float64), filter)
 }
 
-func _checkNumbersFilter(number float64, filter UserFilter) bool {
+func _checkNumbersFilter(number float64, filter *UserFilter) bool {
 	operator := filter.GetComparator()
 	values := getFilterValuesAsF64(filter)
 	return _checkNumberFilter(number, values, operator)
 }
 
-func checkStringsFilter(str string, filter UserFilter) bool {
+func checkStringsFilter(str string, filter *UserFilter) bool {
 	contains := func(arr []string, substr string) bool {
 		for _, s := range arr {
 			if strings.Contains(s, substr) {
@@ -321,7 +335,7 @@ func checkStringsFilter(str string, filter UserFilter) bool {
 	}
 }
 
-func _checkBooleanFilter(b bool, filter UserFilter) bool {
+func _checkBooleanFilter(b bool, filter *UserFilter) bool {
 	contains := func(arr []bool, search bool) bool {
 		for _, s := range arr {
 			if s == search {
@@ -346,7 +360,7 @@ func _checkBooleanFilter(b bool, filter UserFilter) bool {
 	}
 }
 
-func checkVersionFilters(appVersion string, filter UserFilter) bool {
+func checkVersionFilters(appVersion string, filter *UserFilter) bool {
 	operator := filter.GetComparator()
 	values := getFilterValuesAsString(filter)
 	// dont need to do semver if they"re looking for an exact match. Adds support for non semver versions.
@@ -357,7 +371,7 @@ func checkVersionFilters(appVersion string, filter UserFilter) bool {
 	}
 }
 
-func getFilterValues(filter UserFilter) []interface{} {
+func getFilterValues(filter *UserFilter) []interface{} {
 	values := filter.Values
 	var ret []interface{}
 	for _, value := range values {
@@ -368,7 +382,7 @@ func getFilterValues(filter UserFilter) []interface{} {
 	return ret
 }
 
-func getFilterValuesAsString(filter UserFilter) []string {
+func getFilterValuesAsString(filter *UserFilter) []string {
 	var ret []string
 	jsonValues := getFilterValues(filter)
 	for _, jsonValue := range jsonValues {
@@ -382,7 +396,7 @@ func getFilterValuesAsString(filter UserFilter) []string {
 	return ret
 }
 
-func getFilterValuesAsF64(filter UserFilter) []float64 {
+func getFilterValuesAsF64(filter *UserFilter) []float64 {
 	var ret []float64
 	jsonValues := getFilterValues(filter)
 	for _, jsonValue := range jsonValues {
@@ -397,7 +411,7 @@ func getFilterValuesAsF64(filter UserFilter) []float64 {
 	return ret
 }
 
-func getFilterValuesAsBoolean(filter UserFilter) []bool {
+func getFilterValuesAsBoolean(filter *UserFilter) []bool {
 	var ret []bool
 	jsonValues := getFilterValues(filter)
 	for _, jsonValue := range jsonValues {

@@ -22,18 +22,40 @@ func TestAudience_Parsing(t *testing.T) {
 			Filters: &AudienceOperator{
 				Operator: "and",
 				Filters: MixedFilters{
-					&UserFilter{
-						filter: filter{
-							Type:       "user",
-							SubType:    "customData",
-							Comparator: "=",
+					&CustomDataFilter{
+						UserFilter: &UserFilter{
+							filter: filter{
+								Type:       "user",
+								SubType:    "customData",
+								Comparator: "=",
+							},
+							Values: []any{
+								"iYI6uwZed0ip",
+								"QqDKIhOwJqGz",
+								"BkWS2ug4LiRg",
+								"h6fCse1VCIo1",
+							},
+							CompiledStringVals: []string{
+								"iYI6uwZed0ip",
+								"QqDKIhOwJqGz",
+								"BkWS2ug4LiRg",
+								"h6fCse1VCIo1",
+							},
 						},
+						DataKey:     "data-key-6",
+						DataKeyType: "String",
 					},
 					&UserFilter{
 						filter: filter{
 							Type:       "user",
 							SubType:    "user_id",
 							Comparator: "=",
+						},
+						Values: []any{
+							"user_680f420d-a65f-406c-8aaf-0b39a617e696",
+						},
+						CompiledStringVals: []string{
+							"user_680f420d-a65f-406c-8aaf-0b39a617e696",
 						},
 					},
 				},
