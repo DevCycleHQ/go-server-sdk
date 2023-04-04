@@ -1,4 +1,4 @@
-name: Benchmark SDK
+name: Benchmark
 on:
   push:
     branches: [ main ]
@@ -7,38 +7,30 @@ on:
 
 jobs:
   benchmark:
-    name: Performance regression check
+    name: Performance Regression Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
           go-version: 1.19
-      # Run benchmark with `go test -bench` and stores the output to a file
       - name: Run benchmark
         run: go test -bench=. -run=^# -benchDisableLogs | tee bench_output.txt
-      # Download previous benchmark result from cache (if exists)
       - name: Download previous benchmark data
         uses: actions/cache@v3
         with:
           path: ./cache
           key: ${{ runner.os }}-benchmark
-      # Run `github-action-benchmark` action
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          # What benchmark tool the output.txt came from
           tool: 'go'
-          # Where the output from the benchmark tool is stored
           output-file-path: bench_output.txt
-          # Where the previous data file is stored
           external-data-json-path: ./cache/benchmark-data.json
           summary-always: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          comment-always: true
           fail-on-alert: true
-          fail-threshold: 150%
+          fail-threshold: 110%
           comment-on-alert: true
-          alert-threshold: 150%
+          alert-threshold: 110%
 
-      # Upload the updated cache file for the next job by actions/cache
