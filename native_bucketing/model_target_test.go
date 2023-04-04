@@ -58,6 +58,26 @@ func TestAudience_Parsing(t *testing.T) {
 							"user_680f420d-a65f-406c-8aaf-0b39a617e696",
 						},
 					},
+					&AudienceMatchFilter{
+						filter: filter{
+							Type:       "audienceMatch",
+							SubType:    "",
+							Comparator: "!=",
+							Operator:   "",
+						},
+						Audiences: []string{
+							"7db4d6f7e53543e4a413ac539477bac6",
+							"145f66b2bfce4e7e9c8bd3a432e28c8d",
+						},
+					},
+					&AudienceFilter{
+						filter: filter{
+							Type:       "all",
+							SubType:    "",
+							Comparator: "",
+							Operator:   "",
+						},
+					},
 				},
 			},
 		},
