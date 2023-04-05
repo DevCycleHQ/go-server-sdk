@@ -17,6 +17,6 @@ type Variation struct {
 }
 
 type VariationVariable struct {
-	Var   string `json:"_var"`
-	Value string `json:"value"`
+	Var   string      `json:"_var"`
+	Value interface{} `json:"value"`
 }

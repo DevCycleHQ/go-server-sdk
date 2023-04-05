@@ -1,6 +1,10 @@
 package native_bucketing
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestSegmentation_EvaluateOperator_FailEmpty(t *testing.T) {
 
@@ -23,7 +27,7 @@ func TestSegmentation_EvaluateOperator_FailEmpty(t *testing.T) {
 	}
 }
 
-func TestSegementation_EvaluateOperator_PassAll(t *testing.T) {
+func TestSegmentation_EvaluateOperator_PassAll(t *testing.T) {
 	platformData := PlatformData{
 		Platform:        "iOS",
 		PlatformVersion: "10.3.1",
@@ -34,7 +38,7 @@ func TestSegementation_EvaluateOperator_PassAll(t *testing.T) {
 		PlatformData: platformData,
 	}
 
-	userAllFilter := UserFilter{
+	userAllFilter := &UserFilter{
 		filter: filter{
 			Type:       "all",
 			Comparator: "=",
@@ -52,7 +56,7 @@ func TestSegementation_EvaluateOperator_PassAll(t *testing.T) {
 	}
 }
 
-func TestSegementation_EvaluateOperator_UnknownFilter(t *testing.T) {
+func TestSegmentation_EvaluateOperator_UnknownFilter(t *testing.T) {
 	platformData := PlatformData{
 		Platform:        "iOS",
 		PlatformVersion: "10.3.1",
@@ -63,7 +67,7 @@ func TestSegementation_EvaluateOperator_UnknownFilter(t *testing.T) {
 		PlatformData: platformData,
 	}
 
-	userAllFilter := UserFilter{
+	userAllFilter := &UserFilter{
 		filter: filter{
 			Type:       "myNewFilter",
 			Comparator: "=",
@@ -91,7 +95,7 @@ func TestEvaluateOperator_InvalidComparator(t *testing.T) {
 		Email:        "brooks@big.lunch",
 		PlatformData: platformData,
 	}
-	userEmailFilter := UserFilter{
+	userEmailFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
 			SubType:    "email",
@@ -108,7 +112,7 @@ func TestEvaluateOperator_InvalidComparator(t *testing.T) {
 
 func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 	userFilters := MixedFilters{
-		UserFilter{
+		&UserFilter{
 			filter: filter{
 				Type:       "user",
 				SubType:    "email",
@@ -116,14 +120,14 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 			},
 			Values: []interface{}{"dexter@smells.nice", "brooks@big.lunch"},
 		},
-		UserFilter{
+		&UserFilter{
 			filter: filter{
 				Type:       "user",
 				SubType:    "country",
 				Comparator: "=",
 			},
 			Values: []interface{}{"Canada"}},
-		UserFilter{
+		&UserFilter{
 			filter: filter{
 				Type:       "user",
 				SubType:    "appVersion",
@@ -170,7 +174,7 @@ func TestEvaluateOperator_UserSubFilterInvalid(t *testing.T) {
 		PlatformData: platformData,
 	}
 
-	userAllFilter := UserFilter{
+	userAllFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
 			SubType:    "myNewFilter",
@@ -196,7 +200,7 @@ func TestEvaluateOperator_UserNewComparator(t *testing.T) {
 		PlatformData: platformData,
 	}
 
-	userAllFilter := UserFilter{
+	userAllFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
 			SubType:    "email",
@@ -223,7 +227,7 @@ func TestEvaluateOperator_UserFiltersAnd(t *testing.T) {
 		AppVersion:   "2.0.2",
 	}
 
-	countryFilter := UserFilter{
+	countryFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
 			SubType:    "country",
@@ -231,8 +235,8 @@ func TestEvaluateOperator_UserFiltersAnd(t *testing.T) {
 		},
 		Values: []interface{}{"Canada"},
 	}
-	countryFilter.Initialize()
-	emailFilter := UserFilter{
+	require.NoError(t, countryFilter.Initialize())
+	emailFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
 			SubType:    "email",
@@ -240,8 +244,8 @@ func TestEvaluateOperator_UserFiltersAnd(t *testing.T) {
 		},
 		Values: []interface{}{"dexter@smells.nice", "brooks@big.lunch"},
 	}
-	emailFilter.Initialize()
-	appVerFilter := UserFilter{
+	require.NoError(t, emailFilter.Initialize())
+	appVerFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
 			SubType:    "appVersion",
@@ -249,7 +253,7 @@ func TestEvaluateOperator_UserFiltersAnd(t *testing.T) {
 		},
 		Values: []interface{}{"1.0.0"},
 	}
-	appVerFilter.Initialize()
+	require.NoError(t, appVerFilter.Initialize())
 
 	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{countryFilter, emailFilter, appVerFilter}}, nil, brooks, nil)
 	if !result {
@@ -269,25 +273,25 @@ func TestEvaluateOperator_UserFiltersOr(t *testing.T) {
 		AppVersion:   "2.0.2",
 	}
 
-	countryFilter := UserFilter{
+	countryFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
 			SubType:    "country",
 			Comparator: "=",
 		},
-		Values: []interface{}{"Canada"},
+		Values: []interface{}{"Banada"},
 	}
-	countryFilter.Initialize()
-	emailFilter := UserFilter{
+	require.NoError(t, countryFilter.Initialize())
+	emailFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
 			SubType:    "email",
 			Comparator: "=",
 		},
-		Values: []interface{}{"dexter@smells.nice", "brooks@big.lunch"},
+		Values: []interface{}{"dexter@smells.nice"},
 	}
-	emailFilter.Initialize()
-	appVerFilter := UserFilter{
+	require.NoError(t, emailFilter.Initialize())
+	appVerFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
 			SubType:    "appVersion",
@@ -295,7 +299,7 @@ func TestEvaluateOperator_UserFiltersOr(t *testing.T) {
 		},
 		Values: []interface{}{"1.0.0"},
 	}
-	appVerFilter.Initialize()
+	require.NoError(t, appVerFilter.Initialize())
 
 	result := _evaluateOperator(AudienceOperator{Operator: "or", Filters: MixedFilters{countryFilter, emailFilter, appVerFilter}}, nil, brooks, nil)
 	if !result {
@@ -304,13 +308,123 @@ func TestEvaluateOperator_UserFiltersOr(t *testing.T) {
 }
 
 func TestEvaluateOperator_NestedAnd(t *testing.T) {
-	// Nested filters currently do not have a model
-	t.Fail()
+	platformData := PlatformData{
+		Platform:        "iOS",
+		PlatformVersion: "2.0.0",
+	}
+	brooks := DVCPopulatedUser{
+		Country:      "Canada",
+		Email:        "brooks@big.lunch",
+		PlatformData: platformData,
+		AppVersion:   "2.0.2",
+	}
+	countryFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "country",
+			Comparator: "=",
+		},
+		Values: []interface{}{"Canada"},
+	}
+	require.NoError(t, countryFilter.Initialize())
+	emailFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "email",
+			Comparator: "=",
+		},
+		Values: []interface{}{"dexter@smells.nice", "brooks@big.lunch"},
+	}
+	require.NoError(t, emailFilter.Initialize())
+	appVerFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "appVersion",
+			Comparator: ">",
+		},
+		Values: []interface{}{"1.0.0"},
+	}
+	require.NoError(t, appVerFilter.Initialize())
+
+	nestedOperator := &OperatorFilter{
+		Operator: &AudienceOperator{
+			Operator: "and",
+			Filters:  MixedFilters{countryFilter, emailFilter, appVerFilter},
+		},
+	}
+	topLevelFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "country",
+			Comparator: "!=",
+		},
+		Values: []interface{}{"Nanada"},
+	}
+
+	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{topLevelFilter, nestedOperator}}, nil, brooks, nil)
+	if !result {
+		t.Error("Expected true, got false")
+	}
 }
 
 func TestEvaluateOperator_NestedOr(t *testing.T) {
-	// Nested filters currently do not have a model
-	t.Fail()
+	platformData := PlatformData{
+		Platform:        "iOS",
+		PlatformVersion: "2.0.0",
+	}
+	brooks := DVCPopulatedUser{
+		Country:      "Canada",
+		Email:        "brooks@big.lunch",
+		PlatformData: platformData,
+		AppVersion:   "2.0.2",
+	}
+	countryFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "country",
+			Comparator: "=",
+		},
+		Values: []interface{}{"Nanada"},
+	}
+	require.NoError(t, countryFilter.Initialize())
+	emailFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "email",
+			Comparator: "=",
+		},
+		Values: []interface{}{"dexter@smells.nice", "brooks@big.lunch"},
+	}
+	require.NoError(t, emailFilter.Initialize())
+	appVerFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "appVersion",
+			Comparator: "=",
+		},
+		Values: []interface{}{"1.0.0"},
+	}
+	require.NoError(t, appVerFilter.Initialize())
+
+	nestedOperator := &OperatorFilter{
+		Operator: &AudienceOperator{
+			Operator: "or",
+			Filters:  MixedFilters{countryFilter, emailFilter, appVerFilter},
+		},
+	}
+	topLevelFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "country",
+			Comparator: "=",
+		},
+		Values: []interface{}{"Nanada"},
+	}
+
+	result := _evaluateOperator(AudienceOperator{Operator: "or", Filters: MixedFilters{topLevelFilter, nestedOperator}}, nil, brooks, nil)
+	if !result {
+		t.Error("Expected true, got false")
+	}
 }
 
 func TestEvaluateOperator_AndCustomData(t *testing.T) {
@@ -325,7 +439,7 @@ func TestEvaluateOperator_AndCustomData(t *testing.T) {
 		AppVersion:   "2.0.2",
 	}
 
-	countryFilter := UserFilter{
+	countryFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
 			SubType:    "country",
@@ -333,8 +447,8 @@ func TestEvaluateOperator_AndCustomData(t *testing.T) {
 		},
 		Values: []interface{}{"Canada"},
 	}
-	countryFilter.Initialize()
-	customDataFilter := CustomDataFilter{
+	require.NoError(t, countryFilter.Initialize())
+	customDataFilter := &CustomDataFilter{
 		UserFilter: &UserFilter{
 			filter: filter{
 				Type:       "user",
@@ -346,9 +460,9 @@ func TestEvaluateOperator_AndCustomData(t *testing.T) {
 		DataKeyType: "String",
 		DataKey:     "something",
 	}
-	customDataFilter.Initialize()
+	require.NoError(t, customDataFilter.Initialize())
 
-	result := _evaluateOperator(AudienceOperator{Operator: "or", Filters: MixedFilters{customDataFilter}}, nil, brooks, nil)
+	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{countryFilter, customDataFilter}}, nil, brooks, nil)
 	if !result {
 		t.Error("Expected true, got false")
 	}
@@ -364,30 +478,23 @@ func TestEvaluateOperator_AndCustomDataMultiValue(t *testing.T) {
 		Email:        "brooks@big.lunch",
 		PlatformData: platformData,
 		AppVersion:   "2.0.2",
-	}
-
-	countryFilter := UserFilter{
-		filter: filter{
-			Type:       "user",
-			SubType:    "country",
-			Comparator: "=",
+		CustomData: map[string]interface{}{
+			"something": "dataValue",
 		},
-		Values: []interface{}{"Canada"},
 	}
-	countryFilter.Initialize()
-	customDataFilter := CustomDataFilter{
+	customDataFilter := &CustomDataFilter{
 		UserFilter: &UserFilter{
 			filter: filter{
 				Type:       "user",
 				SubType:    "customData",
-				Comparator: "!=",
+				Comparator: "=",
 			},
 			Values: []interface{}{"dataValue", "dataValue2"},
 		},
 		DataKeyType: "String",
 		DataKey:     "something",
 	}
-	customDataFilter.Initialize()
+	require.NoError(t, customDataFilter.Initialize())
 
 	result := _evaluateOperator(AudienceOperator{Operator: "or", Filters: MixedFilters{customDataFilter}}, nil, brooks, nil)
 	if !result {
@@ -410,16 +517,7 @@ func TestEvaluateOperator_AndPrivateCustomDataMultiValue(t *testing.T) {
 		},
 	}
 
-	countryFilter := UserFilter{
-		filter: filter{
-			Type:       "user",
-			SubType:    "country",
-			Comparator: "=",
-		},
-		Values: []interface{}{"Canada"},
-	}
-	countryFilter.Initialize()
-	customDataFilter := CustomDataFilter{
+	customDataFilter := &CustomDataFilter{
 		UserFilter: &UserFilter{
 			filter: filter{
 				Type:       "user",
@@ -429,11 +527,11 @@ func TestEvaluateOperator_AndPrivateCustomDataMultiValue(t *testing.T) {
 			Values: []interface{}{"dataValue", "dataValue2"},
 		},
 		DataKeyType: "String",
-		DataKey:     "something",
+		DataKey:     "testKey",
 	}
-	customDataFilter.Initialize()
+	require.NoError(t, customDataFilter.Initialize())
 
-	result := _evaluateOperator(AudienceOperator{Operator: "or", Filters: MixedFilters{customDataFilter}}, nil, brooks, nil)
+	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{customDataFilter}}, nil, brooks, nil)
 	if result {
 		t.Error("Expected false, got true")
 	}

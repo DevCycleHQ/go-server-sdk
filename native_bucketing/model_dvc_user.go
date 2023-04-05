@@ -1,8 +1,9 @@
 package native_bucketing
 
 import (
-	"golang.org/x/exp/maps"
 	"time"
+
+	"golang.org/x/exp/maps"
 )
 
 type DVCUser struct {
@@ -35,7 +36,7 @@ type DVCPopulatedUser struct {
 }
 
 func (p *DVCPopulatedUser) CombinedCustomData() map[string]interface{} {
-	var ret map[string]interface{}
+	ret := make(map[string]interface{}, len(p.CustomData)+len(p.PrivateCustomData))
 	maps.Copy(ret, p.CustomData)
 	maps.Copy(ret, p.PrivateCustomData)
 	return ret
