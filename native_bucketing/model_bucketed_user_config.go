@@ -33,9 +33,9 @@ func SDKFeatureFromJSONObj(obj map[string]interface{}) SDKFeature {
 }
 
 type SDKVariable struct {
-	Id         string `json:"_id"`
-	Type       string `json:"type"`
-	Key        string `json:"key"`
-	Value      string `json:"value"`
-	EvalReason string `json:"evalReason"`
+	Id         string      `json:"_id"`
+	Type       string      `json:"type"`
+	Key        string      `json:"key"`
+	Value      interface{} `json:"value"`
+	EvalReason string      `json:"evalReason"`
 }

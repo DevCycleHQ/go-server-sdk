@@ -1,5 +1,15 @@
 package native_bucketing
 
+import (
+	_ "embed"
+)
+
+var (
+	//go:embed testdata/fixture_large_config.json
+	test_large_config          string
+	test_large_config_variable = "v-key-25"
+)
+
 const (
 	OperatorAnd = "and"
 	OperatorOr  = "or"

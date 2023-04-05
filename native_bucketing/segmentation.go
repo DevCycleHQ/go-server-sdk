@@ -97,7 +97,7 @@ func filterFunctionsBySubtype(subType string, user DVCPopulatedUser, filter Base
 		if err := customDataFilter.Validate(); err != nil {
 			return false
 		}
-		return checkCustomData(user.CombinedCustomData(), clientCustomData, filter.(CustomDataFilter))
+		return checkCustomData(user.CombinedCustomData(), clientCustomData, customDataFilter)
 	} else {
 		return false
 	}
@@ -160,11 +160,11 @@ func checkVersionFilter(version string, filterVersions []string, operator string
 	if parsedOperator != "=" {
 		// remove any non-number and . characters, and remove everything after a hyphen
 		// eg. 1.2.3a-b6 becomes 1.2.3
-		regex1, err := regexp.Compile("[^(\\d|.|\\-)]/g")
+		regex1, err := regexp.Compile(`[^(\d|.|\-)]`)
 		if err != nil {
 			fmt.Println("Error compiling regex: ", err)
 		}
-		regex2, err := regexp.Compile("-.*/g")
+		regex2, err := regexp.Compile(`-.*`)
 		if err != nil {
 			fmt.Println("Error compiling regex: ", err)
 		}

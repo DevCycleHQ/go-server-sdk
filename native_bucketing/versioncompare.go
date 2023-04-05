@@ -3,6 +3,7 @@ package native_bucketing
 import (
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -15,9 +16,9 @@ func hasValidParts(lexicographical bool, parts []string) bool {
 	for _, part := range parts {
 		var regex *regexp.Regexp
 		if lexicographical {
-			regex = regexp.MustCompile("^\\d+[A-Za-z]*$/g")
+			regex = regexp.MustCompile(`^\d+[A-Za-z]*$`)
 		} else {
-			regex = regexp.MustCompile("^\\\\d+$/g")
+			regex = regexp.MustCompile(`^\d+$`)
 		}
 		if !regex.MatchString(part) {
 			return false
@@ -49,10 +50,18 @@ func versionCompare(v1, v2 string, options OptionsType) float64 {
 
 	if !lexicographical {
 		for _, v1part := range v1parts {
-			v1PartsFinal = append(v1PartsFinal, float64(len(v1part)))
+			if v1Float, err := strconv.ParseFloat(v1part, 64); err == nil {
+				v1PartsFinal = append(v1PartsFinal, v1Float)
+			} else {
+				v1PartsFinal = append(v1PartsFinal, math.NaN())
+			}
 		}
 		for _, v2part := range v2parts {
-			v2PartsFinal = append(v2PartsFinal, float64(len(v2part)))
+			if v2Float, err := strconv.ParseFloat(v2part, 64); err == nil {
+				v2PartsFinal = append(v2PartsFinal, v2Float)
+			} else {
+				v1PartsFinal = append(v1PartsFinal, math.NaN())
+			}
 		}
 	}
 	for i, v1p := range v1PartsFinal {

@@ -265,7 +265,7 @@ func (f AudienceMatchFilter) Validate() error {
 	return nil
 }
 
-func checkCustomData(data map[string]interface{}, clientCustomData map[string]interface{}, filter CustomDataFilter) bool {
+func checkCustomData(data map[string]interface{}, clientCustomData map[string]interface{}, filter *CustomDataFilter) bool {
 	operator := filter.GetComparator()
 	var dataValue interface{}
 
@@ -327,11 +327,13 @@ func checkStringsFilter(str string, filter *UserFilter) bool {
 	} else if operator == "!exist" {
 		return str == ""
 	} else if operator == "contain" {
-		return str != "" && !!contains(values, str)
+		// TODO: This is not the same as the old behaviour.
+		return str != "" && contains(values, str)
 	} else if operator == "!contain" {
+		// TODO: This is not the same as the old behaviour.
 		return str == "" || !contains(values, str)
 	} else {
-		return true
+		return false
 	}
 }
 
@@ -383,6 +385,7 @@ func getFilterValues(filter *UserFilter) []interface{} {
 }
 
 func getFilterValuesAsString(filter *UserFilter) []string {
+	// TODO: Just use compiled values here?
 	var ret []string
 	jsonValues := getFilterValues(filter)
 	for _, jsonValue := range jsonValues {
@@ -397,6 +400,7 @@ func getFilterValuesAsString(filter *UserFilter) []string {
 }
 
 func getFilterValuesAsF64(filter *UserFilter) []float64 {
+	// TODO: Just use compiled values here?
 	var ret []float64
 	jsonValues := getFilterValues(filter)
 	for _, jsonValue := range jsonValues {
@@ -412,6 +416,7 @@ func getFilterValuesAsF64(filter *UserFilter) []float64 {
 }
 
 func getFilterValuesAsBoolean(filter *UserFilter) []bool {
+	// TODO: Just use compiled values here?
 	var ret []bool
 	jsonValues := getFilterValues(filter)
 	for _, jsonValue := range jsonValues {
