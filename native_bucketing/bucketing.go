@@ -87,8 +87,7 @@ func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64
 }
 
 func doesUserPassRollout(rollout Rollout, boundedHash float64) bool {
-	if rollout.StartDate == time.Unix(0, 0) &&
-		rollout.StartDate == time.Unix(0, 0) && rollout.Type == "" && len(rollout.Stages) == 0 {
+	if rollout.StartDate == time.Unix(0, 0) && rollout.Type == "" && len(rollout.Stages) == 0 {
 		return true
 	}
 	var rolloutPercentage = getCurrentRolloutPercentage(rollout, time.Now())
@@ -100,27 +99,20 @@ type SegmentedFeatureData struct {
 	Target  Target  `json:"target"`
 }
 
-func evaluateSegmentationForFeature(config ConfigBody, feature Feature, user DVCPopulatedUser, clientCustomData map[string]interface{}) (error, Target) {
-	if len(feature.Configuration.Targets) == 0 {
-		return fmt.Errorf("feature %s has no targets", feature.Key), Target{}
-	}
+func evaluateSegmentationForFeature(config ConfigBody, feature Feature, user DVCPopulatedUser, clientCustomData map[string]interface{}) *Target {
 	for _, target := range feature.Configuration.Targets {
 		if _evaluateOperator(target.Audience.Filters, config.Audiences, user, clientCustomData) {
-			return nil, target
+			return &target
 		}
 	}
-	return fmt.Errorf("user %s does not qualify for any targets for feature %s", user.UserId, feature.Key), Target{}
+	return nil
 }
 
 func getSegmentedFeatureDataFromConfig(config ConfigBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) []SegmentedFeatureData {
 	var accumulator []SegmentedFeatureData
 	for _, feature := range config.Features {
-		var segmentedFeatureTarget *Target
+		segmentedFeatureTarget := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
 
-		if err, t2 := evaluateSegmentationForFeature(config, feature, user, clientCustomData); err != nil {
-			segmentedFeatureTarget = &t2
-			break
-		}
 		if segmentedFeatureTarget != nil {
 			featureData := SegmentedFeatureData{
 				Feature: feature,
@@ -137,54 +129,50 @@ type TargetAndHashes struct {
 	Hashes BoundedHash
 }
 
-func doesUserQualifyForFeature(config ConfigBody, feature Feature, user DVCPopulatedUser, clientCustomData map[string]interface{}) (error, TargetAndHashes) {
-	err, target := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
-	if err != nil {
-		return fmt.Errorf("user %s does not qualify for any targets for feature %s", user.UserId, feature.Key), TargetAndHashes{}
+func doesUserQualifyForFeature(config ConfigBody, feature Feature, user DVCPopulatedUser, clientCustomData map[string]interface{}) (TargetAndHashes, error) {
+	target := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
+	if target == nil {
+		return TargetAndHashes{}, fmt.Errorf("user %s does not qualify for any targets for feature %s", user.UserId, feature.Key)
 	}
 
 	boundedHashes := GenerateBoundedHashes(user.UserId, target.Id)
 	rolloutHash := boundedHashes.RolloutHash
 
 	if target.Rollout != nil && !doesUserPassRollout(*target.Rollout, rolloutHash) {
-		return fmt.Errorf("user %s does not qualify for feature %s rollout", user.UserId, feature.Key), TargetAndHashes{}
+		return TargetAndHashes{}, fmt.Errorf("user %s does not qualify for feature %s rollout", user.UserId, feature.Key)
 	}
-	return nil, TargetAndHashes{
-		Target: target,
+	return TargetAndHashes{
+		Target: *target,
 		Hashes: boundedHashes,
-	}
+	}, nil
 }
 
-func bucketUserForVariation(feature Feature, hashes TargetAndHashes) (error, Variation) {
+func bucketUserForVariation(feature Feature, hashes TargetAndHashes) (Variation, error) {
 	variationId, err := hashes.Target.DecideTargetVariation(hashes.Hashes.BucketingHash)
 	if err != nil {
-		return err, Variation{}
+		return Variation{}, err
 	}
-	var variation *Variation
 	for _, v := range feature.Variations {
 		if v.Id == variationId {
-			variation = &v
+			return v, nil
 		}
 	}
-	if variation == nil {
-		return fmt.Errorf("config missing variation %s", variationId), Variation{}
-	}
-	return nil, *variation
+	return Variation{}, fmt.Errorf("config missing variation %s", variationId)
 }
 
-func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) BucketedUserConfig {
+func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) (BucketedUserConfig, error) {
 	variableMap := make(map[string]SDKVariable)
 	featureKeyMap := make(map[string]SDKFeature)
 	featureVariationMap := make(map[string]string)
 	variableVariationMap := make(map[string]FeatureVariation)
 
 	for _, feature := range config.Features {
-		err, targetAndHashes := doesUserQualifyForFeature(config, feature, user, clientCustomData)
+		targetAndHashes, err := doesUserQualifyForFeature(config, feature, user, clientCustomData)
 		if err != nil {
 			continue
 		}
 
-		err, variation := bucketUserForVariation(feature, targetAndHashes)
+		variation, err := bucketUserForVariation(feature, targetAndHashes)
 		if err != nil {
 			continue
 		}
