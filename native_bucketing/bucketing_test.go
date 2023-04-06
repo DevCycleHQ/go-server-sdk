@@ -1,13 +1,18 @@
 package native_bucketing
 
 import (
-	"encoding/json"
+	_ "embed"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+)
+
+var (
+	//go:embed testdata/fixture_test_config.json
+	test_config []byte
 )
 
 func TestUserHashingBucketing_BucketingDistribution(t *testing.T) {
@@ -118,22 +123,48 @@ func TestBucketing_Deterministic_RolloutNotEqualBucketing(t *testing.T) {
 }
 
 func TestConfigParsing(t *testing.T) {
-	var config ConfigBody
-
 	// Parsing the large config should succeed without an error
-	err := json.Unmarshal([]byte(test_large_config), &config)
+	config, err := NewConfig(test_config, "")
 	require.NoError(t, err)
 
 	// Spot check parsing down to a filter
 	features := config.Features
-	require.Len(t, features, 79)
+	require.Len(t, features, 4)
 	targets := features[0].Configuration.Targets
-	require.Len(t, targets, 2)
+	require.Len(t, targets, 3)
 	filters := targets[0].Audience.Filters.Filters
 	require.Len(t, filters, 1)
 	require.Equal(t, "user", filters[0].GetType())
-	require.Equal(t, "user_id", filters[0].GetSubType())
+	require.Equal(t, "email", filters[0].GetSubType())
 	require.Equal(t, "=", filters[0].GetComparator())
+
+	// Check maps of variables IDs and keys
+	require.Equal(t, map[string]Variable{
+		"614ef6ea475129459160721a": {Id: "614ef6ea475129459160721a", Type: "String", Key: "test"},
+		"615356f120ed334a6054564c": {Id: "615356f120ed334a6054564c", Type: "String", Key: "swagTest"},
+		"61538237b0a70b58ae6af71f": {Id: "61538237b0a70b58ae6af71f", Type: "String", Key: "feature2Var"},
+		"61538237b0a70b58ae6af71g": {Id: "61538237b0a70b58ae6af71g", Type: "String", Key: "feature2.cool"},
+		"61538237b0a70b58ae6af71h": {Id: "61538237b0a70b58ae6af71h", Type: "String", Key: "feature2.hello"},
+		"61538237b0a70b58ae6af71q": {Id: "61538237b0a70b58ae6af71q", Type: "JSON", Key: "json-var"},
+		"61538237b0a70b58ae6af71s": {Id: "61538237b0a70b58ae6af71s", Type: "Number", Key: "num-var"},
+		"61538237b0a70b58ae6af71y": {Id: "61538237b0a70b58ae6af71y", Type: "Boolean", Key: "bool-var"},
+		"61538237b0a70b58ae6af71z": {Id: "61538237b0a70b58ae6af71z", Type: "String", Key: "audience-match"},
+		"61538937b0a70b58ae6af71f": {Id: "61538937b0a70b58ae6af71f", Type: "String", Key: "feature4Var"}},
+		config.variableIdMap,
+	)
+	require.Equal(t, map[string]Variable{
+		"audience-match": {Id: "61538237b0a70b58ae6af71z", Type: "String", Key: "audience-match"},
+		"bool-var":       {Id: "61538237b0a70b58ae6af71y", Type: "Boolean", Key: "bool-var"},
+		"feature2.cool":  {Id: "61538237b0a70b58ae6af71g", Type: "String", Key: "feature2.cool"},
+		"feature2.hello": {Id: "61538237b0a70b58ae6af71h", Type: "String", Key: "feature2.hello"},
+		"feature2Var":    {Id: "61538237b0a70b58ae6af71f", Type: "String", Key: "feature2Var"},
+		"feature4Var":    {Id: "61538937b0a70b58ae6af71f", Type: "String", Key: "feature4Var"},
+		"json-var":       {Id: "61538237b0a70b58ae6af71q", Type: "JSON", Key: "json-var"},
+		"num-var":        {Id: "61538237b0a70b58ae6af71s", Type: "Number", Key: "num-var"},
+		"swagTest":       {Id: "615356f120ed334a6054564c", Type: "String", Key: "swagTest"},
+		"test":           {Id: "614ef6ea475129459160721a", Type: "String", Key: "test"}},
+		config.variableKeyMap,
+	)
 }
 
 func TestRollout_Gradual(t *testing.T) {
@@ -355,29 +386,49 @@ func TestRollout_Stepped_Error(t *testing.T) {
 }
 
 func TestClientData(t *testing.T) {
-	t.Skip()
-	// Need to serialize a config/generate a bucketed config
-	//
-	//user := DVCPopulatedUser{
-	//	UserId: "client-test",
-	//
-	//	CustomData: map[string]interface{}{
-	//
-	//		"favouriteFood": "pizza",
-	//		"favouriteNull": nil,
-	//	},
-	//	PlatformData: PlatformData{
-	//		PlatformVersion: "1.1.2",
-	//	},
-	//}
-	//clientCustomData := map[string]interface{}{
-	//	"favouriteFood":  "NOT PIZZAA!!",
-	//	"favouriteDrink": "coffee",
-	//}
-	//initSDK
-	//_generateBucketedConfig()
-	// Ensure bucketed config has a featurefvariationmap that's empty
-	// set client custom data
-	// generatebucketed config
-	// ensure bucketed config has a featurefvariationmap that's not empty and matches
+	user := DVCPopulatedUser{
+		UserId: "client-test",
+		CustomData: map[string]interface{}{
+			"favouriteFood": "pizza",
+			"favouriteNull": nil,
+		},
+		PlatformData: PlatformData{
+			PlatformVersion: "1.1.2",
+		},
+	}
+
+	config, err := NewConfig(test_config, "")
+	require.NoError(t, err)
+
+	// Ensure bucketed config has a feature variation map that's empty
+	bucketedUserConfig, err := _generateBucketedConfig(config, user, nil)
+	require.NoError(t, err)
+
+	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariations)
+
+	clientCustomData := map[string]interface{}{
+		"favouriteFood":  "NOT PIZZA!!",
+		"favouriteDrink": "coffee",
+	}
+
+	bucketedUserConfig, err = _generateBucketedConfig(config, user, clientCustomData)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		"614ef6aa473928459060721a": "615357cf7e9ebdca58446ed0",
+		"614ef6aa475928459060721a": "615382338424cb11646d7667",
+	}, bucketedUserConfig.FeatureVariations)
+
+	user2 := DVCPopulatedUser{
+		UserId: "hates-pizza",
+		CustomData: map[string]interface{}{
+			"favouriteFood": "NOT PIZZA!",
+		},
+		PlatformData: PlatformData{
+			PlatformVersion: "1.1.2",
+		},
+	}
+	bucketedUserConfig, err = _generateBucketedConfig(config, user2, nil)
+	require.NoError(t, err)
+
+	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariations)
 }
