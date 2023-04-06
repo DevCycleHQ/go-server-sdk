@@ -120,8 +120,20 @@ func TestBucketing_Deterministic_RolloutNotEqualBucketing(t *testing.T) {
 func TestConfigParsing(t *testing.T) {
 	var config ConfigBody
 
+	// Parsing the large config should succeed without an error
 	err := json.Unmarshal([]byte(test_large_config), &config)
 	require.NoError(t, err)
+
+	// Spot check parsing down to a filter
+	features := config.Features
+	require.Len(t, features, 79)
+	targets := features[0].Configuration.Targets
+	require.Len(t, targets, 2)
+	filters := targets[0].Audience.Filters.Filters
+	require.Len(t, filters, 1)
+	require.Equal(t, "user", filters[0].GetType())
+	require.Equal(t, "user_id", filters[0].GetSubType())
+	require.Equal(t, "=", filters[0].GetComparator())
 }
 
 func TestRollout_Gradual(t *testing.T) {
