@@ -201,7 +201,7 @@ func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCus
 		for _, variationVar := range variation.Variables {
 			variable := config.GetVariableForId(variationVar.Var)
 			if variable == nil {
-				panic(fmt.Sprintf("Config missing variable: %s", variationVar.Var))
+				return BucketedUserConfig{}, fmt.Errorf("Config missing variable: %s", variationVar.Var)
 			}
 
 			variableVariationMap[variable.Key] = FeatureVariation{
@@ -225,5 +225,5 @@ func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCus
 		FeatureVariations:  featureVariationMap,
 		VariableVariations: variableVariationMap,
 		Variables:          variableMap,
-	}
+	}, nil
 }
