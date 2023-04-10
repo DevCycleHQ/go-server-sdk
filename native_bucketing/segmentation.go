@@ -8,23 +8,23 @@ import (
 )
 
 func _evaluateOperator(operator BaseOperator, audiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
-	if len(operator.Filters()) == 0 {
+	if len(operator.GetFilters()) == 0 {
 		return false
 	}
-	if operator.Operator() == "or" {
-		for _, f := range operator.Filters() {
-			if f.OperatorClass != nil {
-				return _evaluateOperator(f.OperatorClass, audiences, user, clientCustomData)
-			} else if f.FilterClass != nil && doesUserPassFilter(f.FilterClass, audiences, user, clientCustomData) {
+	if operator.GetOperator() == "or" {
+		for _, f := range operator.GetFilters() {
+			if filterOperator, ok := f.GetOperator(); ok {
+				return _evaluateOperator(filterOperator, audiences, user, clientCustomData)
+			} else if doesUserPassFilter(f, audiences, user, clientCustomData) {
 				return true
 			}
 		}
 		return false
-	} else if operator.Operator() == "and" {
-		for _, f := range operator.Filters() {
-			if f.OperatorClass != nil {
-				return _evaluateOperator(f.OperatorClass, audiences, user, clientCustomData)
-			} else if f.FilterClass != nil && !doesUserPassFilter(f.FilterClass, audiences, user, clientCustomData) {
+	} else if operator.GetOperator() == "and" {
+		for _, f := range operator.GetFilters() {
+			if filterOperator, ok := f.GetOperator(); ok {
+				return _evaluateOperator(filterOperator, audiences, user, clientCustomData)
+			} else if !doesUserPassFilter(f, audiences, user, clientCustomData) {
 				return false
 			}
 		}
@@ -34,34 +34,32 @@ func _evaluateOperator(operator BaseOperator, audiences map[string]NoIdAudience,
 }
 
 func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
-	isValid := true
-
-	if filter.Type() == "all" {
+	if filter.GetType() == "all" {
 		return true
-	} else if filter.Type() == "optIn" {
+	} else if filter.GetType() == "optIn" {
 		return false
-	} else if filter.Type() == "audienceMatch" {
-		if amF := filter.(AudienceMatchFilter); amF.Validate() == nil {
-			return filterForAudienceMatch(amF, audiences, user, clientCustomData)
+	} else if filter.GetType() == "audienceMatch" {
+		amF, ok := filter.(AudienceMatchFilter)
+		if !ok {
+			return false
 		}
-		isValid = false
+		if amF.Validate() != nil {
+			return false
+		}
+		return filterForAudienceMatch(amF, audiences, user, clientCustomData)
 	}
 
-	if isValid {
-		userFilter := filter.(UserFilter)
-		if err := userFilter.Validate(); err != nil {
-			return filterFunctionsBySubtype(userFilter.SubType(), user, userFilter, clientCustomData)
-		}
+	if err := filter.Validate(); err != nil {
+		return false
 	}
-
-	return false
+	return filterFunctionsBySubtype(filter.GetSubType(), user, filter, clientCustomData)
 
 }
 
 func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
 
-	audiences := getFilterAudiencesAsStrings(filter)
-	comparator := filter.Comparator()
+	audiences := filter.Audiences
+	comparator := filter.GetComparator()
 
 	for _, audience := range audiences {
 		a, ok := configAudiences[audience]
@@ -75,48 +73,31 @@ func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[stri
 	return comparator == "!="
 }
 
-func getFilterAudiences(filter AudienceMatchFilter) []interface{} {
-	audiences := filter.Audiences()
-	var acc []interface{}
-	for _, audience := range audiences {
-		if audience != nil {
-			acc = append(acc, audience)
-		}
-	}
-	return acc
-}
-
-func getFilterAudiencesAsStrings(filter AudienceMatchFilter) []string {
-	jsonAud := getFilterAudiences(filter)
-	var ret []string
-	for _, aud := range jsonAud {
-		if v, ok := aud.(string); ok {
-			ret = append(ret, v)
-		}
-	}
-	return ret
-}
-
+// TODO: Make this work with less casting
 func filterFunctionsBySubtype(subType string, user DVCPopulatedUser, filter BaseFilter, clientCustomData map[string]interface{}) bool {
 	if subType == "country" {
-		return checkStringsFilter(user.Country, filter.(UserFilter))
+		return checkStringsFilter(user.Country, filter.(*UserFilter))
 	} else if subType == "email" {
-		return checkStringsFilter(user.Email, filter.(UserFilter))
+		return checkStringsFilter(user.Email, filter.(*UserFilter))
 	} else if subType == "user_id" {
-		return checkStringsFilter(user.UserId, filter.(UserFilter))
+		return checkStringsFilter(user.UserId, filter.(*UserFilter))
 	} else if subType == "appVersion" {
-		return checkVersionFilters(user.AppVersion, filter.(UserFilter))
+		return checkVersionFilters(user.AppVersion, filter.(*UserFilter))
 	} else if subType == "platformVersion" {
-		return checkVersionFilters(user.PlatformVersion, filter.(UserFilter))
+		return checkVersionFilters(user.PlatformVersion, filter.(*UserFilter))
 	} else if subType == "deviceModel" {
-		return checkStringsFilter(user.DeviceModel, filter.(UserFilter))
+		return checkStringsFilter(user.DeviceModel, filter.(*UserFilter))
 	} else if subType == "platform" {
-		return checkStringsFilter(user.Platform, filter.(UserFilter))
+		return checkStringsFilter(user.Platform, filter.(*UserFilter))
 	} else if subType == "customData" {
-		if err := filter.(CustomDataFilter).Validate(); err != nil {
+		customDataFilter, ok := filter.(*CustomDataFilter)
+		if !ok {
 			return false
 		}
-		return checkCustomData(user.CombinedCustomData(), clientCustomData, filter.(CustomDataFilter))
+		if err := customDataFilter.Validate(); err != nil {
+			return false
+		}
+		return checkCustomData(user.CombinedCustomData(), clientCustomData, customDataFilter)
 	} else {
 		return false
 	}
@@ -179,11 +160,11 @@ func checkVersionFilter(version string, filterVersions []string, operator string
 	if parsedOperator != "=" {
 		// remove any non-number and . characters, and remove everything after a hyphen
 		// eg. 1.2.3a-b6 becomes 1.2.3
-		regex1, err := regexp.Compile("[^(\\d|.|\\-)]/g")
+		regex1, err := regexp.Compile(`[^(\d|.|\-)]`)
 		if err != nil {
 			fmt.Println("Error compiling regex: ", err)
 		}
-		regex2, err := regexp.Compile("-.*/g")
+		regex2, err := regexp.Compile(`-.*`)
 		if err != nil {
 			fmt.Println("Error compiling regex: ", err)
 		}

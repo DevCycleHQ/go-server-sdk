@@ -1,34 +1,19 @@
 package native_bucketing
 
 type BaseOperator interface {
-	Operator() string
-	Filters() []FilterOrOperator
-}
-
-type TopLevelOperator struct {
-	BaseOperator
-	operator string
-	filters  []FilterOrOperator
-}
-
-func (t TopLevelOperator) Operator() string {
-	return t.operator
-}
-
-func (t TopLevelOperator) Filters() []FilterOrOperator {
-	return t.filters
+	GetOperator() string
+	GetFilters() []BaseFilter
 }
 
 type AudienceOperator struct {
-	BaseOperator
-	operator string
-	filters  []FilterOrOperator
+	Operator string       `json:"operator"`
+	Filters  MixedFilters `json:"filters"`
 }
 
-func (t AudienceOperator) Operator() string {
-	return t.operator
+func (o AudienceOperator) GetOperator() string {
+	return o.Operator
 }
 
-func (t AudienceOperator) Filters() []FilterOrOperator {
-	return t.filters
+func (o AudienceOperator) GetFilters() []BaseFilter {
+	return o.Filters
 }

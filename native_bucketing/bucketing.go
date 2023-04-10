@@ -6,7 +6,7 @@ import (
 )
 
 // Max value of an unsigned 32-bit integer, which is what murmurhash returns
-const MaxHashValue = 4294967295
+const MaxHashValue uint32 = 4294967295
 const baseSeed = 1
 
 type BoundedHash struct {
@@ -15,7 +15,7 @@ type BoundedHash struct {
 }
 
 func GenerateBoundedHashes(userId, targetId string) BoundedHash {
-	var targetHash = Murmurhashv3([]byte(targetId), baseSeed)
+	var targetHash = murmurhashV3([]byte(targetId), baseSeed)
 	var bhash = BoundedHash{
 		RolloutHash:   generateBoundedHash(userId+"_rollout", targetHash),
 		BucketingHash: generateBoundedHash(userId, targetHash),
@@ -24,7 +24,8 @@ func GenerateBoundedHashes(userId, targetId string) BoundedHash {
 }
 
 func generateBoundedHash(input string, hashSeed uint32) float64 {
-	return float64(Murmurhashv3([]byte(input), hashSeed) / MaxHashValue)
+	mh := murmurhashV3([]byte(input), hashSeed)
+	return float64(mh) / float64(MaxHashValue)
 }
 
 func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64 {
@@ -41,20 +42,29 @@ func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64
 	var stages = rollout.Stages
 	var currentStages []RolloutStage
 	var nextStages []RolloutStage
-	if len(stages) > 0 {
-		for _, stage := range stages {
-			if stage.Date.Before(currentDateTime) {
-				currentStages = append(currentStages, stage)
-			} else {
-				nextStages = append(nextStages, stage)
-			}
+
+	for _, stage := range stages {
+		if stage.Date.Before(currentDateTime) {
+			currentStages = append(currentStages, stage)
+		} else {
+			nextStages = append(nextStages, stage)
 		}
 	}
-	_currentStage := currentStages[len(currentStages)-1]
-	nextStage := &nextStages[0]
 
-	currentStage := &_currentStage
-	if (_currentStage != RolloutStage{} && startDateTime.Before(currentDateTime)) {
+	var _currentStage *RolloutStage
+	var nextStage *RolloutStage
+	if len(currentStages) == 0 {
+		_currentStage = nil
+	} else {
+		_currentStage = &currentStages[len(currentStages)-1]
+	}
+	if len(nextStages) == 0 {
+		nextStage = nil
+	} else {
+		nextStage = &nextStages[0]
+	}
+	currentStage := _currentStage
+	if _currentStage == nil && startDateTime.Before(currentDateTime) {
 		currentStage = &RolloutStage{
 			Type:       "discrete",
 			Date:       rollout.StartDate,
@@ -68,8 +78,8 @@ func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64
 		return currentStage.Percentage
 	}
 
-	currentDatePercentage := float64(currentDateTime.Sub(currentStage.Date).Milliseconds() /
-		(nextStage.Date.Sub(currentStage.Date).Milliseconds()))
+	currentDatePercentage := float64(currentDateTime.Sub(currentStage.Date).Milliseconds()) /
+		float64(nextStage.Date.Sub(currentStage.Date).Milliseconds())
 	if currentDatePercentage == 0 {
 		return 0
 	}
@@ -77,8 +87,7 @@ func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64
 }
 
 func doesUserPassRollout(rollout Rollout, boundedHash float64) bool {
-	if rollout.StartDate == time.Unix(0, 0) &&
-		rollout.StartDate == time.Unix(0, 0) && rollout.Type == "" && len(rollout.Stages) == 0 {
+	if rollout.StartDate == time.Unix(0, 0) && rollout.Type == "" && len(rollout.Stages) == 0 {
 		return true
 	}
 	var rolloutPercentage = getCurrentRolloutPercentage(rollout, time.Now())
@@ -90,27 +99,20 @@ type SegmentedFeatureData struct {
 	Target  Target  `json:"target"`
 }
 
-func evaluateSegmentationForFeature(config ConfigBody, feature Feature, user DVCPopulatedUser, clientCustomData map[string]interface{}) (error, Target) {
-	if len(feature.Configuration.Targets) == 0 {
-		return fmt.Errorf("feature %s has no targets", feature.Key), Target{}
-	}
+func evaluateSegmentationForFeature(config ConfigBody, feature Feature, user DVCPopulatedUser, clientCustomData map[string]interface{}) *Target {
 	for _, target := range feature.Configuration.Targets {
 		if _evaluateOperator(target.Audience.Filters, config.Audiences, user, clientCustomData) {
-			return nil, target
+			return &target
 		}
 	}
-	return fmt.Errorf("user %s does not qualify for any targets for feature %s", user.UserId, feature.Key), Target{}
+	return nil
 }
 
 func getSegmentedFeatureDataFromConfig(config ConfigBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) []SegmentedFeatureData {
 	var accumulator []SegmentedFeatureData
 	for _, feature := range config.Features {
-		var segmentedFeatureTarget *Target
+		segmentedFeatureTarget := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
 
-		if err, t2 := evaluateSegmentationForFeature(config, feature, user, clientCustomData); err != nil {
-			segmentedFeatureTarget = &t2
-			break
-		}
 		if segmentedFeatureTarget != nil {
 			featureData := SegmentedFeatureData{
 				Feature: feature,
@@ -127,54 +129,50 @@ type TargetAndHashes struct {
 	Hashes BoundedHash
 }
 
-func doesUserQualifyForFeature(config ConfigBody, feature Feature, user DVCPopulatedUser, clientCustomData map[string]interface{}) (error, TargetAndHashes) {
-	err, target := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
-	if err != nil {
-		return fmt.Errorf("user %s does not qualify for any targets for feature %s", user.UserId, feature.Key), TargetAndHashes{}
+func doesUserQualifyForFeature(config ConfigBody, feature Feature, user DVCPopulatedUser, clientCustomData map[string]interface{}) (TargetAndHashes, error) {
+	target := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
+	if target == nil {
+		return TargetAndHashes{}, fmt.Errorf("user %s does not qualify for any targets for feature %s", user.UserId, feature.Key)
 	}
 
 	boundedHashes := GenerateBoundedHashes(user.UserId, target.Id)
 	rolloutHash := boundedHashes.RolloutHash
 
 	if target.Rollout != nil && !doesUserPassRollout(*target.Rollout, rolloutHash) {
-		return fmt.Errorf("user %s does not qualify for feature %s rollout", user.UserId, feature.Key), TargetAndHashes{}
+		return TargetAndHashes{}, fmt.Errorf("user %s does not qualify for feature %s rollout", user.UserId, feature.Key)
 	}
-	return nil, TargetAndHashes{
-		Target: target,
+	return TargetAndHashes{
+		Target: *target,
 		Hashes: boundedHashes,
-	}
+	}, nil
 }
 
-func bucketUserForVariation(feature Feature, hashes TargetAndHashes) (error, Variation) {
+func bucketUserForVariation(feature Feature, hashes TargetAndHashes) (Variation, error) {
 	variationId, err := hashes.Target.DecideTargetVariation(hashes.Hashes.BucketingHash)
 	if err != nil {
-		return err, Variation{}
+		return Variation{}, err
 	}
-	var variation *Variation
 	for _, v := range feature.Variations {
 		if v.Id == variationId {
-			variation = &v
+			return v, nil
 		}
 	}
-	if variation == nil {
-		return fmt.Errorf("config missing variation %s", variationId), Variation{}
-	}
-	return nil, *variation
+	return Variation{}, fmt.Errorf("config missing variation %s", variationId)
 }
 
-func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) BucketedUserConfig {
+func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) (BucketedUserConfig, error) {
 	variableMap := make(map[string]SDKVariable)
 	featureKeyMap := make(map[string]SDKFeature)
 	featureVariationMap := make(map[string]string)
 	variableVariationMap := make(map[string]FeatureVariation)
 
 	for _, feature := range config.Features {
-		err, targetAndHashes := doesUserQualifyForFeature(config, feature, user, clientCustomData)
+		targetAndHashes, err := doesUserQualifyForFeature(config, feature, user, clientCustomData)
 		if err != nil {
 			continue
 		}
 
-		err, variation := bucketUserForVariation(feature, targetAndHashes)
+		variation, err := bucketUserForVariation(feature, targetAndHashes)
 		if err != nil {
 			continue
 		}
@@ -191,7 +189,7 @@ func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCus
 		for _, variationVar := range variation.Variables {
 			variable := config.GetVariableForId(variationVar.Var)
 			if variable == nil {
-				panic(fmt.Sprintf("Config missing variable: %s", variationVar.Var))
+				return BucketedUserConfig{}, fmt.Errorf("Config missing variable: %s", variationVar.Var)
 			}
 
 			variableVariationMap[variable.Key] = FeatureVariation{
@@ -215,5 +213,5 @@ func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCus
 		FeatureVariations:  featureVariationMap,
 		VariableVariations: variableVariationMap,
 		Variables:          variableMap,
-	}
+	}, nil
 }
