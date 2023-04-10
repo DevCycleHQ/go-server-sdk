@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -29,20 +28,25 @@ var (
 // DVCClient
 // In most cases there should be only one, shared, DVCClient.
 type DVCClient struct {
-	cfg                 *HTTPConfiguration
-	ctx                 context.Context
-	common              service // Reuse a single struct instead of allocating one for each service on the heap.
-	DevCycleOptions     *DVCOptions
-	sdkKey              string
-	wasmMain            *WASMMain
-	localBucketing      *DevCycleLocalBucketing
-	bucketingObjectPool *BucketingPool
-	configManager       *EnvironmentConfigManager
-	eventQueue          *EventQueue
+	cfg             *HTTPConfiguration
+	ctx             context.Context
+	common          service // Reuse a single struct instead of allocating one for each service on the heap.
+	DevCycleOptions *DVCOptions
+	sdkKey          string
+	configManager   *EnvironmentConfigManager
+	eventQueue      *EventQueue
+	localBucketing  LocalBucketing
 
 	// Set to true when the client has been initialized, regardless of whether the config has loaded successfully.
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
+}
+
+type LocalBucketing interface {
+	GenerateBucketedConfigForUser(userData string) (ret BucketedUserConfig, err error)
+	SetClientCustomData(customData []byte) error
+	Variable(user DVCUser, key string, variableType string) (variable Variable, err error)
+	Close()
 }
 
 type SDKEvent struct {
@@ -54,59 +58,6 @@ type SDKEvent struct {
 
 type service struct {
 	client *DVCClient
-}
-
-func initializeWasmMain(options *DVCOptions) (ret *WASMMain, err error) {
-	ret = &WASMMain{}
-	err = ret.Initialize(options)
-	if err != nil {
-		return nil, errorf("error while initializing local bucketing", err)
-	}
-
-	return
-}
-
-func initializeLocalBucketing(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (ret *DevCycleLocalBucketing, err error) {
-	ret = &DevCycleLocalBucketing{}
-	err = ret.Initialize(wasmMain, sdkKey, options)
-	if err != nil {
-		return nil, errorf("error while initializing local bucketing", err)
-	}
-	return
-}
-
-func setLBClient(sdkKey string, options *DVCOptions, c *DVCClient) error {
-	wasmMain, err := initializeWasmMain(options)
-	c.wasmMain = wasmMain
-	localBucketing, err := initializeLocalBucketing(wasmMain, sdkKey, options)
-
-	if err != nil {
-		return err
-	}
-
-	c.localBucketing = localBucketing
-
-	c.bucketingObjectPool, err = NewBucketingPool(c.ctx, c.wasmMain, sdkKey, options)
-
-	if err != nil {
-		return err
-	}
-
-	c.eventQueue = &EventQueue{}
-	err = c.eventQueue.initialize(options, localBucketing, c.bucketingObjectPool, c.cfg)
-
-	if err != nil {
-		return err
-	}
-
-	c.configManager = NewEnvironmentConfigManager(sdkKey, localBucketing, c.bucketingObjectPool, options, c.cfg)
-	c.configManager.StartPolling(options.ConfigPollingIntervalMS)
-
-	if err != nil {
-		return err
-	}
-
-	return err
 }
 
 // NewDVCClient creates a new API client.
@@ -135,7 +86,7 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		c.internalOnInitializedChannel = make(chan bool, 1)
 
-		err := setLBClient(sdkKey, options, c)
+		err := c.setLBClient(sdkKey, options)
 		if err != nil {
 			return c, err
 		}
@@ -156,6 +107,30 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 		}()
 	}
 	return c, nil
+}
+
+func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {
+	localBucketing, err := NewWASMLocalBucketing(sdkKey, options)
+	if err != nil {
+		return err
+	}
+	c.localBucketing = localBucketing
+
+	c.eventQueue = &EventQueue{}
+	err = c.eventQueue.initialize(options, localBucketing.localBucketingClient, localBucketing.bucketingObjectPool, c.cfg)
+
+	if err != nil {
+		return err
+	}
+
+	c.configManager = NewEnvironmentConfigManager(sdkKey, localBucketing, options, c.cfg)
+	c.configManager.StartPolling(options.ConfigPollingIntervalMS)
+
+	if err != nil {
+		return err
+	}
+
+	return err
 }
 
 func (c *DVCClient) handleInitialization() {
@@ -231,65 +206,6 @@ func createNullableCustomData(data map[string]interface{}) *proto.NullableCustom
 		Value:  dataMap,
 		IsNull: false,
 	}
-}
-
-func (c *DVCClient) variableForUserProtobuf(user DVCUser, key string, variableType VariableTypeCode) (variable Variable, err error) {
-	// Take all the parameters and convert them to protobuf objects
-	appBuild := math.NaN()
-	if user.AppBuild != "" {
-		appBuild, err = strconv.ParseFloat(user.AppBuild, 64)
-		if err != nil {
-			appBuild = math.NaN()
-		}
-	}
-	userPB := &proto.DVCUser_PB{
-		UserId:            user.UserId,
-		Email:             createNullableString(user.Email),
-		Name:              createNullableString(user.Name),
-		Language:          createNullableString(user.Language),
-		Country:           createNullableString(user.Country),
-		AppBuild:          createNullableDouble(appBuild),
-		AppVersion:        createNullableString(user.AppVersion),
-		DeviceModel:       createNullableString(user.DeviceModel),
-		CustomData:        createNullableCustomData(user.CustomData),
-		PrivateCustomData: createNullableCustomData(user.PrivateCustomData),
-	}
-
-	// package everything into the root params object
-	paramsPB := proto.VariableForUserParams_PB{
-		SdkKey:           c.sdkKey,
-		VariableKey:      key,
-		VariableType:     proto.VariableType_PB(variableType),
-		User:             userPB,
-		ShouldTrackEvent: true,
-	}
-
-	// Generate the buffer
-	paramsBuffer, err := paramsPB.MarshalVT()
-
-	if err != nil {
-		return Variable{}, errorf("Error marshalling protobuf object in variableForUserProtobuf: %w", err)
-	}
-
-	variablePB, err := c.bucketingObjectPool.VariableForUser(paramsBuffer)
-
-	if err != nil {
-		_ = errorf("Error getting variable for user: %w", err)
-	}
-
-	if variablePB == nil {
-		return Variable{}, nil
-	}
-
-	return Variable{
-		baseVariable: baseVariable{
-			Key:   variablePB.Key,
-			Type_: variablePB.Type.String(),
-			Value: variablePB.GetValue(),
-		},
-		DefaultValue: nil,
-		IsDefaulted:  false,
-	}, nil
 }
 
 func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
@@ -391,12 +307,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 
 			return variable, nil
 		}
-		variableTypeCode, err := c.variableTypeCodeFromType(variableType)
-
-		if err != nil {
-			return Variable{}, err
-		}
-		bucketedVariable, err := c.variableForUserProtobuf(userdata, key, variableTypeCode)
+		bucketedVariable, err := c.localBucketing.Variable(userdata, key, variableType)
 
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
 		if bucketedVariable.Value != nil && sameTypeAsDefault {
@@ -592,13 +503,7 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 			if err != nil {
 				return err
 			}
-			err = c.localBucketing.SetClientCustomData(data)
-
-			if err != nil {
-				return err
-			}
-
-			return c.bucketingObjectPool.SetClientCustomData(data)
+			return c.localBucketing.SetClientCustomData(data)
 		} else {
 			warnf("SetClientCustomData called before client initialized")
 			return nil
@@ -629,9 +534,7 @@ func (c *DVCClient) Close() (err error) {
 		c.configManager.Close()
 	}
 
-	if c.bucketingObjectPool != nil {
-		c.bucketingObjectPool.Close()
-	}
+	c.localBucketing.Close()
 
 	return err
 }
@@ -768,21 +671,6 @@ func variableTypeFromValue(key string, value interface{}) (varType string, err e
 	}
 
 	return "", errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
-}
-
-func (c *DVCClient) variableTypeCodeFromType(varType string) (varTypeCode VariableTypeCode, err error) {
-	switch varType {
-	case "Boolean":
-		return c.localBucketing.VariableTypeCodes.Boolean, nil
-	case "Number":
-		return c.localBucketing.VariableTypeCodes.Number, nil
-	case "String":
-		return c.localBucketing.VariableTypeCodes.String, nil
-	case "JSON":
-		return c.localBucketing.VariableTypeCodes.JSON, nil
-	}
-
-	return 0, errorf("variable type %s is not a valid type", varType)
 }
 
 // callAPI do the request.

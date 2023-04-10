@@ -11,14 +11,14 @@ var (
 )
 
 type BucketingPoolObject struct {
-	localBucketing   *DevCycleLocalBucketing
+	localBucketing   *WASMLocalBucketingClient
 	id               int32
 	configData       *[]byte
 	clientCustomData *[]byte
 }
 
 func (o *BucketingPoolObject) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
-	o.localBucketing = &DevCycleLocalBucketing{}
+	o.localBucketing = &WASMLocalBucketingClient{}
 	err = o.localBucketing.Initialize(wasmMain, sdkKey, options)
 
 	if err != nil {

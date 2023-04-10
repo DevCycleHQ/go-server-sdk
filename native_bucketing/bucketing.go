@@ -159,7 +159,6 @@ func bucketUserForVariation(feature *Feature, hashes TargetAndHashes) (Variation
 	}
 	return Variation{}, fmt.Errorf("config missing variation %s", variationId)
 }
-
 func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) (BucketedUserConfig, error) {
 	variableMap := make(map[string]SDKVariable)
 	featureKeyMap := make(map[string]SDKFeature)
