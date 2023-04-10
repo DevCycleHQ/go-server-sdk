@@ -16,6 +16,15 @@ type Variation struct {
 	Variables []VariationVariable `json:"variables"`
 }
 
+func (v *Variation) GetVariableById(id string) *VariationVariable {
+	for _, variable := range v.Variables {
+		if variable.Var == id {
+			return &variable
+		}
+	}
+	return nil
+}
+
 type VariationVariable struct {
 	Var   string      `json:"_var"`
 	Value interface{} `json:"value"`
