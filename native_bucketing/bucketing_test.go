@@ -431,4 +431,28 @@ func TestClientData(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariations)
+
+}
+
+func TestVariableForUser(t *testing.T) {
+
+	user := DVCPopulatedUser{
+		UserId: "test",
+		CustomData: map[string]interface{}{
+			"favouriteDrink": "coffee",
+			"favouriteFood":  "pizza",
+		},
+		PlatformData: PlatformData{
+			PlatformVersion: "1.1.2",
+		},
+	}
+
+	config, err := NewConfig(test_config, "")
+	require.NoError(t, err)
+
+	userVariable, err := generateBucketedVariableForUser(config, user, "json-var", nil)
+	require.NoError(t, err)
+	require.Equal(t, "615357cf7e9ebdca58446ed0", userVariable.Variation.Id)
+	require.Equal(t, "{\"hello\":\"world\",\"num\":610,\"bool\":true}", userVariable.Variable.Value)
+
 }
