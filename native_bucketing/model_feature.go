@@ -1,6 +1,6 @@
 package native_bucketing
 
-type Feature struct {
+type ConfigFeature struct {
 	Id            string                 `json:"_id"`
 	Type          string                 `json:"type" validate:"regexp=^(release|experiment|permission|ops)$"`
 	Key           string                 `json:"key"`

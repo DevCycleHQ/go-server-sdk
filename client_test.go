@@ -67,7 +67,7 @@ func TestDVCClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
 	}
 
 	expected := Variable{
-		baseVariable: baseVariable{
+		BaseVariable: BaseVariable{
 			Key:   "test",
 			Type_: "String",
 			Value: "öé 🐍 ¥",
@@ -149,7 +149,7 @@ func TestDVCClient_VariableLocalProtobuf(t *testing.T) {
 	fatalErr(t, err)
 
 	expected := Variable{
-		baseVariable: baseVariable{
+		BaseVariable: BaseVariable{
 			Key:   "test",
 			Type_: "Boolean",
 			Value: true,
@@ -196,7 +196,7 @@ func TestDVCClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
 	fatalErr(t, err)
 
 	expected := Variable{
-		baseVariable: baseVariable{
+		BaseVariable: BaseVariable{
 			Key:   "test",
 			Type_: "Boolean",
 			Value: true,
@@ -250,7 +250,7 @@ func TestDVCClient_VariableLocalProtobuf_StringEncoding(t *testing.T) {
 	}
 
 	expected := Variable{
-		baseVariable: baseVariable{
+		BaseVariable: BaseVariable{
 			Key:   "test",
 			Type_: "String",
 			Value: "öé 🐍 ¥",

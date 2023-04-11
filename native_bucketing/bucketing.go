@@ -95,11 +95,11 @@ func doesUserPassRollout(rollout Rollout, boundedHash float64) bool {
 }
 
 type SegmentedFeatureData struct {
-	Feature Feature `json:"feature"`
-	Target  Target  `json:"target"`
+	Feature ConfigFeature `json:"feature"`
+	Target  Target        `json:"target"`
 }
 
-func evaluateSegmentationForFeature(config ConfigBody, feature Feature, user DVCPopulatedUser, clientCustomData map[string]interface{}) *Target {
+func evaluateSegmentationForFeature(config ConfigBody, feature ConfigFeature, user DVCPopulatedUser, clientCustomData map[string]interface{}) *Target {
 	for _, target := range feature.Configuration.Targets {
 		if _evaluateOperator(target.Audience.Filters, config.Audiences, user, clientCustomData) {
 			return &target
@@ -129,7 +129,7 @@ type TargetAndHashes struct {
 	Hashes BoundedHash
 }
 
-func doesUserQualifyForFeature(config ConfigBody, feature Feature, user DVCPopulatedUser, clientCustomData map[string]interface{}) (TargetAndHashes, error) {
+func doesUserQualifyForFeature(config ConfigBody, feature ConfigFeature, user DVCPopulatedUser, clientCustomData map[string]interface{}) (TargetAndHashes, error) {
 	target := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
 	if target == nil {
 		return TargetAndHashes{}, fmt.Errorf("user %s does not qualify for any targets for feature %s", user.UserId, feature.Key)
@@ -147,7 +147,7 @@ func doesUserQualifyForFeature(config ConfigBody, feature Feature, user DVCPopul
 	}, nil
 }
 
-func bucketUserForVariation(feature *Feature, hashes TargetAndHashes) (Variation, error) {
+func bucketUserForVariation(feature *ConfigFeature, hashes TargetAndHashes) (Variation, error) {
 	variationId, err := hashes.Target.DecideTargetVariation(hashes.Hashes.BucketingHash)
 	if err != nil {
 		return Variation{}, err
@@ -159,8 +159,9 @@ func bucketUserForVariation(feature *Feature, hashes TargetAndHashes) (Variation
 	}
 	return Variation{}, fmt.Errorf("config missing variation %s", variationId)
 }
-func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) (BucketedUserConfig, error) {
-	variableMap := make(map[string]SDKVariable)
+
+func GenerateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) (BucketedUserConfig, error) {
+	variableMap := make(map[string]ReadOnlyVariable)
 	featureKeyMap := make(map[string]SDKFeature)
 	featureVariationMap := make(map[string]string)
 	variableVariationMap := make(map[string]FeatureVariation)
@@ -177,9 +178,9 @@ func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCus
 		}
 		featureKeyMap[feature.Key] = SDKFeature{
 			Id:            feature.Id,
-			Type:          feature.Type,
+			Type_:         feature.Type,
 			Key:           feature.Key,
-			VariationId:   variation.Id,
+			Variation:     variation.Id,
 			VariationKey:  variation.Key,
 			VariationName: variation.Name,
 		}
@@ -195,29 +196,31 @@ func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCus
 				Variation: variation.Id,
 				Feature:   feature.Id,
 			}
-			newVar := SDKVariable{
-				Id:    variable.Id,
-				Type:  variable.Type,
-				Key:   variable.Key,
-				Value: variationVar.Value,
+			newVar := ReadOnlyVariable{
+				BaseVariable: BaseVariable{
+					Key:   variable.Key,
+					Type_: variable.Type,
+					Value: variationVar.Value,
+				},
+				Id: variable.Id,
 			}
 			variableMap[variable.Key] = newVar
 		}
 	}
 
 	return BucketedUserConfig{
-		Project:            config.Project,
-		Environment:        config.Environment,
-		Features:           featureKeyMap,
-		FeatureVariations:  featureVariationMap,
-		VariableVariations: variableVariationMap,
-		Variables:          variableMap,
+		Project:              config.Project,
+		Environment:          config.Environment,
+		Features:             featureKeyMap,
+		FeatureVariationMap:  featureVariationMap,
+		VariableVariationMap: variableVariationMap,
+		Variables:            variableMap,
 	}, nil
 }
 
 type BucketedVariableResponse struct {
-	Variable  SDKVariable
-	Feature   Feature
+	Variable  ReadOnlyVariable
+	Feature   ConfigFeature
 	Variation Variation
 }
 
@@ -244,11 +247,13 @@ func generateBucketedVariableForUser(config ConfigBody, user DVCPopulatedUser, k
 		return nil, fmt.Errorf("config processing error: config missing variable %s for variation %s", key, variation.Id)
 	}
 	return &BucketedVariableResponse{
-		Variable: SDKVariable{
-			Id:    variable.Id,
-			Type:  variable.Type,
-			Key:   variable.Key,
-			Value: variationVariable.Value,
+		Variable: ReadOnlyVariable{
+			Id: variable.Id,
+			BaseVariable: BaseVariable{
+				Type_: variable.Type,
+				Key:   variable.Key,
+				Value: variationVariable.Value,
+			},
 		},
 		Feature:   *featForVariable,
 		Variation: variation,

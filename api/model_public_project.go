@@ -1,4 +1,4 @@
-package devcycle
+package api
 
 type Project struct {
 	Id               string          `json:"_id"`

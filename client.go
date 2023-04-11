@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/proto"
 	"github.com/matryer/try"
 )
@@ -43,7 +44,7 @@ type DVCClient struct {
 }
 
 type LocalBucketing interface {
-	GenerateBucketedConfigForUser(userData string) (ret BucketedUserConfig, err error)
+	GenerateBucketedConfigForUser(userData string) (ret *BucketedUserConfig, err error)
 	SetClientCustomData(customData []byte) error
 	Variable(user DVCUser, key string, variableType string) (variable Variable, err error)
 	Close()
@@ -109,30 +110,6 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	return c, nil
 }
 
-func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {
-	localBucketing, err := NewWASMLocalBucketing(sdkKey, options)
-	if err != nil {
-		return err
-	}
-	c.localBucketing = localBucketing
-
-	c.eventQueue = &EventQueue{}
-	err = c.eventQueue.initialize(options, localBucketing.localBucketingClient, localBucketing.bucketingObjectPool, c.cfg)
-
-	if err != nil {
-		return err
-	}
-
-	c.configManager = NewEnvironmentConfigManager(sdkKey, localBucketing, options, c.cfg)
-	c.configManager.StartPolling(options.ConfigPollingIntervalMS)
-
-	if err != nil {
-		return err
-	}
-
-	return err
-}
-
 func (c *DVCClient) handleInitialization() {
 	c.isInitialized = true
 	if c.DevCycleOptions.OnInitializedChannel != nil {
@@ -144,16 +121,16 @@ func (c *DVCClient) handleInitialization() {
 	c.internalOnInitializedChannel <- true
 }
 
-func (c *DVCClient) generateBucketedConfig(user DVCUser) (config BucketedUserConfig, err error) {
+func (c *DVCClient) generateBucketedConfig(user DVCUser) (config *BucketedUserConfig, err error) {
 	userJSON, err := json.Marshal(user)
 	if err != nil {
-		return BucketedUserConfig{}, err
+		return nil, err
 	}
 	config, err = c.localBucketing.GenerateBucketedConfigForUser(string(userJSON))
 	if err != nil {
-		return BucketedUserConfig{}, err
+		return nil, err
 	}
-	config.user = &user
+	config.User = &user
 	return
 }
 
@@ -236,7 +213,7 @@ func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
 
 	}
 
-	populatedUser := user.getPopulatedUser()
+	populatedUser := user.GetPopulatedUser()
 
 	var (
 		httpMethod          = strings.ToUpper("Post")
@@ -289,14 +266,14 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 		return Variable{}, err
 	}
 
-	baseVar := baseVariable{Key: key, Value: convertedDefaultValue, Type_: variableType}
-	variable := Variable{baseVariable: baseVar, DefaultValue: convertedDefaultValue, IsDefaulted: true}
+	baseVar := BaseVariable{Key: key, Value: convertedDefaultValue, Type_: variableType}
+	variable := Variable{BaseVariable: baseVar, DefaultValue: convertedDefaultValue, IsDefaulted: true}
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if !c.hasConfig() {
 			warnf("Variable called before client initialized, returning default value")
 			err = c.queueAggregateEvent(BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, DVCEvent{
-				Type_:  EventType_AggVariableDefaulted,
+				Type_:  api.EventType_AggVariableDefaulted,
 				Target: key,
 			})
 
@@ -325,7 +302,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 		return variable, err
 	}
 
-	populatedUser := userdata.getPopulatedUser()
+	populatedUser := userdata.GetPopulatedUser()
 
 	var (
 		httpMethod          = strings.ToUpper("Post")
@@ -397,7 +374,7 @@ func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, err
 		}
 	}
 
-	populatedUser := user.getPopulatedUser()
+	populatedUser := user.GetPopulatedUser()
 
 	// create path and map variables
 	path := c.cfg.BasePath + "/v1/variables"
@@ -452,7 +429,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 		postBody   interface{}
 	)
 
-	populatedUser := user.getPopulatedUser()
+	populatedUser := user.GetPopulatedUser()
 
 	events := []DVCEvent{event}
 	body := UserDataAndEventsBody{User: &populatedUser, Events: events}
@@ -775,4 +752,26 @@ func (c *DVCClient) prepareRequest(
 
 func sdkKeyIsValid(key string) bool {
 	return strings.HasPrefix(key, "server") || strings.HasPrefix(key, "dvc_server")
+}
+
+// GenericError Provides access to the body, error and model on returned errors.
+type GenericError struct {
+	body  []byte
+	error string
+	model interface{}
+}
+
+// Error returns non-empty string if there was an error.
+func (e GenericError) Error() string {
+	return e.error
+}
+
+// Body returns the raw bytes of the response
+func (e GenericError) Body() []byte {
+	return e.body
+}
+
+// Model returns the unpacked model of the error
+func (e GenericError) Model() interface{} {
+	return e.model
 }

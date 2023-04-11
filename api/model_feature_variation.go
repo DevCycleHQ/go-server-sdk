@@ -1,4 +1,4 @@
-package devcycle
+package api
 
 type FeatureVariation struct {
 	Feature   string `json:"_feature"`

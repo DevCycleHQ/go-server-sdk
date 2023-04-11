@@ -1,4 +1,4 @@
-package devcycle
+package api
 
 import (
 	"os"

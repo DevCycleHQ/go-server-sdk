@@ -69,7 +69,7 @@ func NewWASMLocalBucketing(sdkKey string, options *DVCOptions) (*WASMLocalBucket
 
 }
 
-func (lb *WASMLocalBucketing) GenerateBucketedConfigForUser(userData string) (ret BucketedUserConfig, err error) {
+func (lb *WASMLocalBucketing) GenerateBucketedConfigForUser(userData string) (ret *BucketedUserConfig, err error) {
 	return lb.localBucketingClient.GenerateBucketedConfigForUser(userData)
 }
 
@@ -147,7 +147,7 @@ func (lb *WASMLocalBucketing) Variable(user DVCUser, key string, variableType st
 	}
 
 	return Variable{
-		baseVariable: baseVariable{
+		BaseVariable: BaseVariable{
 			Key:   variablePB.Key,
 			Type_: variablePB.Type.String(),
 			Value: variablePB.GetValue(),
@@ -544,7 +544,7 @@ func (d *WASMLocalBucketingClient) onPayloadFailure(payloadId string, retryable 
 	return
 }
 
-func (d *WASMLocalBucketingClient) GenerateBucketedConfigForUser(userData string) (ret BucketedUserConfig, err error) {
+func (d *WASMLocalBucketingClient) GenerateBucketedConfigForUser(userData string) (ret *BucketedUserConfig, err error) {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -563,8 +563,9 @@ func (d *WASMLocalBucketingClient) GenerateBucketedConfigForUser(userData string
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal(rawConfig, &ret)
-	return ret, err
+	var config BucketedUserConfig
+	err = json.Unmarshal(rawConfig, &config)
+	return &config, err
 }
 
 /*

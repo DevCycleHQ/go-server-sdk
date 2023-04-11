@@ -6,17 +6,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSegmentation_EvaluateOperator_FailEmpty(t *testing.T) {
-
-	platformData := PlatformData{
+var brooks = DVCPopulatedUser{
+	DVCUser: DVCUser{
+		Country:    "Canada",
+		Email:      "brooks@big.lunch",
+		AppVersion: "2.0.2",
+	},
+	PlatformData: &PlatformData{
 		Platform:        "iOS",
 		PlatformVersion: "10.3.1",
-	}
-	brooks := DVCPopulatedUser{
-		Country:      "Canada",
-		Email:        "brooks@big.lunch",
-		PlatformData: platformData,
-	}
+	},
+}
+
+func TestSegmentation_EvaluateOperator_FailEmpty(t *testing.T) {
 	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: []BaseFilter{}}, nil, brooks, nil)
 	if result {
 		t.Error("Expected false, got true")
@@ -28,16 +30,6 @@ func TestSegmentation_EvaluateOperator_FailEmpty(t *testing.T) {
 }
 
 func TestSegmentation_EvaluateOperator_PassAll(t *testing.T) {
-	platformData := PlatformData{
-		Platform:        "iOS",
-		PlatformVersion: "10.3.1",
-	}
-	brooks := DVCPopulatedUser{
-		Country:      "Canada",
-		Email:        "brooks@big.lunch",
-		PlatformData: platformData,
-	}
-
 	userAllFilter := &UserFilter{
 		filter: filter{
 			Type:       "all",
@@ -57,16 +49,6 @@ func TestSegmentation_EvaluateOperator_PassAll(t *testing.T) {
 }
 
 func TestSegmentation_EvaluateOperator_UnknownFilter(t *testing.T) {
-	platformData := PlatformData{
-		Platform:        "iOS",
-		PlatformVersion: "10.3.1",
-	}
-	brooks := DVCPopulatedUser{
-		Country:      "Canada",
-		Email:        "brooks@big.lunch",
-		PlatformData: platformData,
-	}
-
 	userAllFilter := &UserFilter{
 		filter: filter{
 			Type:       "myNewFilter",
@@ -86,15 +68,6 @@ func TestSegmentation_EvaluateOperator_UnknownFilter(t *testing.T) {
 }
 
 func TestEvaluateOperator_InvalidComparator(t *testing.T) {
-	platformData := PlatformData{
-		Platform:        "iOS",
-		PlatformVersion: "10.3.1",
-	}
-	brooks := DVCPopulatedUser{
-		Country:      "Canada",
-		Email:        "brooks@big.lunch",
-		PlatformData: platformData,
-	}
 	userEmailFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
@@ -164,16 +137,6 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 }
 
 func TestEvaluateOperator_UserSubFilterInvalid(t *testing.T) {
-	platformData := PlatformData{
-		Platform:        "iOS",
-		PlatformVersion: "10.3.1",
-	}
-	brooks := DVCPopulatedUser{
-		Country:      "Canada",
-		Email:        "brooks@big.lunch",
-		PlatformData: platformData,
-	}
-
 	userAllFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
@@ -190,16 +153,6 @@ func TestEvaluateOperator_UserSubFilterInvalid(t *testing.T) {
 }
 
 func TestEvaluateOperator_UserNewComparator(t *testing.T) {
-	platformData := PlatformData{
-		Platform:        "iOS",
-		PlatformVersion: "10.3.1",
-	}
-	brooks := DVCPopulatedUser{
-		Country:      "Canada",
-		Email:        "brooks@big.lunch",
-		PlatformData: platformData,
-	}
-
 	userAllFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
@@ -216,17 +169,6 @@ func TestEvaluateOperator_UserNewComparator(t *testing.T) {
 }
 
 func TestEvaluateOperator_UserFiltersAnd(t *testing.T) {
-	platformData := PlatformData{
-		Platform:        "iOS",
-		PlatformVersion: "2.0.0",
-	}
-	brooks := DVCPopulatedUser{
-		Country:      "Canada",
-		Email:        "brooks@big.lunch",
-		PlatformData: platformData,
-		AppVersion:   "2.0.2",
-	}
-
 	countryFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
@@ -262,17 +204,6 @@ func TestEvaluateOperator_UserFiltersAnd(t *testing.T) {
 }
 
 func TestEvaluateOperator_UserFiltersOr(t *testing.T) {
-	platformData := PlatformData{
-		Platform:        "iOS",
-		PlatformVersion: "2.0.0",
-	}
-	brooks := DVCPopulatedUser{
-		Country:      "Canada",
-		Email:        "brooks@big.lunch",
-		PlatformData: platformData,
-		AppVersion:   "2.0.2",
-	}
-
 	countryFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
@@ -308,16 +239,6 @@ func TestEvaluateOperator_UserFiltersOr(t *testing.T) {
 }
 
 func TestEvaluateOperator_NestedAnd(t *testing.T) {
-	platformData := PlatformData{
-		Platform:        "iOS",
-		PlatformVersion: "2.0.0",
-	}
-	brooks := DVCPopulatedUser{
-		Country:      "Canada",
-		Email:        "brooks@big.lunch",
-		PlatformData: platformData,
-		AppVersion:   "2.0.2",
-	}
 	countryFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
@@ -368,16 +289,6 @@ func TestEvaluateOperator_NestedAnd(t *testing.T) {
 }
 
 func TestEvaluateOperator_NestedOr(t *testing.T) {
-	platformData := PlatformData{
-		Platform:        "iOS",
-		PlatformVersion: "2.0.0",
-	}
-	brooks := DVCPopulatedUser{
-		Country:      "Canada",
-		Email:        "brooks@big.lunch",
-		PlatformData: platformData,
-		AppVersion:   "2.0.2",
-	}
 	countryFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
@@ -428,17 +339,6 @@ func TestEvaluateOperator_NestedOr(t *testing.T) {
 }
 
 func TestEvaluateOperator_AndCustomData(t *testing.T) {
-	platformData := PlatformData{
-		Platform:        "iOS",
-		PlatformVersion: "2.0.0",
-	}
-	brooks := DVCPopulatedUser{
-		Country:      "Canada",
-		Email:        "brooks@big.lunch",
-		PlatformData: platformData,
-		AppVersion:   "2.0.2",
-	}
-
 	countryFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
@@ -469,18 +369,20 @@ func TestEvaluateOperator_AndCustomData(t *testing.T) {
 }
 
 func TestEvaluateOperator_AndCustomDataMultiValue(t *testing.T) {
-	platformData := PlatformData{
+	platformData := &PlatformData{
 		Platform:        "iOS",
 		PlatformVersion: "2.0.0",
 	}
 	brooks := DVCPopulatedUser{
-		Country:      "Canada",
-		Email:        "brooks@big.lunch",
-		PlatformData: platformData,
-		AppVersion:   "2.0.2",
-		CustomData: map[string]interface{}{
-			"something": "dataValue",
+		DVCUser: DVCUser{
+			Country:    "Canada",
+			Email:      "brooks@big.lunch",
+			AppVersion: "2.0.2",
+			CustomData: map[string]interface{}{
+				"something": "dataValue",
+			},
 		},
+		PlatformData: platformData,
 	}
 	customDataFilter := &CustomDataFilter{
 		UserFilter: &UserFilter{
@@ -503,17 +405,18 @@ func TestEvaluateOperator_AndCustomDataMultiValue(t *testing.T) {
 }
 
 func TestEvaluateOperator_AndPrivateCustomDataMultiValue(t *testing.T) {
-	platformData := PlatformData{
-		Platform:        "iOS",
-		PlatformVersion: "2.0.0",
-	}
-	brooks := DVCPopulatedUser{
-		Country:      "Canada",
-		Email:        "brooks@big.lunch",
-		PlatformData: platformData,
-		AppVersion:   "2.0.2",
-		PrivateCustomData: map[string]interface{}{
-			"testKey": "dataValue",
+	var brooks = DVCPopulatedUser{
+		DVCUser: DVCUser{
+			Country:    "Canada",
+			Email:      "brooks@big.lunch",
+			AppVersion: "2.0.2",
+			PrivateCustomData: map[string]interface{}{
+				"testKey": "dataValue",
+			},
+		},
+		PlatformData: &PlatformData{
+			Platform:        "iOS",
+			PlatformVersion: "2.0.0",
 		},
 	}
 

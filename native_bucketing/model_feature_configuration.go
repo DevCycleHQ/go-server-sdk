@@ -12,8 +12,3 @@ type FeaturePrerequisites struct {
 	Feature    string `json:"_feature"`
 	Comparator string `json:"comparator" validate:"regexp=^(=|!=)$"`
 }
-
-type FeatureVariation struct {
-	Variation string `json:"_variation"`
-	Feature   string `json:"_feature"`
-}
