@@ -36,19 +36,15 @@ type ConfigBody struct {
 }
 
 func (c *ConfigBody) GetVariableForKey(key string) *Variable {
-	for _, v := range c.variableKeyMap {
-		if key == v.Key {
-			return &v
-		}
+	if variable, ok := c.variableKeyMap[key]; ok {
+		return &variable
 	}
 	return nil
 }
 
 func (c *ConfigBody) GetVariableForId(id string) *Variable {
-	for _, v := range c.variableIdMap {
-		if id == v.Id {
-			return &v
-		}
+	if variable, ok := c.variableIdMap[id]; ok {
+		return &variable
 	}
 	return nil
 }
