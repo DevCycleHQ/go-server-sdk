@@ -403,7 +403,9 @@ func TestClientData(t *testing.T) {
 	// Ensure bucketed config has a feature variation map that's empty
 	bucketedUserConfig, err := _generateBucketedConfig(config, user, nil)
 	require.NoError(t, err)
-
+	variableUser, err := generateBucketedVariableForUser(config, user, "num-var", nil)
+	require.ErrorContainsf(t, err, "does not qualify", "does not qualify")
+	require.Nil(t, variableUser)
 	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariations)
 
 	clientCustomData := map[string]interface{}{
@@ -417,6 +419,9 @@ func TestClientData(t *testing.T) {
 		"614ef6aa473928459060721a": "615357cf7e9ebdca58446ed0",
 		"614ef6aa475928459060721a": "615382338424cb11646d7667",
 	}, bucketedUserConfig.FeatureVariations)
+	variableUser, err = generateBucketedVariableForUser(config, user, "num-var", clientCustomData)
+	require.NoError(t, err)
+	require.Equal(t, 610.61, variableUser.Variable.Value)
 
 	user2 := DVCPopulatedUser{
 		UserId: "hates-pizza",
@@ -431,4 +436,28 @@ func TestClientData(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariations)
+
+}
+
+func TestVariableForUser(t *testing.T) {
+
+	user := DVCPopulatedUser{
+		UserId: "test",
+		CustomData: map[string]interface{}{
+			"favouriteDrink": "coffee",
+			"favouriteFood":  "pizza",
+		},
+		PlatformData: PlatformData{
+			PlatformVersion: "1.1.2",
+		},
+	}
+
+	config, err := NewConfig(test_config, "")
+	require.NoError(t, err)
+
+	userVariable, err := generateBucketedVariableForUser(config, user, "json-var", nil)
+	require.NoError(t, err)
+	require.Equal(t, "615357cf7e9ebdca58446ed0", userVariable.Variation.Id)
+	require.Equal(t, "{\"hello\":\"world\",\"num\":610,\"bool\":true}", userVariable.Variable.Value)
+
 }

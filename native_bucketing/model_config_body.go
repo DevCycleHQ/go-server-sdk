@@ -35,11 +35,23 @@ type ConfigBody struct {
 	variableIdToFeatureMap map[string]Feature
 }
 
+func (c *ConfigBody) GetVariableForKey(key string) *Variable {
+	if variable, ok := c.variableKeyMap[key]; ok {
+		return &variable
+	}
+	return nil
+}
+
 func (c *ConfigBody) GetVariableForId(id string) *Variable {
-	for _, v := range c.variableIdMap {
-		if id == v.Id {
-			return &v
-		}
+	if variable, ok := c.variableIdMap[id]; ok {
+		return &variable
+	}
+	return nil
+}
+
+func (c *ConfigBody) GetFeatureForVariableId(id string) *Feature {
+	if feature, ok := c.variableIdToFeatureMap[id]; ok {
+		return &feature
 	}
 	return nil
 }

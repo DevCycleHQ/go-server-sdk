@@ -1,7 +1,6 @@
 package devcycle
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -91,7 +90,7 @@ func (defaultLogger) Errorf(format string, a ...any) error {
 		format += "\n"
 	}
 	log.Printf("ERROR: "+format, a...)
-	return errors.New(fmt.Sprintf(format, a...))
+	return fmt.Errorf(format, a...)
 }
 
 type DiscardLogger struct{}

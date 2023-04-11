@@ -147,7 +147,7 @@ func doesUserQualifyForFeature(config ConfigBody, feature Feature, user DVCPopul
 	}, nil
 }
 
-func bucketUserForVariation(feature Feature, hashes TargetAndHashes) (Variation, error) {
+func bucketUserForVariation(feature *Feature, hashes TargetAndHashes) (Variation, error) {
 	variationId, err := hashes.Target.DecideTargetVariation(hashes.Hashes.BucketingHash)
 	if err != nil {
 		return Variation{}, err
@@ -172,7 +172,7 @@ func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCus
 			continue
 		}
 
-		variation, err := bucketUserForVariation(feature, targetAndHashes)
+		variation, err := bucketUserForVariation(&feature, targetAndHashes)
 		if err != nil {
 			continue
 		}
@@ -213,5 +213,45 @@ func _generateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCus
 		FeatureVariations:  featureVariationMap,
 		VariableVariations: variableVariationMap,
 		Variables:          variableMap,
+	}, nil
+}
+
+type BucketedVariableResponse struct {
+	Variable  SDKVariable
+	Feature   Feature
+	Variation Variation
+}
+
+func generateBucketedVariableForUser(config ConfigBody, user DVCPopulatedUser, key string, clientCustomData map[string]interface{}) (*BucketedVariableResponse, error) {
+	variable := config.GetVariableForKey(key)
+	if variable == nil {
+		return nil, fmt.Errorf("config missing variable %s", key)
+	}
+	featForVariable := config.GetFeatureForVariableId(variable.Id)
+	if featForVariable == nil {
+		return nil, fmt.Errorf("config missing feature for variable %s", key)
+	}
+
+	targetAndHashes, err := doesUserQualifyForFeature(config, *featForVariable, user, clientCustomData)
+	if err != nil {
+		return nil, err
+	}
+	variation, err := bucketUserForVariation(featForVariable, targetAndHashes)
+	if err != nil {
+		return nil, err
+	}
+	variationVariable := variation.GetVariableById(variable.Id)
+	if variationVariable == nil {
+		return nil, fmt.Errorf("config processing error: config missing variable %s for variation %s", key, variation.Id)
+	}
+	return &BucketedVariableResponse{
+		Variable: SDKVariable{
+			Id:    variable.Id,
+			Type:  variable.Type,
+			Key:   variable.Key,
+			Value: variationVariable.Value,
+		},
+		Feature:   *featForVariable,
+		Variation: variation,
 	}, nil
 }

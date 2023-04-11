@@ -322,7 +322,7 @@ func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 	defer func() {
 		err := d.assemblyScriptUnpin(userAddr)
 		if err != nil {
-			errorf(err.Error())
+			_ = errorf(err.Error())
 		}
 	}()
 	eventAddr, err := d.newAssemblyScriptString([]byte(event))
@@ -355,7 +355,7 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, config Bucket
 	defer func() {
 		err := d.assemblyScriptUnpin(variationMapAddr)
 		if err != nil {
-			errorf(err.Error())
+			_ = errorf(err.Error())
 		}
 	}()
 	eventAddr, err := d.newAssemblyScriptString([]byte(event))
@@ -467,7 +467,7 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) (*p
 func (d *DevCycleLocalBucketing) StoreConfig(config []byte) error {
 	defer func() {
 		if err := recover(); err != nil {
-			errorf("Failed to process config: ", err)
+			_ = errorf("Failed to process config: ", err)
 		}
 	}()
 	d.wasmMutex.Lock()
