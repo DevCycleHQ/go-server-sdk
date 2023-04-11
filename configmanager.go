@@ -17,34 +17,31 @@ type ConfigReceiver interface {
 }
 
 type EnvironmentConfigManager struct {
-	sdkKey              string
-	configETag          string
-	localBucketing      ConfigReceiver
-	bucketingObjectPool ConfigReceiver
-	firstLoad           bool
-	context             context.Context
-	stopPolling         context.CancelFunc
-	httpClient          *http.Client
-	cfg                 *HTTPConfiguration
-	hasConfig           atomic.Bool
-	ticker              *time.Ticker
+	sdkKey         string
+	configETag     string
+	localBucketing ConfigReceiver
+	firstLoad      bool
+	context        context.Context
+	stopPolling    context.CancelFunc
+	httpClient     *http.Client
+	cfg            *HTTPConfiguration
+	hasConfig      atomic.Bool
+	ticker         *time.Ticker
 }
 
 func NewEnvironmentConfigManager(
 	sdkKey string,
 	localBucketing ConfigReceiver,
-	bucketingObjectPool ConfigReceiver,
 	options *DVCOptions,
 	cfg *HTTPConfiguration,
 ) (e *EnvironmentConfigManager) {
 	configManager := &EnvironmentConfigManager{
-		sdkKey:              sdkKey,
-		localBucketing:      localBucketing,
-		bucketingObjectPool: bucketingObjectPool,
-		cfg:                 cfg,
-		httpClient:          &http.Client{Timeout: options.RequestTimeout},
-		hasConfig:           atomic.Bool{},
-		firstLoad:           true,
+		sdkKey:         sdkKey,
+		localBucketing: localBucketing,
+		cfg:            cfg,
+		httpClient:     &http.Client{Timeout: options.RequestTimeout},
+		hasConfig:      atomic.Bool{},
+		firstLoad:      true,
 	}
 
 	configManager.context, configManager.stopPolling = context.WithCancel(context.Background())
@@ -153,19 +150,14 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 	return nil
 }
 
-func (e *EnvironmentConfigManager) setConfig(config []byte) (err error) {
-	err = e.localBucketing.StoreConfig(config)
+func (e *EnvironmentConfigManager) setConfig(config []byte) error {
+	err := e.localBucketing.StoreConfig(config)
 	if err != nil {
-		return
-	}
-
-	err = e.bucketingObjectPool.StoreConfig(config)
-	if err != nil {
-		return
+		return err
 	}
 
 	e.hasConfig.Store(true)
-	return
+	return nil
 }
 
 func (e *EnvironmentConfigManager) getConfigURL() string {

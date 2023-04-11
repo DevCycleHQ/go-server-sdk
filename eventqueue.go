@@ -12,7 +12,7 @@ import (
 )
 
 type EventQueue struct {
-	localBucketing      *DevCycleLocalBucketing
+	localBucketing      *WASMLocalBucketingClient
 	options             *DVCOptions
 	cfg                 *HTTPConfiguration
 	context             context.Context
@@ -29,7 +29,12 @@ type FlushResult struct {
 	FailureWithRetryPayloads []string
 }
 
-func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing, bucketingObjectPool *BucketingPool, cfg *HTTPConfiguration) (err error) {
+type PayloadsAndChannel struct {
+	payloads []FlushPayload
+	channel  *chan *FlushResult
+}
+
+func (e *EventQueue) initialize(options *DVCOptions, localBucketing *WASMLocalBucketingClient, bucketingObjectPool *BucketingPool, cfg *HTTPConfiguration) (err error) {
 	e.context = context.Background()
 	e.cfg = cfg
 	e.options = options

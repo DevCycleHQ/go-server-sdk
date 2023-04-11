@@ -23,8 +23,8 @@ func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
 
 	httpConfigMock(200)
 
-	localBucketing, bucketingPool := &recordingConfigReceiver{}, &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, bucketingPool, test_options, NewConfiguration(test_options))
+	localBucketing := &recordingConfigReceiver{}
+	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, test_options, NewConfiguration(test_options))
 
 	err := manager.initialFetch()
 	if err != nil {
@@ -33,9 +33,6 @@ func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
 
 	if localBucketing.configureCount != 1 {
 		t.Fatal("localBucketing.configureCount != 1")
-	}
-	if bucketingPool.configureCount != 1 {
-		t.Fatal("bucketingPool.configureCount != 1")
 	}
 	if !manager.hasConfig.Load() {
 		t.Fatal("cm.hasConfig != true")
@@ -55,8 +52,8 @@ func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
 		errorResponseChain(error500Response, CONFIG_RETRIES),
 	)
 
-	localBucketing, bucketingPool := &recordingConfigReceiver{}, &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, bucketingPool, test_options, NewConfiguration(test_options))
+	localBucketing := &recordingConfigReceiver{}
+	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, test_options, NewConfiguration(test_options))
 
 	err := manager.initialFetch()
 	if err != nil {
@@ -77,8 +74,8 @@ func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
 		errorResponseChain(connectionErrorResponse, CONFIG_RETRIES),
 	)
 
-	localBucketing, bucketingPool := &recordingConfigReceiver{}, &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, bucketingPool, test_options, NewConfiguration(test_options))
+	localBucketing := &recordingConfigReceiver{}
+	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, test_options, NewConfiguration(test_options))
 
 	err := manager.initialFetch()
 	if err != nil {
@@ -99,8 +96,8 @@ func TestEnvironmentConfigManager_fetchConfig_returns_errors(t *testing.T) {
 		errorResponseChain(connectionErrorResponse, CONFIG_RETRIES+1),
 	)
 
-	localBucketing, bucketingPool := &recordingConfigReceiver{}, &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, bucketingPool, test_options, NewConfiguration(test_options))
+	localBucketing := &recordingConfigReceiver{}
+	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, test_options, NewConfiguration(test_options))
 
 	err := manager.initialFetch()
 	if err == nil {

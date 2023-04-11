@@ -2,17 +2,20 @@ package devcycle
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/proto"
 	"math"
 	"math/rand"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 	"unsafe"
+
+	"github.com/devcyclehq/go-server-sdk/v2/proto"
 
 	"github.com/bytecodealliance/wasmtime-go/v6"
 )
@@ -31,7 +34,136 @@ type VariableTypeCodes struct {
 	JSON    VariableTypeCode
 }
 
-type DevCycleLocalBucketing struct {
+type WASMLocalBucketing struct {
+	wasmMain             *WASMMain
+	localBucketingClient *WASMLocalBucketingClient
+	bucketingObjectPool  *BucketingPool
+	sdkKey               string
+}
+
+func NewWASMLocalBucketing(sdkKey string, options *DVCOptions) (*WASMLocalBucketing, error) {
+	wasmMain := &WASMMain{}
+	err := wasmMain.Initialize(options)
+	if err != nil {
+		return nil, fmt.Errorf("error while initializing wasm: %w", err)
+	}
+
+	localBucketing := &WASMLocalBucketingClient{}
+	err = localBucketing.Initialize(wasmMain, sdkKey, options)
+	if err != nil {
+		return nil, errorf("error while initializing local bucketing", err)
+	}
+
+	bucketingObjectPool, err := NewBucketingPool(context.TODO(), wasmMain, sdkKey, options)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &WASMLocalBucketing{
+		wasmMain:             wasmMain,
+		localBucketingClient: localBucketing,
+		bucketingObjectPool:  bucketingObjectPool,
+		sdkKey:               sdkKey,
+	}, nil
+
+}
+
+func (lb *WASMLocalBucketing) GenerateBucketedConfigForUser(userData string) (ret BucketedUserConfig, err error) {
+	return lb.localBucketingClient.GenerateBucketedConfigForUser(userData)
+}
+
+func (lb *WASMLocalBucketing) SetClientCustomData(customData []byte) error {
+	err := lb.localBucketingClient.SetClientCustomData(customData)
+
+	if err != nil {
+		return err
+	}
+
+	return lb.bucketingObjectPool.SetClientCustomData(customData)
+}
+
+func (lb *WASMLocalBucketing) StoreConfig(config []byte) error {
+	err := lb.localBucketingClient.StoreConfig(config)
+	if err != nil {
+		return err
+	}
+
+	return lb.bucketingObjectPool.StoreConfig(config)
+}
+
+func (lb *WASMLocalBucketing) Variable(user DVCUser, key string, variableType string) (variable Variable, err error) {
+	variableTypeCode, err := lb.localBucketingClient.VariableTypeCodeFromType(variableType)
+
+	if err != nil {
+		return Variable{}, err
+	}
+
+	// Take all the parameters and convert them to protobuf objects
+	appBuild := math.NaN()
+	if user.AppBuild != "" {
+		appBuild, err = strconv.ParseFloat(user.AppBuild, 64)
+		if err != nil {
+			appBuild = math.NaN()
+		}
+	}
+	userPB := &proto.DVCUser_PB{
+		UserId:            user.UserId,
+		Email:             createNullableString(user.Email),
+		Name:              createNullableString(user.Name),
+		Language:          createNullableString(user.Language),
+		Country:           createNullableString(user.Country),
+		AppBuild:          createNullableDouble(appBuild),
+		AppVersion:        createNullableString(user.AppVersion),
+		DeviceModel:       createNullableString(user.DeviceModel),
+		CustomData:        createNullableCustomData(user.CustomData),
+		PrivateCustomData: createNullableCustomData(user.PrivateCustomData),
+	}
+
+	// package everything into the root params object
+	paramsPB := proto.VariableForUserParams_PB{
+		SdkKey:           lb.sdkKey,
+		VariableKey:      key,
+		VariableType:     proto.VariableType_PB(variableTypeCode),
+		User:             userPB,
+		ShouldTrackEvent: true,
+	}
+
+	// Generate the buffer
+	paramsBuffer, err := paramsPB.MarshalVT()
+
+	if err != nil {
+		return Variable{}, errorf("Error marshalling protobuf object in variableForUserProtobuf: %w", err)
+	}
+
+	variablePB, err := lb.bucketingObjectPool.VariableForUser(paramsBuffer)
+
+	if err != nil {
+		_ = errorf("Error getting variable for user: %w", err)
+	}
+
+	if variablePB == nil {
+		return Variable{}, nil
+	}
+
+	return Variable{
+		baseVariable: baseVariable{
+			Key:   variablePB.Key,
+			Type_: variablePB.Type.String(),
+			Value: variablePB.GetValue(),
+		},
+		DefaultValue: nil,
+		IsDefaulted:  false,
+	}, nil
+}
+
+func (lb *WASMLocalBucketing) Close() {
+	if lb.bucketingObjectPool != nil {
+		lb.bucketingObjectPool.Close()
+	}
+}
+
+type WASMLocalBucketingClient struct {
 	wasmStore    *wasmtime.Store
 	wasmInstance *wasmtime.Instance
 	wasmMemory   *wasmtime.Memory
@@ -72,7 +204,7 @@ type DevCycleLocalBucketing struct {
 	errorMessage     string
 }
 
-func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
+func (d *WASMLocalBucketingClient) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
 	d.options = options
 	d.wasmMain = wasmMain
 
@@ -217,7 +349,22 @@ func (d *DevCycleLocalBucketing) Initialize(wasmMain *WASMMain, sdkKey string, o
 	return
 }
 
-func (d *DevCycleLocalBucketing) setSDKKey(sdkKey string) (err error) {
+func (c *WASMLocalBucketingClient) VariableTypeCodeFromType(varType string) (varTypeCode VariableTypeCode, err error) {
+	switch varType {
+	case "Boolean":
+		return c.VariableTypeCodes.Boolean, nil
+	case "Number":
+		return c.VariableTypeCodes.Number, nil
+	case "String":
+		return c.VariableTypeCodes.String, nil
+	case "JSON":
+		return c.VariableTypeCodes.JSON, nil
+	}
+
+	return 0, errorf("variable type %s is not a valid type", varType)
+}
+
+func (d *WASMLocalBucketingClient) setSDKKey(sdkKey string) (err error) {
 	addr, err := d.newAssemblyScriptString([]byte(sdkKey))
 	if err != nil {
 		return
@@ -233,7 +380,7 @@ func (d *DevCycleLocalBucketing) setSDKKey(sdkKey string) (err error) {
 	return
 }
 
-func (d *DevCycleLocalBucketing) initEventQueue(options []byte) (err error) {
+func (d *WASMLocalBucketingClient) initEventQueue(options []byte) (err error) {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -248,14 +395,14 @@ func (d *DevCycleLocalBucketing) initEventQueue(options []byte) (err error) {
 	return
 }
 
-func (d *DevCycleLocalBucketing) startFlushEvents() {
+func (d *WASMLocalBucketingClient) startFlushEvents() {
 	d.flushMutex.Lock()
 }
 
-func (d *DevCycleLocalBucketing) finishFlushEvents() {
+func (d *WASMLocalBucketingClient) finishFlushEvents() {
 	d.flushMutex.Unlock()
 }
-func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err error) {
+func (d *WASMLocalBucketingClient) flushEventQueue() (payload []FlushPayload, err error) {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -273,7 +420,7 @@ func (d *DevCycleLocalBucketing) flushEventQueue() (payload []FlushPayload, err 
 	return
 }
 
-func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
+func (d *WASMLocalBucketingClient) checkEventQueueSize() (length int, err error) {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -287,14 +434,14 @@ func (d *DevCycleLocalBucketing) checkEventQueueSize() (length int, err error) {
 	return int(queueLen), nil
 }
 
-func (d *DevCycleLocalBucketing) OnPayloadSuccess(payloadId string) (err error) {
+func (d *WASMLocalBucketingClient) OnPayloadSuccess(payloadId string) (err error) {
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
 
 	return d.onPayloadSuccess(payloadId)
 }
 
-func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) {
+func (d *WASMLocalBucketingClient) onPayloadSuccess(payloadId string) (err error) {
 	d.errorMessage = ""
 	payloadIdAddr, err := d.newAssemblyScriptString([]byte(payloadId))
 	if err != nil {
@@ -306,7 +453,7 @@ func (d *DevCycleLocalBucketing) onPayloadSuccess(payloadId string) (err error) 
 	return
 }
 
-func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
+func (d *WASMLocalBucketingClient) queueEvent(user, event string) (err error) {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -335,7 +482,7 @@ func (d *DevCycleLocalBucketing) queueEvent(user, event string) (err error) {
 	return
 }
 
-func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, config BucketedUserConfig) (err error) {
+func (d *WASMLocalBucketingClient) queueAggregateEvent(event string, config BucketedUserConfig) (err error) {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -368,14 +515,14 @@ func (d *DevCycleLocalBucketing) queueAggregateEvent(event string, config Bucket
 	return
 }
 
-func (d *DevCycleLocalBucketing) OnPayloadFailure(payloadId string, retryable bool) (err error) {
+func (d *WASMLocalBucketingClient) OnPayloadFailure(payloadId string, retryable bool) (err error) {
 	d.wasmMutex.Lock()
 	defer d.wasmMutex.Unlock()
 
 	return d.onPayloadFailure(payloadId, retryable)
 }
 
-func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bool) (err error) {
+func (d *WASMLocalBucketingClient) onPayloadFailure(payloadId string, retryable bool) (err error) {
 	d.errorMessage = ""
 
 	payloadIdAddr, err := d.newAssemblyScriptString([]byte(payloadId))
@@ -397,7 +544,7 @@ func (d *DevCycleLocalBucketing) onPayloadFailure(payloadId string, retryable bo
 	return
 }
 
-func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(userData string) (ret BucketedUserConfig, err error) {
+func (d *WASMLocalBucketingClient) GenerateBucketedConfigForUser(userData string) (ret BucketedUserConfig, err error) {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -424,7 +571,7 @@ func (d *DevCycleLocalBucketing) GenerateBucketedConfigForUser(userData string) 
  * This is a helper function to call the variableForUserPB function in the WASM module.
  * It takes a serialized protobuf message as input and returns a serialized protobuf message as output.
  */
-func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) (*proto.SDKVariable_PB, error) {
+func (d *WASMLocalBucketingClient) VariableForUser_PB(serializedParams []byte) (*proto.SDKVariable_PB, error) {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -464,7 +611,7 @@ func (d *DevCycleLocalBucketing) VariableForUser_PB(serializedParams []byte) (*p
 	return &sdkVariable, nil
 }
 
-func (d *DevCycleLocalBucketing) StoreConfig(config []byte) error {
+func (d *WASMLocalBucketingClient) StoreConfig(config []byte) error {
 	defer func() {
 		if err := recover(); err != nil {
 			_ = errorf("Failed to process config: ", err)
@@ -485,7 +632,7 @@ func (d *DevCycleLocalBucketing) StoreConfig(config []byte) error {
 	return err
 }
 
-func (d *DevCycleLocalBucketing) SetPlatformData(platformData []byte) error {
+func (d *WASMLocalBucketingClient) SetPlatformData(platformData []byte) error {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -500,7 +647,7 @@ func (d *DevCycleLocalBucketing) SetPlatformData(platformData []byte) error {
 	return err
 }
 
-func (d *DevCycleLocalBucketing) SetClientCustomData(customData []byte) error {
+func (d *WASMLocalBucketingClient) SetClientCustomData(customData []byte) error {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -515,7 +662,7 @@ func (d *DevCycleLocalBucketing) SetClientCustomData(customData []byte) error {
 	return err
 }
 
-func (d *DevCycleLocalBucketing) HandleFlushResults(result *FlushResult) {
+func (d *WASMLocalBucketingClient) HandleFlushResults(result *FlushResult) {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
@@ -542,7 +689,7 @@ func (d *DevCycleLocalBucketing) HandleFlushResults(result *FlushResult) {
 
 // Due to WTF-16, we're double-allocating because utf8 -> utf16 doesn't zero-pad
 // after the first character byte, so we do that manually.
-func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, error) {
+func (d *WASMLocalBucketingClient) newAssemblyScriptString(param []byte) (int32, error) {
 	const objectIdString int32 = 2
 
 	// malloc
@@ -565,7 +712,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptString(param []byte) (int32, e
 	return ptr.(int32), nil
 }
 
-func (d *DevCycleLocalBucketing) newAssemblyScriptNoPoolByteArray(param []byte) (int32, error) {
+func (d *WASMLocalBucketingClient) newAssemblyScriptNoPoolByteArray(param []byte) (int32, error) {
 	const objectIdByteArray int32 = 1
 	var align int32 = 0
 
@@ -617,7 +764,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptNoPoolByteArray(param []byte) 
 	return headerAddr, err
 }
 
-func (d *DevCycleLocalBucketing) allocMemForBufferPool(size int32) (addr int32, err error) {
+func (d *WASMLocalBucketingClient) allocMemForBufferPool(size int32) (addr int32, err error) {
 	if len(d.allocatedMemPool) == 0 {
 		// dont use the pool, fall through to alloc below
 	} else {
@@ -637,7 +784,7 @@ func (d *DevCycleLocalBucketing) allocMemForBufferPool(size int32) (addr int32, 
 	return ptr, err
 }
 
-func (d *DevCycleLocalBucketing) allocMemForBuffer(size int32, classId int32, shouldPin bool) (addr int32, err error) {
+func (d *WASMLocalBucketingClient) allocMemForBuffer(size int32, classId int32, shouldPin bool) (addr int32, err error) {
 	// malloc
 	ptr, err := d.__newFunc.Call(d.wasmStore, size, classId)
 	err = d.handleWASMErrors("__new (allocMemForBuffer)", err)
@@ -652,7 +799,7 @@ func (d *DevCycleLocalBucketing) allocMemForBuffer(size int32, classId int32, sh
 	return ptr.(int32), nil
 }
 
-func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32, error) {
+func (d *WASMLocalBucketingClient) newAssemblyScriptByteArray(param []byte) (int32, error) {
 	const align = 0
 	length := int32(len(param))
 
@@ -701,7 +848,7 @@ func (d *DevCycleLocalBucketing) newAssemblyScriptByteArray(param []byte) (int32
 // https://www.assemblyscript.org/runtime.html#memory-layout
 // This skips every other index in the resulting array because
 // there isn't a great way to parse UTF-16 cleanly that matches the WTF-16 format that ASC uses.
-func (d *DevCycleLocalBucketing) readAssemblyScriptStringBytes(pointer int32) ([]byte, error) {
+func (d *WASMLocalBucketingClient) readAssemblyScriptStringBytes(pointer int32) ([]byte, error) {
 	if pointer == 0 {
 		return nil, errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
 	}
@@ -719,7 +866,7 @@ func (d *DevCycleLocalBucketing) readAssemblyScriptStringBytes(pointer int32) ([
 	return ret, nil
 }
 
-func (d *DevCycleLocalBucketing) readAssemblyScriptByteArray(pointer int32) ([]byte, error) {
+func (d *WASMLocalBucketingClient) readAssemblyScriptByteArray(pointer int32) ([]byte, error) {
 	if pointer == 0 {
 		return nil, errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
 	}
@@ -737,7 +884,7 @@ func (d *DevCycleLocalBucketing) readAssemblyScriptByteArray(pointer int32) ([]b
 
 	return ret, nil
 }
-func (d *DevCycleLocalBucketing) assemblyScriptPin(pointer int32) (err error) {
+func (d *WASMLocalBucketingClient) assemblyScriptPin(pointer int32) (err error) {
 	if pointer == 0 {
 		return errorf("null pointer passed to assemblyScriptPin - cannot pin")
 	}
@@ -746,13 +893,13 @@ func (d *DevCycleLocalBucketing) assemblyScriptPin(pointer int32) (err error) {
 	return
 }
 
-func (d *DevCycleLocalBucketing) assemblyScriptCollect() (err error) {
+func (d *WASMLocalBucketingClient) assemblyScriptCollect() (err error) {
 	_, err = d.__collectFunc.Call(d.wasmStore)
 	err = d.handleWASMErrors("__collect", err)
 	return
 }
 
-func (d *DevCycleLocalBucketing) assemblyScriptUnpin(pointer int32) (err error) {
+func (d *WASMLocalBucketingClient) assemblyScriptUnpin(pointer int32) (err error) {
 	if pointer == 0 {
 		return errorf("null pointer passed to assemblyScriptUnpin - cannot unpin")
 	}
@@ -762,7 +909,7 @@ func (d *DevCycleLocalBucketing) assemblyScriptUnpin(pointer int32) (err error) 
 	return
 }
 
-func (d *DevCycleLocalBucketing) handleWASMErrors(prefix string, err error) error {
+func (d *WASMLocalBucketingClient) handleWASMErrors(prefix string, err error) error {
 	if d.errorMessage != "" {
 		if err != nil {
 			return errorf(
