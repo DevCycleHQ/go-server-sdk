@@ -12,7 +12,10 @@ func (variable SDKVariable_PB) GetValue() interface{} {
 		return variable.StringValue
 	case VariableType_PB_JSON:
 		var result interface{}
-		json.Unmarshal([]byte(variable.StringValue), &result)
+		err := json.Unmarshal([]byte(variable.StringValue), &result)
+		if err != nil {
+			return nil
+		}
 		return result
 	}
 	return nil

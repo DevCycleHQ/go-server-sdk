@@ -60,8 +60,7 @@ func initializeWasmMain(options *DVCOptions) (ret *WASMMain, err error) {
 	ret = &WASMMain{}
 	err = ret.Initialize(options)
 	if err != nil {
-		errorf("error while initializing local bucketing", err)
-		return nil, err
+		return nil, errorf("error while initializing local bucketing", err)
 	}
 
 	return
@@ -71,8 +70,7 @@ func initializeLocalBucketing(wasmMain *WASMMain, sdkKey string, options *DVCOpt
 	ret = &DevCycleLocalBucketing{}
 	err = ret.Initialize(wasmMain, sdkKey, options)
 	if err != nil {
-		errorf("error while initializing local bucketing", err)
-		return nil, err
+		return nil, errorf("error while initializing local bucketing", err)
 	}
 	return
 }
