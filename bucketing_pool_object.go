@@ -15,7 +15,6 @@ type BucketingPoolObject struct {
 	id               int32
 	configData       *[]byte
 	clientCustomData *[]byte
-	lastFlushTime    int64
 }
 
 func (o *BucketingPoolObject) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {

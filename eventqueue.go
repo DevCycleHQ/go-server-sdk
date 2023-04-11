@@ -14,11 +14,9 @@ import (
 type EventQueue struct {
 	localBucketing      *DevCycleLocalBucketing
 	options             *DVCOptions
-	eventQueueOptions   *EventQueueOptions
 	cfg                 *HTTPConfiguration
 	context             context.Context
 	closed              bool
-	ticker              *time.Ticker
 	flushStop           chan bool
 	bucketingObjectPool *BucketingPool
 	eventsFlushed       atomic.Int32
@@ -29,11 +27,6 @@ type FlushResult struct {
 	SuccessPayloads          []string
 	FailurePayloads          []string
 	FailureWithRetryPayloads []string
-}
-
-type PayloadsAndChannel struct {
-	payloads []FlushPayload
-	channel  *chan *FlushResult
 }
 
 func (e *EventQueue) initialize(options *DVCOptions, localBucketing *DevCycleLocalBucketing, bucketingObjectPool *BucketingPool, cfg *HTTPConfiguration) (err error) {
