@@ -25,10 +25,6 @@ type Variable struct {
 	IsDefaulted bool `json:"isDefaulted"`
 }
 
-type readOnlyVariable struct {
-	ReadOnlyVariable
-}
-
 type ReadOnlyVariable struct {
 	baseVariable
 	// unique database id

@@ -244,8 +244,6 @@ func (e *EventQueue) flushEventPayload(
 
 	_ = errorf("unknown status code when flushing events %d", resp.StatusCode)
 	e.reportPayloadFailure(payload, false, failures, retryableFailures)
-
-	return
 }
 
 func (e *EventQueue) flushEventPayloads(payloads []FlushPayload) (result *FlushResult, err error) {
@@ -274,7 +272,6 @@ func (e *EventQueue) reportPayloadSuccess(payload *FlushPayload, successPayloads
 	if err != nil {
 		_ = errorf("Failed to mark payload as success: %s", err)
 	}
-	return
 }
 
 func (e *EventQueue) reportPayloadFailure(
@@ -295,7 +292,6 @@ func (e *EventQueue) reportPayloadFailure(
 	if err != nil {
 		_ = errorf("Failed to mark payload as failed: %s", err)
 	}
-	return
 }
 
 func (e *EventQueue) Metrics() (int32, int32) {
