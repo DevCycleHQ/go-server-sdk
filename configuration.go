@@ -12,8 +12,6 @@ import (
 	"net/http"
 	"runtime"
 	"time"
-
-	"github.com/devcyclehq/go-server-sdk/v2/api"
 )
 
 // contextKeys are used to identify the type of value in the context.
@@ -155,7 +153,7 @@ func NewConfiguration(options *DVCOptions) *HTTPConfiguration {
 		ConfigCDNBasePath: configBasePath,
 		EventsAPIBasePath: eventsApiBasePath,
 		DefaultHeader:     make(map[string]string),
-		UserAgent:         "DevCycle-Server-SDK/" + api.VERSION + "/go",
+		UserAgent:         "DevCycle-Server-SDK/" + VERSION + "/go",
 		HTTPClient:        http.DefaultClient,
 	}
 	return cfg
