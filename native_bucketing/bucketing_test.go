@@ -124,9 +124,9 @@ func TestBucketing_Deterministic_RolloutNotEqualBucketing(t *testing.T) {
 
 func TestConfigParsing(t *testing.T) {
 	// Parsing the large config should succeed without an error
-	err := SetConfig(test_config, "")
+	err := SetConfig(test_config, "test", "")
 	require.NoError(t, err)
-	config, err := getConfig()
+	config, err := getConfig("test")
 	require.NoError(t, err)
 
 	// Spot check parsing down to a filter
@@ -400,13 +400,13 @@ func TestClientData(t *testing.T) {
 		PlatformVersion: "1.1.2",
 	}
 
-	err := SetConfig(test_config, "")
+	err := SetConfig(test_config, "test", "")
 	require.NoError(t, err)
 
 	// Ensure bucketed config has a feature variation map that's empty
-	bucketedUserConfig, err := GenerateBucketedConfig(user, nil)
+	bucketedUserConfig, err := GenerateBucketedConfig("test", user, nil)
 	require.NoError(t, err)
-	variableUser, err := generateBucketedVariableForUser(user, "num-var", nil)
+	variableUser, err := generateBucketedVariableForUser("test", user, "num-var", nil)
 	require.ErrorContainsf(t, err, "does not qualify", "does not qualify")
 	require.Nil(t, variableUser)
 	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
@@ -416,13 +416,13 @@ func TestClientData(t *testing.T) {
 		"favouriteDrink": "coffee",
 	}
 
-	bucketedUserConfig, err = GenerateBucketedConfig(user, clientCustomData)
+	bucketedUserConfig, err = GenerateBucketedConfig("test", user, clientCustomData)
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{
 		"614ef6aa473928459060721a": "615357cf7e9ebdca58446ed0",
 		"614ef6aa475928459060721a": "615382338424cb11646d7667",
 	}, bucketedUserConfig.FeatureVariationMap)
-	variableUser, err = generateBucketedVariableForUser(user, "num-var", clientCustomData)
+	variableUser, err = generateBucketedVariableForUser("test", user, "num-var", clientCustomData)
 	require.NoError(t, err)
 	require.Equal(t, 610.61, variableUser.Variable.Value)
 
@@ -435,7 +435,7 @@ func TestClientData(t *testing.T) {
 	user2.PlatformData = &PlatformData{
 		PlatformVersion: "1.1.2",
 	}
-	bucketedUserConfig, err = GenerateBucketedConfig(user2, nil)
+	bucketedUserConfig, err = GenerateBucketedConfig("test", user2, nil)
 	require.NoError(t, err)
 
 	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
@@ -457,10 +457,10 @@ func TestVariableForUser(t *testing.T) {
 		},
 	}
 
-	err := SetConfig(test_config, "")
+	err := SetConfig(test_config, "test", "")
 	require.NoError(t, err)
 
-	userVariable, err := GenerateBucketedVariableForUser(user, "json-var", nil)
+	userVariable, err := GenerateBucketedVariableForUser("test", user, "json-var", nil)
 	require.NoError(t, err)
 	require.Equal(t, "615357cf7e9ebdca58446ed0", userVariable.Variation.Id)
 	require.Equal(t, "{\"hello\":\"world\",\"num\":610,\"bool\":true}", userVariable.Variable.Value)

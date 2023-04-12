@@ -171,12 +171,12 @@ func GenerateBucketedConfig(sdkKey string, user DVCPopulatedUser, clientCustomDa
 	variableVariationMap := make(map[string]FeatureVariation)
 
 	for _, feature := range config.Features {
-		targetAndHashes, err := doesUserQualifyForFeature(config, feature, user, clientCustomData)
+		thash, err := doesUserQualifyForFeature(config, feature, user, clientCustomData)
 		if err != nil {
 			continue
 		}
 
-		variation, err := bucketUserForVariation(&feature, targetAndHashes)
+		variation, err := bucketUserForVariation(&feature, thash)
 		if err != nil {
 			continue
 		}
@@ -244,6 +244,7 @@ func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, v
 
 	return &result.Variable, nil
 }
+
 
 func generateBucketedVariableForUser(user DVCPopulatedUser, key string, clientCustomData map[string]interface{}) (*BucketedVariableResponse, error) {
 	config, err := getConfig()

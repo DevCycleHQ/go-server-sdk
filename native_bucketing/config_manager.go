@@ -5,28 +5,28 @@ import (
 	"sync"
 )
 
-var internalConfig *configBody
+var internalConfigs map[string]*configBody
 var configMutex = &sync.RWMutex{}
 
-func getConfig() (*configBody, error) {
+func getConfig(sdkKey string) (*configBody, error) {
 	configMutex.RLock()
 	defer configMutex.RUnlock()
-	if internalConfig == nil {
-		return nil, fmt.Errorf("config not initialized")
+	if val, ok := internalConfigs[sdkKey]; ok && val != nil {
+		return val, nil
 	}
-	return internalConfig, nil
+	return nil, fmt.Errorf("config not initialized")
 }
 
-func SetConfig(rawJSON []byte, etag string) error {
+func SetConfig(rawJSON []byte, sdkKey, etag string) error {
 	configMutex.Lock()
 	defer configMutex.Unlock()
-	if internalConfig != nil && internalConfig.etag == etag {
+	if val, ok := internalConfigs[sdkKey]; ok && val != nil && val.etag == etag {
 		return nil
 	}
 	config, err := newConfig(rawJSON, etag)
 	if err != nil {
 		return err
 	}
-	internalConfig = &config
-	return err
+	internalConfigs[sdkKey] = &config
+	return nil
 }
