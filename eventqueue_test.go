@@ -8,7 +8,6 @@ import (
 )
 
 func TestEventQueue_QueueEvent(t *testing.T) {
-
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
@@ -23,6 +22,7 @@ func TestEventQueue_QueueEvent(t *testing.T) {
 }
 
 func TestEventQueue_QueueEvent_100_DropEvent(t *testing.T) {
+	skipIfNative(t)
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -47,6 +47,7 @@ func TestEventQueue_QueueEvent_100_DropEvent(t *testing.T) {
 }
 
 func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
+	skipIfNative(t)
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()

@@ -3,7 +3,6 @@ package devcycle
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -35,7 +34,7 @@ type DVCClient struct {
 	DevCycleOptions *DVCOptions
 	sdkKey          string
 	configManager   *EnvironmentConfigManager
-	eventQueue      *EventQueue
+	eventQueue      EventQueuer
 	localBucketing  LocalBucketing
 
 	// Set to true when the client has been initialized, regardless of whether the config has loaded successfully.
@@ -44,10 +43,19 @@ type DVCClient struct {
 }
 
 type LocalBucketing interface {
-	GenerateBucketedConfigForUser(userData string) (ret *BucketedUserConfig, err error)
-	SetClientCustomData(customData []byte) error
+	ConfigReceiver
+	GenerateBucketedConfigForUser(user DVCUser) (ret *BucketedUserConfig, err error)
+	SetClientCustomData(map[string]interface{}) error
 	Variable(user DVCUser, key string, variableType string) (variable Variable, err error)
 	Close()
+}
+
+type EventQueuer interface {
+	QueueEvent(user DVCUser, event DVCEvent) error
+	QueueAggregateEvent(config BucketedUserConfig, event DVCEvent) error
+	FlushEvents() (err error)
+	Metrics() (int32, int32)
+	Close() (err error)
 }
 
 type SDKEvent struct {
@@ -91,6 +99,10 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 		if err != nil {
 			return c, err
 		}
+
+		c.configManager = NewEnvironmentConfigManager(sdkKey, c.localBucketing, options, c.cfg)
+		c.configManager.StartPolling(options.ConfigPollingIntervalMS)
+
 		if c.DevCycleOptions.OnInitializedChannel != nil {
 			// TODO: Pass this error back via a channel internally
 			go func() {
@@ -122,11 +134,7 @@ func (c *DVCClient) handleInitialization() {
 }
 
 func (c *DVCClient) generateBucketedConfig(user DVCUser) (config *BucketedUserConfig, err error) {
-	userJSON, err := json.Marshal(user)
-	if err != nil {
-		return nil, err
-	}
-	config, err = c.localBucketing.GenerateBucketedConfigForUser(string(userJSON))
+	config, err = c.localBucketing.GenerateBucketedConfigForUser(user)
 	if err != nil {
 		return nil, err
 	}
@@ -185,11 +193,6 @@ func createNullableCustomData(data map[string]interface{}) *proto.NullableCustom
 	}
 }
 
-func (c *DVCClient) queueEvent(user DVCUser, event DVCEvent) (err error) {
-	err = c.eventQueue.QueueEvent(user, event)
-	return
-}
-
 func (c *DVCClient) queueAggregateEvent(bucketed BucketedUserConfig, event DVCEvent) (err error) {
 	err = c.eventQueue.QueueAggregateEvent(bucketed, event)
 	return
@@ -205,6 +208,9 @@ func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.hasConfig() {
 			user, err := c.generateBucketedConfig(user)
+			if err != nil {
+				return nil, fmt.Errorf("error generating bucketed config: %w", err)
+			}
 			return user.Features, err
 		} else {
 			warnf("AllFeatures called before client initialized")
@@ -476,11 +482,7 @@ func (c *DVCClient) FlushEvents() error {
 func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error {
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.isInitialized {
-			data, err := json.Marshal(customData)
-			if err != nil {
-				return err
-			}
-			return c.localBucketing.SetClientCustomData(data)
+			return c.localBucketing.SetClientCustomData(customData)
 		} else {
 			warnf("SetClientCustomData called before client initialized")
 			return nil
