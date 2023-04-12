@@ -225,7 +225,7 @@ type BucketedVariableResponse struct {
 }
 
 func VariableForUser(config ConfigBody, sdkKey string, user DVCPopulatedUser, variableKey string, variableType string, shouldTrackEvent bool, clientCustomData map[string]interface{}) (*ReadOnlyVariable, error) {
-	result, err := generateBucketedVariableForUser(config, user, sdkKey, clientCustomData)
+	result, err := generateBucketedVariableForUser(config, user, variableKey, clientCustomData)
 	if err != nil {
 		return nil, err
 	}
