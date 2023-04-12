@@ -1,17 +1,28 @@
 package native_bucketing
 
-import "errors"
+import (
+	"fmt"
+	"runtime"
+)
 
 var platformDataMap = map[string]PlatformData{}
 var emptyPlatformData = PlatformData{}
 
-func GetPlatformData(token string) (err error, data PlatformData) {
-	if platformDataMap[token] != emptyPlatformData {
-		return nil, platformDataMap[token]
+var VERSION = "0.0.0"
+
+func GetPlatformData(token string) (data *PlatformData, err error) {
+	if data, ok := platformDataMap[token]; ok {
+		return &data, nil
 	}
-	return errors.New("No platform data found for token " + token), data
+	return nil, fmt.Errorf("no platform data found for token %s", token)
 }
 
-func SetPlatformData(token string, data PlatformData) {
+func SetPlatformData(token string) {
+	data := PlatformData{
+		Platform:        "Go",
+		PlatformVersion: runtime.Version(),
+		SdkType:         "server",
+		SdkVersion:      VERSION,
+	}
 	platformDataMap[token] = data
 }
