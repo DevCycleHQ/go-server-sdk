@@ -26,3 +26,16 @@ func SetPlatformData(token string) {
 	}
 	platformDataMap[token] = data
 }
+
+var clientCustomData = map[string]map[string]interface{}{}
+
+func GetClientCustomData(token string) (map[string]interface{}, error) {
+	if data, ok := clientCustomData[token]; ok {
+		return data, nil
+	}
+	return nil, fmt.Errorf("no client custom data found for token %s", token)
+}
+
+func SetClientCustomData(token string, data map[string]interface{}) {
+	clientCustomData[token] = data
+}
