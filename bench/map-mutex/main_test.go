@@ -11,6 +11,8 @@ var rwmutex = &sync.RWMutex{}
 var mutex = &sync.Mutex{}
 var isDone = make(chan bool, 10000000)
 
+var mapChannel = make(chan string, 10000000)
+
 func main() {
 
 	worstCaseMap := map[string]map[string]map[string]map[string]int32{}
@@ -81,6 +83,17 @@ func BenchmarkWorstCaseMap_Goroutines2(b *testing.B) {
 	}
 }
 
+func BenchmarkChannel_GoRoutines(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		go insertToChannel(i)
+	}
+	for {
+		if len(mapChannel) >= b.N {
+			return
+		}
+	}
+}
+
 func insertToMap(i int) {
 	iStr := strconv.Itoa(i)
 	if _, ok := MutexWorstCaseMap[iStr]; !ok {
@@ -94,6 +107,11 @@ func insertToMap(i int) {
 	}
 	MutexWorstCaseMap[iStr][iStr][iStr][iStr] = 1
 	isDone <- true
+}
+
+func insertToChannel(i int) {
+	iStr := strconv.Itoa(i)
+	mapChannel <- iStr
 }
 
 func insertToMapMut(i int) {
