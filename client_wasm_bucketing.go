@@ -1,4 +1,8 @@
+//go:build !native_bucketing
+
 package devcycle
+
+const NATIVE_SDK = false
 
 func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {
 	localBucketing, err := NewWASMLocalBucketing(sdkKey, options)
@@ -7,19 +11,14 @@ func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {
 	}
 	c.localBucketing = localBucketing
 
-	c.eventQueue = &EventQueue{}
-	err = c.eventQueue.initialize(options, localBucketing.localBucketingClient, localBucketing.bucketingObjectPool, c.cfg)
+	eventQueue := &EventQueue{}
+	err = eventQueue.initialize(options, localBucketing.localBucketingClient, localBucketing.bucketingObjectPool, c.cfg)
 
 	if err != nil {
 		return err
 	}
 
-	c.configManager = NewEnvironmentConfigManager(sdkKey, localBucketing, options, c.cfg)
-	c.configManager.StartPolling(options.ConfigPollingIntervalMS)
+	c.eventQueue = eventQueue
 
-	if err != nil {
-		return err
-	}
-
-	return err
+	return nil
 }

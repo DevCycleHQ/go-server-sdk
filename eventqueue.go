@@ -29,11 +29,6 @@ type FlushResult struct {
 	FailureWithRetryPayloads []string
 }
 
-type PayloadsAndChannel struct {
-	payloads []FlushPayload
-	channel  *chan *FlushResult
-}
-
 func (e *EventQueue) initialize(options *DVCOptions, localBucketing *WASMLocalBucketingClient, bucketingObjectPool *BucketingPool, cfg *HTTPConfiguration) (err error) {
 	e.context = context.Background()
 	e.cfg = cfg

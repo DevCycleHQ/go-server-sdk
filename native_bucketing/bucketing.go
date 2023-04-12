@@ -160,7 +160,7 @@ func bucketUserForVariation(feature *ConfigFeature, hashes TargetAndHashes) (Var
 	return Variation{}, fmt.Errorf("config missing variation %s", variationId)
 }
 
-func GenerateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) (BucketedUserConfig, error) {
+func GenerateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) (*BucketedUserConfig, error) {
 	variableMap := make(map[string]ReadOnlyVariable)
 	featureKeyMap := make(map[string]SDKFeature)
 	featureVariationMap := make(map[string]string)
@@ -189,7 +189,7 @@ func GenerateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCust
 		for _, variationVar := range variation.Variables {
 			variable := config.GetVariableForId(variationVar.Var)
 			if variable == nil {
-				return BucketedUserConfig{}, fmt.Errorf("Config missing variable: %s", variationVar.Var)
+				return nil, fmt.Errorf("Config missing variable: %s", variationVar.Var)
 			}
 
 			variableVariationMap[variable.Key] = FeatureVariation{
@@ -208,7 +208,7 @@ func GenerateBucketedConfig(config ConfigBody, user DVCPopulatedUser, clientCust
 		}
 	}
 
-	return BucketedUserConfig{
+	return &BucketedUserConfig{
 		Project:              config.Project,
 		Environment:          config.Environment,
 		Features:             featureKeyMap,
@@ -222,6 +222,19 @@ type BucketedVariableResponse struct {
 	Variable  ReadOnlyVariable
 	Feature   ConfigFeature
 	Variation Variation
+}
+
+func VariableForUser(config ConfigBody, sdkKey string, user DVCPopulatedUser, variableKey string, variableType string, shouldTrackEvent bool, clientCustomData map[string]interface{}) (*ReadOnlyVariable, error) {
+	result, err := generateBucketedVariableForUser(config, user, sdkKey, clientCustomData)
+	if err != nil {
+		return nil, err
+	}
+
+	if result.Variable.Type_ != variableType {
+		return nil, fmt.Errorf("variable %s is of type %s, not %s", variableKey, result.Variable.Type_, variableType)
+	}
+
+	return &result.Variable, nil
 }
 
 func generateBucketedVariableForUser(config ConfigBody, user DVCPopulatedUser, key string, clientCustomData map[string]interface{}) (*BucketedVariableResponse, error) {

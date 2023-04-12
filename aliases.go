@@ -11,6 +11,7 @@ type BaseVariable = api.BaseVariable
 type Variable = api.Variable
 type ReadOnlyVariable = api.ReadOnlyVariable
 type DVCUser = api.DVCUser
+type DVCPopulatedUser = api.DVCPopulatedUser
 type UserFeatureData = api.UserFeatureData
 type UserDataAndEventsBody = api.UserDataAndEventsBody
 type Project = api.Project
