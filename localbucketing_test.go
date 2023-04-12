@@ -62,7 +62,11 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 	}
 
 	genConfig, err := localBucketing.GenerateBucketedConfigForUser(
-		`{"user_id": "j_test", "platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing" }`)
+		DVCUser{
+			UserId:      "j_test",
+			DeviceModel: "testing",
+		},
+	)
 	if err != nil {
 		return
 	}
@@ -162,7 +166,11 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 
 	for i := 0; i < b.N; i++ {
 		_, err := localBucketing.GenerateBucketedConfigForUser(
-			`{"user_id": "j_test", "platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`)
+			DVCUser{
+				UserId:      "j_test",
+				DeviceModel: "testing",
+			},
+		)
 		if err != nil {
 			b.Fatal(err)
 		}

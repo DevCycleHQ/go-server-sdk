@@ -69,18 +69,23 @@ func NewWASMLocalBucketing(sdkKey string, options *DVCOptions) (*WASMLocalBucket
 
 }
 
-func (lb *WASMLocalBucketing) GenerateBucketedConfigForUser(userData string) (ret *BucketedUserConfig, err error) {
-	return lb.localBucketingClient.GenerateBucketedConfigForUser(userData)
+func (lb *WASMLocalBucketing) GenerateBucketedConfigForUser(user DVCUser) (ret *BucketedUserConfig, err error) {
+	return lb.localBucketingClient.GenerateBucketedConfigForUser(user)
 }
 
-func (lb *WASMLocalBucketing) SetClientCustomData(customData []byte) error {
-	err := lb.localBucketingClient.SetClientCustomData(customData)
+func (lb *WASMLocalBucketing) SetClientCustomData(customData map[string]interface{}) error {
+	customDataJSON, err := json.Marshal(customData)
+	if err != nil {
+		return err
+	}
+
+	err = lb.localBucketingClient.SetClientCustomData(customDataJSON)
 
 	if err != nil {
 		return err
 	}
 
-	return lb.bucketingObjectPool.SetClientCustomData(customData)
+	return lb.bucketingObjectPool.SetClientCustomData(customDataJSON)
 }
 
 func (lb *WASMLocalBucketing) StoreConfig(config []byte) error {
@@ -544,11 +549,16 @@ func (d *WASMLocalBucketingClient) onPayloadFailure(payloadId string, retryable 
 	return
 }
 
-func (d *WASMLocalBucketingClient) GenerateBucketedConfigForUser(userData string) (ret *BucketedUserConfig, err error) {
+func (d *WASMLocalBucketingClient) GenerateBucketedConfigForUser(user DVCUser) (ret *BucketedUserConfig, err error) {
+	userJSON, err := json.Marshal(user)
+	if err != nil {
+		return nil, err
+	}
+
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()
-	userAddr, err := d.newAssemblyScriptNoPoolByteArray([]byte(userData))
+	userAddr, err := d.newAssemblyScriptNoPoolByteArray(userJSON)
 	if err != nil {
 		return
 	}
