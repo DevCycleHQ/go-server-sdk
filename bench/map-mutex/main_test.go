@@ -30,16 +30,17 @@ func BenchmarkWorstCaseMap_Create(b *testing.B) {
 	worstCaseMap := map[string]map[string]map[string]map[string]int{}
 
 	for i := 0; i < b.N; i++ {
-		if _, ok := worstCaseMap[strconv.Itoa(i)]; !ok {
-			worstCaseMap[strconv.Itoa(i)] = map[string]map[string]map[string]int{}
+		iStr := strconv.Itoa(i)
+		if _, ok := worstCaseMap[iStr]; !ok {
+			worstCaseMap[iStr] = map[string]map[string]map[string]int{}
 		}
-		if _, ok := worstCaseMap[strconv.Itoa(i)][strconv.Itoa(i)]; !ok {
-			worstCaseMap[strconv.Itoa(i)][strconv.Itoa(i)] = map[string]map[string]int{}
+		if _, ok := worstCaseMap[iStr][iStr]; !ok {
+			worstCaseMap[iStr][iStr] = map[string]map[string]int{}
 		}
-		if _, ok := worstCaseMap[strconv.Itoa(i)][strconv.Itoa(i)][strconv.Itoa(i)]; !ok {
-			worstCaseMap[strconv.Itoa(i)][strconv.Itoa(i)][strconv.Itoa(i)] = map[string]int{}
+		if _, ok := worstCaseMap[iStr][iStr][iStr]; !ok {
+			worstCaseMap[iStr][iStr][iStr] = map[string]int{}
 		}
-		worstCaseMap[strconv.Itoa(i)][strconv.Itoa(i)][strconv.Itoa(i)][strconv.Itoa(i)] = 1
+		worstCaseMap[iStr][iStr][iStr][iStr] = 1
 	}
 }
 
@@ -81,16 +82,17 @@ func BenchmarkWorstCaseMap_Goroutines2(b *testing.B) {
 }
 
 func insertToMap(i int) {
-	if _, ok := MutexWorstCaseMap[strconv.Itoa(i)]; !ok {
-		MutexWorstCaseMap[strconv.Itoa(i)] = map[string]map[string]map[string]int{}
+	iStr := strconv.Itoa(i)
+	if _, ok := MutexWorstCaseMap[iStr]; !ok {
+		MutexWorstCaseMap[iStr] = map[string]map[string]map[string]int{}
 	}
-	if _, ok := MutexWorstCaseMap[strconv.Itoa(i)][strconv.Itoa(i)]; !ok {
-		MutexWorstCaseMap[strconv.Itoa(i)][strconv.Itoa(i)] = map[string]map[string]int{}
+	if _, ok := MutexWorstCaseMap[iStr][iStr]; !ok {
+		MutexWorstCaseMap[iStr][iStr] = map[string]map[string]int{}
 	}
 	if _, ok := MutexWorstCaseMap[strconv.Itoa(i)][strconv.Itoa(i)][strconv.Itoa(i)]; !ok {
-		MutexWorstCaseMap[strconv.Itoa(i)][strconv.Itoa(i)][strconv.Itoa(i)] = map[string]int{}
+		MutexWorstCaseMap[iStr][iStr][iStr] = map[string]int{}
 	}
-	MutexWorstCaseMap[strconv.Itoa(i)][strconv.Itoa(i)][strconv.Itoa(i)][strconv.Itoa(i)] = 1
+	MutexWorstCaseMap[iStr][iStr][iStr][iStr] = 1
 	isDone <- true
 }
 
