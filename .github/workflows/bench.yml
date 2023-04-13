@@ -1,0 +1,36 @@
+name: Benchmark
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  benchmark:
+    name: Performance Regression Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+      - name: Run benchmark
+        run: go test -bench=^BenchmarkDVCClient_Variable -run=^# -benchDisableLogs | tee bench_output.txt
+      - name: Download previous benchmark data
+        uses: actions/cache@v3
+        with:
+          path: ./cache
+          key: ${{ runner.os }}-benchmark
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: 'go'
+          output-file-path: bench_output.txt
+          external-data-json-path: ./cache/benchmark-data.json
+          summary-always: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-on-alert: true
+          alert-threshold: 125%
+          fail-on-alert: true
+          fail-threshold: 150%
+
