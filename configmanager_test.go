@@ -12,7 +12,7 @@ type recordingConfigReceiver struct {
 	configureCount int
 }
 
-func (r *recordingConfigReceiver) StoreConfig([]byte) error {
+func (r *recordingConfigReceiver) StoreConfig([]byte, string) error {
 	r.configureCount++
 	return nil
 }

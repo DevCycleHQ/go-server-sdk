@@ -20,16 +20,16 @@ func TestSetConfig(t *testing.T) {
 }
 
 func TestGetConfig_Unset(t *testing.T) {
-	config, err := getConfig("test")
+	config, err := getConfig("test2")
 	require.Error(t, err)
 	require.Nil(t, config)
 }
 
 func TestGetConfig_Set(t *testing.T) {
-	err := SetConfig(test_config, "test", "test_etag")
+	err := SetConfig(test_config, "test3", "test_etag")
 	require.NoError(t, err)
 
-	config, err := getConfig("test")
+	config, err := getConfig("test3")
 	require.NoError(t, err)
 	require.NotNil(t, config)
 }
