@@ -6,18 +6,6 @@ import (
 	"reflect"
 )
 
-type PublicProject struct {
-	Id             string                 `json:"_id"`
-	Key            string                 `json:"key"`
-	A0Organization string                 `json:"a0_organization"`
-	Settings       map[string]interface{} `json:"settings"`
-}
-
-type PublicEnvironment struct {
-	Id  string `json:"_id"`
-	Key string `json:"key"`
-}
-
 type Variable struct {
 	Id   string `json:"_id"`
 	Type string `json:"type" validate:"regexp=^(String|Boolean|Number|JSON)$"`
@@ -27,12 +15,12 @@ type ConfigBody struct {
 	Project                PublicProject           `json:"project"`
 	Audiences              map[string]NoIdAudience `json:"audiences"`
 	Environment            PublicEnvironment       `json:"environment"`
-	Features               []Feature               `json:"features"`
+	Features               []ConfigFeature         `json:"features"`
 	Variables              []Variable              `json:"variables"`
 	etag                   string
 	variableIdMap          map[string]Variable
 	variableKeyMap         map[string]Variable
-	variableIdToFeatureMap map[string]Feature
+	variableIdToFeatureMap map[string]ConfigFeature
 }
 
 func (c *ConfigBody) GetVariableForKey(key string) *Variable {
@@ -49,7 +37,7 @@ func (c *ConfigBody) GetVariableForId(id string) *Variable {
 	return nil
 }
 
-func (c *ConfigBody) GetFeatureForVariableId(id string) *Feature {
+func (c *ConfigBody) GetFeatureForVariableId(id string) *ConfigFeature {
 	if feature, ok := c.variableIdToFeatureMap[id]; ok {
 		return &feature
 	}
@@ -63,7 +51,7 @@ func NewConfig(configJSON []byte, etag string) (ConfigBody, error) {
 		return config, err
 	}
 
-	variableIdToFeatureMap := make(map[string]Feature)
+	variableIdToFeatureMap := make(map[string]ConfigFeature)
 	for _, feature := range config.Features {
 		for _, v := range feature.Variations {
 			for _, vv := range v.Variables {

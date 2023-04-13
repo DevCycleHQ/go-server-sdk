@@ -1,4 +1,4 @@
-package devcycle
+package api
 
 type BucketedUserConfig struct {
 	Project              Project                     `json:"project"`
@@ -9,5 +9,5 @@ type BucketedUserConfig struct {
 	Variables            map[string]ReadOnlyVariable `json:"variables"`
 	KnownVariableKeys    []float64                   `json:"knownVariableKeys"`
 
-	user *DVCUser
+	User *DVCUser `json:"-"`
 }

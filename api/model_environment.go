@@ -1,4 +1,4 @@
-package devcycle
+package api
 
 type Environment struct {
 	Id  string `json:"_id"`

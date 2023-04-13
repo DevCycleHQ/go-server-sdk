@@ -1,4 +1,4 @@
-package devcycle
+package api
 
 import (
 	"os"
@@ -14,10 +14,10 @@ type PlatformData struct {
 	Hostname        string `json:"hostname"`
 }
 
+// TODO: Set SDK version
 func (pd *PlatformData) Default() *PlatformData {
 	pd.Platform = "Go"
 	pd.SdkType = "server"
-	pd.SdkVersion = VERSION
 	pd.PlatformVersion = runtime.Version()
 	pd.Hostname, _ = os.Hostname()
 	return pd
