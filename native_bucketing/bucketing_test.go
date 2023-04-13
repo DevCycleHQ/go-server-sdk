@@ -56,7 +56,7 @@ func TestUserHashingBucketing_BucketingDistribution(t *testing.T) {
 
 	for i := 0; i < 30000; i++ {
 		userid := uuid.New()
-		hash := GenerateBoundedHashes(userid.String(), testTarget.Id)
+		hash := generateBoundedHashes(userid.String(), testTarget.Id)
 		variation, err := testTarget.DecideTargetVariation(hash.BucketingHash)
 		if err != nil {
 			return
@@ -94,8 +94,8 @@ func TestUserHashingBucketing_BucketingDistribution(t *testing.T) {
 
 func TestBucketing_Deterministic_SameUserSameSeed(t *testing.T) {
 	userId := uuid.New()
-	hash := GenerateBoundedHashes(userId.String(), "fake")
-	hash2 := GenerateBoundedHashes(userId.String(), "fake")
+	hash := generateBoundedHashes(userId.String(), "fake")
+	hash2 := generateBoundedHashes(userId.String(), "fake")
 	if hash.BucketingHash != hash2.BucketingHash {
 		t.Errorf("Hashes should be the same for the same target id and userid")
 	}
@@ -107,8 +107,8 @@ func TestBucketing_Deterministic_SameUserSameSeed(t *testing.T) {
 
 func TestBucketing_Deterministic_SameUserDiffSeed(t *testing.T) {
 	userId := uuid.New()
-	hash := GenerateBoundedHashes(userId.String(), "fake")
-	hash2 := GenerateBoundedHashes(userId.String(), "fake2")
+	hash := generateBoundedHashes(userId.String(), "fake")
+	hash2 := generateBoundedHashes(userId.String(), "fake2")
 	if hash.BucketingHash == hash2.BucketingHash {
 		t.Errorf("Hashes should be different for different target ids")
 	}
@@ -116,7 +116,7 @@ func TestBucketing_Deterministic_SameUserDiffSeed(t *testing.T) {
 
 func TestBucketing_Deterministic_RolloutNotEqualBucketing(t *testing.T) {
 	userId := uuid.New()
-	hash := GenerateBoundedHashes(userId.String(), "fake")
+	hash := generateBoundedHashes(userId.String(), "fake")
 	if hash.BucketingHash == hash.RolloutHash {
 		t.Errorf("Hashes should be different - rollout should not equal bucketing hash")
 	}
@@ -124,7 +124,9 @@ func TestBucketing_Deterministic_RolloutNotEqualBucketing(t *testing.T) {
 
 func TestConfigParsing(t *testing.T) {
 	// Parsing the large config should succeed without an error
-	config, err := NewConfig(test_config, "")
+	err := SetConfig(test_config, "test", "")
+	require.NoError(t, err)
+	config, err := getConfig("test")
 	require.NoError(t, err)
 
 	// Spot check parsing down to a filter
@@ -398,13 +400,13 @@ func TestClientData(t *testing.T) {
 		PlatformVersion: "1.1.2",
 	}
 
-	config, err := NewConfig(test_config, "")
+	err := SetConfig(test_config, "test", "")
 	require.NoError(t, err)
 
 	// Ensure bucketed config has a feature variation map that's empty
-	bucketedUserConfig, err := GenerateBucketedConfig(config, user, nil)
+	bucketedUserConfig, err := GenerateBucketedConfig("test", user, nil)
 	require.NoError(t, err)
-	variableUser, err := generateBucketedVariableForUser(config, user, "num-var", nil)
+	variableUser, err := generateBucketedVariableForUser("test", user, "num-var", nil)
 	require.ErrorContainsf(t, err, "does not qualify", "does not qualify")
 	require.Nil(t, variableUser)
 	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
@@ -414,13 +416,13 @@ func TestClientData(t *testing.T) {
 		"favouriteDrink": "coffee",
 	}
 
-	bucketedUserConfig, err = GenerateBucketedConfig(config, user, clientCustomData)
+	bucketedUserConfig, err = GenerateBucketedConfig("test", user, clientCustomData)
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{
 		"614ef6aa473928459060721a": "615357cf7e9ebdca58446ed0",
 		"614ef6aa475928459060721a": "615382338424cb11646d7667",
 	}, bucketedUserConfig.FeatureVariationMap)
-	variableUser, err = generateBucketedVariableForUser(config, user, "num-var", clientCustomData)
+	variableUser, err = generateBucketedVariableForUser("test", user, "num-var", clientCustomData)
 	require.NoError(t, err)
 	require.Equal(t, 610.61, variableUser.Variable.Value)
 
@@ -433,7 +435,7 @@ func TestClientData(t *testing.T) {
 	user2.PlatformData = &PlatformData{
 		PlatformVersion: "1.1.2",
 	}
-	bucketedUserConfig, err = GenerateBucketedConfig(config, user2, nil)
+	bucketedUserConfig, err = GenerateBucketedConfig("test", user2, nil)
 	require.NoError(t, err)
 
 	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
@@ -455,10 +457,10 @@ func TestVariableForUser(t *testing.T) {
 		},
 	}
 
-	config, err := NewConfig(test_config, "")
+	err := SetConfig(test_config, "test", "")
 	require.NoError(t, err)
 
-	userVariable, err := generateBucketedVariableForUser(config, user, "json-var", nil)
+	userVariable, err := generateBucketedVariableForUser("test", user, "json-var", nil)
 	require.NoError(t, err)
 	require.Equal(t, "615357cf7e9ebdca58446ed0", userVariable.Variation.Id)
 	require.Equal(t, "{\"hello\":\"world\",\"num\":610,\"bool\":true}", userVariable.Variable.Value)

@@ -13,7 +13,7 @@ import (
 const CONFIG_RETRIES = 1
 
 type ConfigReceiver interface {
-	StoreConfig([]byte) error
+	StoreConfig([]byte, string) error
 }
 
 type EnvironmentConfigManager struct {
@@ -135,13 +135,14 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 		return errorf("invalid JSON data received for config")
 	}
 
-	err = e.setConfig(config)
+	e.configETag = response.Header.Get("Etag")
+
+	err = e.setConfig(config, e.configETag)
 
 	if err != nil {
 		return err
 	}
 
-	e.configETag = response.Header.Get("Etag")
 	infof("Config set. ETag: %s\n", e.configETag)
 	if e.firstLoad {
 		e.firstLoad = false
@@ -150,8 +151,8 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 	return nil
 }
 
-func (e *EnvironmentConfigManager) setConfig(config []byte) error {
-	err := e.localBucketing.StoreConfig(config)
+func (e *EnvironmentConfigManager) setConfig(config []byte, eTag string) error {
+	err := e.localBucketing.StoreConfig(config, eTag)
 	if err != nil {
 		return err
 	}
