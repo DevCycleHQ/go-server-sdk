@@ -4,6 +4,7 @@ package devcycle
 
 import (
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"sync"
 
 	"github.com/devcyclehq/go-server-sdk/v2/native_bucketing"
@@ -54,7 +55,13 @@ func (n *NativeLocalBucketing) SetClientCustomData(customData map[string]interfa
 
 func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variableType string) (Variable, error) {
 	defaultVar := Variable{
-		IsDefaulted: true,
+		BaseVariable: api.BaseVariable{
+			Key:   variableKey,
+			Type_: variableType,
+			Value: nil,
+		},
+		DefaultValue: nil,
+		IsDefaulted:  true,
 	}
 	variable, err := native_bucketing.VariableForUser(n.sdkKey, user.GetPopulatedUser(), variableKey, variableType, false, nil)
 	if err != nil {

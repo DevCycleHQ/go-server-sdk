@@ -291,7 +291,6 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 			return variable, nil
 		}
 		bucketedVariable, err := c.localBucketing.Variable(userdata, key, variableType)
-
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
 		if bucketedVariable.Value != nil && sameTypeAsDefault {
 			variable.Value = bucketedVariable.Value
