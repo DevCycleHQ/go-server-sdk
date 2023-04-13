@@ -88,7 +88,7 @@ func (lb *WASMLocalBucketing) SetClientCustomData(customData map[string]interfac
 	return lb.bucketingObjectPool.SetClientCustomData(customDataJSON)
 }
 
-func (lb *WASMLocalBucketing) StoreConfig(config []byte) error {
+func (lb *WASMLocalBucketing) StoreConfig(config []byte, eTag string) error {
 	err := lb.localBucketingClient.StoreConfig(config)
 	if err != nil {
 		return err
