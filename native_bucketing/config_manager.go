@@ -20,13 +20,16 @@ func getConfig(sdkKey string) (*configBody, error) {
 func SetConfig(rawJSON []byte, sdkKey, etag string) error {
 	configMutex.Lock()
 	defer configMutex.Unlock()
-	if val, ok := internalConfigs[sdkKey]; ok && val != nil && val.etag == etag {
-		return nil
-	}
 	config, err := newConfig(rawJSON, etag)
 	if err != nil {
 		return err
 	}
 	internalConfigs[sdkKey] = &config
 	return nil
+}
+
+func clearConfigs() {
+	configMutex.Lock()
+	defer configMutex.Unlock()
+	internalConfigs = make(map[string]*configBody)
 }

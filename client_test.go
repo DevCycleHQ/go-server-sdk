@@ -54,7 +54,7 @@ func TestDVCClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_config_special_characters_var)
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
 	fatalErr(t, err)
 
 	variables, err := c.AllVariables(
@@ -105,8 +105,10 @@ func TestDVCClient_VariableLocalNumber(t *testing.T) {
 
 	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
 
+	user := DVCUser{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
+	fmt.Println(c.AllVariables(user))
 	variable, err := c.Variable(
-		DVCUser{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}},
+		user,
 		"v-key-76", 69)
 	fatalErr(t, err)
 
@@ -520,7 +522,7 @@ func BenchmarkDVCClient_VariableParallel(b *testing.B) {
 			}
 			if benchmarkEnableConfigUpdates && configCounter.Add(1)%10000 == 0 {
 				go func() {
-					err = client.configManager.setConfig([]byte(test_large_config), "test_etag")
+					err = client.configManager.setConfig([]byte(test_large_config), "")
 					setConfigCount.Add(1)
 				}()
 			}
