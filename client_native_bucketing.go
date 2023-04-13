@@ -25,7 +25,6 @@ type NativeLocalBucketing struct {
 	sdkKey      string
 	options     *DVCOptions
 	configMutex sync.RWMutex
-	config      *native_bucketing.ConfigBody
 }
 
 func NewNativeLocalBucketing(sdkKey string, options *DVCOptions) *NativeLocalBucketing {
@@ -35,31 +34,17 @@ func NewNativeLocalBucketing(sdkKey string, options *DVCOptions) *NativeLocalBuc
 	}
 }
 
-func (n *NativeLocalBucketing) StoreConfig(configJSON []byte) error {
-	// TODO: How do we get the ETag here?
-	eTag := ""
-	config, err := native_bucketing.NewConfig(configJSON, eTag)
+func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string) error {
+	err := native_bucketing.SetConfig(configJSON, n.sdkKey, eTag)
 	if err != nil {
 		return fmt.Errorf("Error parsing config: %w", err)
 	}
-
-	n.configMutex.Lock()
-	defer n.configMutex.Unlock()
-	n.config = &config
-
 	return nil
 }
 
-func (n *NativeLocalBucketing) GetConfig() native_bucketing.ConfigBody {
-	n.configMutex.RLock()
-	defer n.configMutex.RUnlock()
-	return *n.config
-}
-
 func (n *NativeLocalBucketing) GenerateBucketedConfigForUser(user DVCUser) (ret *BucketedUserConfig, err error) {
-	config := n.GetConfig()
 	populatedUser := user.GetPopulatedUser()
-	return native_bucketing.GenerateBucketedConfig(config, populatedUser, nil)
+	return native_bucketing.GenerateBucketedConfig(n.sdkKey, populatedUser, nil)
 }
 
 func (n *NativeLocalBucketing) SetClientCustomData(customData map[string]interface{}) error {
@@ -71,7 +56,7 @@ func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variab
 	defaultVar := Variable{
 		IsDefaulted: true,
 	}
-	variable, err := native_bucketing.VariableForUser(n.GetConfig(), n.sdkKey, user.GetPopulatedUser(), variableKey, variableType, false, nil)
+	variable, err := native_bucketing.VariableForUser(n.sdkKey, user.GetPopulatedUser(), variableKey, variableType, false, nil)
 	if err != nil {
 		return defaultVar, err
 	}

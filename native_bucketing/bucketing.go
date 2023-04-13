@@ -96,7 +96,7 @@ func doesUserPassRollout(rollout Rollout, boundedHash float64) bool {
 
 type segmentedFeatureData struct {
 	Feature ConfigFeature `json:"feature"`
-	Target  Target  `json:"target"`
+	Target  Target        `json:"target"`
 }
 
 func evaluateSegmentationForFeature(config *configBody, feature ConfigFeature, user DVCPopulatedUser, clientCustomData map[string]interface{}) *Target {
@@ -108,7 +108,7 @@ func evaluateSegmentationForFeature(config *configBody, feature ConfigFeature, u
 	return nil
 }
 
-func getSegmentedFeatureDataFromConfig(config *configBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) []SegmentedFeatureData {
+func getSegmentedFeatureDataFromConfig(config *configBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) []segmentedFeatureData {
 	var accumulator []segmentedFeatureData
 	for _, feature := range config.Features {
 		segmentedFeatureTarget := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
@@ -182,9 +182,9 @@ func GenerateBucketedConfig(sdkKey string, user DVCPopulatedUser, clientCustomDa
 		}
 		featureKeyMap[feature.Key] = SDKFeature{
 			Id:            feature.Id,
-			Type_:          feature.Type,
+			Type_:         feature.Type,
 			Key:           feature.Key,
-			Variation:   variation.Id,
+			Variation:     variation.Id,
 			VariationKey:  variation.Key,
 			VariationName: variation.Name,
 		}
@@ -229,11 +229,7 @@ type BucketedVariableResponse struct {
 }
 
 func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, variableType string, shouldTrackEvent bool, clientCustomData map[string]interface{}) (*ReadOnlyVariable, error) {
-	config, err := getConfig(sdkKey)
-	if err != nil {
-		return nil, err
-	}
-	result, err := generateBucketedVariableForUser(user, variableKey, clientCustomData)
+	result, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
 		return nil, err
 	}
@@ -245,9 +241,8 @@ func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, v
 	return &result.Variable, nil
 }
 
-
-func generateBucketedVariableForUser(user DVCPopulatedUser, key string, clientCustomData map[string]interface{}) (*BucketedVariableResponse, error) {
-	config, err := getConfig()
+func generateBucketedVariableForUser(sdkKey string, user DVCPopulatedUser, key string, clientCustomData map[string]interface{}) (*BucketedVariableResponse, error) {
+	config, err := getConfig(sdkKey)
 	if err != nil {
 		return nil, err
 	}

@@ -460,7 +460,7 @@ func TestVariableForUser(t *testing.T) {
 	err := SetConfig(test_config, "test", "")
 	require.NoError(t, err)
 
-	userVariable, err := GenerateBucketedVariableForUser("test", user, "json-var", nil)
+	userVariable, err := generateBucketedVariableForUser("test", user, "json-var", nil)
 	require.NoError(t, err)
 	require.Equal(t, "615357cf7e9ebdca58446ed0", userVariable.Variation.Id)
 	require.Equal(t, "{\"hello\":\"world\",\"num\":610,\"bool\":true}", userVariable.Variable.Value)
