@@ -344,7 +344,7 @@ func (d *WASMLocalBucketingClient) Initialize(wasmMain *WASMMain, sdkKey string,
 	}
 
 	platformData := PlatformData{}
-	platformData = *platformData.Default()
+	platformData = *platformData.Default(VERSION)
 	platformJSON, err := json.Marshal(platformData)
 	if err != nil {
 		return

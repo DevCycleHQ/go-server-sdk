@@ -15,10 +15,11 @@ type PlatformData struct {
 }
 
 // TODO: Set SDK version
-func (pd *PlatformData) Default() *PlatformData {
+func (pd *PlatformData) Default(sdkVersion string) *PlatformData {
 	pd.Platform = "Go"
 	pd.SdkType = "server"
 	pd.PlatformVersion = runtime.Version()
 	pd.Hostname, _ = os.Hostname()
+	pd.SdkVersion = sdkVersion
 	return pd
 }
