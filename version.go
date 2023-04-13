@@ -1,3 +1,7 @@
 package devcycle
 
-const VERSION = "2.9.4"
+import (
+	"github.com/devcyclehq/go-server-sdk/v2/api"
+)
+
+const VERSION = api.VERSION

@@ -14,7 +14,7 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-var platformData = (&PlatformData{}).Default()
+var platformData = (&PlatformData{}).Default(VERSION)
 
 type DVCUser struct {
 	// Unique id to identify the user

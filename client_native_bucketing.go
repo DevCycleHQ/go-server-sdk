@@ -49,8 +49,8 @@ func (n *NativeLocalBucketing) GenerateBucketedConfigForUser(user DVCUser) (ret 
 }
 
 func (n *NativeLocalBucketing) SetClientCustomData(customData map[string]interface{}) error {
-	// TODO: implement
-	return fmt.Errorf("not implemented")
+	native_bucketing.SetClientCustomData(n.sdkKey, customData)
+	return nil
 }
 
 func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variableType string) (Variable, error) {
