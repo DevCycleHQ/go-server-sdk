@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-var internalConfigs map[string]*configBody
+var internalConfigs = make(map[string]*configBody)
 var configMutex = &sync.RWMutex{}
 
 func getConfig(sdkKey string) (*configBody, error) {
