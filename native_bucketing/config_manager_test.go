@@ -12,6 +12,7 @@ func TestSetConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	setConfig, err := getConfig("test")
+	require.NoError(t, err)
 	baseConfig := configBody{}
 	err = json.Unmarshal(test_config, &baseConfig)
 	require.NoError(t, err)

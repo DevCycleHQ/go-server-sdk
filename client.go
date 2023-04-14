@@ -151,7 +151,7 @@ func createNullableString(val string) *proto.NullableString {
 }
 
 func createNullableDouble(val float64) *proto.NullableDouble {
-	if val == math.NaN() {
+	if math.IsNaN(val) {
 		return &proto.NullableDouble{Value: 0, IsNull: true}
 	} else {
 		return &proto.NullableDouble{Value: val, IsNull: false}
@@ -161,7 +161,7 @@ func createNullableDouble(val float64) *proto.NullableDouble {
 func createNullableCustomData(data map[string]interface{}) *proto.NullableCustomData {
 	dataMap := map[string]*proto.CustomDataValue{}
 
-	if data == nil || len(data) == 0 {
+	if len(data) == 0 {
 		return &proto.NullableCustomData{
 			Value:  dataMap,
 			IsNull: true,
@@ -174,13 +174,13 @@ func createNullableCustomData(data map[string]interface{}) *proto.NullableCustom
 			continue
 		}
 
-		switch val.(type) {
+		switch val := val.(type) {
 		case string:
-			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Str, StringValue: val.(string)}
+			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Str, StringValue: val}
 		case float64:
-			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Num, DoubleValue: val.(float64)}
+			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Num, DoubleValue: val}
 		case bool:
-			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Bool, BoolValue: val.(bool)}
+			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Bool, BoolValue: val}
 		default:
 			// if we don't know what it is, just set it to null
 			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Null}
@@ -285,7 +285,6 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 
 			if err != nil {
 				warnf("Error queuing aggregate event: ", err)
-				err = nil
 			}
 
 			return variable, nil
@@ -608,29 +607,29 @@ func compareTypes(value1 interface{}, value2 interface{}) bool {
 }
 
 func convertDefaultValueType(value interface{}) interface{} {
-	switch value.(type) {
+	switch value := value.(type) {
 	case int:
-		return float64(value.(int))
+		return float64(value)
 	case int8:
-		return float64(value.(int8))
+		return float64(value)
 	case int16:
-		return float64(value.(int16))
+		return float64(value)
 	case int32:
-		return float64(value.(int32))
+		return float64(value)
 	case int64:
-		return float64(value.(int64))
+		return float64(value)
 	case uint:
-		return float64(value.(uint))
+		return float64(value)
 	case uint8:
-		return float64(value.(uint8))
+		return float64(value)
 	case uint16:
-		return float64(value.(uint16))
+		return float64(value)
 	case uint32:
-		return float64(value.(uint32))
+		return float64(value)
 	case uint64:
-		return float64(value.(uint64))
+		return float64(value)
 	case float32:
-		return float64(value.(float32))
+		return float64(value)
 	default:
 		return value
 	}

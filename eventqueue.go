@@ -2,7 +2,6 @@ package devcycle
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,7 +14,6 @@ type EventQueue struct {
 	localBucketing      *WASMLocalBucketingClient
 	options             *DVCOptions
 	cfg                 *HTTPConfiguration
-	context             context.Context
 	closed              bool
 	flushStop           chan bool
 	bucketingObjectPool *BucketingPool
@@ -30,7 +28,6 @@ type FlushResult struct {
 }
 
 func (e *EventQueue) initialize(options *DVCOptions, localBucketing *WASMLocalBucketingClient, bucketingObjectPool *BucketingPool, cfg *HTTPConfiguration) (err error) {
-	e.context = context.Background()
 	e.cfg = cfg
 	e.options = options
 	e.flushStop = make(chan bool, 1)
@@ -106,6 +103,9 @@ func (e *EventQueue) QueueAggregateEvent(config BucketedUserConfig, event DVCEve
 	}
 	if !e.options.EnableCloudBucketing {
 		eventstring, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("Error marshalling event: %s", err)
+		}
 		err = e.localBucketing.queueAggregateEvent(string(eventstring), config)
 		return err
 	}
@@ -155,6 +155,9 @@ func (e *EventQueue) FlushEvents() (err error) {
 		}
 
 		result, err = e.flushEventPayloads(payloads)
+		if err != nil {
+			return err
+		}
 
 		object.HandleFlushResults(result)
 

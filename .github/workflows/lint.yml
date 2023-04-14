@@ -25,3 +25,5 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           version: latest
+          args: --sort-results --skip-files proto --build-tags native_bucketing --disable unused
+          
