@@ -11,12 +11,13 @@ type Variable struct {
 	Type string `json:"type" validate:"regexp=^(String|Boolean|Number|JSON)$"`
 	Key  string `json:"key"`
 }
+
 type configBody struct {
-	Project                PublicProject           `json:"project"`
-	Audiences              map[string]NoIdAudience `json:"audiences"`
-	Environment            PublicEnvironment       `json:"environment"`
-	Features               []ConfigFeature         `json:"features"`
-	Variables              []Variable              `json:"variables"`
+	Project                PublicProject           `json:"project" validate:"required"`
+	Audiences              map[string]NoIdAudience `json:"audiences" validate:"required"`
+	Environment            PublicEnvironment       `json:"environment" validate:"required"`
+	Features               []ConfigFeature         `json:"features" validate:"required"`
+	Variables              []Variable              `json:"variables" validate:"required"`
 	etag                   string
 	variableIdMap          map[string]Variable
 	variableKeyMap         map[string]Variable

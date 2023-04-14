@@ -2,8 +2,9 @@ package native_bucketing
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSetConfig(t *testing.T) {
@@ -32,4 +33,9 @@ func TestGetConfig_Set(t *testing.T) {
 	config, err := getConfig("test3")
 	require.NoError(t, err)
 	require.NotNil(t, config)
+}
+
+func TestSetConfigError(t *testing.T) {
+	err := SetConfig([]byte(`{"hello": "world"}`), "test", "test_etag")
+	require.Error(t, err)
 }
