@@ -14,7 +14,7 @@ type Variable struct {
 
 type configBody struct {
 	Project                PublicProject           `json:"project" validate:"required"`
-	Audiences              map[string]NoIdAudience `json:"audiences" validate:"required"`
+	Audiences              map[string]NoIdAudience `json:"audiences"`
 	Environment            PublicEnvironment       `json:"environment" validate:"required"`
 	Features               []ConfigFeature         `json:"features" validate:"required"`
 	Variables              []Variable              `json:"variables" validate:"required"`
