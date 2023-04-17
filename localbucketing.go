@@ -237,7 +237,6 @@ func (d *WASMLocalBucketingClient) Initialize(wasmMain *WASMMain, sdkKey string,
 	}
 
 	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
-
 		messagePtrData, err := d.readAssemblyScriptStringBytes(messagePtr)
 		if err != nil {
 			_ = errorf("Failed to read abort function parameter values - WASM Error: %s", err)
@@ -250,7 +249,6 @@ func (d *WASMLocalBucketingClient) Initialize(wasmMain *WASMMain, sdkKey string,
 		}
 		d.errorMessage = fmt.Sprintf("WASM Error: %s at %s:%d:%d", string(messagePtrData), string(filenamePointerData), lineNum, colNum)
 		_ = errorf("WASM Error: %s", d.errorMessage)
-		err = nil
 	})
 
 	if err != nil {
@@ -694,8 +692,6 @@ func (d *WASMLocalBucketingClient) HandleFlushResults(result *FlushResult) {
 			_ = errorf("failed to mark event payloads as failed", err)
 		}
 	}
-
-	return
 }
 
 // Due to WTF-16, we're double-allocating because utf8 -> utf16 doesn't zero-pad
@@ -739,9 +735,14 @@ func (d *WASMLocalBucketingClient) newAssemblyScriptNoPoolByteArray(param []byte
 	if err != nil {
 		return -1, err
 	}
-	defer d.__unpinFunc.Call(d.wasmStore, pinnedAddr.(int32))
+	defer func() {
+		_, _ = d.__unpinFunc.Call(d.wasmStore, pinnedAddr.(int32))
+	}()
 
 	buffer, err := d.allocMemForBuffer(length, objectIdByteArray, false)
+	if err != nil {
+		return 0, err
+	}
 	littleEndianBufferAddress := bytes.NewBuffer([]byte{})
 
 	err = binary.Write(littleEndianBufferAddress, binary.LittleEndian, buffer)

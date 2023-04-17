@@ -254,22 +254,16 @@ func checkValueExists(value interface{}) bool {
 	switch value.(type) {
 	case string:
 		isString = true
-		break
 	case int:
 		isInteger = true
-		break
 	case bool:
 		isBool = true
-		break
 	case float64:
 		isFloat = true
-		break
 	default:
-		break
 	}
 
-	return value != nil && !!(isString || isFloat || isInteger || isBool) &&
+	return value != nil && (isString || isFloat || isInteger || isBool) &&
 		(!isString || value.(string) != "") &&
-		(!isFloat || !math.IsNaN(value.(float64))) &&
-		(!isInteger || !math.IsNaN(float64(value.(int))))
+		(!isFloat || !math.IsNaN(value.(float64)))
 }

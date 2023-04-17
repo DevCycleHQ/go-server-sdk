@@ -13,6 +13,7 @@ func TestEventQueue_QueueEvent(t *testing.T) {
 	httpConfigMock(200)
 
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	fatalErr(t, err)
 
 	_, err = c.Track(DVCUser{UserId: "j_test", DeviceModel: "testing"},
 		DVCEvent{Target: "customevent", Type_: "event"})
@@ -29,6 +30,7 @@ func TestEventQueue_QueueEvent_100_DropEvent(t *testing.T) {
 	httpConfigMock(200)
 
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
+	fatalErr(t, err)
 
 	errored := false
 	for i := 0; i < 1000; i++ {
@@ -54,6 +56,7 @@ func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
 	httpConfigMock(200)
 	httpEventsApiMock()
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
+	fatalErr(t, err)
 
 	for i := 0; i < 101; i++ {
 		log.Println(i)

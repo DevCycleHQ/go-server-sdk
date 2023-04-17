@@ -2,7 +2,7 @@ package native_bucketing
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,7 +10,7 @@ import (
 
 // A test that parses an Audience from JSON stored in testdata/audience.json
 func TestAudience_Parsing(t *testing.T) {
-	jsonAudience, err := ioutil.ReadFile("testdata/audience.json")
+	jsonAudience, err := os.ReadFile("testdata/audience.json")
 	require.NoError(t, err)
 
 	var audience Audience

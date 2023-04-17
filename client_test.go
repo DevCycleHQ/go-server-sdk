@@ -89,6 +89,7 @@ func TestDVCClient_VariableCloud(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpBucketingAPIMock()
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
+	fatalErr(t, err)
 
 	variable, err := c.Variable(
 		DVCUser{UserId: "j_test", DeviceModel: "testing"},
@@ -104,6 +105,7 @@ func TestDVCClient_VariableLocalNumber(t *testing.T) {
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
 
 	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	fatalErr(t, err)
 
 	user := DVCUser{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
 	fmt.Println(c.AllVariables(user))
@@ -129,6 +131,7 @@ func TestDVCClient_VariableLocal(t *testing.T) {
 	httpConfigMock(200)
 
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	fatalErr(t, err)
 
 	variable, err := c.Variable(
 		DVCUser{UserId: "j_test", DeviceModel: "testing"},
@@ -144,6 +147,7 @@ func TestDVCClient_VariableLocalProtobuf(t *testing.T) {
 	httpConfigMock(200)
 
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	fatalErr(t, err)
 
 	variable, err := c.Variable(
 		DVCUser{UserId: "j_test", DeviceModel: "testing"},
@@ -173,6 +177,7 @@ func TestDVCClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
 	httpConfigMock(200)
 
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	fatalErr(t, err)
 
 	customData := map[string]interface{}{
 		"propStr":  "hello",
@@ -235,6 +240,7 @@ func TestDVCClient_VariableLocalProtobuf_StringEncoding(t *testing.T) {
 	}
 
 	c, err := NewDVCClient("dvc_server_token_hash", options)
+	fatalErr(t, err)
 
 	variable, err := c.Variable(
 		DVCUser{
@@ -274,6 +280,7 @@ func TestDVCClient_TrackLocal_QueueEvent(t *testing.T) {
 	dvcOptions := DVCOptions{ConfigPollingIntervalMS: 10 * time.Second}
 
 	c, err := NewDVCClient(test_environmentKey, &dvcOptions)
+	fatalErr(t, err)
 
 	track, err := c.Track(DVCUser{UserId: "j_test", DeviceModel: "testing"}, DVCEvent{
 		Target:      "customEvent",
