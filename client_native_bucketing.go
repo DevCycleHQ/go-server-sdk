@@ -45,7 +45,8 @@ func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string) error
 
 func (n *NativeLocalBucketing) GenerateBucketedConfigForUser(user DVCUser) (ret *BucketedUserConfig, err error) {
 	populatedUser := user.GetPopulatedUser()
-	return native_bucketing.GenerateBucketedConfig(n.sdkKey, populatedUser, nil)
+	clientCustomData := native_bucketing.GetClientCustomData(n.sdkKey)
+	return native_bucketing.GenerateBucketedConfig(n.sdkKey, populatedUser, clientCustomData)
 }
 
 func (n *NativeLocalBucketing) SetClientCustomData(customData map[string]interface{}) error {
@@ -63,7 +64,8 @@ func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variab
 		DefaultValue: nil,
 		IsDefaulted:  true,
 	}
-	variable, err := native_bucketing.VariableForUser(n.sdkKey, user.GetPopulatedUser(), variableKey, variableType, false, nil)
+	clientCustomData := native_bucketing.GetClientCustomData(n.sdkKey)
+	variable, err := native_bucketing.VariableForUser(n.sdkKey, user.GetPopulatedUser(), variableKey, variableType, false, clientCustomData)
 	if err != nil {
 		return defaultVar, err
 	}
