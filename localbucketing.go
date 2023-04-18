@@ -41,7 +41,7 @@ type WASMLocalBucketing struct {
 	sdkKey               string
 }
 
-func NewWASMLocalBucketing(sdkKey string, options *DVCOptions) (*WASMLocalBucketing, error) {
+func NewWASMLocalBucketing(sdkKey string, platformData *PlatformData, options *DVCOptions) (*WASMLocalBucketing, error) {
 	wasmMain := &WASMMain{}
 	err := wasmMain.Initialize(options)
 	if err != nil {
@@ -49,12 +49,12 @@ func NewWASMLocalBucketing(sdkKey string, options *DVCOptions) (*WASMLocalBucket
 	}
 
 	localBucketing := &WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(wasmMain, sdkKey, options)
+	err = localBucketing.Initialize(wasmMain, sdkKey, platformData, options)
 	if err != nil {
 		return nil, errorf("error while initializing local bucketing", err)
 	}
 
-	bucketingObjectPool, err := NewBucketingPool(context.TODO(), wasmMain, sdkKey, options)
+	bucketingObjectPool, err := NewBucketingPool(context.TODO(), wasmMain, sdkKey, platformData, options)
 
 	if err != nil {
 		return nil, err
@@ -86,6 +86,23 @@ func (lb *WASMLocalBucketing) SetClientCustomData(customData map[string]interfac
 	}
 
 	return lb.bucketingObjectPool.SetClientCustomData(customDataJSON)
+}
+
+func (lb *WASMLocalBucketing) SetPlatformData(platformData *PlatformData) error {
+	// set internal version first
+	lb.localBucketingClient.platformData = platformData
+
+	platformDataJSON, err := json.Marshal(platformData)
+
+	if err != nil {
+		return err
+	}
+	// push the data into the WASM
+	err = lb.localBucketingClient.SetPlatformDataJSON(platformDataJSON)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (lb *WASMLocalBucketing) StoreConfig(config []byte, eTag string) error {
@@ -180,6 +197,7 @@ type WASMLocalBucketingClient struct {
 	wasmMutex    sync.Mutex
 	flushMutex   sync.Mutex
 	sdkKeyAddr   int32
+	platformData *PlatformData
 
 	// Cache function pointers
 	__newFunc     *wasmtime.Func
@@ -209,7 +227,7 @@ type WASMLocalBucketingClient struct {
 	errorMessage     string
 }
 
-func (d *WASMLocalBucketingClient) Initialize(wasmMain *WASMMain, sdkKey string, options *DVCOptions) (err error) {
+func (d *WASMLocalBucketingClient) Initialize(wasmMain *WASMMain, sdkKey string, platformData *PlatformData, options *DVCOptions) (err error) {
 	d.options = options
 	d.wasmMain = wasmMain
 
@@ -341,13 +359,11 @@ func (d *WASMLocalBucketingClient) Initialize(wasmMain *WASMMain, sdkKey string,
 		return
 	}
 
-	platformData := PlatformData{}
-	platformData = *platformData.Default(VERSION)
 	platformJSON, err := json.Marshal(platformData)
 	if err != nil {
 		return
 	}
-	err = d.SetPlatformData(platformJSON)
+	err = d.SetPlatformDataJSON(platformJSON)
 
 	return
 }
@@ -641,7 +657,7 @@ func (d *WASMLocalBucketingClient) StoreConfig(config []byte) error {
 	return err
 }
 
-func (d *WASMLocalBucketingClient) SetPlatformData(platformData []byte) error {
+func (d *WASMLocalBucketingClient) SetPlatformDataJSON(platformData []byte) error {
 	d.wasmMutex.Lock()
 	d.errorMessage = ""
 	defer d.wasmMutex.Unlock()

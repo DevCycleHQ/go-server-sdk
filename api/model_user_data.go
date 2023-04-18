@@ -14,8 +14,6 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-var platformData = (&PlatformData{}).Default(VERSION)
-
 type DVCUser struct {
 	// Unique id to identify the user
 	UserId string `json:"user_id"`
@@ -48,7 +46,7 @@ type DVCPopulatedUser struct {
 	CreatedDate time.Time `json:"createdDate,omitempty"`
 }
 
-func (user DVCUser) GetPopulatedUser() DVCPopulatedUser {
+func (user DVCUser) GetPopulatedUser(platformData *PlatformData) DVCPopulatedUser {
 	return DVCPopulatedUser{
 		user,
 		platformData,

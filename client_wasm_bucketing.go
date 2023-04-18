@@ -4,11 +4,12 @@ package devcycle
 
 const NATIVE_SDK = false
 
-func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {
-	localBucketing, err := NewWASMLocalBucketing(sdkKey, options)
+func (c *DVCClient) setLBClient(sdkKey string, platformData *PlatformData, options *DVCOptions) error {
+	localBucketing, err := NewWASMLocalBucketing(sdkKey, platformData, options)
 	if err != nil {
 		return err
 	}
+
 	c.localBucketing = localBucketing
 
 	eventQueue := &EventQueue{}

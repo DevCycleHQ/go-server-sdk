@@ -19,7 +19,7 @@ type BucketingPool struct {
 	closed        atomic.Bool
 }
 
-func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, options *DVCOptions) (*BucketingPool, error) {
+func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, platformData *PlatformData, options *DVCOptions) (*BucketingPool, error) {
 	bucketingPool := &BucketingPool{
 		ctx: ctx,
 	}
@@ -31,7 +31,7 @@ func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, op
 	config.MinEvictableIdleTime = -1
 	config.TimeBetweenEvictionRuns = -1
 
-	bucketingPool.factory = MakeBucketingPoolFactory(wasmMain, sdkKey, options, bucketingPool)
+	bucketingPool.factory = MakeBucketingPoolFactory(wasmMain, sdkKey, platformData, options, bucketingPool)
 
 	bucketingPool.poolSwapMutex = sync.Mutex{}
 	bucketingPool.closed = atomic.Bool{}

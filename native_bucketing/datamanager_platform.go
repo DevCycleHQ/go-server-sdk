@@ -6,11 +6,11 @@ import (
 
 var platformDataMap = map[string]PlatformData{}
 
-func GetPlatformData(token string) (data *PlatformData, err error) {
-	if data, ok := platformDataMap[token]; ok {
+func GetPlatformData(sdkKey string) (data *PlatformData, err error) {
+	if data, ok := platformDataMap[sdkKey]; ok {
 		return &data, nil
 	}
-	return nil, fmt.Errorf("no platform data found for token %s", token)
+	return nil, fmt.Errorf("no platform data found for sdkKey %s", sdkKey)
 }
 
 func SetPlatformData(sdkKey string, data PlatformData) {
