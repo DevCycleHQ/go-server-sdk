@@ -14,10 +14,7 @@ const NATIVE_SDK = true
 
 func (c *DVCClient) setLBClient(sdkKey string, platformData *PlatformData, options *DVCOptions) error {
 	localBucketing := NewNativeLocalBucketing(sdkKey, options)
-	err = localBucketing.SetPlatformData(platformData)
-	if err != nil {
-		return err
-	}
+	localBucketing.SetPlatformData(platformData)
 	c.localBucketing = localBucketing
 
 	// Event queue stub that does nothing
@@ -48,7 +45,11 @@ func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string) error
 }
 
 func (n *NativeLocalBucketing) GenerateBucketedConfigForUser(user DVCUser) (ret *BucketedUserConfig, err error) {
-	populatedUser := user.GetPopulatedUser(native_bucketing.GetPlatformData(n.sdkKey))
+	platformData, err := native_bucketing.GetPlatformData(n.sdkKey)
+	if err != nil {
+		return nil, err
+	}
+	populatedUser := user.GetPopulatedUser(platformData)
 	clientCustomData := native_bucketing.GetClientCustomData(n.sdkKey)
 	return native_bucketing.GenerateBucketedConfig(n.sdkKey, populatedUser, clientCustomData)
 }
@@ -69,7 +70,12 @@ func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variab
 		IsDefaulted:  true,
 	}
 	clientCustomData := native_bucketing.GetClientCustomData(n.sdkKey)
-	populatedUser := user.GetPopulatedUser(native_bucketing.GetPlatformData(n.sdkKey))
+	platformData, err := native_bucketing.GetPlatformData(n.sdkKey)
+	if err != nil {
+		return defaultVar, err
+	}
+
+	populatedUser := user.GetPopulatedUser(platformData)
 	variable, err := native_bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, false, clientCustomData)
 	if err != nil {
 		return defaultVar, err
@@ -82,7 +88,7 @@ func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variab
 }
 
 func (N *NativeLocalBucketing) SetPlatformData(platformData *PlatformData) error {
-	native_bucketing.SetPlatformData(n.sdkKey, *platformData)
+	native_bucketing.SetPlatformData(N.sdkKey, *platformData)
 	return nil
 }
 
