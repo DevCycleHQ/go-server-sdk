@@ -28,15 +28,15 @@ var (
 // DVCClient
 // In most cases there should be only one, shared, DVCClient.
 type DVCClient struct {
-	cfg               *HTTPConfiguration
-	ctx               context.Context
-	common            service // Reuse a single struct instead of allocating one for each service on the heap.
-	DevCycleOptions   *DVCOptions
-	sdkKey            string
-	configManager     *EnvironmentConfigManager
-	eventQueue        EventQueuer
-	localBucketing    LocalBucketing
-	cloudPlatformData *PlatformData
+	cfg             *HTTPConfiguration
+	ctx             context.Context
+	common          service // Reuse a single struct instead of allocating one for each service on the heap.
+	DevCycleOptions *DVCOptions
+	sdkKey          string
+	configManager   *EnvironmentConfigManager
+	eventQueue      EventQueuer
+	localBucketing  LocalBucketing
+	platformData    *PlatformData
 
 	// Set to true when the client has been initialized, regardless of whether the config has loaded successfully.
 	isInitialized                bool
@@ -88,9 +88,7 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	c.ctx = context.Background()
 	c.common.client = c
 	c.DevCycleOptions = options
-
-	// NOTE: Seems like a janky way to handle this :(
-	c.cloudPlatformData = (&PlatformData{}).Default(VERSION)
+	c.platformData = (&PlatformData{}).Default(VERSION)
 
 	if c.DevCycleOptions.Logger != nil {
 		SetLogger(c.DevCycleOptions.Logger)
@@ -99,8 +97,7 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		c.internalOnInitializedChannel = make(chan bool, 1)
 
-		var platformData = (&PlatformData{}).Default(VERSION)
-		err := c.setLBClient(sdkKey, platformData, options)
+		err := c.setLBClient(sdkKey, c.platformData, options)
 		if err != nil {
 			return c, err
 		}
@@ -224,7 +221,7 @@ func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
 
 	}
 
-	populatedUser := user.GetPopulatedUser(c.cloudPlatformData)
+	populatedUser := user.GetPopulatedUser(c.platformData)
 
 	var (
 		httpMethod          = strings.ToUpper("Post")
@@ -311,7 +308,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 		return variable, err
 	}
 
-	populatedUser := userdata.GetPopulatedUser(c.cloudPlatformData)
+	populatedUser := userdata.GetPopulatedUser(c.platformData)
 
 	var (
 		httpMethod          = strings.ToUpper("Post")
@@ -383,7 +380,7 @@ func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, err
 		}
 	}
 
-	populatedUser := user.GetPopulatedUser(c.cloudPlatformData)
+	populatedUser := user.GetPopulatedUser(c.platformData)
 
 	// create path and map variables
 	path := c.cfg.BasePath + "/v1/variables"
@@ -438,7 +435,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 		postBody   interface{}
 	)
 
-	populatedUser := user.GetPopulatedUser(c.cloudPlatformData)
+	populatedUser := user.GetPopulatedUser(c.platformData)
 
 	events := []DVCEvent{event}
 	body := UserDataAndEventsBody{User: &populatedUser, Events: events}
