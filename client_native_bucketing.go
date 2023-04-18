@@ -87,9 +87,8 @@ func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variab
 	}, nil
 }
 
-func (N *NativeLocalBucketing) SetPlatformData(platformData *PlatformData) error {
+func (N *NativeLocalBucketing) SetPlatformData(platformData *PlatformData) {
 	native_bucketing.SetPlatformData(N.sdkKey, *platformData)
-	return nil
 }
 
 func (n *NativeLocalBucketing) Close() {
