@@ -88,23 +88,6 @@ func (lb *WASMLocalBucketing) SetClientCustomData(customData map[string]interfac
 	return lb.bucketingObjectPool.SetClientCustomData(customDataJSON)
 }
 
-func (lb *WASMLocalBucketing) SetPlatformData(platformData *PlatformData) error {
-	// set internal version first
-	lb.localBucketingClient.platformData = platformData
-
-	platformDataJSON, err := json.Marshal(platformData)
-
-	if err != nil {
-		return err
-	}
-	// push the data into the WASM
-	err = lb.localBucketingClient.SetPlatformDataJSON(platformDataJSON)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (lb *WASMLocalBucketing) StoreConfig(config []byte, eTag string) error {
 	err := lb.localBucketingClient.StoreConfig(config)
 	if err != nil {
