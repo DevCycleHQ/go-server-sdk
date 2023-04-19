@@ -234,10 +234,6 @@ func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, v
 		return nil, err
 	}
 
-	if result.Variable.Type_ != variableType {
-		return nil, fmt.Errorf("variable %s is of type %s, not %s", variableKey, result.Variable.Type_, variableType)
-	}
-
 	return &result.Variable, nil
 }
 
