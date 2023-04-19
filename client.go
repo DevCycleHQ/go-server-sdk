@@ -312,7 +312,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 			variable.IsDefaulted = false
 		} else {
 			if !sameTypeAsDefault && bucketedVariable.Value != nil {
-				debugf("Type mismatch for variable %s. Expected type %s, got %s",
+				warnf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
 					reflect.TypeOf(bucketedVariable.Value).String(),
