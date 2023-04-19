@@ -97,7 +97,7 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		c.internalOnInitializedChannel = make(chan bool, 1)
 
-		err := c.setLBClient(sdkKey, c.platformData, options)
+		err := c.setLBClient(sdkKey, options)
 		if err != nil {
 			return c, err
 		}

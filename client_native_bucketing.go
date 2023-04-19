@@ -12,9 +12,9 @@ import (
 
 const NATIVE_SDK = true
 
-func (c *DVCClient) setLBClient(sdkKey string, platformData *PlatformData, options *DVCOptions) error {
+func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {
 	localBucketing := NewNativeLocalBucketing(sdkKey, options)
-	localBucketing.SetPlatformData(platformData)
+	localBucketing.SetPlatformData(c.platformData)
 	c.localBucketing = localBucketing
 
 	// Event queue stub that does nothing
