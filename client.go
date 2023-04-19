@@ -10,8 +10,10 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -24,6 +26,17 @@ var (
 	jsonCheck = regexp.MustCompile("(?i:[application|text]/json)")
 	xmlCheck  = regexp.MustCompile("(?i:[application|text]/xml)")
 )
+
+func GeneratePlatformData() *api.PlatformData {
+	hostname, _ := os.Hostname()
+	return &PlatformData{
+		Platform:        "Go",
+		SdkType:         "server",
+		PlatformVersion: runtime.Version(),
+		Hostname:        hostname,
+		SdkVersion:      VERSION,
+	}
+}
 
 // DVCClient
 // In most cases there should be only one, shared, DVCClient.
@@ -88,7 +101,7 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	c.ctx = context.Background()
 	c.common.client = c
 	c.DevCycleOptions = options
-	c.platformData = (&PlatformData{}).Default(VERSION)
+	c.platformData = GeneratePlatformData()
 
 	if c.DevCycleOptions.Logger != nil {
 		SetLogger(c.DevCycleOptions.Logger)
