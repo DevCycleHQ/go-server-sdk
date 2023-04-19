@@ -394,11 +394,9 @@ func TestClientData(t *testing.T) {
 			"favouriteFood": "pizza",
 			"favouriteNull": nil,
 		},
-	}.GetPopulatedUser()
-
-	user.PlatformData = &PlatformData{
+	}.GetPopulatedUser(&PlatformData{
 		PlatformVersion: "1.1.2",
-	}
+	})
 
 	err := SetConfig(test_config, "test", "")
 	require.NoError(t, err)
@@ -431,10 +429,9 @@ func TestClientData(t *testing.T) {
 		CustomData: map[string]interface{}{
 			"favouriteFood": "NOT PIZZA!",
 		},
-	}.GetPopulatedUser()
-	user2.PlatformData = &PlatformData{
+	}.GetPopulatedUser(&PlatformData{
 		PlatformVersion: "1.1.2",
-	}
+	})
 	bucketedUserConfig, err = GenerateBucketedConfig("test", user2, nil)
 	require.NoError(t, err)
 
@@ -443,19 +440,15 @@ func TestClientData(t *testing.T) {
 }
 
 func TestVariableForUser(t *testing.T) {
-
-	user := DVCPopulatedUser{
-		DVCUser: DVCUser{
-			UserId: "CPopultest",
-			CustomData: map[string]interface{}{
-				"favouriteDrink": "coffee",
-				"favouriteFood":  "pizza",
-			},
+	user := DVCUser{
+		UserId: "CPopultest",
+		CustomData: map[string]interface{}{
+			"favouriteDrink": "coffee",
+			"favouriteFood":  "pizza",
 		},
-		PlatformData: &PlatformData{
-			PlatformVersion: "1.1.2",
-		},
-	}
+	}.GetPopulatedUser(&PlatformData{
+		PlatformVersion: "1.1.2",
+	})
 
 	err := SetConfig(test_config, "test", "")
 	require.NoError(t, err)

@@ -19,7 +19,7 @@ func TestDevCycleLocalBucketing_Initialize(t *testing.T) {
 	fatalErr(t, err)
 
 	localBucketing := WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func BenchmarkDevCycleLocalBucketing_Initialize(b *testing.B) {
 			b.Fatal(err)
 		}
 		localBucketing := WASMLocalBucketingClient{}
-		err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
+		err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -51,7 +51,7 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 	err := wasmMain.Initialize(nil)
 	fatalErr(t, err)
 	localBucketing := WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = localBucketing.SetPlatformData([]byte(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`))
+	err = localBucketing.SetPlatformDataJSON([]byte(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
 	err := wasmMain.Initialize(nil)
 	fatalErr(t, err)
 	localBucketing := WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
 
 	if err != nil {
 		t.Fatal(err)
@@ -114,7 +114,7 @@ func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 		b.Fatal(err)
 	}
 	localBucketing := WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -139,12 +139,12 @@ func TestDevCycleLocalBucketing_SetPlatformData(t *testing.T) {
 	err := wasmMain.Initialize(nil)
 	fatalErr(t, err)
 	localBucketing := WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = localBucketing.SetPlatformData([]byte(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`))
+	err = localBucketing.SetPlatformDataJSON([]byte(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 		b.Fatal(err)
 	}
 	localBucketing := WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 		b.Fatal(err)
 	}
 
-	err = localBucketing.SetPlatformData([]byte(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`))
+	err = localBucketing.SetPlatformDataJSON([]byte(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -203,7 +203,7 @@ func BenchmarkDevCycleLocalBucketing_VariableForUser_PB(b *testing.B) {
 	}
 	localBucketing := WASMLocalBucketingClient{}
 
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{
 		AdvancedOptions: AdvancedOptions{
 			MaxMemoryAllocationBuckets: 1,
 		},
@@ -218,7 +218,7 @@ func BenchmarkDevCycleLocalBucketing_VariableForUser_PB(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	err = localBucketing.SetPlatformData([]byte(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`))
+	err = localBucketing.SetPlatformDataJSON([]byte(`{"platform": "golang-testing", "sdkType": "server", "platformVersion": "testing", "deviceModel": "testing", "sdkVersion":"testing"}`))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -268,7 +268,7 @@ func TestDevCycleLocalBucketing_newAssemblyScriptNoPoolByteArray(t *testing.T) {
 	err := wasmMain.Initialize(nil)
 	fatalErr(t, err)
 	localBucketing := WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, &DVCOptions{})
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
 
 	if err != nil {
 		t.Fatal(err)

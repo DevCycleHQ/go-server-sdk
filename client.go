@@ -10,8 +10,10 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -25,6 +27,17 @@ var (
 	xmlCheck  = regexp.MustCompile("(?i:[application|text]/xml)")
 )
 
+func GeneratePlatformData() *api.PlatformData {
+	hostname, _ := os.Hostname()
+	return &PlatformData{
+		Platform:        "Go",
+		SdkType:         "server",
+		PlatformVersion: runtime.Version(),
+		Hostname:        hostname,
+		SdkVersion:      VERSION,
+	}
+}
+
 // DVCClient
 // In most cases there should be only one, shared, DVCClient.
 type DVCClient struct {
@@ -36,6 +49,7 @@ type DVCClient struct {
 	configManager   *EnvironmentConfigManager
 	eventQueue      EventQueuer
 	localBucketing  LocalBucketing
+	platformData    *PlatformData
 
 	// Set to true when the client has been initialized, regardless of whether the config has loaded successfully.
 	isInitialized                bool
@@ -87,6 +101,7 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	c.ctx = context.Background()
 	c.common.client = c
 	c.DevCycleOptions = options
+	c.platformData = GeneratePlatformData()
 
 	if c.DevCycleOptions.Logger != nil {
 		SetLogger(c.DevCycleOptions.Logger)
@@ -219,7 +234,7 @@ func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
 
 	}
 
-	populatedUser := user.GetPopulatedUser()
+	populatedUser := user.GetPopulatedUser(c.platformData)
 
 	var (
 		httpMethod          = strings.ToUpper("Post")
@@ -306,7 +321,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 		return variable, err
 	}
 
-	populatedUser := userdata.GetPopulatedUser()
+	populatedUser := userdata.GetPopulatedUser(c.platformData)
 
 	var (
 		httpMethod          = strings.ToUpper("Post")
@@ -378,7 +393,7 @@ func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, err
 		}
 	}
 
-	populatedUser := user.GetPopulatedUser()
+	populatedUser := user.GetPopulatedUser(c.platformData)
 
 	// create path and map variables
 	path := c.cfg.BasePath + "/v1/variables"
@@ -433,7 +448,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 		postBody   interface{}
 	)
 
-	populatedUser := user.GetPopulatedUser()
+	populatedUser := user.GetPopulatedUser(c.platformData)
 
 	events := []DVCEvent{event}
 	body := UserDataAndEventsBody{User: &populatedUser, Events: events}

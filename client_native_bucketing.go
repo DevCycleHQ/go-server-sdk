@@ -13,7 +13,7 @@ import (
 const NATIVE_SDK = true
 
 func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {
-	localBucketing := NewNativeLocalBucketing(sdkKey, options)
+	localBucketing := NewNativeLocalBucketing(sdkKey, c.platformData, options)
 	c.localBucketing = localBucketing
 
 	// Event queue stub that does nothing
@@ -23,15 +23,17 @@ func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {
 }
 
 type NativeLocalBucketing struct {
-	sdkKey      string
-	options     *DVCOptions
-	configMutex sync.RWMutex
+	sdkKey       string
+	options      *DVCOptions
+	configMutex  sync.RWMutex
+	platformData *api.PlatformData
 }
 
-func NewNativeLocalBucketing(sdkKey string, options *DVCOptions) *NativeLocalBucketing {
+func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, options *DVCOptions) *NativeLocalBucketing {
 	return &NativeLocalBucketing{
-		sdkKey:  sdkKey,
-		options: options,
+		sdkKey:       sdkKey,
+		options:      options,
+		platformData: platformData,
 	}
 }
 
@@ -44,7 +46,7 @@ func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string) error
 }
 
 func (n *NativeLocalBucketing) GenerateBucketedConfigForUser(user DVCUser) (ret *BucketedUserConfig, err error) {
-	populatedUser := user.GetPopulatedUser()
+	populatedUser := user.GetPopulatedUser(n.platformData)
 	clientCustomData := native_bucketing.GetClientCustomData(n.sdkKey)
 	return native_bucketing.GenerateBucketedConfig(n.sdkKey, populatedUser, clientCustomData)
 }
@@ -65,7 +67,8 @@ func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variab
 		IsDefaulted:  true,
 	}
 	clientCustomData := native_bucketing.GetClientCustomData(n.sdkKey)
-	variable, err := native_bucketing.VariableForUser(n.sdkKey, user.GetPopulatedUser(), variableKey, variableType, false, clientCustomData)
+	populatedUser := user.GetPopulatedUser(n.platformData)
+	variable, err := native_bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, false, clientCustomData)
 	if err != nil {
 		return defaultVar, err
 	}

@@ -6,24 +6,26 @@ import (
 )
 
 type BucketingPoolFactory struct {
-	wasmMain *WASMMain
-	sdkKey   string
-	options  *DVCOptions
-	pool     *BucketingPool
+	wasmMain     *WASMMain
+	sdkKey       string
+	platformData *PlatformData
+	options      *DVCOptions
+	pool         *BucketingPool
 }
 
-func MakeBucketingPoolFactory(wasmMain *WASMMain, sdkKey string, options *DVCOptions, pool *BucketingPool) *BucketingPoolFactory {
+func MakeBucketingPoolFactory(wasmMain *WASMMain, sdkKey string, platformData *PlatformData, options *DVCOptions, pool *BucketingPool) *BucketingPoolFactory {
 	return &BucketingPoolFactory{
-		wasmMain: wasmMain,
-		sdkKey:   sdkKey,
-		options:  options,
-		pool:     pool,
+		wasmMain:     wasmMain,
+		sdkKey:       sdkKey,
+		platformData: platformData,
+		options:      options,
+		pool:         pool,
 	}
 }
 
 func (f *BucketingPoolFactory) MakeObject(ctx context.Context) (*pool.PooledObject, error) {
 	var bucketing = &BucketingPoolObject{}
-	err := bucketing.Initialize(f.wasmMain, f.sdkKey, f.options)
+	err := bucketing.Initialize(f.wasmMain, f.sdkKey, f.platformData, f.options)
 	if err != nil {
 		return nil, err
 	}
