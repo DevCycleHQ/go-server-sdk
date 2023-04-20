@@ -14,6 +14,7 @@ import (
 
 const NATIVE_SDK = true
 
+// This value will always be set to zero as the user.CreatedDate is not actually used in native bucketing
 var DEFAULT_USER_TIME = time.Time{}
 
 func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {

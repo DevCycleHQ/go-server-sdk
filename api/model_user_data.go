@@ -54,6 +54,7 @@ func (user DVCUser) GetPopulatedUser(platformData *PlatformData) DVCPopulatedUse
 	}
 }
 
+// GetPopulatedUserWithTime returns a populated user with a specific created date
 func (user DVCUser) GetPopulatedUserWithTime(platformData *PlatformData, createDate time.Time) DVCPopulatedUser {
 	return DVCPopulatedUser{
 		user,
