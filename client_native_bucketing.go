@@ -4,8 +4,9 @@ package devcycle
 
 import (
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"sync"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 
 	"github.com/devcyclehq/go-server-sdk/v2/native_bucketing"
 )
@@ -70,7 +71,8 @@ func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variab
 	populatedUser := user.GetPopulatedUser(n.platformData)
 	variable, err := native_bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, false, clientCustomData)
 	if err != nil {
-		return defaultVar, err
+		// TODO: Are there errors that can be returned here that should be surfaced to the client?
+		return defaultVar, nil
 	}
 
 	return Variable{
