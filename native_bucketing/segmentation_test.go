@@ -441,6 +441,59 @@ func TestEvaluateOperator_AndPrivateCustomDataMultiValue(t *testing.T) {
 	}
 }
 
+func Test_checkVersionValue(t *testing.T) {
+	testCases := []struct {
+		filterVersion string
+		version       string
+		operator      string
+		expected      bool
+	}{
+		{
+			filterVersion: "1.2.3",
+			version:       "1.2.3",
+			operator:      "==",
+			expected:      true,
+		},
+		{
+			filterVersion: "1.2.3",
+			version:       "2.3.4",
+			operator:      "==",
+			expected:      false,
+		},
+		{
+			filterVersion: "1.2.3",
+			version:       "2.3.4",
+			operator:      ">",
+			expected:      true,
+		},
+		{
+			filterVersion: "2.3.4",
+			version:       "1.2.3",
+			operator:      ">",
+			expected:      false,
+		},
+		{
+			filterVersion: "2.3.4",
+			version:       "1.2.3",
+			operator:      "<",
+			expected:      true,
+		},
+		{
+			filterVersion: "1.2.3",
+			version:       "2.3.4",
+			operator:      "<",
+			expected:      false,
+		},
+	}
+
+	for _, tc := range testCases {
+		got := checkVersionValue(tc.filterVersion, tc.version, tc.operator)
+		if got != tc.expected {
+			t.Errorf("checkVersionValue(%s, %s, %s) = %v; want %v", tc.filterVersion, tc.version, tc.operator, got, tc.expected)
+		}
+	}
+}
+
 func Test_ConvertToSemanticVersion(t *testing.T) {
 	testCases := []struct {
 		input  string
