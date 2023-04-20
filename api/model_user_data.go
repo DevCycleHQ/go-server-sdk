@@ -54,6 +54,14 @@ func (user DVCUser) GetPopulatedUser(platformData *PlatformData) DVCPopulatedUse
 	}
 }
 
+func (user DVCUser) GetPopulatedUserWithTime(platformData *PlatformData, createDate time.Time) DVCPopulatedUser {
+	return DVCPopulatedUser{
+		user,
+		platformData,
+		createDate,
+	}
+}
+
 type UserFeatureData struct {
 	User        DVCUser `json:"user"`
 	FeatureVars map[string]string

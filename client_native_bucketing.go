@@ -5,6 +5,7 @@ package devcycle
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 
@@ -12,6 +13,8 @@ import (
 )
 
 const NATIVE_SDK = true
+
+var DEFAULT_USER_TIME = time.Time{}
 
 func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {
 	localBucketing := NewNativeLocalBucketing(sdkKey, c.platformData, options)
@@ -47,7 +50,7 @@ func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string) error
 }
 
 func (n *NativeLocalBucketing) GenerateBucketedConfigForUser(user DVCUser) (ret *BucketedUserConfig, err error) {
-	populatedUser := user.GetPopulatedUser(n.platformData)
+	populatedUser := user.GetPopulatedUserWithTime(n.platformData, DEFAULT_USER_TIME)
 	clientCustomData := native_bucketing.GetClientCustomData(n.sdkKey)
 	return native_bucketing.GenerateBucketedConfig(n.sdkKey, populatedUser, clientCustomData)
 }
@@ -68,7 +71,7 @@ func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variab
 		IsDefaulted:  true,
 	}
 	clientCustomData := native_bucketing.GetClientCustomData(n.sdkKey)
-	populatedUser := user.GetPopulatedUser(n.platformData)
+	populatedUser := user.GetPopulatedUserWithTime(n.platformData, DEFAULT_USER_TIME)
 	variable, err := native_bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, false, clientCustomData)
 	if err != nil {
 		// TODO: Are there errors that can be returned here that should be surfaced to the client?
