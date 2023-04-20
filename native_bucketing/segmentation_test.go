@@ -1,6 +1,7 @@
 package native_bucketing
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -437,5 +438,119 @@ func TestEvaluateOperator_AndPrivateCustomDataMultiValue(t *testing.T) {
 	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{customDataFilter}}, nil, brooks, nil)
 	if result {
 		t.Error("Expected false, got true")
+	}
+}
+
+func Test_ConvertToSemanticVersion(t *testing.T) {
+	testCases := []struct {
+		input  string
+		output string
+	}{
+		{
+			input:  "1.2.3",
+			output: "1.2.3",
+		},
+		{
+			input:  "1.2",
+			output: "1.2.0",
+		},
+		{
+			input:  "1",
+			output: "1.0.0",
+		},
+		{
+			input:  "1..3",
+			output: "1.0.3",
+		},
+		{
+			input:  "1.2.3.4",
+			output: "1.2.3.4",
+		},
+	}
+
+	for _, tc := range testCases {
+		got := convertToSemanticVersion(tc.input)
+		if got != tc.output {
+			t.Errorf("convertToSemanticVersion(%s) = %s; want %s", tc.input, got, tc.output)
+		}
+	}
+}
+
+func Test_CheckNumberFilter(t *testing.T) {
+	type NumberTestCase struct {
+		num        float64
+		filterNums []float64
+		operator   string
+		want       bool
+	}
+
+	testCases := []NumberTestCase{
+		{num: math.NaN(), filterNums: []float64{}, operator: "", want: false},
+		{num: math.NaN(), filterNums: []float64{}, operator: "exist", want: false},
+		{num: math.NaN(), filterNums: []float64{}, operator: "!exist", want: true},
+
+		{num: 10, filterNums: []float64{10}, operator: "=", want: true},
+		{num: 10, filterNums: []float64{10, 20}, operator: "=", want: true},
+		{num: 10, filterNums: []float64{}, operator: "=", want: false},
+		{num: 10, filterNums: []float64{math.NaN()}, operator: "=", want: false},
+
+		{num: 10, filterNums: []float64{5, 10, 15}, operator: ">", want: true},
+		{num: 10, filterNums: []float64{}, operator: ">", want: false},
+		{num: 10, filterNums: []float64{10}, operator: ">", want: false},
+		{num: 10, filterNums: []float64{15}, operator: ">", want: false},
+
+		{num: 10, filterNums: []float64{5, 10, 15}, operator: ">=", want: true},
+		{num: 10, filterNums: []float64{}, operator: ">=", want: false},
+		{num: 10, filterNums: []float64{10}, operator: ">=", want: true},
+		{num: 10, filterNums: []float64{15}, operator: ">=", want: false},
+
+		{num: 10, filterNums: []float64{5, 10, 15}, operator: "<", want: true},
+		{num: 10, filterNums: []float64{}, operator: "<", want: false},
+		{num: 10, filterNums: []float64{10}, operator: "<", want: false},
+		{num: 10, filterNums: []float64{15}, operator: "<", want: true},
+
+		{num: 10, filterNums: []float64{5, 10, 15}, operator: "<=", want: true},
+		{num: 10, filterNums: []float64{}, operator: "<=", want: false},
+		{num: 10, filterNums: []float64{10}, operator: "<=", want: true},
+		{num: 10, filterNums: []float64{15}, operator: "<=", want: true},
+
+		{num: 10, filterNums: []float64{5, 15}, operator: "!=", want: true},
+		{num: 10, filterNums: []float64{}, operator: "!=", want: false},
+		{num: 10, filterNums: []float64{math.NaN()}, operator: "!=", want: false},
+
+		{num: 10, filterNums: []float64{}, operator: "fakeop", want: false},
+		{num: 10, filterNums: []float64{10}, operator: "fakeop", want: false},
+	}
+
+	for _, tc := range testCases {
+		got := _checkNumberFilter(tc.num, tc.filterNums, tc.operator)
+		if got != tc.want {
+			t.Errorf("_checkNumberFilter(%v, %v, %s) = %v; want %v", tc.num, tc.filterNums, tc.operator, got, tc.want)
+		}
+	}
+}
+
+func TestCheckValueExists(t *testing.T) {
+	type ValueTestCase struct {
+		value interface{}
+		want  bool
+	}
+
+	testCases := []ValueTestCase{
+		{value: "test", want: true},
+		{value: 123, want: true},
+		{value: true, want: true},
+		{value: 1.23, want: true},
+		{value: nil, want: false},
+		{value: "", want: false},
+		{value: math.NaN(), want: false},
+		{value: struct{}{}, want: false},
+	}
+
+	for _, tc := range testCases {
+		got := checkValueExists(tc.value)
+		if got != tc.want {
+			t.Errorf("checkValueExists(%v) = %v; want %v", tc.value, got, tc.want)
+		}
 	}
 }
