@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 )
 
 type Variable struct {
@@ -46,7 +47,7 @@ func (c *configBody) GetFeatureForVariableId(id string) *ConfigFeature {
 }
 
 func (c *configBody) compile(etag string) {
-
+	// Build mappings of IDs and keys to features and variables.
 	variableIdToFeatureMap := make(map[string]ConfigFeature)
 	for _, feature := range c.Features {
 		for _, v := range feature.Variations {
@@ -69,6 +70,15 @@ func (c *configBody) compile(etag string) {
 	c.variableIdMap = variableIdMap
 	c.variableKeyMap = variableKeyMap
 	c.etag = etag
+
+	// Sort the feature distributions by "_variation" attribute in descending alphabetical order
+	for _, feature := range c.Features {
+		for _, target := range feature.Configuration.Targets {
+			sort.Slice(target.Distribution, func(i, j int) bool {
+				return target.Distribution[i].Variation > target.Distribution[j].Variation
+			})
+		}
+	}
 }
 
 func (c *configBody) FindVariable(key string) (Variable, error) {
