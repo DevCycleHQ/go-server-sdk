@@ -2,7 +2,6 @@ package native_bucketing
 
 import (
 	"fmt"
-	"sort"
 	"time"
 )
 
@@ -16,12 +15,6 @@ type Target struct {
 func (t *Target) DecideTargetVariation(boundedHash float64) (string, error) {
 	var distributionIndex float64 = 0
 	var previousDistributionIndex float64 = 0
-
-	// Sort the distributions by _variation in descending alphabetical order
-	// TODO: Can we pre-sort when the config is parsed?
-	sort.Slice(t.Distribution, func(i, j int) bool {
-		return t.Distribution[i].Variation > t.Distribution[j].Variation
-	})
 
 	for _, d := range t.Distribution {
 		distributionIndex += d.Percentage

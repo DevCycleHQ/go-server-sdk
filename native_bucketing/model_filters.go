@@ -210,30 +210,6 @@ func (u *UserFilter) compileValues() error {
 	return nil
 }
 
-func (u UserFilter) GetStringValues() []string {
-	if u.CompiledStringVals != nil {
-		return u.CompiledStringVals
-	} else {
-		return []string{}
-	}
-}
-
-func (u UserFilter) GetBooleanValues() []bool {
-	if u.CompiledBoolVals != nil {
-		return u.CompiledBoolVals
-	} else {
-		return []bool{}
-	}
-}
-
-func (u UserFilter) GetNumberValues() []float64 {
-	if u.CompiledNumVals != nil {
-		return u.CompiledNumVals
-	} else {
-		return []float64{}
-	}
-}
-
 type CustomDataFilter struct {
 	*UserFilter
 	DataKey     string `json:"dataKey"`
@@ -303,7 +279,7 @@ func checkNumbersFilterJSONValue(jsonValue interface{}, filter *UserFilter) bool
 
 func _checkNumbersFilter(number float64, filter *UserFilter) bool {
 	operator := filter.GetComparator()
-	values := getFilterValuesAsF64(filter)
+	values := filter.CompiledNumVals
 	return _checkNumberFilter(number, values, operator)
 }
 
@@ -317,7 +293,7 @@ func checkStringsFilter(str string, filter *UserFilter) bool {
 		return false
 	}
 	operator := filter.GetComparator()
-	values := getFilterValuesAsString(filter)
+	values := filter.CompiledStringVals
 	if operator == "=" {
 		return str != "" && contains(values, str)
 	} else if operator == "!=" {
@@ -347,7 +323,7 @@ func _checkBooleanFilter(b bool, filter *UserFilter) bool {
 		return false
 	}
 	operator := filter.GetComparator()
-	values := getFilterValuesAsBoolean(filter)
+	values := filter.CompiledBoolVals
 
 	if operator == "contain" || operator == "=" {
 		return contains(values, b)
@@ -364,7 +340,7 @@ func _checkBooleanFilter(b bool, filter *UserFilter) bool {
 
 func checkVersionFilters(appVersion string, filter *UserFilter) bool {
 	operator := filter.GetComparator()
-	values := getFilterValuesAsString(filter)
+	values := filter.CompiledStringVals
 	// dont need to do semver if they"re looking for an exact match. Adds support for non semver versions.
 	if operator == "=" {
 		return checkStringsFilter(appVersion, filter)
@@ -379,52 +355,6 @@ func getFilterValues(filter *UserFilter) []interface{} {
 	for _, value := range values {
 		if value != nil {
 			ret = append(ret, value)
-		}
-	}
-	return ret
-}
-
-func getFilterValuesAsString(filter *UserFilter) []string {
-	// TODO: Just use compiled values here?
-	var ret []string
-	jsonValues := getFilterValues(filter)
-	for _, jsonValue := range jsonValues {
-		switch v := jsonValue.(type) {
-		case string:
-			ret = append(ret, v)
-		default:
-			continue
-		}
-	}
-	return ret
-}
-
-func getFilterValuesAsF64(filter *UserFilter) []float64 {
-	// TODO: Just use compiled values here?
-	var ret []float64
-	jsonValues := getFilterValues(filter)
-	for _, jsonValue := range jsonValues {
-		switch v := jsonValue.(type) {
-		case int:
-		case float64:
-			ret = append(ret, v)
-		default:
-			continue
-		}
-	}
-	return ret
-}
-
-func getFilterValuesAsBoolean(filter *UserFilter) []bool {
-	// TODO: Just use compiled values here?
-	var ret []bool
-	jsonValues := getFilterValues(filter)
-	for _, jsonValue := range jsonValues {
-		switch v := jsonValue.(type) {
-		case bool:
-			ret = append(ret, v)
-		default:
-			continue
 		}
 	}
 	return ret
