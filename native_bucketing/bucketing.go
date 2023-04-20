@@ -102,7 +102,7 @@ type segmentedFeatureData struct {
 func evaluateSegmentationForFeature(config *configBody, feature ConfigFeature, user DVCPopulatedUser, clientCustomData map[string]interface{}) *Target {
 	for _, target := range feature.Configuration.Targets {
 		if _evaluateOperator(target.Audience.Filters, config.Audiences, user, clientCustomData) {
-			return &target
+			return target
 		}
 	}
 	return nil
