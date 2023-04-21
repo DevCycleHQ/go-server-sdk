@@ -7,6 +7,8 @@ import (
 	"sort"
 
 	"github.com/go-playground/validator/v10"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 )
 
 // use a single instance of Validate, it caches struct info
@@ -23,9 +25,9 @@ type Variable struct {
 }
 
 type configBody struct {
-	Project                PublicProject           `json:"project" validate:"required"`
+	Project                api.Project             `json:"project" validate:"required"`
 	Audiences              map[string]NoIdAudience `json:"audiences"`
-	Environment            PublicEnvironment       `json:"environment" validate:"required"`
+	Environment            api.Environment         `json:"environment" validate:"required"`
 	Features               []ConfigFeature         `json:"features" validate:"required"`
 	Variables              []Variable              `json:"variables" validate:"required,dive"`
 	etag                   string                  // TODO: remove etag

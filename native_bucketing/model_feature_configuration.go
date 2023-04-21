@@ -1,9 +1,13 @@
 package native_bucketing
 
+import (
+	"github.com/devcyclehq/go-server-sdk/v2/api"
+)
+
 type FeatureConfiguration struct {
 	Id               string                 `json:"_id"`
 	Prerequisites    []FeaturePrerequisites `json:"prerequisites"`
-	WinningVariation FeatureVariation       `json:"winningVariation"`
+	WinningVariation api.FeatureVariation   `json:"winningVariation"`
 	ForcedUsers      map[string]string      `json:"forcedUsers"`
 	Targets          []*Target              `json:"targets"`
 }

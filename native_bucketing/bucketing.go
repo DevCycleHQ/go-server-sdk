@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
@@ -101,7 +102,7 @@ type segmentedFeatureData struct {
 	Target  Target        `json:"target"`
 }
 
-func evaluateSegmentationForFeature(config *configBody, feature ConfigFeature, user DVCPopulatedUser, clientCustomData map[string]interface{}) *Target {
+func evaluateSegmentationForFeature(config *configBody, feature ConfigFeature, user api.DVCPopulatedUser, clientCustomData map[string]interface{}) *Target {
 	for _, target := range feature.Configuration.Targets {
 		if _evaluateOperator(target.Audience.Filters, config.Audiences, user, clientCustomData) {
 			return target
@@ -110,7 +111,7 @@ func evaluateSegmentationForFeature(config *configBody, feature ConfigFeature, u
 	return nil
 }
 
-func getSegmentedFeatureDataFromConfig(config *configBody, user DVCPopulatedUser, clientCustomData map[string]interface{}) []segmentedFeatureData {
+func getSegmentedFeatureDataFromConfig(config *configBody, user api.DVCPopulatedUser, clientCustomData map[string]interface{}) []segmentedFeatureData {
 	var accumulator []segmentedFeatureData
 	for _, feature := range config.Features {
 		segmentedFeatureTarget := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
@@ -131,7 +132,7 @@ type targetAndHashes struct {
 	Hashes boundedHash
 }
 
-func doesUserQualifyForFeature(config *configBody, feature ConfigFeature, user DVCPopulatedUser, clientCustomData map[string]interface{}) (targetAndHashes, error) {
+func doesUserQualifyForFeature(config *configBody, feature ConfigFeature, user api.DVCPopulatedUser, clientCustomData map[string]interface{}) (targetAndHashes, error) {
 	target := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
 	if target == nil {
 		return targetAndHashes{}, fmt.Errorf("user %s does not qualify for any targets for feature %s", user.UserId, feature.Key)
@@ -162,15 +163,15 @@ func bucketUserForVariation(feature *ConfigFeature, hashes targetAndHashes) (Var
 	return Variation{}, fmt.Errorf("config missing variation %s", variationId)
 }
 
-func GenerateBucketedConfig(sdkKey string, user DVCPopulatedUser, clientCustomData map[string]interface{}) (*BucketedUserConfig, error) {
+func GenerateBucketedConfig(sdkKey string, user api.DVCPopulatedUser, clientCustomData map[string]interface{}) (*api.BucketedUserConfig, error) {
 	config, err := getConfig(sdkKey)
 	if err != nil {
 		return nil, err
 	}
-	variableMap := make(map[string]ReadOnlyVariable)
-	featureKeyMap := make(map[string]SDKFeature)
+	variableMap := make(map[string]api.ReadOnlyVariable)
+	featureKeyMap := make(map[string]api.Feature)
 	featureVariationMap := make(map[string]string)
-	variableVariationMap := make(map[string]FeatureVariation)
+	variableVariationMap := make(map[string]api.FeatureVariation)
 
 	for _, feature := range config.Features {
 		thash, err := doesUserQualifyForFeature(config, feature, user, clientCustomData)
@@ -182,7 +183,7 @@ func GenerateBucketedConfig(sdkKey string, user DVCPopulatedUser, clientCustomDa
 		if err != nil {
 			continue
 		}
-		featureKeyMap[feature.Key] = SDKFeature{
+		featureKeyMap[feature.Key] = api.Feature{
 			Id:            feature.Id,
 			Type_:         feature.Type,
 			Key:           feature.Key,
@@ -198,12 +199,12 @@ func GenerateBucketedConfig(sdkKey string, user DVCPopulatedUser, clientCustomDa
 				return nil, fmt.Errorf("config missing variable: %s", variationVar.Var)
 			}
 
-			variableVariationMap[variable.Key] = FeatureVariation{
+			variableVariationMap[variable.Key] = api.FeatureVariation{
 				Variation: variation.Id,
 				Feature:   feature.Id,
 			}
-			newVar := ReadOnlyVariable{
-				BaseVariable: BaseVariable{
+			newVar := api.ReadOnlyVariable{
+				BaseVariable: api.BaseVariable{
 					Key:   variable.Key,
 					Type_: variable.Type,
 					Value: variationVar.Value,
@@ -214,7 +215,7 @@ func GenerateBucketedConfig(sdkKey string, user DVCPopulatedUser, clientCustomDa
 		}
 	}
 
-	return &BucketedUserConfig{
+	return &api.BucketedUserConfig{
 		Project:              config.Project,
 		Environment:          config.Environment,
 		Features:             featureKeyMap,
@@ -225,16 +226,16 @@ func GenerateBucketedConfig(sdkKey string, user DVCPopulatedUser, clientCustomDa
 }
 
 type BucketedVariableResponse struct {
-	Variable  ReadOnlyVariable
+	Variable  api.ReadOnlyVariable
 	Feature   ConfigFeature
 	Variation Variation
 }
 
-var emptyVariableVariationMap = map[string]FeatureVariation{}
+var emptyVariableVariationMap = map[string]api.FeatureVariation{}
 
-func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, variableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (*ReadOnlyVariable, error) {
-	var variablePtr *ReadOnlyVariable = nil
-	variableVariationMap := map[string]FeatureVariation{}
+func VariableForUser(sdkKey string, user api.DVCPopulatedUser, variableKey string, variableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (*api.ReadOnlyVariable, error) {
+	var variablePtr *api.ReadOnlyVariable = nil
+	variableVariationMap := map[string]api.FeatureVariation{}
 	result, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
 		eventErr := eventQueue.QueueVariableEvaluatedEvent(emptyVariableVariationMap, nil, variableKey)
@@ -254,7 +255,7 @@ func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, v
 
 	if !eventQueue.options.DisableAutomaticEventLogging {
 		if result != nil {
-			variableVariationMap[variableKey] = FeatureVariation{
+			variableVariationMap[variableKey] = api.FeatureVariation{
 				Variation: result.Variation.Id,
 				Feature:   result.Feature.Id,
 			}
@@ -269,7 +270,7 @@ func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, v
 
 }
 
-func generateBucketedVariableForUser(sdkKey string, user DVCPopulatedUser, key string, clientCustomData map[string]interface{}) (*BucketedVariableResponse, error) {
+func generateBucketedVariableForUser(sdkKey string, user api.DVCPopulatedUser, key string, clientCustomData map[string]interface{}) (*BucketedVariableResponse, error) {
 	config, err := getConfig(sdkKey)
 	if err != nil {
 		return nil, err
@@ -296,9 +297,9 @@ func generateBucketedVariableForUser(sdkKey string, user DVCPopulatedUser, key s
 		return nil, fmt.Errorf("config processing error: config missing variable %s for variation %s", key, variation.Id)
 	}
 	return &BucketedVariableResponse{
-		Variable: ReadOnlyVariable{
+		Variable: api.ReadOnlyVariable{
 			Id: variable.Id,
-			BaseVariable: BaseVariable{
+			BaseVariable: api.BaseVariable{
 				Type_: variable.Type,
 				Key:   variable.Key,
 				Value: variationVariable.Value,

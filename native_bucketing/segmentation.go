@@ -5,9 +5,11 @@ import (
 	"math"
 	"regexp"
 	"strings"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 )
 
-func _evaluateOperator(operator BaseOperator, audiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
+func _evaluateOperator(operator BaseOperator, audiences map[string]NoIdAudience, user api.DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
 	if len(operator.GetFilters()) == 0 {
 		return false
 	}
@@ -33,7 +35,7 @@ func _evaluateOperator(operator BaseOperator, audiences map[string]NoIdAudience,
 	return false
 }
 
-func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
+func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, user api.DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
 	if filter.GetType() == "all" {
 		return true
 	} else if filter.GetType() == "optIn" {
@@ -56,7 +58,7 @@ func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, us
 
 }
 
-func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[string]NoIdAudience, user DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
+func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[string]NoIdAudience, user api.DVCPopulatedUser, clientCustomData map[string]interface{}) bool {
 
 	audiences := filter.Audiences
 	comparator := filter.GetComparator()
@@ -74,7 +76,7 @@ func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[stri
 }
 
 // TODO: Make this work with less casting
-func filterFunctionsBySubtype(subType string, user DVCPopulatedUser, filter BaseFilter, clientCustomData map[string]interface{}) bool {
+func filterFunctionsBySubtype(subType string, user api.DVCPopulatedUser, filter BaseFilter, clientCustomData map[string]interface{}) bool {
 	if subType == "country" {
 		return checkStringsFilter(user.Country, filter.(*UserFilter))
 	} else if subType == "email" {

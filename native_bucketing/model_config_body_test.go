@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 )
 
 func TestParseConfigBody(t *testing.T) {
@@ -49,13 +51,13 @@ func TestParseConfigBody(t *testing.T) {
 			  "variables": []
 			}`,
 			expectedOutput: &configBody{
-				Project: PublicProject{
+				Project: api.Project{
 					Id:               "61535533396f00bab586cb17",
 					Key:              "test-project",
 					A0OrganizationId: "org_12345612345",
 				},
 				Audiences: map[string]NoIdAudience{},
-				Environment: PublicEnvironment{
+				Environment: api.Environment{
 					Id:  "6153553b8cf4e45e0464268d",
 					Key: "test-environment",
 				},
@@ -84,13 +86,13 @@ func TestParseConfigBody(t *testing.T) {
 			  "variables": []
 			}`,
 			expectedOutput: &configBody{
-				Project: PublicProject{
+				Project: api.Project{
 					Id:               "61535533396f00bab586cb17",
 					Key:              "test-project",
 					A0OrganizationId: "org_12345612345",
 				},
 				Audiences: map[string]NoIdAudience{},
-				Environment: PublicEnvironment{
+				Environment: api.Environment{
 					Id:  "6153553b8cf4e45e0464268d",
 					Key: "test-environment",
 				},

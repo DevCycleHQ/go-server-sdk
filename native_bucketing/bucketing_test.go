@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 )
 
 var (
@@ -388,13 +390,13 @@ func TestRollout_Stepped_Error(t *testing.T) {
 }
 
 func TestClientData(t *testing.T) {
-	user := DVCUser{
+	user := api.DVCUser{
 		UserId: "client-test",
 		CustomData: map[string]interface{}{
 			"favouriteFood": "pizza",
 			"favouriteNull": nil,
 		},
-	}.GetPopulatedUser(&PlatformData{
+	}.GetPopulatedUser(&api.PlatformData{
 		PlatformVersion: "1.1.2",
 	})
 
@@ -424,12 +426,12 @@ func TestClientData(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 610.61, variableUser.Variable.Value)
 
-	user2 := DVCUser{
+	user2 := api.DVCUser{
 		UserId: "hates-pizza",
 		CustomData: map[string]interface{}{
 			"favouriteFood": "NOT PIZZA!",
 		},
-	}.GetPopulatedUser(&PlatformData{
+	}.GetPopulatedUser(&api.PlatformData{
 		PlatformVersion: "1.1.2",
 	})
 	bucketedUserConfig, err = GenerateBucketedConfig("test", user2, nil)
@@ -440,13 +442,13 @@ func TestClientData(t *testing.T) {
 }
 
 func TestVariableForUser(t *testing.T) {
-	user := DVCUser{
+	user := api.DVCUser{
 		UserId: "CPopultest",
 		CustomData: map[string]interface{}{
 			"favouriteDrink": "coffee",
 			"favouriteFood":  "pizza",
 		},
-	}.GetPopulatedUser(&PlatformData{
+	}.GetPopulatedUser(&api.PlatformData{
 		PlatformVersion: "1.1.2",
 	})
 

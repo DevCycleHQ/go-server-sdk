@@ -20,13 +20,13 @@ import (
 
 type aggEventData struct {
 	event                *api.DVCEvent
-	variableVariationMap map[string]FeatureVariation
+	variableVariationMap map[string]api.FeatureVariation
 	aggregateByVariation bool
 }
 
 type userEventData struct {
 	event *api.DVCEvent
-	user  *DVCUser
+	user  *api.DVCUser
 }
 
 type VariationAggMap map[string]int64
@@ -179,11 +179,11 @@ func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
 
 // QueueAggregateEvent queues an aggregate event to be sent to the server - but offloads actual computing of the event itself
 // to a different goroutine.
-func (eq *EventQueue) QueueAggregateEvent(config BucketedUserConfig, event api.DVCEvent) error {
+func (eq *EventQueue) QueueAggregateEvent(config api.BucketedUserConfig, event api.DVCEvent) error {
 	return eq.queueAggregateEventInternal(&event, config.VariableVariationMap, event.Type_ == api.EventType_AggVariableEvaluated)
 }
 
-func (eq *EventQueue) queueAggregateEventInternal(event *api.DVCEvent, variableVariationMap map[string]FeatureVariation, aggregateByVariation bool) error {
+func (eq *EventQueue) queueAggregateEventInternal(event *api.DVCEvent, variableVariationMap map[string]api.FeatureVariation, aggregateByVariation bool) error {
 	if eq.options != nil && eq.options.IsEventLoggingDisabled(event) {
 		return nil
 	}
@@ -205,7 +205,7 @@ func (eq *EventQueue) queueAggregateEventInternal(event *api.DVCEvent, variableV
 	return nil
 }
 
-func (eq *EventQueue) QueueEvent(user DVCUser, event api.DVCEvent) error {
+func (eq *EventQueue) QueueEvent(user api.DVCUser, event api.DVCEvent) error {
 
 	select {
 	case eq.userEventQueueRaw <- userEventData{
@@ -219,7 +219,7 @@ func (eq *EventQueue) QueueEvent(user DVCUser, event api.DVCEvent) error {
 	return nil
 }
 
-func (eq *EventQueue) QueueVariableEvaluatedEvent(variableVariationMap map[string]FeatureVariation, variable *ReadOnlyVariable, variableKey string) error {
+func (eq *EventQueue) QueueVariableEvaluatedEvent(variableVariationMap map[string]api.FeatureVariation, variable *api.ReadOnlyVariable, variableKey string) error {
 	if eq.options.DisableAutomaticEventLogging {
 		return nil
 	}
