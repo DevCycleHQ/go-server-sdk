@@ -33,19 +33,19 @@ func main() {
 
 	features, _ := client.AllFeatures(user)
 	for key, feature := range features {
-		log.Printf("Key:%s, feature:%s", key, feature)
+		log.Printf("Key:%s, feature:%#v", key, feature)
 	}
 
 	variables, _ := client.AllVariables(user)
 	for key, variable := range variables {
-		log.Printf("Key:%s, feature:%v", key, variable)
+		log.Printf("Key:%s, variable:%#v", key, variable)
 	}
 
 	existingVariable, err := client.Variable(user, variable, "DEFAULT")
 	if err != nil {
 		log.Fatalf("Error getting variable %v: %v", variable, err)
 	}
-	log.Printf("variable %v: value=%v defaulted=%t", existingVariable.Key, existingVariable.Value, existingVariable.IsDefaulted)
+	log.Printf("variable %v: value=%v (%v) defaulted=%t", existingVariable.Key, existingVariable.Value, existingVariable.Type_, existingVariable.IsDefaulted)
 	if existingVariable.IsDefaulted {
 		log.Printf("Warning: variable %v should not be defaulted", existingVariable.Key)
 	}
@@ -54,7 +54,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error getting variable: %v", err)
 	}
-	log.Printf("variable %v: value=%v defaulted=%t", missingVariable.Key, missingVariable.Value, missingVariable.IsDefaulted)
+	log.Printf("variable %v: value=%v (%v) defaulted=%t", missingVariable.Key, missingVariable.Value, missingVariable.Type_, missingVariable.IsDefaulted)
 	if !missingVariable.IsDefaulted {
 		log.Printf("Warning: variable %v should be defaulted", missingVariable.Key)
 	}
