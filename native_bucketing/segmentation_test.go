@@ -94,10 +94,7 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 		},
 		Values: []interface{}{"Canada"},
 	}
-	if err := countryFilter.Initialize(); err != nil {
-		t.Errorf("Failed to initialize filter: %v", err)
-	}
-
+	require.NoError(t, countryFilter.Initialize())
 	emailFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
@@ -110,10 +107,7 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 			"brooks@big.lunch",
 		},
 	}
-	if err := emailFilter.Initialize(); err != nil {
-		t.Errorf("Failed to initialize filter: %v", err)
-	}
-
+	require.NoError(t, emailFilter.Initialize())
 	versionFilter := &UserFilter{
 		filter: filter{
 			Type:       "user",
@@ -125,10 +119,7 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 			"1.0.0",
 		},
 	}
-
-	if err := versionFilter.Initialize(); err != nil {
-		t.Errorf("Failed to initialize filter: %v", err)
-	}
+	require.NoError(t, versionFilter.Initialize())
 
 	audience := Audience{
 		NoIdAudience: NoIdAudience{
