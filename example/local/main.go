@@ -10,8 +10,15 @@ import (
 
 func main() {
 	sdkKey := os.Getenv("DVC_SERVER_KEY")
+	if sdkKey == "" {
+		log.Fatal("DVC_SERVER_KEY env var not set: set it to your SDK key")
+	}
+	variable := os.Getenv("DVC_VARIABLE")
+	if variable == "" {
+		log.Fatal("DVC_VARIABLE env var not set: set it to a variable key")
+	}
+
 	user := devcycle.DVCUser{UserId: "test"}
-	onInitialized := make(chan bool)
 	dvcOptions := devcycle.DVCOptions{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         false,
@@ -20,37 +27,46 @@ func main() {
 		RequestTimeout:               10 * time.Second,
 		DisableAutomaticEventLogging: false,
 		DisableCustomEventLogging:    false,
-		OnInitializedChannel:         onInitialized,
 	}
 
 	client, _ := devcycle.NewDVCClient(sdkKey, &dvcOptions)
 
+	log.Printf("client initialized")
+
 	features, _ := client.AllFeatures(user)
 	for key, feature := range features {
-		log.Printf("Key:%s, feature:%s", key, feature)
+		log.Printf("Key:%s, feature:%#v", key, feature)
 	}
-
-	<-onInitialized
-	log.Printf("client initialized")
 
 	variables, _ := client.AllVariables(user)
 	for key, variable := range variables {
-		log.Printf("Key:%s, feature:%v", key, variable)
+		log.Printf("Key:%s, variable:%#v", key, variable)
+	}
+
+	existingVariable, err := client.Variable(user, variable, "DEFAULT")
+	if err != nil {
+		log.Fatalf("Error getting variable %v: %v", variable, err)
+	}
+	log.Printf("variable %v: value=%v (%v) defaulted=%t", existingVariable.Key, existingVariable.Value, existingVariable.Type_, existingVariable.IsDefaulted)
+	if existingVariable.IsDefaulted {
+		log.Printf("Warning: variable %v should not be defaulted", existingVariable.Key)
+	}
+
+	missingVariable, _ := client.Variable(user, variable+"-does-not-exist", "DEFAULT")
+	if err != nil {
+		log.Fatalf("Error getting variable: %v", err)
+	}
+	log.Printf("variable %v: value=%v (%v) defaulted=%t", missingVariable.Key, missingVariable.Value, missingVariable.Type_, missingVariable.IsDefaulted)
+	if !missingVariable.IsDefaulted {
+		log.Printf("Warning: variable %v should be defaulted", missingVariable.Key)
 	}
 
 	event := devcycle.DVCEvent{
 		Type_:  "customEvent",
-		Target: "somevariable.key"}
-
-	vara, _ := client.Variable(user, "elliot-test", "test")
-
-	if !vara.IsDefaulted {
-		log.Printf("vara not defaulted:%v", vara.IsDefaulted)
+		Target: "somevariable.key",
 	}
-	varaDefaulted, _ := client.Variable(user, "elliot-asdasd", "test")
-	if varaDefaulted.IsDefaulted {
-		log.Printf("vara defaulted:%v", varaDefaulted.IsDefaulted)
+	_, err = client.Track(user, event)
+	if err != nil {
+		log.Fatalf("Error tracking event: %v", err)
 	}
-
-	_, _ = client.Track(user, event)
 }
