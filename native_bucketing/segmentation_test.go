@@ -174,8 +174,33 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 				Audiences: []string{"test"},
 			}},
 			audiences: map[string]NoIdAudience{"test": audience.NoIdAudience},
-
-			expected: false,
+			expected:  false,
+		},
+		{
+			name: "audienceMatchFilter - audience ID not in list",
+			filters: []BaseFilter{AudienceMatchFilter{
+				filter: filter{
+					Type:       "audienceMatch",
+					Comparator: "==",
+					Operator:   OperatorAnd,
+				},
+				Audiences: []string{"test"},
+			}},
+			audiences: map[string]NoIdAudience{},
+			expected:  false,
+		},
+		{
+			name: "audienceMatchFilter - audience ID not in list",
+			filters: []BaseFilter{AudienceMatchFilter{
+				filter: filter{
+					Type:       "audienceMatch",
+					Comparator: "==",
+					Operator:   OperatorAnd,
+				},
+				Audiences: []string{"someOtherAudienceID"},
+			}},
+			audiences: map[string]NoIdAudience{"test": audience.NoIdAudience},
+			expected:  false,
 		},
 	}
 
