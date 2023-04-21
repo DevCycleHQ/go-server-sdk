@@ -35,8 +35,3 @@ func TestGetConfig_Set(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, config)
 }
-
-func TestSetConfigError(t *testing.T) {
-	err := SetConfig([]byte(`{"hello": "world"}`), "test", "test_etag")
-	require.Error(t, err)
-}

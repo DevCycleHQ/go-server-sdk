@@ -1,10 +1,10 @@
 package api
 
 type Project struct {
-	Id               string          `json:"_id"`
-	Key              string          `json:"key"`
-	A0OrganizationId string          `json:"a0_organization"`
-	Settings         ProjectSettings `json:"settings"`
+	Id               string          `json:"_id" validate:"required"`
+	Key              string          `json:"key" validate:"required"`
+	A0OrganizationId string          `json:"a0_organization" validate:"required"`
+	Settings         ProjectSettings `json:"settings" validate:"required"`
 }
 
 type ProjectSettings struct {
