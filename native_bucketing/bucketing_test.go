@@ -390,7 +390,7 @@ func TestRollout_Stepped_Error(t *testing.T) {
 }
 
 func TestClientData(t *testing.T) {
-	user := api.DVCUser{
+	user := api.User{
 		UserId: "client-test",
 		CustomData: map[string]interface{}{
 			"favouriteFood": "pizza",
@@ -426,7 +426,7 @@ func TestClientData(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 610.61, variableUser.Variable.Value)
 
-	user2 := api.DVCUser{
+	user2 := api.User{
 		UserId: "hates-pizza",
 		CustomData: map[string]interface{}{
 			"favouriteFood": "NOT PIZZA!",
@@ -442,7 +442,7 @@ func TestClientData(t *testing.T) {
 }
 
 func TestVariableForUser(t *testing.T) {
-	user := api.DVCUser{
+	user := api.User{
 		UserId: "CPopultest",
 		CustomData: map[string]interface{}{
 			"favouriteDrink": "coffee",

@@ -44,7 +44,7 @@ type WASMLocalBucketing struct {
 	sdkKey               string
 }
 
-func NewWASMLocalBucketing(sdkKey string, platformData *PlatformData, options *DVCOptions) (*WASMLocalBucketing, error) {
+func NewWASMLocalBucketing(sdkKey string, platformData *PlatformData, options *Options) (*WASMLocalBucketing, error) {
 	wasmMain := &WASMMain{}
 	err := wasmMain.Initialize(options)
 	if err != nil {
@@ -72,7 +72,7 @@ func NewWASMLocalBucketing(sdkKey string, platformData *PlatformData, options *D
 
 }
 
-func (lb *WASMLocalBucketing) GenerateBucketedConfigForUser(user DVCUser) (ret *BucketedUserConfig, err error) {
+func (lb *WASMLocalBucketing) GenerateBucketedConfigForUser(user User) (ret *BucketedUserConfig, err error) {
 	return lb.localBucketingClient.GenerateBucketedConfigForUser(user)
 }
 
@@ -100,7 +100,7 @@ func (lb *WASMLocalBucketing) StoreConfig(config []byte, eTag string) error {
 	return lb.bucketingObjectPool.StoreConfig(config)
 }
 
-func (lb *WASMLocalBucketing) Variable(user DVCUser, key string, variableType string) (variable Variable, err error) {
+func (lb *WASMLocalBucketing) Variable(user User, key string, variableType string) (variable Variable, err error) {
 	variableTypeCode, err := lb.localBucketingClient.VariableTypeCodeFromType(variableType)
 
 	if err != nil {
@@ -179,7 +179,7 @@ type WASMLocalBucketingClient struct {
 	wasmLinker   *wasmtime.Linker
 	wasmMain     *WASMMain
 	sdkKey       string
-	options      *DVCOptions
+	options      *Options
 	wasmMutex    sync.Mutex
 	flushMutex   sync.Mutex
 	sdkKeyAddr   int32
@@ -213,7 +213,7 @@ type WASMLocalBucketingClient struct {
 	errorMessage     string
 }
 
-func (d *WASMLocalBucketingClient) Initialize(wasmMain *WASMMain, sdkKey string, platformData *PlatformData, options *DVCOptions) (err error) {
+func (d *WASMLocalBucketingClient) Initialize(wasmMain *WASMMain, sdkKey string, platformData *PlatformData, options *Options) (err error) {
 	d.options = options
 	d.wasmMain = wasmMain
 
@@ -549,7 +549,7 @@ func (d *WASMLocalBucketingClient) onPayloadFailure(payloadId string, retryable 
 	return
 }
 
-func (d *WASMLocalBucketingClient) GenerateBucketedConfigForUser(user DVCUser) (ret *BucketedUserConfig, err error) {
+func (d *WASMLocalBucketingClient) GenerateBucketedConfigForUser(user User) (ret *BucketedUserConfig, err error) {
 	userJSON, err := json.Marshal(user)
 	if err != nil {
 		return nil, err

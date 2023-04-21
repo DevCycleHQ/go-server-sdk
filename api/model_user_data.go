@@ -14,7 +14,7 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-type DVCUser struct {
+type User struct {
 	// Unique id to identify the user
 	UserId string `json:"user_id"`
 	// User's email used to identify the user on the dashboard / target audiences
@@ -40,13 +40,13 @@ type DVCUser struct {
 }
 
 type DVCPopulatedUser struct {
-	DVCUser
+	User
 	*PlatformData
 	// Date the user was created, Unix epoch timestamp format
 	CreatedDate time.Time `json:"createdDate,omitempty"`
 }
 
-func (user DVCUser) GetPopulatedUser(platformData *PlatformData) DVCPopulatedUser {
+func (user User) GetPopulatedUser(platformData *PlatformData) DVCPopulatedUser {
 	return DVCPopulatedUser{
 		user,
 		platformData,
@@ -55,7 +55,7 @@ func (user DVCUser) GetPopulatedUser(platformData *PlatformData) DVCPopulatedUse
 }
 
 // GetPopulatedUserWithTime returns a populated user with a specific created date
-func (user DVCUser) GetPopulatedUserWithTime(platformData *PlatformData, createDate time.Time) DVCPopulatedUser {
+func (user User) GetPopulatedUserWithTime(platformData *PlatformData, createDate time.Time) DVCPopulatedUser {
 	return DVCPopulatedUser{
 		user,
 		platformData,
@@ -64,7 +64,7 @@ func (user DVCUser) GetPopulatedUserWithTime(platformData *PlatformData, createD
 }
 
 type UserFeatureData struct {
-	User        DVCUser `json:"user"`
+	User        User `json:"user"`
 	FeatureVars map[string]string
 }
 

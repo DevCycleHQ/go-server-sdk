@@ -10,7 +10,7 @@ import (
 )
 
 var brooks = api.DVCPopulatedUser{
-	DVCUser: api.DVCUser{
+	User: api.User{
 		Country:    "Canada",
 		Email:      "brooks@big.lunch",
 		AppVersion: "2.0.2",
@@ -443,7 +443,7 @@ func TestEvaluateOperator_AndCustomDataMultiValue(t *testing.T) {
 		PlatformVersion: "2.0.0",
 	}
 	brooks := api.DVCPopulatedUser{
-		DVCUser: api.DVCUser{
+		User: api.User{
 			Country:    "Canada",
 			Email:      "brooks@big.lunch",
 			AppVersion: "2.0.2",
@@ -475,7 +475,7 @@ func TestEvaluateOperator_AndCustomDataMultiValue(t *testing.T) {
 
 func TestEvaluateOperator_AndPrivateCustomDataMultiValue(t *testing.T) {
 	var brooks = api.DVCPopulatedUser{
-		DVCUser: api.DVCUser{
+		User: api.User{
 			Country:    "Canada",
 			Email:      "brooks@big.lunch",
 			AppVersion: "2.0.2",

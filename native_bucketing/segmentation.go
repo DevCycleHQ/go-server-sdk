@@ -88,7 +88,7 @@ func filterFunctionsBySubtype(subType string, user api.DVCPopulatedUser, filter 
 	} else if subType == "platformVersion" {
 		return checkVersionFilters(user.PlatformVersion, filter.(*UserFilter))
 	} else if subType == "deviceModel" {
-		return checkStringsFilter(user.DVCUser.DeviceModel, filter.(*UserFilter))
+		return checkStringsFilter(user.User.DeviceModel, filter.(*UserFilter))
 	} else if subType == "platform" {
 		return checkStringsFilter(user.Platform, filter.(*UserFilter))
 	} else if subType == "customData" {

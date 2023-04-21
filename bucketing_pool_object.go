@@ -19,7 +19,7 @@ type BucketingPoolObject struct {
 	clientCustomData *[]byte
 }
 
-func (o *BucketingPoolObject) Initialize(wasmMain *WASMMain, sdkKey string, platformData *PlatformData, options *DVCOptions) (err error) {
+func (o *BucketingPoolObject) Initialize(wasmMain *WASMMain, sdkKey string, platformData *PlatformData, options *Options) (err error) {
 	o.localBucketing = &WASMLocalBucketingClient{}
 	err = o.localBucketing.Initialize(wasmMain, sdkKey, platformData, options)
 

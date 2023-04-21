@@ -18,7 +18,7 @@ const NATIVE_SDK = true
 // This value will always be set to zero as the user.CreatedDate is not actually used in native bucketing
 var DEFAULT_USER_TIME = time.Time{}
 
-func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {
+func (c *Client) setLBClient(sdkKey string, options *Options) error {
 	localBucketing, err := NewNativeLocalBucketing(sdkKey, c.platformData, options)
 	if err != nil {
 		return err
@@ -31,14 +31,13 @@ func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {
 
 type NativeLocalBucketing struct {
 	sdkKey       string
-	options      *DVCOptions
+	options      *Options
 	configMutex  sync.RWMutex
 	platformData *api.PlatformData
 	eventQueue   *native_bucketing.EventQueue
 }
 
-func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, options *DVCOptions) (*NativeLocalBucketing, error) {
-	// Event queue stub that does nothing
+func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, options *Options) (*NativeLocalBucketing, error) {
 	eq, err := native_bucketing.InitEventQueue(sdkKey, options.eventQueueOptions())
 	if err != nil {
 		return nil, err
@@ -59,7 +58,7 @@ func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string) error
 	return nil
 }
 
-func (n *NativeLocalBucketing) GenerateBucketedConfigForUser(user DVCUser) (ret *BucketedUserConfig, err error) {
+func (n *NativeLocalBucketing) GenerateBucketedConfigForUser(user User) (ret *BucketedUserConfig, err error) {
 	populatedUser := user.GetPopulatedUserWithTime(n.platformData, DEFAULT_USER_TIME)
 	clientCustomData := native_bucketing.GetClientCustomData(n.sdkKey)
 	return native_bucketing.GenerateBucketedConfig(n.sdkKey, populatedUser, clientCustomData)
@@ -70,7 +69,7 @@ func (n *NativeLocalBucketing) SetClientCustomData(customData map[string]interfa
 	return nil
 }
 
-func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variableType string) (Variable, error) {
+func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableType string) (Variable, error) {
 
 	defaultVar := Variable{
 		BaseVariable: api.BaseVariable{

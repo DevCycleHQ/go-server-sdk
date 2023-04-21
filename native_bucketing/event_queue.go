@@ -19,14 +19,14 @@ import (
 )
 
 type aggEventData struct {
-	event                *api.DVCEvent
+	event                *api.Event
 	variableVariationMap map[string]api.FeatureVariation
 	aggregateByVariation bool
 }
 
 type userEventData struct {
-	event *api.DVCEvent
-	user  *api.DVCUser
+	event *api.Event
+	user  *api.User
 }
 
 type VariationAggMap map[string]int64
@@ -44,7 +44,7 @@ func (u *UserEventQueue) BuildBatchRecords() []api.UserEventsBatchRecord {
 }
 
 func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
-	var aggregateEvents []api.DVCEvent
+	var aggregateEvents []api.Event
 	userId, err := os.Hostname()
 	if err != nil {
 		userId = "aggregate"
@@ -56,7 +56,7 @@ func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
 			if variationAggMap, ok := featureAggMap["value"]; ok {
 				if variationValue, ok2 := variationAggMap["value"]; ok2 && variationValue > 0 {
 					value := float64(variationValue)
-					event := api.DVCEvent{
+					event := api.Event{
 						Type_:       _type,
 						Target:      variableKey,
 						Value:       value,
@@ -81,7 +81,7 @@ func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
 							}
 						}
 
-						event := api.DVCEvent{
+						event := api.Event{
 							Type_:       _type,
 							Target:      variableKey,
 							Value:       float64(count),
@@ -95,7 +95,7 @@ func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
 			}
 		}
 	}
-	user := api.DVCUser{UserId: userId}.GetPopulatedUser(platformData)
+	user := api.User{UserId: userId}.GetPopulatedUser(platformData)
 	return api.UserEventsBatchRecord{
 		User:   user,
 		Events: aggregateEvents,
@@ -179,11 +179,11 @@ func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
 
 // QueueAggregateEvent queues an aggregate event to be sent to the server - but offloads actual computing of the event itself
 // to a different goroutine.
-func (eq *EventQueue) QueueAggregateEvent(config api.BucketedUserConfig, event api.DVCEvent) error {
+func (eq *EventQueue) QueueAggregateEvent(config api.BucketedUserConfig, event api.Event) error {
 	return eq.queueAggregateEventInternal(&event, config.VariableVariationMap, event.Type_ == api.EventType_AggVariableEvaluated)
 }
 
-func (eq *EventQueue) queueAggregateEventInternal(event *api.DVCEvent, variableVariationMap map[string]api.FeatureVariation, aggregateByVariation bool) error {
+func (eq *EventQueue) queueAggregateEventInternal(event *api.Event, variableVariationMap map[string]api.FeatureVariation, aggregateByVariation bool) error {
 	if eq.options != nil && eq.options.IsEventLoggingDisabled(event) {
 		return nil
 	}
@@ -205,7 +205,7 @@ func (eq *EventQueue) queueAggregateEventInternal(event *api.DVCEvent, variableV
 	return nil
 }
 
-func (eq *EventQueue) QueueEvent(user api.DVCUser, event api.DVCEvent) error {
+func (eq *EventQueue) QueueEvent(user api.User, event api.Event) error {
 
 	select {
 	case eq.userEventQueueRaw <- userEventData{
@@ -231,7 +231,7 @@ func (eq *EventQueue) QueueVariableEvaluatedEvent(variableVariationMap map[strin
 		eventType = api.EventType_AggVariableDefaulted
 	}
 
-	event := api.DVCEvent{
+	event := api.Event{
 		Type_:  eventType,
 		Target: variableKey,
 	}
@@ -484,7 +484,7 @@ func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
 	} else {
 		record := api.UserEventsBatchRecord{
 			User:   popU,
-			Events: []api.DVCEvent{*event.event},
+			Events: []api.Event{*event.event},
 		}
 		eq.userEventQueue[popU.UserId] = record
 	}

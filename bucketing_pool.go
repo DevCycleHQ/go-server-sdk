@@ -22,7 +22,7 @@ type BucketingPool struct {
 	closed        atomic.Bool
 }
 
-func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, platformData *PlatformData, options *DVCOptions) (*BucketingPool, error) {
+func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, platformData *PlatformData, options *Options) (*BucketingPool, error) {
 	bucketingPool := &BucketingPool{
 		ctx: ctx,
 	}

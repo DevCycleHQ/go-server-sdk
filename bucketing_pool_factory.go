@@ -4,6 +4,7 @@ package devcycle
 
 import (
 	"context"
+
 	pool "github.com/jolestar/go-commons-pool/v2"
 )
 
@@ -11,11 +12,11 @@ type BucketingPoolFactory struct {
 	wasmMain     *WASMMain
 	sdkKey       string
 	platformData *PlatformData
-	options      *DVCOptions
+	options      *Options
 	pool         *BucketingPool
 }
 
-func MakeBucketingPoolFactory(wasmMain *WASMMain, sdkKey string, platformData *PlatformData, options *DVCOptions, pool *BucketingPool) *BucketingPoolFactory {
+func MakeBucketingPoolFactory(wasmMain *WASMMain, sdkKey string, platformData *PlatformData, options *Options, pool *BucketingPool) *BucketingPoolFactory {
 	return &BucketingPoolFactory{
 		wasmMain:     wasmMain,
 		sdkKey:       sdkKey,

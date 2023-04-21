@@ -23,8 +23,8 @@ func randSeq(n int) string {
 	return string(b)
 }
 
-func setupUserPool() []devcycle.DVCUser {
-	users := make([]devcycle.DVCUser, 10)
+func setupUserPool() []devcycle.User {
+	users := make([]devcycle.User, 10)
 	for i := 0; i < 10; i++ {
 		customData := map[string]interface{}{
 			"cacheKey":   randSeq(250),
@@ -37,7 +37,7 @@ func setupUserPool() []devcycle.DVCUser {
 			"aPrivateValue": "secret-data-here",
 		}
 
-		users[i] = devcycle.DVCUser{
+		users[i] = devcycle.User{
 			UserId:            fmt.Sprintf("user_%d", i),
 			DeviceModel:       "testing",
 			Name:              fmt.Sprintf("Testing User %d", i),

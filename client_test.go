@@ -3,8 +3,6 @@ package devcycle
 import (
 	"flag"
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/util"
-	"github.com/stretchr/testify/require"
 	"io"
 	"log"
 	"net/http"
@@ -16,33 +14,36 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"github.com/stretchr/testify/require"
+
 	"github.com/jarcoal/httpmock"
 )
 
-func TestDVCClient_AllFeatures_Local(t *testing.T) {
+func TestClient_AllFeatures_Local(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
-	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	c, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
 	features, err := c.AllFeatures(
-		DVCUser{UserId: "j_test", DeviceModel: "testing"})
+		User{UserId: "j_test", DeviceModel: "testing"})
 	fatalErr(t, err)
 
 	fmt.Println(features)
 }
 
-func TestDVCClient_AllVariablesLocal(t *testing.T) {
+func TestClient_AllVariablesLocal(t *testing.T) {
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
-	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	c, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
 	variables, err := c.AllVariables(
-		DVCUser{UserId: "j_test", DeviceModel: "testing"})
+		User{UserId: "j_test", DeviceModel: "testing"})
 	fatalErr(t, err)
 
 	fmt.Println(variables)
@@ -51,16 +52,16 @@ func TestDVCClient_AllVariablesLocal(t *testing.T) {
 	}
 }
 
-func TestDVCClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
+func TestClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_config_special_characters_var)
-	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	c, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
 	variables, err := c.AllVariables(
-		DVCUser{UserId: "j_test", DeviceModel: "testing"})
+		User{UserId: "j_test", DeviceModel: "testing"})
 	fatalErr(t, err)
 
 	fmt.Println(variables)
@@ -86,30 +87,30 @@ func TestDVCClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
 	}
 }
 
-func TestDVCClient_VariableCloud(t *testing.T) {
+func TestClient_VariableCloud(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpBucketingAPIMock()
-	c, err := NewDVCClient(test_environmentKey, &DVCOptions{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
+	c, err := NewClient(test_environmentKey, &Options{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
 	fatalErr(t, err)
 
 	variable, err := c.Variable(
-		DVCUser{UserId: "j_test", DeviceModel: "testing"},
+		User{UserId: "j_test", DeviceModel: "testing"},
 		"test", true)
 	fatalErr(t, err)
 
 	fmt.Println(variable)
 }
 
-func TestDVCClient_VariableLocalNumber(t *testing.T) {
+func TestClient_VariableLocalNumber(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
 
-	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	c, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
-	user := DVCUser{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
+	user := User{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
 	fmt.Println(c.AllVariables(user))
 	variable, err := c.Variable(
 		user,
@@ -127,13 +128,13 @@ func TestDVCClient_VariableLocalNumber(t *testing.T) {
 	fmt.Println(variable)
 }
 
-func TestDVCClient_VariableEventIsQueued(t *testing.T) {
+func TestClient_VariableEventIsQueued(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
 	httpEventsApiMock()
 
-	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	c, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
 	user := DVCUser{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
@@ -156,28 +157,28 @@ func TestDVCClient_VariableEventIsQueued(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDVCClient_VariableLocal(t *testing.T) {
+func TestClient_VariableLocal(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
-	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	c, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
 	variable, err := c.Variable(
-		DVCUser{UserId: "j_test", DeviceModel: "testing"},
+		User{UserId: "j_test", DeviceModel: "testing"},
 		"test", true)
 	fatalErr(t, err)
 
 	fmt.Println(variable)
 }
 
-func TestDVCClient_VariableLocalFlush(t *testing.T) {
+func TestClient_VariableLocalFlush(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
-	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	c, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
 	variable, err := c.Variable(
@@ -189,16 +190,16 @@ func TestDVCClient_VariableLocalFlush(t *testing.T) {
 	fmt.Println(variable)
 }
 
-func TestDVCClient_VariableLocalProtobuf(t *testing.T) {
+func TestClient_VariableLocalProtobuf(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
-	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	c, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
 	variable, err := c.Variable(
-		DVCUser{UserId: "j_test", DeviceModel: "testing"},
+		User{UserId: "j_test", DeviceModel: "testing"},
 		"test", true)
 	fatalErr(t, err)
 
@@ -219,12 +220,12 @@ func TestDVCClient_VariableLocalProtobuf(t *testing.T) {
 	fmt.Println(variable)
 }
 
-func TestDVCClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
+func TestClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
-	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	c, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
 	customData := map[string]interface{}{
@@ -238,7 +239,7 @@ func TestDVCClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
 	}
 
 	variable, err := c.Variable(
-		DVCUser{
+		User{
 			UserId:            "j_test",
 			DeviceModel:       "testing",
 			Name:              "Pedro Pascal",
@@ -267,31 +268,31 @@ func TestDVCClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
 	fmt.Println(variable)
 }
 
-func TestDVCClient_VariableLocal_403(t *testing.T) {
+func TestClient_VariableLocal_403(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(403)
 
-	_, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	_, err := NewClient(test_environmentKey, &Options{})
 	if err == nil {
 		t.Fatal("Expected error from configmanager")
 	}
 }
 
-func TestDVCClient_VariableLocalProtobuf_StringEncoding(t *testing.T) {
+func TestClient_VariableLocalProtobuf_StringEncoding(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_config_special_characters_var)
 
-	options := &DVCOptions{
+	options := &Options{
 		UseDebugWASM: true,
 	}
 
-	c, err := NewDVCClient(test_environmentKey, options)
+	c, err := NewClient(test_environmentKey, options)
 	fatalErr(t, err)
 
 	variable, err := c.Variable(
-		DVCUser{
+		User{
 			UserId: "someuser",
 		},
 		"test", "default_value")
@@ -321,16 +322,16 @@ func TestDVCClient_VariableLocalProtobuf_StringEncoding(t *testing.T) {
 	}
 }
 
-func TestDVCClient_TrackLocal_QueueEvent(t *testing.T) {
+func TestClient_TrackLocal_QueueEvent(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
-	dvcOptions := DVCOptions{ConfigPollingIntervalMS: 10 * time.Second}
+	dvcOptions := Options{ConfigPollingIntervalMS: 10 * time.Second}
 
-	c, err := NewDVCClient(test_environmentKey, &dvcOptions)
+	c, err := NewClient(test_environmentKey, &dvcOptions)
 	fatalErr(t, err)
 
-	track, err := c.Track(DVCUser{UserId: "j_test", DeviceModel: "testing"}, DVCEvent{
+	track, err := c.Track(User{UserId: "j_test", DeviceModel: "testing"}, Event{
 		Target:      "customEvent",
 		Value:       0,
 		Type_:       "someType",
@@ -342,18 +343,18 @@ func TestDVCClient_TrackLocal_QueueEvent(t *testing.T) {
 	fmt.Println(track)
 }
 
-func TestDVCClient_TrackLocal_QueueEventBeforeConfig(t *testing.T) {
+func TestClient_TrackLocal_QueueEventBeforeConfig(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
 	// Config will fail to load on HTTP 500 after several retries without an error
 	httpConfigMock(http.StatusInternalServerError)
-	dvcOptions := DVCOptions{ConfigPollingIntervalMS: 10 * time.Second}
+	dvcOptions := Options{ConfigPollingIntervalMS: 10 * time.Second}
 
-	c, err := NewDVCClient(test_environmentKey, &dvcOptions)
+	c, err := NewClient(test_environmentKey, &dvcOptions)
 	fatalErr(t, err)
 
-	track, err := c.Track(DVCUser{UserId: "j_test", DeviceModel: "testing"}, DVCEvent{
+	track, err := c.Track(User{UserId: "j_test", DeviceModel: "testing"}, Event{
 		Target:      "customEvent",
 		Value:       0,
 		Type_:       "someType",
@@ -367,11 +368,11 @@ func TestDVCClient_TrackLocal_QueueEventBeforeConfig(t *testing.T) {
 
 func TestProduction_Local(t *testing.T) {
 	environmentKey := os.Getenv("DVC_SERVER_KEY")
-	user := DVCUser{UserId: "test"}
+	user := User{UserId: "test"}
 	if environmentKey == "" {
 		t.Skip("DVC_SERVER_KEY not set. Not using production tests.")
 	}
-	dvcOptions := DVCOptions{
+	dvcOptions := Options{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         false,
 		EventFlushIntervalMS:         0,
@@ -380,7 +381,7 @@ func TestProduction_Local(t *testing.T) {
 		DisableAutomaticEventLogging: false,
 		DisableCustomEventLogging:    false,
 	}
-	client, err := NewDVCClient(environmentKey, &dvcOptions)
+	client, err := NewClient(environmentKey, &dvcOptions)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +394,7 @@ func TestProduction_Local(t *testing.T) {
 	}
 }
 
-func TestDVCClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t *testing.T) {
+func TestClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
@@ -401,8 +402,8 @@ func TestDVCClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t 
 	onInitialized := make(chan bool)
 
 	// Try each of the combos to make sure they all act as expected and don't hang
-	dvcOptions := DVCOptions{OnInitializedChannel: onInitialized, EnableCloudBucketing: true}
-	c, err := NewDVCClient(test_environmentKey, &dvcOptions)
+	dvcOptions := Options{OnInitializedChannel: onInitialized, EnableCloudBucketing: true}
+	c, err := NewClient(test_environmentKey, &dvcOptions)
 	fatalErr(t, err)
 	val := <-onInitialized
 	if !val {
@@ -414,8 +415,8 @@ func TestDVCClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t 
 		t.Fatal("Expected isInitialized to be false")
 	}
 
-	dvcOptions = DVCOptions{OnInitializedChannel: onInitialized, EnableCloudBucketing: false}
-	c, err = NewDVCClient(test_environmentKey, &dvcOptions)
+	dvcOptions = Options{OnInitializedChannel: onInitialized, EnableCloudBucketing: false}
+	c, err = NewClient(test_environmentKey, &dvcOptions)
 	fatalErr(t, err)
 	val = <-onInitialized
 	if !val {
@@ -430,8 +431,8 @@ func TestDVCClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t 
 		t.Fatal("Expected config to be loaded")
 	}
 
-	dvcOptions = DVCOptions{OnInitializedChannel: nil, EnableCloudBucketing: true}
-	c, err = NewDVCClient(test_environmentKey, &dvcOptions)
+	dvcOptions = Options{OnInitializedChannel: nil, EnableCloudBucketing: true}
+	c, err = NewClient(test_environmentKey, &dvcOptions)
 	fatalErr(t, err)
 
 	if c.isInitialized {
@@ -439,8 +440,8 @@ func TestDVCClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t 
 		t.Fatal("Expected isInitialized to be false")
 	}
 
-	dvcOptions = DVCOptions{OnInitializedChannel: nil, EnableCloudBucketing: false}
-	c, err = NewDVCClient(test_environmentKey, &dvcOptions)
+	dvcOptions = Options{OnInitializedChannel: nil, EnableCloudBucketing: false}
+	c, err = NewClient(test_environmentKey, &dvcOptions)
 	fatalErr(t, err)
 
 	if !c.isInitialized {
@@ -473,7 +474,7 @@ func init() {
 	flag.BoolVar(&benchmarkDisableLogs, "benchDisableLogs", false, "Custom test flag that disables logging in benchmarks")
 }
 
-func BenchmarkDVCClient_VariableSerial(b *testing.B) {
+func BenchmarkClient_VariableSerial(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -484,7 +485,7 @@ func BenchmarkDVCClient_VariableSerial(b *testing.B) {
 		log.SetOutput(io.Discard)
 	}
 
-	options := &DVCOptions{
+	options := &Options{
 		EnableCloudBucketing:         false,
 		DisableAutomaticEventLogging: true,
 		DisableCustomEventLogging:    true,
@@ -501,12 +502,12 @@ func BenchmarkDVCClient_VariableSerial(b *testing.B) {
 		options.EventFlushIntervalMS = 0
 	}
 
-	client, err := NewDVCClient(test_environmentKey, options)
+	client, err := NewClient(test_environmentKey, options)
 	if err != nil {
 		b.Errorf("Failed to initialize client: %v", err)
 	}
 
-	user := DVCUser{UserId: "dontcare"}
+	user := User{UserId: "dontcare"}
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -522,7 +523,7 @@ func BenchmarkDVCClient_VariableSerial(b *testing.B) {
 	}
 }
 
-func BenchmarkDVCClient_VariableParallel(b *testing.B) {
+func BenchmarkClient_VariableParallel(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -533,7 +534,7 @@ func BenchmarkDVCClient_VariableParallel(b *testing.B) {
 		log.SetOutput(io.Discard)
 	}
 
-	options := &DVCOptions{
+	options := &Options{
 		EnableCloudBucketing:         false,
 		DisableAutomaticEventLogging: true,
 		DisableCustomEventLogging:    true,
@@ -550,12 +551,12 @@ func BenchmarkDVCClient_VariableParallel(b *testing.B) {
 		options.EventFlushIntervalMS = time.Millisecond * 500
 	}
 
-	client, err := NewDVCClient(test_environmentKey, options)
+	client, err := NewClient(test_environmentKey, options)
 	if err != nil {
 		b.Errorf("Failed to initialize client: %v", err)
 	}
 
-	user := DVCUser{UserId: "dontcare"}
+	user := User{UserId: "dontcare"}
 
 	b.ResetTimer()
 	b.ReportAllocs()

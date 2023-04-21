@@ -20,7 +20,7 @@ var (
 	test_large_config          string
 	test_large_config_variable = "v-key-25"
 
-	test_options = &DVCOptions{}
+	test_options = &Options{}
 )
 
 func init() {

@@ -9,5 +9,5 @@ type BucketedUserConfig struct {
 	Variables            map[string]ReadOnlyVariable `json:"variables"`
 	KnownVariableKeys    []float64                   `json:"knownVariableKeys"`
 
-	User *DVCUser `json:"-"`
+	User *User `json:"-"`
 }

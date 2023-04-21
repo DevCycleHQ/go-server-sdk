@@ -1,10 +1,10 @@
 package api
 
-func ChunkSlice(slice []DVCEvent, chunkSize int) [][]DVCEvent {
+func ChunkSlice(slice []Event, chunkSize int) [][]Event {
 	if chunkSize <= 0 {
 		chunkSize = 1
 	}
-	var chunks [][]DVCEvent
+	var chunks [][]Event
 	for i := 0; i < len(slice); i += chunkSize {
 		end := i + chunkSize
 

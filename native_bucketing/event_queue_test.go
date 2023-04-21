@@ -12,7 +12,7 @@ import (
 
 func BenchmarkEventQueue_QueueEvent(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})
-	event := api.DVCEvent{
+	event := api.Event{
 		Type_:      api.EventType_VariableEvaluated,
 		Target:     "somevariablekey",
 		CustomType: "testingtype",
@@ -24,14 +24,14 @@ func BenchmarkEventQueue_QueueEvent(b *testing.B) {
 	require.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = eq.QueueEvent(DVCUser{UserId: "testing"}, event)
+		_ = eq.QueueEvent(api.User{UserId: "testing"}, event)
 	}
 	b.StopTimer()
 }
 
 func BenchmarkEventQueue_QueueEvent_WithDrop(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})
-	event := api.DVCEvent{
+	event := api.Event{
 		Type_:      api.EventType_VariableEvaluated,
 		Target:     "somevariablekey",
 		CustomType: "testingtype",
@@ -43,7 +43,7 @@ func BenchmarkEventQueue_QueueEvent_WithDrop(b *testing.B) {
 	require.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = eq.QueueEvent(DVCUser{UserId: "testing"}, event)
+		_ = eq.QueueEvent(api.User{UserId: "testing"}, event)
 	}
 	b.StopTimer()
 }
@@ -76,13 +76,13 @@ func TestEventQueue_FlushEvents(t *testing.T) {
 
 func TestEventQueue_ProcessUserEvent(t *testing.T) {
 	event := userEventData{
-		event: &api.DVCEvent{
+		event: &api.Event{
 			Type_:      api.EventType_VariableEvaluated,
 			Target:     "somevariablekey",
 			CustomType: "testingtype",
 			UserId:     "testing",
 		},
-		user: &api.DVCUser{
+		user: &api.User{
 			UserId: "testing",
 		},
 	}
@@ -96,7 +96,7 @@ func TestEventQueue_ProcessUserEvent(t *testing.T) {
 
 func TestEventQueue_ProcessAggregateEvent(t *testing.T) {
 	event := aggEventData{
-		event: &api.DVCEvent{
+		event: &api.Event{
 			Type_:      api.EventType_VariableEvaluated,
 			Target:     "somevariablekey",
 			CustomType: "testingtype",
@@ -119,7 +119,7 @@ func TestEventQueue_ProcessAggregateEvent(t *testing.T) {
 }
 
 func TestEventQueue_AddToUserQueue(t *testing.T) {
-	event := api.DVCEvent{
+	event := api.Event{
 		Type_:      api.EventType_VariableEvaluated,
 		Target:     "somevariablekey",
 		CustomType: "testingtype",
@@ -129,18 +129,18 @@ func TestEventQueue_AddToUserQueue(t *testing.T) {
 	require.NoError(t, err)
 	eq, err := InitEventQueue("dvc_server_token_hash", &api.EventQueueOptions{})
 	require.NoError(t, err)
-	err = eq.QueueEvent(DVCUser{UserId: "testing"}, event)
+	err = eq.QueueEvent(api.User{UserId: "testing"}, event)
 	require.NoError(t, err)
 }
 
 func TestEventQueue_AddToAggQueue(t *testing.T) {
-	event := api.DVCEvent{
+	event := api.Event{
 		Type_:      api.EventType_VariableEvaluated,
 		Target:     "somevariablekey",
 		CustomType: "testingtype",
 		UserId:     "testing",
 	}
-	popu := DVCUser{UserId: "testing"}.GetPopulatedUser(platformData)
+	popu := api.User{UserId: "testing"}.GetPopulatedUser(platformData)
 	err := SetConfig(test_config, "dvc_server_token_hash", "")
 	require.NoError(t, err)
 	eq, err := InitEventQueue("dvc_server_token_hash", &api.EventQueueOptions{FlushEventsInterval: time.Hour})
@@ -154,8 +154,8 @@ func TestEventQueue_AddToAggQueue(t *testing.T) {
 }
 
 func TestEventQueue_UserMaxQueueDrop(t *testing.T) {
-	user := DVCUser{UserId: "testing"}
-	event := api.DVCEvent{
+	user := api.User{UserId: "testing"}
+	event := api.Event{
 		Type_:      api.EventType_VariableEvaluated,
 		Target:     "somevariablekey",
 		CustomType: "testingtype",
@@ -181,8 +181,8 @@ func TestEventQueue_UserMaxQueueDrop(t *testing.T) {
 }
 
 func TestEventQueue_QueueAndFlush(t *testing.T) {
-	user := DVCUser{UserId: "testing"}
-	event := api.DVCEvent{
+	user := api.User{UserId: "testing"}
+	event := api.Event{
 		Type_:      api.EventType_VariableEvaluated,
 		Target:     "somevariablekey",
 		CustomType: "testingtype",

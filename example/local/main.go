@@ -18,8 +18,8 @@ func main() {
 		log.Fatal("DVC_VARIABLE env var not set: set it to a variable key")
 	}
 
-	user := devcycle.DVCUser{UserId: "test"}
-	dvcOptions := devcycle.DVCOptions{
+	user := devcycle.User{UserId: "test"}
+	dvcOptions := devcycle.Options{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         false,
 		EventFlushIntervalMS:         0,
@@ -29,7 +29,7 @@ func main() {
 		DisableCustomEventLogging:    false,
 	}
 
-	client, _ := devcycle.NewDVCClient(sdkKey, &dvcOptions)
+	client, _ := devcycle.NewClient(sdkKey, &dvcOptions)
 
 	log.Printf("client initialized")
 
@@ -61,7 +61,7 @@ func main() {
 		log.Printf("Warning: variable %v should be defaulted", missingVariable.Key)
 	}
 
-	event := devcycle.DVCEvent{
+	event := devcycle.Event{
 		Type_:  "customEvent",
 		Target: "somevariable.key",
 	}
