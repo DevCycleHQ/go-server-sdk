@@ -85,55 +85,105 @@ func TestEvaluateOperator_InvalidComparator(t *testing.T) {
 }
 
 func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
-	userFilters := MixedFilters{
-		&UserFilter{
-			filter: filter{
-				Type:       "user",
-				SubType:    "email",
-				Comparator: "=",
-			},
-			Values: []interface{}{"dexter@smells.nice", "brooks@big.lunch"},
-		},
-		&UserFilter{
-			filter: filter{
-				Type:       "user",
-				SubType:    "country",
-				Comparator: "=",
-			},
-			Values: []interface{}{"Canada"}},
-		&UserFilter{
-			filter: filter{
-				Type:       "user",
-				SubType:    "appVersion",
-				Comparator: ">",
-			},
-			Values: []interface{}{"1.0.0"}},
-	}
-	_ = AudienceOperator{
-		Operator: "and",
-		Filters:  userFilters,
-	}
-	audienceMatchEqual := AudienceMatchFilter{
+	countryFilter := &UserFilter{
 		filter: filter{
-			Type:       "audienceMatch",
+			Type:       "user",
+			SubType:    "country",
 			Comparator: "=",
+			Operator:   OperatorAnd,
 		},
-		Audiences: []string{"test"},
+		Values: []interface{}{"Canada"},
 	}
-	_ = AudienceMatchFilter{
-		filter: filter{
-			Type:       "audienceMatch",
-			Comparator: "!=",
-		},
-		Audiences: []string{"test"},
+	if err := countryFilter.Initialize(); err != nil {
+		t.Errorf("Failed to initialize filter: %v", err)
 	}
-	var filters = []BaseFilter{audienceMatchEqual}
 
-	_ = OperatorFilter{
-		Operator: &AudienceOperator{
-			Operator: "and",
-			Filters:  filters,
+	emailFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "email",
+			Comparator: "=",
+			Operator:   OperatorAnd,
 		},
+		Values: []interface{}{
+			"dexter@smells.nice",
+			"brooks@big.lunch",
+		},
+	}
+	if err := emailFilter.Initialize(); err != nil {
+		t.Errorf("Failed to initialize filter: %v", err)
+	}
+
+	versionFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "appVersion",
+			Comparator: ">",
+			Operator:   OperatorAnd,
+		},
+		Values: []interface{}{
+			"1.0.0",
+		},
+	}
+
+	if err := versionFilter.Initialize(); err != nil {
+		t.Errorf("Failed to initialize filter: %v", err)
+	}
+
+	audience := Audience{
+		NoIdAudience: NoIdAudience{
+			Filters: &AudienceOperator{
+				Operator: OperatorAnd,
+				Filters: []BaseFilter{
+					countryFilter,
+					emailFilter,
+					versionFilter,
+				},
+			},
+		},
+		Id: "test",
+	}
+
+	testCases := []struct {
+		name      string
+		filters   []BaseFilter
+		audiences map[string]NoIdAudience
+		expected  bool
+	}{
+		{
+			name: "audienceMatchFilter - in the audience",
+			filters: []BaseFilter{AudienceMatchFilter{
+				filter: filter{
+					Type:       "audienceMatch",
+					Comparator: "=",
+					Operator:   OperatorAnd,
+				},
+				Audiences: []string{"test"},
+			}},
+			audiences: map[string]NoIdAudience{"test": audience.NoIdAudience},
+			expected:  true,
+		},
+		{
+			name: "audienceMatchFilter - not in the audience",
+			filters: []BaseFilter{AudienceMatchFilter{
+				filter: filter{
+					Type:       "audienceMatch",
+					Comparator: "!=",
+					Operator:   OperatorAnd,
+				},
+				Audiences: []string{"test"},
+			}},
+			audiences: map[string]NoIdAudience{"test": audience.NoIdAudience},
+
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: tc.filters}, tc.audiences, brooks, nil)
+		if result != tc.expected {
+			t.Errorf("%v - Expected %t, got %t", tc.name, tc.expected, result)
+		}
 	}
 }
 
