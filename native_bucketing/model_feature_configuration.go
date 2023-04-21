@@ -5,7 +5,7 @@ type FeatureConfiguration struct {
 	Prerequisites    []FeaturePrerequisites `json:"prerequisites"`
 	WinningVariation FeatureVariation       `json:"winningVariation"`
 	ForcedUsers      map[string]string      `json:"forcedUsers"`
-	Targets          []Target               `json:"targets"`
+	Targets          []*Target              `json:"targets"`
 }
 
 type FeaturePrerequisites struct {

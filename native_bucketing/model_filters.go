@@ -284,33 +284,41 @@ func _checkNumbersFilter(number float64, filter *UserFilter) bool {
 }
 
 func checkStringsFilter(str string, filter *UserFilter) bool {
-	contains := func(arr []string, substr string) bool {
-		for _, s := range arr {
-			if strings.Contains(s, substr) {
-				return true
-			}
-		}
-		return false
-	}
 	operator := filter.GetComparator()
 	values := filter.CompiledStringVals
 	if operator == "=" {
-		return str != "" && contains(values, str)
+		return str != "" && stringArrayIn(values, str)
 	} else if operator == "!=" {
-		return str != "" && !contains(values, str)
+		return str != "" && !stringArrayIn(values, str)
 	} else if operator == "exist" {
 		return str != ""
 	} else if operator == "!exist" {
 		return str == ""
 	} else if operator == "contain" {
-		// TODO: This is not the same as the old behaviour.
-		return str != "" && contains(values, str)
+		return str != "" && stringArrayContains(values, str)
 	} else if operator == "!contain" {
-		// TODO: This is not the same as the old behaviour.
-		return str == "" || !contains(values, str)
+		return str == "" || !stringArrayContains(values, str)
 	} else {
 		return false
 	}
+}
+
+func stringArrayIn(arr []string, search string) bool {
+	for _, s := range arr {
+		if s == search {
+			return true
+		}
+	}
+	return false
+}
+
+func stringArrayContains(substrings []string, search string) bool {
+	for _, substring := range substrings {
+		if strings.Contains(search, substring) {
+			return true
+		}
+	}
+	return false
 }
 
 func _checkBooleanFilter(b bool, filter *UserFilter) bool {
@@ -347,15 +355,4 @@ func checkVersionFilters(appVersion string, filter *UserFilter) bool {
 	} else {
 		return checkVersionFilter(appVersion, values, operator)
 	}
-}
-
-func getFilterValues(filter *UserFilter) []interface{} {
-	values := filter.Values
-	var ret []interface{}
-	for _, value := range values {
-		if value != nil {
-			ret = append(ret, value)
-		}
-	}
-	return ret
 }
