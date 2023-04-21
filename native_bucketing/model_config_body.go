@@ -5,12 +5,21 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+
+	"github.com/go-playground/validator/v10"
 )
 
+// use a single instance of Validate, it caches struct info
+var validate *validator.Validate
+
+func init() {
+	validate = validator.New()
+}
+
 type Variable struct {
-	Id   string `json:"_id"`
-	Type string `json:"type" validate:"regexp=^(String|Boolean|Number|JSON)$"`
-	Key  string `json:"key"`
+	Id   string `json:"_id" validate:"required"`
+	Type string `json:"type" validate:"oneof=String Boolean Number JSON"`
+	Key  string `json:"key" validate:"required"`
 }
 
 type configBody struct {
@@ -18,11 +27,26 @@ type configBody struct {
 	Audiences              map[string]NoIdAudience `json:"audiences"`
 	Environment            PublicEnvironment       `json:"environment" validate:"required"`
 	Features               []ConfigFeature         `json:"features" validate:"required"`
-	Variables              []Variable              `json:"variables" validate:"required"`
-	etag                   string
+	Variables              []Variable              `json:"variables" validate:"required,dive"`
+	etag                   string                  // TODO: remove etag
 	variableIdMap          map[string]Variable
 	variableKeyMap         map[string]Variable
 	variableIdToFeatureMap map[string]ConfigFeature
+}
+
+func newConfig(configJSON []byte, etag string) (*configBody, error) {
+	config := configBody{}
+	if err := json.Unmarshal(configJSON, &config); err != nil {
+		return nil, err
+	}
+	if err := validate.Struct(config); err != nil {
+		return nil, fmt.Errorf("Config validation failed: %w", err)
+	}
+	if config.Audiences == nil {
+		config.Audiences = make(map[string]NoIdAudience)
+	}
+	config.compile(etag)
+	return &config, nil
 }
 
 func (c *configBody) GetVariableForKey(key string) *Variable {
@@ -81,25 +105,6 @@ func (c *configBody) compile(etag string) {
 	}
 }
 
-func (c *configBody) FindVariable(key string) (Variable, error) {
-	for _, v := range c.Variables {
-		if v.Key == key {
-			return v, nil
-		}
-	}
-	return Variable{}, fmt.Errorf("variable key not found")
-}
-
 func (c *configBody) Equals(c2 configBody) bool {
 	return reflect.DeepEqual(*c, c2)
-}
-
-func newConfig(configJSON []byte, etag string) (configBody, error) {
-	// TODO: Replace with a proper validator.
-	config := configBody{}
-	if err := json.Unmarshal(configJSON, &config); err != nil {
-		return config, err
-	}
-	config.compile(etag)
-	return config, nil
 }
