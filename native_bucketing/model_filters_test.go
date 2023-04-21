@@ -44,3 +44,39 @@ func TestCheckStringsFilter(t *testing.T) {
 		})
 	}
 }
+
+func Test_CheckBooleanFilter(t *testing.T) {
+	tests := []struct {
+		name       string
+		comparator string
+		values     []bool
+		testParam  bool
+		expected   bool
+	}{
+		{"contain_true", ComparatorContain, []bool{true}, true, true},
+		{"contain false", ComparatorContain, []bool{true}, false, false},
+		{"equal true", ComparatorEqual, []bool{true}, true, true},
+		{"equal false", ComparatorEqual, []bool{true}, false, false},
+		{"!equal true", ComparatorNotEqual, []bool{false}, true, true},
+		{"!contains true", ComparatorNotContain, []bool{false}, true, true},
+		{"exist", ComparatorExist, []bool{}, true, true},
+		{"!exist", ComparatorNotExist, []bool{}, true, false},
+		{"Unsupported comparator 1", ComparatorGreater, []bool{}, true, false},
+		{"Unsupported comparator 2", ComparatorGreater, []bool{true}, true, false},
+	}
+
+	for _, test := range tests {
+		filter := &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: test.comparator,
+			},
+			CompiledBoolVals: test.values,
+		}
+		result := _checkBooleanFilter(test.testParam, filter)
+		if result != test.expected {
+			t.Errorf("Test %v failed: Expected %t, but got %t", test.name, test.expected, result)
+		}
+	}
+}
