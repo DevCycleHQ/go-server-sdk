@@ -23,6 +23,7 @@ func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {
 		return err
 	}
 	c.localBucketing = localBucketing
+	c.eventQueue = localBucketing.eventQueue
 
 	return nil
 }
