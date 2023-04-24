@@ -31,12 +31,13 @@ var aggEventQueue = make(map[string]AggregateEventQueue)
 var userEventQueue = make(map[string]map[string]api.UserEventsBatchRecord)
 var eventQueueOptions = make(map[string]*api.EventQueueOptions)
 
+func resetTestEventQueues() {
+	userEventQueueRaw = make(map[string]chan userEventData)
+}
+
 func InitEventQueue(sdkKey string, options *api.EventQueueOptions) error {
 	if sdkKey == "" {
 		return fmt.Errorf("sdk key is required")
-	}
-	if _, ok := userEventQueueRaw[sdkKey]; ok {
-		return fmt.Errorf("event queue already initialized for sdk key: %s", sdkKey)
 	}
 
 	userEventQueueRaw[sdkKey] = make(chan userEventData, options.MaxEventQueueSize)

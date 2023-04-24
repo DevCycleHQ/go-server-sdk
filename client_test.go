@@ -21,7 +21,7 @@ func TestDVCClient_AllFeatures_Local(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
 	fatalErr(t, err)
 
 	features, err := c.AllFeatures(
@@ -36,7 +36,7 @@ func TestDVCClient_AllVariablesLocal(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
 	fatalErr(t, err)
 
 	variables, err := c.AllVariables(
@@ -88,7 +88,7 @@ func TestDVCClient_VariableCloud(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpBucketingAPIMock()
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
+	c, err := NewDVCClient(test_environmentKey, &DVCOptions{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
 	fatalErr(t, err)
 
 	variable, err := c.Variable(
@@ -130,7 +130,7 @@ func TestDVCClient_VariableLocal(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
 	fatalErr(t, err)
 
 	variable, err := c.Variable(
@@ -146,7 +146,7 @@ func TestDVCClient_VariableLocalProtobuf(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
 	fatalErr(t, err)
 
 	variable, err := c.Variable(
@@ -176,7 +176,7 @@ func TestDVCClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
-	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
 	fatalErr(t, err)
 
 	customData := map[string]interface{}{
@@ -224,7 +224,7 @@ func TestDVCClient_VariableLocal_403(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(403)
 
-	_, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{})
+	_, err := NewDVCClient(test_environmentKey, &DVCOptions{})
 	if err == nil {
 		t.Fatal("Expected error from configmanager")
 	}
@@ -239,7 +239,7 @@ func TestDVCClient_VariableLocalProtobuf_StringEncoding(t *testing.T) {
 		UseDebugWASM: true,
 	}
 
-	c, err := NewDVCClient("dvc_server_token_hash", options)
+	c, err := NewDVCClient(test_environmentKey, options)
 	fatalErr(t, err)
 
 	variable, err := c.Variable(
