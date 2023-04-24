@@ -18,11 +18,12 @@ const NATIVE_SDK = true
 var DEFAULT_USER_TIME = time.Time{}
 
 func (c *DVCClient) setLBClient(sdkKey string, options *DVCOptions) error {
-	localBucketing := NewNativeLocalBucketing(sdkKey, c.platformData, options)
+	localBucketing, err := NewNativeLocalBucketing(sdkKey, c.platformData, options)
+	if err != nil {
+		return err
+	}
 	c.localBucketing = localBucketing
-
-	// Event queue stub that does nothing
-	c.eventQueue = &NativeEventQueue{}
+	c.eventQueue = localBucketing.eventQueue
 
 	return nil
 }
@@ -32,18 +33,25 @@ type NativeLocalBucketing struct {
 	options      *DVCOptions
 	configMutex  sync.RWMutex
 	platformData *api.PlatformData
+	eventQueue   *native_bucketing.EventQueue
 }
 
-func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, options *DVCOptions) *NativeLocalBucketing {
+func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, options *DVCOptions) (*NativeLocalBucketing, error) {
+	// Event queue stub that does nothing
+	eq, err := native_bucketing.InitEventQueue(sdkKey, options.eventQueueOptions())
+	if err != nil {
+		return nil, err
+	}
 	return &NativeLocalBucketing{
 		sdkKey:       sdkKey,
 		options:      options,
 		platformData: platformData,
-	}
+		eventQueue:   eq,
+	}, err
 }
 
 func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string) error {
-	err := native_bucketing.SetConfig(configJSON, n.sdkKey, eTag)
+	err := native_bucketing.SetConfig(configJSON, n.sdkKey, eTag, n.eventQueue)
 	if err != nil {
 		return fmt.Errorf("Error parsing config: %w", err)
 	}
@@ -86,32 +94,5 @@ func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variab
 }
 
 func (n *NativeLocalBucketing) Close() {
-	// TODO: implement
-}
-
-type NativeEventQueue struct{}
-
-func (queue *NativeEventQueue) QueueEvent(user DVCUser, event DVCEvent) error {
-	// TODO: implement
-	return nil
-}
-
-func (queue *NativeEventQueue) QueueAggregateEvent(config BucketedUserConfig, event DVCEvent) error {
-	// TODO: implement
-	return nil
-}
-
-func (queue *NativeEventQueue) FlushEvents() (err error) {
-	// TODO: implement
-	return nil
-}
-
-func (queue *NativeEventQueue) Metrics() (int32, int32) {
-	// TODO: implement
-	return 0, 0
-}
-
-func (queue *NativeEventQueue) Close() (err error) {
-	// TODO: implement
-	return nil
+	//TODO: Implement
 }

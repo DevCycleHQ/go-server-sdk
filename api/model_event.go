@@ -42,3 +42,20 @@ type FlushPayload struct {
 type BatchEventsBody struct {
 	Batch []UserEventsBatchRecord `json:"batch"`
 }
+
+type EventQueueOptions struct {
+	FlushEventsInterval          time.Duration `json:"flushEventsMS"`
+	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging"`
+	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging"`
+	MaxEventQueueSize            int           `json:"maxEventsPerFlush,omitempty"`
+	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
+}
+
+func (o *EventQueueOptions) IsEventLoggingDisabled(event *DVCEvent) bool {
+	switch event.Type_ {
+	case EventType_VariableEvaluated, EventType_AggVariableEvaluated, EventType_VariableDefaulted, EventType_AggVariableDefaulted:
+		return o.DisableAutomaticEventLogging
+	default:
+		return o.DisableCustomEventLogging
+	}
+}

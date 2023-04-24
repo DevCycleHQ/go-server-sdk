@@ -68,6 +68,17 @@ type UserFeatureData struct {
 	FeatureVars map[string]string
 }
 
+func (p *DVCPopulatedUser) MergeClientCustomData(ccd map[string]interface{}) {
+	if p.CustomData == nil {
+		p.CustomData = make(map[string]interface{})
+	}
+	for k, v := range ccd {
+		if _, ok := p.CustomData[k]; !ok && (p.PrivateCustomData != nil && p.PrivateCustomData[k] == nil) {
+			p.CustomData[k] = v
+		}
+	}
+}
+
 func (p *DVCPopulatedUser) CombinedCustomData() map[string]interface{} {
 	ret := make(map[string]interface{}, len(p.CustomData)+len(p.PrivateCustomData))
 	maps.Copy(ret, p.CustomData)
