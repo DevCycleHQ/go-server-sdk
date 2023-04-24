@@ -3,6 +3,7 @@ package native_bucketing
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 )
@@ -30,12 +31,15 @@ var userEventQueueRaw = make(map[string]chan userEventData)
 var aggEventQueue = make(map[string]AggregateEventQueue)
 var userEventQueue = make(map[string]map[string]api.UserEventsBatchRecord)
 var eventQueueOptions = make(map[string]*api.EventQueueOptions)
+var eventQueueMutex = &sync.RWMutex{}
 
 func resetTestEventQueues() {
 	userEventQueueRaw = make(map[string]chan userEventData)
 }
 
 func InitEventQueue(sdkKey string, options *api.EventQueueOptions) error {
+	eventQueueMutex.Lock()
+	defer eventQueueMutex.Unlock()
 	if sdkKey == "" {
 		return fmt.Errorf("sdk key is required")
 	}
