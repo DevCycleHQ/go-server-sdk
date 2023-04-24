@@ -25,7 +25,7 @@ func SetConfig(rawJSON []byte, sdkKey, etag string, eventQueue ...*EventQueue) e
 		return err
 	}
 	internalConfigs[sdkKey] = config
-	if eventQueue != nil && len(eventQueue) > 0 {
+	if len(eventQueue) > 0 {
 		eventQueue[0].MergeAggEventQueueKeys(config)
 	}
 	return nil
