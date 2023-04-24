@@ -129,7 +129,7 @@ func (eq *EventQueue) Close() (err error) {
 func (eq *EventQueue) processEvents(ctx context.Context) {
 	for {
 		select {
-		case _ = <-ctx.Done():
+		case <-ctx.Done():
 			return
 		default:
 		}
@@ -203,16 +203,9 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) error {
 		variationAggMap := make(VariationAggMap)
 		if v, ok := featureVariationAggregationMap[featureVar.Feature]; ok {
 			variationAggMap = v
-		} else {
-			featureVariationAggregationMap[featureVar.Feature] = variationAggMap
 		}
-
-		if _, ok := variationAggMap[featureVar.Variation]; ok {
-			variationAggMap[featureVar.Variation] += 1
-		} else {
-			variationAggMap[featureVar.Variation] = 1
-			// increment event queue count
-		}
+		variationAggMap[featureVar.Variation] += 1
+		featureVariationAggregationMap[featureVar.Feature] = variationAggMap
 	} else {
 		if feature, ok := featureVariationAggregationMap["value"]; ok {
 			if variationAggMap, ok2 := feature["value"]; ok2 {
