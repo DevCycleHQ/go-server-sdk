@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 )
@@ -32,6 +33,8 @@ type EventQueue struct {
 	userEventQueue    map[string]api.UserEventsBatchRecord
 	aggEventQueue     map[string]map[string]map[string]map[string]int64
 	aggEventMutex     *sync.RWMutex
+	eventsFlushed     atomic.Int32
+	eventsReported    atomic.Int32
 }
 
 func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue, error) {
@@ -48,7 +51,7 @@ func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue,
 		aggEventQueue:     make(AggregateEventQueue),
 		aggEventMutex:     &sync.RWMutex{},
 	}
-	go eq.processEvents(context.Background())
+	//go eq.processEvents(context.Background())
 	return eq, nil
 }
 
@@ -71,7 +74,7 @@ func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
 					eq.aggEventQueue[target][variable.Key][feature.Key] = make(VariationAggMap, len(feature.Variations))
 				}
 				for _, variation := range feature.Variations {
-					if _, ok := eq.aggEventQueue[target][feature.Key][variation.Key]; !ok {
+					if _, ok := eq.aggEventQueue[target][variable.Key][feature.Key][variation.Key]; !ok {
 						eq.aggEventQueue[target][variable.Key][feature.Key][variation.Key] = 0
 					}
 				}
@@ -113,7 +116,7 @@ func (eq *EventQueue) FlushEvents() (err error) {
 }
 
 func (eq *EventQueue) Metrics() (int32, int32) {
-	return 0, 0
+	return eq.eventsFlushed.Load(), eq.eventsReported.Load()
 }
 
 func (eq *EventQueue) Close() (err error) {
