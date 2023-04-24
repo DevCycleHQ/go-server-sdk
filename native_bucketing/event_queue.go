@@ -3,8 +3,9 @@ package native_bucketing
 import (
 	"context"
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"sync"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 )
 
 type aggEventData struct {
@@ -66,12 +67,11 @@ func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
 				eq.aggEventQueue[target][variable.Key] = make(FeatureAggMap, len(config.Features))
 			}
 			for _, feature := range config.Features {
-				if _, ok := eq.aggEventQueue[target][feature.Key]; !ok {
+				if _, ok := eq.aggEventQueue[target][variable.Key][feature.Key]; !ok {
 					eq.aggEventQueue[target][variable.Key][feature.Key] = make(VariationAggMap, len(feature.Variations))
 				}
 				for _, variation := range feature.Variations {
 					if _, ok := eq.aggEventQueue[target][feature.Key][variation.Key]; !ok {
-
 						eq.aggEventQueue[target][variable.Key][feature.Key][variation.Key] = 0
 					}
 				}
