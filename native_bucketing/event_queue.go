@@ -3,9 +3,8 @@ package native_bucketing
 import (
 	"context"
 	"fmt"
-	"sync"
-
 	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"sync"
 )
 
 type aggEventData struct {
@@ -24,52 +23,56 @@ type FeatureAggMap = map[string]VariationAggMap
 type VariableAggMap = map[string]FeatureAggMap
 type AggregateEventQueue = map[string]VariableAggMap
 
-var aggEventQueueRaw = make(map[string]chan aggEventData)
-var userEventQueueRaw = make(map[string]chan userEventData)
-
-// sdkKey: map[aggregateByVariation:map[variableVariationMap:map[event:map[target:count]]]]
-var aggEventQueue = make(map[string]AggregateEventQueue)
-var userEventQueue = make(map[string]map[string]api.UserEventsBatchRecord)
-var eventQueueOptions = make(map[string]*api.EventQueueOptions)
-var eventQueueMutex = &sync.RWMutex{}
-
-func resetTestEventQueues() {
-	userEventQueueRaw = make(map[string]chan userEventData)
+type EventQueue struct {
+	sdkKey            string
+	options           *api.EventQueueOptions
+	aggEventQueueRaw  chan aggEventData
+	userEventQueueRaw chan userEventData
+	userEventQueue    map[string]api.UserEventsBatchRecord
+	aggEventQueue     map[string]map[string]map[string]map[string]int64
+	aggEventMutex     *sync.RWMutex
 }
 
-func InitEventQueue(sdkKey string, options *api.EventQueueOptions) error {
-	eventQueueMutex.Lock()
-	defer eventQueueMutex.Unlock()
+func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue, error) {
 	if sdkKey == "" {
-		return fmt.Errorf("sdk key is required")
+		return nil, fmt.Errorf("sdk key is required")
 	}
 
-	userEventQueueRaw[sdkKey] = make(chan userEventData, options.MaxEventQueueSize)
-	aggEventQueueRaw[sdkKey] = make(chan aggEventData, options.MaxEventQueueSize)
-	eventQueueOptions[sdkKey] = options
-	userEventQueue[sdkKey] = make(map[string]api.UserEventsBatchRecord)
-	aggEventQueue[sdkKey] = make(AggregateEventQueue)
-
-	go processEvents(sdkKey, context.Background())
-	return nil
+	eq := &EventQueue{
+		sdkKey:            sdkKey,
+		options:           options,
+		aggEventQueueRaw:  make(chan aggEventData, options.MaxEventQueueSize),
+		userEventQueueRaw: make(chan userEventData, options.MaxEventQueueSize),
+		userEventQueue:    make(map[string]api.UserEventsBatchRecord),
+		aggEventQueue:     make(AggregateEventQueue),
+		aggEventMutex:     &sync.RWMutex{},
+	}
+	go eq.processEvents(context.Background())
+	return eq, nil
 }
 
-func mergeAggEventQueueKeys(config *configBody, sdkKey string) {
+func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
+	if eq.aggEventQueue == nil {
+		eq.aggEventQueue = make(AggregateEventQueue)
+	}
+	eq.aggEventMutex.Lock()
+	defer eq.aggEventMutex.Unlock()
 	for _, target := range []string{api.EventType_AggVariableEvaluated, api.EventType_AggVariableDefaulted, api.EventType_VariableEvaluated, api.EventType_VariableDefaulted} {
-		if _, ok := aggEventQueue[sdkKey][target]; !ok {
-			aggEventQueue[sdkKey][target] = make(VariableAggMap, len(config.Variables))
+		if _, ok := eq.aggEventQueue[target]; !ok {
+			eq.aggEventQueue[target] = make(VariableAggMap, len(config.Variables))
 		}
 		for _, variable := range config.Variables {
-			if _, ok := aggEventQueue[sdkKey][target][variable.Key]; !ok {
-				aggEventQueue[sdkKey][target][variable.Key] = make(FeatureAggMap, len(config.Features))
+			if _, ok := eq.aggEventQueue[target][variable.Key]; !ok {
+				eq.aggEventQueue[target][variable.Key] = make(FeatureAggMap, len(config.Features))
 			}
 			for _, feature := range config.Features {
-				if _, ok := aggEventQueue[sdkKey][target][feature.Key]; !ok {
-					aggEventQueue[sdkKey][target][variable.Key][feature.Key] = make(VariationAggMap, len(feature.Variations))
+				if _, ok := eq.aggEventQueue[target][feature.Key]; !ok {
+					eq.aggEventQueue[target][variable.Key][feature.Key] = make(VariationAggMap, len(feature.Variations))
 				}
 				for _, variation := range feature.Variations {
-					if _, ok := aggEventQueue[sdkKey][target][feature.Key][variation.Key]; !ok {
-						aggEventQueue[sdkKey][target][variable.Key][feature.Key][variation.Key] = 0
+					if _, ok := eq.aggEventQueue[target][feature.Key][variation.Key]; !ok {
+
+						eq.aggEventQueue[target][variable.Key][feature.Key][variation.Key] = 0
 					}
 				}
 			}
@@ -79,37 +82,25 @@ func mergeAggEventQueueKeys(config *configBody, sdkKey string) {
 
 // QueueAggregateEvent queues an aggregate event to be sent to the server - but offloads actual computing of the event itself
 // to a different goroutine.
-func QueueAggregateEvent(sdkKey string, event *api.DVCEvent, variableVariationMap map[string]FeatureVariation, aggregateByVariation bool) error {
-	if opt, ok := eventQueueOptions[sdkKey]; ok && opt.IsEventLoggingDisabled(event) {
+func (eq *EventQueue) QueueAggregateEvent(config BucketedUserConfig, event api.DVCEvent) error {
+	if eq.options != nil && eq.options.IsEventLoggingDisabled(&event) {
 		return nil
 	}
-	if sdkKey == "" {
-		return fmt.Errorf("sdk key is required")
-	}
+
 	if event.Target == "" {
 		return fmt.Errorf("target is required for aggregate events")
 	}
-	if _, ok := aggEventQueueRaw[sdkKey]; !ok {
-		return fmt.Errorf("event queue not initialized for sdk key: %s", sdkKey)
-	}
 
-	aggEventQueueRaw[sdkKey] <- aggEventData{
-		event:                event,
-		variableVariationMap: variableVariationMap,
-		aggregateByVariation: aggregateByVariation,
+	eq.aggEventQueueRaw <- aggEventData{
+		event:                &event,
+		variableVariationMap: config.VariableVariationMap,
+		aggregateByVariation: event.Type_ == api.EventType_AggVariableEvaluated,
 	}
 	return nil
 }
 
-func QueueEvent(sdkKey string, user DVCUser, event api.DVCEvent) error {
-	if sdkKey == "" {
-		return fmt.Errorf("sdk key is required")
-	}
-	if _, ok := userEventQueueRaw[sdkKey]; !ok {
-		return fmt.Errorf("event queue not initialized for sdk key: %s", sdkKey)
-	}
-
-	userEventQueueRaw[sdkKey] <- userEventData{
+func (eq *EventQueue) QueueEvent(user DVCUser, event api.DVCEvent) error {
+	eq.userEventQueueRaw <- userEventData{
 		event: &event,
 		user:  &user,
 	}
@@ -117,12 +108,22 @@ func QueueEvent(sdkKey string, user DVCUser, event api.DVCEvent) error {
 	return nil
 }
 
-func Close(sdkKey string) {
-	close(userEventQueueRaw[sdkKey])
-	close(aggEventQueueRaw[sdkKey])
+func (eq *EventQueue) FlushEvents() (err error) {
+	return nil
 }
 
-func processEvents(sdkKey string, ctx context.Context) {
+func (eq *EventQueue) Metrics() (int32, int32) {
+	return 0, 0
+}
+
+func (eq *EventQueue) Close() (err error) {
+	err = eq.FlushEvents()
+	close(eq.userEventQueueRaw)
+	close(eq.aggEventQueueRaw)
+	return
+}
+
+func (eq *EventQueue) processEvents(ctx context.Context) {
 	for {
 		select {
 		case _ = <-ctx.Done():
@@ -130,51 +131,59 @@ func processEvents(sdkKey string, ctx context.Context) {
 		default:
 		}
 		select {
-		case userEvent := <-userEventQueueRaw[sdkKey]:
-			processUserEvent(sdkKey, userEvent)
-		case aggEvent := <-aggEventQueueRaw[sdkKey]:
-			processAggregateEvent(sdkKey, aggEvent)
+		case userEvent := <-eq.userEventQueueRaw:
+			err := eq.processUserEvent(userEvent)
+			if err != nil {
+				return
+			}
+		case aggEvent := <-eq.aggEventQueueRaw:
+			err := eq.processAggregateEvent(aggEvent)
+			if err != nil {
+				return
+			}
 		default:
 		}
 	}
 }
 
-func processUserEvent(sdkKey string, event userEventData) error {
+func (eq *EventQueue) processUserEvent(event userEventData) error {
 	// TODO: provide platform data
 	popU := event.user.GetPopulatedUser(nil)
-	ccd := GetClientCustomData(sdkKey)
+	ccd := GetClientCustomData(eq.sdkKey)
 	popU.MergeClientCustomData(ccd)
 
-	bucketedConfig, err := GenerateBucketedConfig(sdkKey, popU, ccd)
+	bucketedConfig, err := GenerateBucketedConfig(eq.sdkKey, popU, ccd)
 	if err != nil {
 		// TODO: Log
 		return err
 	}
 	event.event.FeatureVars = bucketedConfig.FeatureVariationMap
-	if _, ok := userEventQueue[sdkKey][popU.UserId]; ok {
-		records := userEventQueue[sdkKey][popU.UserId]
+	if _, ok := eq.userEventQueue[popU.UserId]; ok {
+		records := eq.userEventQueue[popU.UserId]
 		records.Events = append(records.Events, *event.event)
 		records.User = popU
-		userEventQueue[sdkKey][popU.UserId] = records
+		eq.userEventQueue[popU.UserId] = records
 	} else {
 		record := api.UserEventsBatchRecord{
 			User:   popU,
 			Events: []api.DVCEvent{*event.event},
 		}
-		userEventQueue[sdkKey][popU.UserId] = record
+		eq.userEventQueue[popU.UserId] = record
 	}
 	return nil
 }
 
-func processAggregateEvent(sdkKey string, event aggEventData) error {
+func (eq *EventQueue) processAggregateEvent(event aggEventData) error {
+	eq.aggEventMutex.Lock()
+	defer eq.aggEventMutex.Unlock()
 	eType := event.event.Type_
 	eTarget := event.event.Target
 
 	variableFeatureVariationAggregationMap := make(VariableAggMap)
-	if v, ok := aggEventQueue[sdkKey][eType]; ok {
+	if v, ok := eq.aggEventQueue[eType]; ok {
 		variableFeatureVariationAggregationMap = v
 	} else {
-		aggEventQueue[sdkKey][eType] = variableFeatureVariationAggregationMap
+		eq.aggEventQueue[eType] = variableFeatureVariationAggregationMap
 	}
 	featureVariationAggregationMap := make(FeatureAggMap)
 	if v, ok := variableFeatureVariationAggregationMap[eTarget]; ok {
