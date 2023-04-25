@@ -75,7 +75,14 @@ func (e *EnvironmentConfigManager) initialFetch() error {
 	return e.fetchConfig(CONFIG_RETRIES)
 }
 
-func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) error {
+func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			// get the stack trace and potentially log it here
+			err = errorf("recovered from panic in fetchConfig: %v", r)
+		}
+	}()
+
 	req, err := http.NewRequest("GET", e.getConfigURL(), nil)
 	if err != nil {
 		return err

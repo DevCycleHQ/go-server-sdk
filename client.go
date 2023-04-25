@@ -275,7 +275,7 @@ DVCClientService Get variable by key for user data using Protobuf encoding
 
     -@return Variable
 */
-func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interface{}) (Variable, error) {
+func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interface{}) (result Variable, err error) {
 	if key == "" {
 		return Variable{}, errors.New("invalid key provided for call to Variable")
 	}
@@ -289,6 +289,14 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 
 	baseVar := BaseVariable{Key: key, Value: convertedDefaultValue, Type_: variableType}
 	variable := Variable{BaseVariable: baseVar, DefaultValue: convertedDefaultValue, IsDefaulted: true}
+
+	defer func() {
+		if r := recover(); r != nil {
+			// Return a usable default value in a panic situation
+			result = variable
+			err = errorf("recovered from panic in Variable eval: %v ", r)
+		}
+	}()
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if !c.hasConfig() {

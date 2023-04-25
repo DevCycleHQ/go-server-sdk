@@ -132,6 +132,13 @@ func (e *EventQueue) checkEventQueueSize() (bool, error) {
 func (e *EventQueue) FlushEvents() (err error) {
 	debugf("Started flushing events")
 
+	defer func() {
+		if r := recover(); r != nil {
+			// get the stack trace and potentially log it here
+			err = errorf("recovered from panic in flushEvents: %v", r)
+		}
+	}()
+
 	e.localBucketing.startFlushEvents()
 	defer e.localBucketing.finishFlushEvents()
 	payloads, err := e.localBucketing.flushEventQueue()
