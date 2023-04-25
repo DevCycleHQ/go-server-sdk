@@ -17,7 +17,7 @@ func getConfig(sdkKey string) (*configBody, error) {
 	return nil, fmt.Errorf("config not initialized")
 }
 
-func SetConfig(rawJSON []byte, sdkKey, etag string, eventQueue ...*EventQueue) error {
+func SetConfig(rawJSON []byte, sdkKey, etag string) error {
 	configMutex.Lock()
 	defer configMutex.Unlock()
 	config, err := newConfig(rawJSON, etag)
@@ -25,9 +25,6 @@ func SetConfig(rawJSON []byte, sdkKey, etag string, eventQueue ...*EventQueue) e
 		return err
 	}
 	internalConfigs[sdkKey] = config
-	if len(eventQueue) > 0 {
-		eventQueue[0].MergeAggEventQueueKeys(config)
-	}
 	return nil
 }
 
