@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"runtime/debug"
 	"sync/atomic"
 	"time"
 )
@@ -136,7 +135,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			// get the stack trace and potentially log it here
-			err = fmt.Errorf("recovered from panic in flushEvents: %v - %s", r, string(debug.Stack()))
+			err = errorf("recovered from panic in flushEvents: %v", r)
 		}
 	}()
 

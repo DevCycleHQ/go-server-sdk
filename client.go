@@ -14,7 +14,6 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
-	"runtime/debug"
 	"strings"
 	"time"
 
@@ -295,7 +294,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 		if r := recover(); r != nil {
 			// Return a usable default value in a panic situation
 			result = variable
-			err = fmt.Errorf("recovered from panic in Variable eval: %v - %s", r, string(debug.Stack()))
+			err = errorf("recovered from panic in Variable eval: %v ", r)
 		}
 	}()
 

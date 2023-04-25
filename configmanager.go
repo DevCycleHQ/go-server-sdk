@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"runtime/debug"
 	"sync/atomic"
 	"time"
 )
@@ -80,7 +79,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 	defer func() {
 		if r := recover(); r != nil {
 			// get the stack trace and potentially log it here
-			err = fmt.Errorf("recovered from panic in fetchConfig: %v - %s", r, string(debug.Stack()))
+			err = errorf("recovered from panic in fetchConfig: %v", r)
 		}
 	}()
 
