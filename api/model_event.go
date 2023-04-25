@@ -8,7 +8,10 @@
  */
 package api
 
-import "time"
+import (
+	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"time"
+)
 
 const (
 	EventType_VariableEvaluated    = "variableEvaluated"
@@ -38,6 +41,34 @@ type FlushPayload struct {
 	EventCount int                     `json:"eventCount"`
 	Records    []UserEventsBatchRecord `json:"records"`
 	Status     string
+}
+
+func (fp *FlushPayload) AddBatchRecordForUser(record UserEventsBatchRecord, chunkSize int) {
+	userRecord := fp.getRecordForUser(record.User.UserId)
+	chunkedEvents := util.ChunkSlice(record.Events, chunkSize)
+	if userRecord != nil {
+		userRecord.User = record.User
+		for _, chunk := range chunkedEvents {
+			userRecord.Events = append(userRecord.Events, chunk...)
+		}
+	} else {
+		for _, chunk := range chunkedEvents {
+			fp.Records = append(fp.Records, UserEventsBatchRecord{
+				User:   record.User,
+				Events: chunk,
+			})
+		}
+	}
+
+}
+
+func (fp *FlushPayload) getRecordForUser(userId string) *UserEventsBatchRecord {
+	for _, record := range fp.Records {
+		if record.User.UserId == userId {
+			return &record
+		}
+	}
+	return nil
 }
 
 type BatchEventsBody struct {

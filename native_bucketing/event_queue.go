@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"github.com/google/uuid"
+	"io"
 	"net/http"
 	"os"
 	"sync"
@@ -180,22 +183,39 @@ func (eq *EventQueue) QueueEvent(user DVCUser, event api.DVCEvent) error {
 	return nil
 }
 
-func (eq *EventQueue) flushEventQueue() ([]api.FlushPayload, error) {
+func (eq *EventQueue) flushEventQueue() (map[string]api.FlushPayload, error) {
 	var records []api.UserEventsBatchRecord
-	records = append(records, eq.aggEventQueue.BuildBatchRecords())
-	records = append(records, eq.userEventQueue.BuildBatchRecords()...)
-	for _, record := range records {
-		for len(record.Events) > 0 {
-			payload := api.FlushPayload{
-				Records: []api.UserEventsBatchRecord{record},
-			}
-			if len(payload.Records[0].Events) > 100 {
-				payload.Records[0].Events = payload.Records[0].Events[:100]
-			}
-			eq.pendingPayloads[payload.Records[0].User.UserId] = payload
-			record.Events = record.Events[len(payload.Records[0].Events):]
+
+	for _, record := range eq.pendingPayloads {
+		if record.Status == "failed" {
+			return nil, util.Errorf("Cannot flush events, event queue has failed payloads")
 		}
 	}
+
+	records = append(records, eq.aggEventQueue.BuildBatchRecords())
+	records = append(records, eq.userEventQueue.BuildBatchRecords()...)
+
+	for _, record := range records {
+		var payload *api.FlushPayload
+		for _, pl := range eq.pendingPayloads {
+			if pl.Status == "failed" {
+				continue
+			}
+			if pl.EventCount < eq.options.EventRequestChunkSize {
+				payload = &pl
+			}
+		}
+		if payload == nil {
+			payload = &api.FlushPayload{
+				PayloadId: uuid.New().String(),
+			}
+		}
+		payload.AddBatchRecordForUser(record, eq.options.EventRequestChunkSize)
+		eq.pendingPayloads[payload.PayloadId] = *payload
+	}
+	eq.updateFailedPayloads()
+
+	return eq.pendingPayloads, nil
 }
 
 func (eq *EventQueue) FlushEvents() (err error) {
@@ -294,6 +314,16 @@ func (eq *EventQueue) Close() (err error) {
 	err = eq.FlushEvents()
 	eq.done()
 	return
+}
+
+func (eq *EventQueue) updateFailedPayloads() {
+	eq.flushMutex.Lock()
+	defer eq.flushMutex.Unlock()
+	for _, pl := range eq.pendingPayloads {
+		if pl.Status == "failed" {
+			pl.Status = "sending"
+		}
+	}
 }
 
 func (eq *EventQueue) reportPayloadSuccess(payload *api.FlushPayload) error {
