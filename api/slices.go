@@ -1,9 +1,7 @@
-package util
+package api
 
-import "github.com/devcyclehq/go-server-sdk/v2/api"
-
-func ChunkSlice(slice []api.DVCEvent, chunkSize int) [][]api.DVCEvent {
-	var chunks [][]api.DVCEvent
+func ChunkSlice(slice []DVCEvent, chunkSize int) [][]DVCEvent {
+	var chunks [][]DVCEvent
 	for i := 0; i < len(slice); i += chunkSize {
 		end := i + chunkSize
 

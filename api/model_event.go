@@ -9,7 +9,6 @@
 package api
 
 import (
-	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"time"
 )
 
@@ -45,7 +44,7 @@ type FlushPayload struct {
 
 func (fp *FlushPayload) AddBatchRecordForUser(record UserEventsBatchRecord, chunkSize int) {
 	userRecord := fp.getRecordForUser(record.User.UserId)
-	chunkedEvents := util.ChunkSlice(record.Events, chunkSize)
+	chunkedEvents := ChunkSlice(record.Events, chunkSize)
 	if userRecord != nil {
 		userRecord.User = record.User
 		for _, chunk := range chunkedEvents {
