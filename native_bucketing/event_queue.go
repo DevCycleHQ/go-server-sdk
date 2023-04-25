@@ -3,6 +3,7 @@ package native_bucketing
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"sync/atomic"
 
@@ -35,12 +36,15 @@ type EventQueue struct {
 	aggEventMutex     *sync.RWMutex
 	eventsFlushed     atomic.Int32
 	eventsReported    atomic.Int32
+	done              func()
 }
 
 func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue, error) {
 	if sdkKey == "" {
 		return nil, fmt.Errorf("sdk key is required")
 	}
+
+	ctx, cancel := context.WithCancel(context.TODO())
 
 	eq := &EventQueue{
 		sdkKey:            sdkKey,
@@ -50,8 +54,11 @@ func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue,
 		userEventQueue:    make(map[string]api.UserEventsBatchRecord),
 		aggEventQueue:     make(AggregateEventQueue),
 		aggEventMutex:     &sync.RWMutex{},
+		done:              cancel,
 	}
-	//go eq.processEvents(context.Background())
+
+	go eq.processEvents(ctx)
+
 	return eq, nil
 }
 
@@ -121,8 +128,7 @@ func (eq *EventQueue) Metrics() (int32, int32) {
 
 func (eq *EventQueue) Close() (err error) {
 	err = eq.FlushEvents()
-	close(eq.userEventQueueRaw)
-	close(eq.aggEventQueueRaw)
+	eq.done()
 	return
 }
 
@@ -130,10 +136,10 @@ func (eq *EventQueue) processEvents(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			log.Printf("Closing native event queues")
+			close(eq.userEventQueueRaw)
+			close(eq.aggEventQueueRaw)
 			return
-		default:
-		}
-		select {
 		case userEvent := <-eq.userEventQueueRaw:
 			err := eq.processUserEvent(userEvent)
 			if err != nil {
@@ -144,12 +150,19 @@ func (eq *EventQueue) processEvents(ctx context.Context) {
 			if err != nil {
 				return
 			}
-		default:
 		}
 	}
 }
 
-func (eq *EventQueue) processUserEvent(event userEventData) error {
+func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("recovered from panic in processUserEvent: %v", r)
+			if errVal, ok := r.(error); ok {
+				err = errVal
+			}
+		}
+	}()
 	// TODO: provide platform data
 	popU := event.user.GetPopulatedUser(nil)
 	ccd := GetClientCustomData(eq.sdkKey)
@@ -176,7 +189,16 @@ func (eq *EventQueue) processUserEvent(event userEventData) error {
 	return nil
 }
 
-func (eq *EventQueue) processAggregateEvent(event aggEventData) error {
+func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("recovered from panic in processAggregateEvent: %v", r)
+			if errVal, ok := r.(error); ok {
+				err = errVal
+			}
+		}
+	}()
+
 	eq.aggEventMutex.Lock()
 	defer eq.aggEventMutex.Unlock()
 	eType := event.event.Type_
