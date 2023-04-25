@@ -1,6 +1,7 @@
 package native_bucketing
 
 import (
+	"fmt"
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -33,4 +34,25 @@ func TestEventQueue_FlushEvents(t *testing.T) {
 
 	// Parsing the large config should succeed without an error
 
+}
+
+func TestEventQueue_ProcessUserEvent(t *testing.T) {
+	event := userEventData{
+		event: &api.DVCEvent{
+			Type_:      api.EventType_VariableEvaluated,
+			Target:     "somevariablekey",
+			CustomType: "testingtype",
+			UserId:     "testing",
+		},
+		user: &api.DVCUser{
+			UserId: "testing",
+		},
+	}
+	err := SetConfig(test_config, "dvc_server_token_hash", "")
+	require.NoError(t, err)
+	eq, err := InitEventQueue("dvc_server_token_hash", &api.EventQueueOptions{})
+	require.NoError(t, err)
+	err = eq.processUserEvent(event)
+	require.NoError(t, err)
+	fmt.Println(eq.userEventQueue)
 }

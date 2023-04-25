@@ -268,7 +268,7 @@ func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
 }
 
 /*
-DVCClientService Get variable by key for user data using Protobuf encoding
+Variable - Get variable by key for user data
 
   - @param body
 
