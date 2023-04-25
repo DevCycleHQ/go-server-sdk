@@ -107,8 +107,13 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	if c.DevCycleOptions.Logger != nil {
 		util.SetLogger(c.DevCycleOptions.Logger)
 	}
-
 	if !c.DevCycleOptions.EnableCloudBucketing {
+		if NATIVE_SDK {
+			infof("Using Native Bucketing")
+		} else {
+			infof("Using WASM Bucketing")
+		}
+
 		c.internalOnInitializedChannel = make(chan bool, 1)
 
 		err := c.setLBClient(sdkKey, options)
@@ -130,10 +135,13 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 			c.handleInitialization()
 			return c, err
 		}
-	} else if c.DevCycleOptions.OnInitializedChannel != nil {
-		go func() {
-			c.DevCycleOptions.OnInitializedChannel <- true
-		}()
+	} else {
+		infof("Using Cloud Bucketing")
+		if c.DevCycleOptions.OnInitializedChannel != nil {
+			go func() {
+				c.DevCycleOptions.OnInitializedChannel <- true
+			}()
+		}
 	}
 	return c, nil
 }
