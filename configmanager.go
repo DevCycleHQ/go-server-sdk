@@ -80,7 +80,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 	defer func() {
 		if r := recover(); r != nil {
 			// get the stack trace and potentially log it here
-			err = fmt.Errorf("recovered from panic in fetchConfig: %s", string(debug.Stack()))
+			err = fmt.Errorf("recovered from panic in fetchConfig: %v - %s", r, string(debug.Stack()))
 		}
 	}()
 
