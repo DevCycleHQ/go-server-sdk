@@ -37,6 +37,7 @@ type FlushPayload struct {
 	PayloadId  string                  `json:"payloadId"`
 	EventCount int                     `json:"eventCount"`
 	Records    []UserEventsBatchRecord `json:"records"`
+	Status     string
 }
 
 type BatchEventsBody struct {
@@ -49,6 +50,8 @@ type EventQueueOptions struct {
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging"`
 	MaxEventQueueSize            int           `json:"maxEventsPerFlush,omitempty"`
 	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
+	EventRequestChunkSize        int           `json:"eventRequestChunkSize,omitempty"`
+	EventsAPIBasePath            string        `json:"eventsAPIBasePath,omitempty"`
 }
 
 func (o *EventQueueOptions) IsEventLoggingDisabled(event *DVCEvent) bool {

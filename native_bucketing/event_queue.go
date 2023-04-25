@@ -3,11 +3,11 @@ package native_bucketing
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"net/http"
+	"os"
 	"sync"
 	"sync/atomic"
-
-	"github.com/devcyclehq/go-server-sdk/v2/api"
 )
 
 type aggEventData struct {
@@ -21,22 +21,66 @@ type userEventData struct {
 	user  *DVCUser
 }
 
-type VariationAggMap = map[string]int64
-type FeatureAggMap = map[string]VariationAggMap
-type VariableAggMap = map[string]FeatureAggMap
-type AggregateEventQueue = map[string]VariableAggMap
+type VariationAggMap map[string]int64
+type FeatureAggMap map[string]VariationAggMap
+type VariableAggMap map[string]FeatureAggMap
 
-type EventQueue struct {
-	sdkKey            string
-	options           *api.EventQueueOptions
-	aggEventQueueRaw  chan aggEventData
-	userEventQueueRaw chan userEventData
-	userEventQueue    map[string]api.UserEventsBatchRecord
-	aggEventQueue     map[string]map[string]map[string]map[string]int64
-	aggEventMutex     *sync.RWMutex
-	eventsFlushed     atomic.Int32
-	eventsReported    atomic.Int32
-	done              func()
+type AggregateEventQueue map[string]VariableAggMap
+type UserEventQueue map[string]api.UserEventsBatchRecord
+
+func (u *UserEventQueue) BuildBatchRecords() []api.UserEventsBatchRecord {
+	var records []api.UserEventsBatchRecord
+	for _, record := range *u {
+		records = append(records, record)
+	}
+	return records
+}
+
+func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
+	var aggregateEvents []api.DVCEvent
+	userId, err := os.Hostname()
+	if err != nil {
+		userId = "aggregate"
+	}
+
+	for _type, variableAggMap := range *agg {
+		for variableKey, featureAggMap := range variableAggMap {
+
+			if variationAggMap, ok := featureAggMap["value"]; ok {
+				if variationValue, ok := variationAggMap["value"]; ok {
+					value := float64(variationValue)
+					event := api.DVCEvent{
+						Type_:  _type,
+						Target: variableKey,
+						Value:  value,
+						UserId: userId,
+					}
+					aggregateEvents = append(aggregateEvents, event)
+				}
+			} else {
+				for feature, _variationAggMap := range featureAggMap {
+					for variation, count := range _variationAggMap {
+						event := api.DVCEvent{
+							Type_:  _type,
+							Target: variableKey,
+							Value:  float64(count),
+							UserId: userId,
+							MetaData: map[string]interface{}{
+								"_variation": variation,
+								"_feature":   feature,
+							},
+						}
+						aggregateEvents = append(aggregateEvents, event)
+					}
+				}
+			}
+		}
+	}
+	user := api.DVCUser{UserId: userId}.GetPopulatedUser(platformData)
+	return api.UserEventsBatchRecord{
+		User:   user,
+		Events: aggregateEvents,
+	}
 }
 
 func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue, error) {
@@ -54,12 +98,31 @@ func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue,
 		userEventQueue:    make(map[string]api.UserEventsBatchRecord),
 		aggEventQueue:     make(AggregateEventQueue),
 		aggEventMutex:     &sync.RWMutex{},
-		done:              cancel,
+		httpClient:        &http.Client{},
+		flushMutex:        &sync.Mutex{},
+		pendingPayloads:   make(map[string]api.FlushPayload, 0),
+		done: cancel,
 	}
 
 	go eq.processEvents(ctx)
 
 	return eq, nil
+}
+
+type EventQueue struct {
+	sdkKey            string
+	options           *api.EventQueueOptions
+	aggEventQueueRaw  chan aggEventData
+	userEventQueueRaw chan userEventData
+	userEventQueue    UserEventQueue
+	aggEventQueue     AggregateEventQueue
+	aggEventMutex     *sync.RWMutex
+	eventsFlushed     atomic.Int32
+	eventsReported    atomic.Int32
+	httpClient        *http.Client
+	flushMutex        *sync.Mutex
+	pendingPayloads   map[string]api.FlushPayload
+	done func()
 }
 
 func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
@@ -114,12 +177,113 @@ func (eq *EventQueue) QueueEvent(user DVCUser, event api.DVCEvent) error {
 		event: &event,
 		user:  &user,
 	}
-
 	return nil
 }
 
+func (eq *EventQueue) flushEventQueue() ([]api.FlushPayload, error) {
+	var records []api.UserEventsBatchRecord
+	records = append(records, eq.aggEventQueue.BuildBatchRecords())
+	records = append(records, eq.userEventQueue.BuildBatchRecords()...)
+	for _, record := range records {
+		for len(record.Events) > 0 {
+			payload := api.FlushPayload{
+				Records: []api.UserEventsBatchRecord{record},
+			}
+			if len(payload.Records[0].Events) > 100 {
+				payload.Records[0].Events = payload.Records[0].Events[:100]
+			}
+			eq.pendingPayloads[payload.Records[0].User.UserId] = payload
+			record.Events = record.Events[len(payload.Records[0].Events):]
+		}
+	}
+}
+
 func (eq *EventQueue) FlushEvents() (err error) {
-	return nil
+
+	eq.flushMutex.Lock()
+	defer eq.flushMutex.Unlock()
+	util.Debugf("Started flushing events")
+
+	payloads, err := eq.flushEventQueue()
+	if err != nil {
+		return err
+	}
+
+	for _, payload := range payloads {
+		_ = eq.flushEventPayload(&payload)
+	}
+
+	util.Debugf("Finished flushing events")
+
+	return
+}
+
+func (eq *EventQueue) flushEventPayload(payload *api.FlushPayload) error {
+	eventsHost := eq.options.EventsAPIBasePath
+	var req *http.Request
+	var resp *http.Response
+	requestBody, err := json.Marshal(api.BatchEventsBody{Batch: payload.Records})
+	if err != nil {
+		_ = util.Errorf("Failed to marshal batch events body: %s", err)
+		_ = eq.reportPayloadFailure(payload, false)
+		return err
+	}
+	req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(requestBody))
+	if err != nil {
+		_ = util.Errorf("Failed to create request to events api: %s", err)
+		_ = eq.reportPayloadFailure(payload, false)
+		return err
+	}
+
+	req.Header.Set("Authorization", eq.sdkKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err = eq.httpClient.Do(req)
+
+	if err != nil {
+		_ = util.Errorf("Failed to make request to events api: %s", err)
+		_ = eq.reportPayloadFailure(payload, false)
+		return err
+	}
+
+	// always ensure body is closed to avoid goroutine leak
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	// always read response body fully - from net/http docs:
+	// If the Body is not both read to EOF and closed, the Client's
+	// underlying RoundTripper (typically Transport) may not be able to
+	// re-use a persistent TCP connection to the server for a subsequent
+	// "keep-alive" request.
+	responseBody, readError := io.ReadAll(resp.Body)
+	if readError != nil {
+		_ = util.Errorf("Failed to read response body: %v", readError)
+		_ = eq.reportPayloadFailure(payload, false)
+		return err
+	}
+
+	if resp.StatusCode >= 500 {
+		util.Warnf("Events API Returned a 5xx error, retrying later.")
+		_ = eq.reportPayloadFailure(payload, true)
+		return err
+	}
+
+	if resp.StatusCode >= 400 {
+		_ = eq.reportPayloadFailure(payload, false)
+		_ = util.Errorf("Error sending events - Response: %s", string(responseBody))
+		return err
+	}
+
+	if resp.StatusCode == 201 {
+		err = eq.reportPayloadSuccess(payload)
+		eq.eventsReported.Add(1)
+		return err
+	}
+
+	_ = util.Errorf("unknown status code when flushing events %d", resp.StatusCode)
+	return eq.reportPayloadFailure(payload, false)
 }
 
 func (eq *EventQueue) Metrics() (int32, int32) {
@@ -130,6 +294,33 @@ func (eq *EventQueue) Close() (err error) {
 	err = eq.FlushEvents()
 	eq.done()
 	return
+}
+
+func (eq *EventQueue) reportPayloadSuccess(payload *api.FlushPayload) error {
+	eq.flushMutex.Lock()
+	defer eq.flushMutex.Unlock()
+	if _, ok := eq.pendingPayloads[payload.PayloadId]; ok {
+		delete(eq.pendingPayloads, payload.PayloadId)
+	} else {
+		return util.Errorf("Failed to find payload: %s to mark as success", payload.PayloadId)
+	}
+	return nil
+}
+
+func (eq *EventQueue) reportPayloadFailure(payload *api.FlushPayload, retryable bool) error {
+	eq.flushMutex.Lock()
+	defer eq.flushMutex.Unlock()
+
+	if v, ok := eq.pendingPayloads[payload.PayloadId]; ok {
+		if retryable {
+			v.Status = "failed"
+		} else {
+			delete(eq.pendingPayloads, payload.PayloadId)
+		}
+	} else {
+		return util.Errorf("Failed to find payload: %s, retryable: %b", payload.PayloadId, retryable)
+	}
+	return nil
 }
 
 func (eq *EventQueue) processEvents(ctx context.Context) {

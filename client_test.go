@@ -3,6 +3,7 @@ package devcycle
 import (
 	"flag"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"io"
 	"log"
 	"net/http"
@@ -494,7 +495,7 @@ func BenchmarkDVCClient_VariableParallel(b *testing.B) {
 		},
 	}
 	if benchmarkEnableEvents {
-		infof("Enabling event logging")
+		util.Infof("Enabling event logging")
 		options.DisableAutomaticEventLogging = false
 		options.DisableCustomEventLogging = false
 		options.EventFlushIntervalMS = time.Millisecond * 500

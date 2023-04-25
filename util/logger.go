@@ -1,4 +1,4 @@
-package devcycle
+package util
 
 import (
 	"fmt"
@@ -22,23 +22,23 @@ func SetLogger(log Logger) {
 	globalLock.Unlock()
 }
 
-func printf(format string, a ...any) {
+func Printf(format string, a ...any) {
 	globalLogger.Printf(format, a...)
 }
 
-func infof(format string, a ...any) {
+func Infof(format string, a ...any) {
 	globalLogger.Infof(format, a...)
 }
 
-func debugf(format string, a ...any) {
+func Debugf(format string, a ...any) {
 	globalLogger.Debugf(format, a...)
 }
 
-func warnf(format string, a ...any) {
+func Warnf(format string, a ...any) {
 	globalLogger.Warnf(format, a...)
 }
 
-func errorf(format string, a ...any) error {
+func Errorf(format string, a ...any) error {
 	return globalLogger.Errorf(format, a...)
 }
 

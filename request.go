@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"io"
 	"net/http"
 	"reflect"
@@ -52,7 +53,7 @@ func setBody(body interface{}, contentType string) (bodyBuf *bytes.Buffer, err e
 	}
 
 	if bodyBuf.Len() == 0 {
-		err = errorf("Invalid body type %s\n", contentType)
+		err = util.Errorf("Invalid body type %s\n", contentType)
 		return nil, err
 	}
 	return bodyBuf, nil

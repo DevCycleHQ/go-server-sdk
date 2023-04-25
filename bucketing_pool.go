@@ -2,6 +2,7 @@ package devcycle
 
 import (
 	"context"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"sync"
 	"sync/atomic"
 
@@ -56,7 +57,7 @@ func NewBucketingPool(ctx context.Context, wasmMain *WASMMain, sdkKey string, pl
 
 func (p *BucketingPool) VariableForUser(paramsBuffer []byte) (*proto.SDKVariable_PB, error) {
 	if p.closed.Load() {
-		return nil, errorf("Cannot evaluate variable on closed pool")
+		return nil, util.Errorf("Cannot evaluate variable on closed pool")
 	}
 	currentPool := p.currentPool.Load()
 	bucketing, err := currentPool.BorrowObject(p.ctx)
@@ -85,7 +86,7 @@ func (p *BucketingPool) ProcessAll(
 	process func(object *BucketingPoolObject) error,
 ) (err error) {
 	if p.closed.Load() {
-		return errorf("Cannot process task on closed pool")
+		return util.Errorf("Cannot process task on closed pool")
 	}
 	p.poolSwapMutex.Lock()
 	defer p.poolSwapMutex.Unlock()
@@ -140,9 +141,9 @@ func (p *BucketingPool) ProcessAll(
 
 func (p *BucketingPool) StoreConfig(config []byte) error {
 	if p.closed.Load() {
-		return errorf("Cannot set config on closed pool")
+		return util.Errorf("Cannot set config on closed pool")
 	}
-	debugf("Setting config on all workers")
+	util.Debugf("Setting config on all workers")
 	return p.ProcessAll("StoreConfig", func(object *BucketingPoolObject) error {
 		return object.StoreConfig(&config)
 	})
@@ -150,9 +151,9 @@ func (p *BucketingPool) StoreConfig(config []byte) error {
 
 func (p *BucketingPool) SetClientCustomData(customData []byte) error {
 	if p.closed.Load() {
-		return errorf("Cannot set client custom data on closed pool")
+		return util.Errorf("Cannot set client custom data on closed pool")
 	}
-	debugf("Setting client custom data on all workers")
+	util.Debugf("Setting client custom data on all workers")
 	return p.ProcessAll("SetClientCustomData", func(object *BucketingPoolObject) error {
 		return object.SetClientCustomData(&customData)
 	})

@@ -10,6 +10,7 @@ package devcycle
 
 import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"net/http"
 	"runtime"
 	"time"
@@ -76,7 +77,7 @@ type DVCOptions struct {
 	EventsAPIURI                 string
 	OnInitializedChannel         chan bool
 	BucketingAPIURI              string
-	Logger                       Logger
+	Logger                       util.Logger
 	UseDebugWASM                 bool
 	AdvancedOptions
 }
@@ -93,11 +94,11 @@ func (o *DVCOptions) eventQueueOptions() *EventQueueOptions {
 
 func (o *DVCOptions) CheckDefaults() {
 	if o.EventFlushIntervalMS < time.Millisecond*500 || o.EventFlushIntervalMS > time.Minute*1 {
-		warnf("EventFlushIntervalMS cannot be less than 500ms or longer than 1 minute. Defaulting to 30 seconds.")
+		util.Warnf("EventFlushIntervalMS cannot be less than 500ms or longer than 1 minute. Defaulting to 30 seconds.")
 		o.EventFlushIntervalMS = time.Second * 30
 	}
 	if o.ConfigPollingIntervalMS < time.Second*1 {
-		warnf("ConfigPollingIntervalMS cannot be less than 1 second. Defaulting to 10 seconds.")
+		util.Warnf("ConfigPollingIntervalMS cannot be less than 1 second. Defaulting to 10 seconds.")
 		o.ConfigPollingIntervalMS = time.Second * 10
 	}
 	if o.RequestTimeout <= time.Second*5 {

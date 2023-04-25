@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"io"
 	"net/http"
 	"sync/atomic"
@@ -60,11 +61,11 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *WASMLocalBu
 				case <-ticker.C:
 					err := e.FlushEvents()
 					if err != nil {
-						warnf("Error flushing primary events queue: %s\n", err)
+						util.Warnf("Error flushing primary events queue: %s\n", err)
 					}
 				case <-e.flushStop:
 					ticker.Stop()
-					infof("Stopping event flushing.")
+					util.Infof("Stopping event flushing.")
 					return
 				}
 			}
@@ -77,10 +78,10 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *WASMLocalBu
 
 func (e *EventQueue) QueueEvent(user DVCUser, event DVCEvent) error {
 	if e.closed {
-		return errorf("DevCycle client was closed, no more events can be tracked.")
+		return util.Errorf("DevCycle client was closed, no more events can be tracked.")
 	}
 	if q, err := e.checkEventQueueSize(); err != nil || q {
-		return errorf("Max event queue size reached, dropping event")
+		return util.Errorf("Max event queue size reached, dropping event")
 	}
 	if !e.options.EnableCloudBucketing {
 		userstring, err := json.Marshal(user)
@@ -99,7 +100,7 @@ func (e *EventQueue) QueueEvent(user DVCUser, event DVCEvent) error {
 
 func (e *EventQueue) QueueAggregateEvent(config BucketedUserConfig, event DVCEvent) error {
 	if q, err := e.checkEventQueueSize(); err != nil || q {
-		return errorf("Max event queue size reached, dropping aggregate event")
+		return util.Errorf("Max event queue size reached, dropping aggregate event")
 	}
 	if !e.options.EnableCloudBucketing {
 		eventstring, err := json.Marshal(event)
@@ -130,7 +131,7 @@ func (e *EventQueue) checkEventQueueSize() (bool, error) {
 }
 
 func (e *EventQueue) FlushEvents() (err error) {
-	debugf("Started flushing events")
+	util.Debugf("Started flushing events")
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -171,7 +172,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 		return nil
 	})
 
-	debugf("Finished flushing events")
+	util.Debugf("Finished flushing events")
 
 	return
 }
@@ -187,13 +188,13 @@ func (e *EventQueue) flushEventPayload(
 	var resp *http.Response
 	requestBody, err := json.Marshal(BatchEventsBody{Batch: payload.Records})
 	if err != nil {
-		_ = errorf("Failed to marshal batch events body: %s", err)
+		_ = util.Errorf("Failed to marshal batch events body: %s", err)
 		e.reportPayloadFailure(payload, false, failures, retryableFailures)
 		return
 	}
 	req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(requestBody))
 	if err != nil {
-		_ = errorf("Failed to create request to events api: %s", err)
+		_ = util.Errorf("Failed to create request to events api: %s", err)
 		e.reportPayloadFailure(payload, false, failures, retryableFailures)
 		return
 	}
@@ -205,7 +206,7 @@ func (e *EventQueue) flushEventPayload(
 	resp, err = e.cfg.HTTPClient.Do(req)
 
 	if err != nil {
-		_ = errorf("Failed to make request to events api: %s", err)
+		_ = util.Errorf("Failed to make request to events api: %s", err)
 		e.reportPayloadFailure(payload, false, failures, retryableFailures)
 		return
 	}
@@ -222,20 +223,20 @@ func (e *EventQueue) flushEventPayload(
 	// "keep-alive" request.
 	responseBody, readError := io.ReadAll(resp.Body)
 	if readError != nil {
-		_ = errorf("Failed to read response body: %v", readError)
+		_ = util.Errorf("Failed to read response body: %v", readError)
 		e.reportPayloadFailure(payload, false, failures, retryableFailures)
 		return
 	}
 
 	if resp.StatusCode >= 500 {
-		warnf("Events API Returned a 5xx error, retrying later.")
+		util.Warnf("Events API Returned a 5xx error, retrying later.")
 		e.reportPayloadFailure(payload, true, failures, retryableFailures)
 		return
 	}
 
 	if resp.StatusCode >= 400 {
 		e.reportPayloadFailure(payload, false, failures, retryableFailures)
-		_ = errorf("Error sending events - Response: %s", string(responseBody))
+		_ = util.Errorf("Error sending events - Response: %s", string(responseBody))
 		return
 	}
 
@@ -245,7 +246,7 @@ func (e *EventQueue) flushEventPayload(
 		return
 	}
 
-	_ = errorf("unknown status code when flushing events %d", resp.StatusCode)
+	_ = util.Errorf("unknown status code when flushing events %d", resp.StatusCode)
 	e.reportPayloadFailure(payload, false, failures, retryableFailures)
 }
 
@@ -273,7 +274,7 @@ func (e *EventQueue) reportPayloadSuccess(payload *FlushPayload, successPayloads
 	}
 	err := e.localBucketing.onPayloadSuccess(payload.PayloadId)
 	if err != nil {
-		_ = errorf("Failed to mark payload as success: %s", err)
+		_ = util.Errorf("Failed to mark payload as success: %s", err)
 	}
 }
 
@@ -293,7 +294,7 @@ func (e *EventQueue) reportPayloadFailure(
 	}
 	err := e.localBucketing.onPayloadFailure(payload.PayloadId, retry)
 	if err != nil {
-		_ = errorf("Failed to mark payload as failed: %s", err)
+		_ = util.Errorf("Failed to mark payload as failed: %s", err)
 	}
 }
 

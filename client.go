@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"io"
 	"math"
 	"math/rand"
@@ -87,7 +88,7 @@ type service struct {
 // optionally pass a custom http.Client to allow for advanced features such as caching.
 func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	if sdkKey == "" {
-		return nil, errorf("missing sdk key! Call NewDVCClient with a valid sdk key")
+		return nil, util.Errorf("missing sdk key! Call NewDVCClient with a valid sdk key")
 	}
 	if !sdkKeyIsValid(sdkKey) {
 		return nil, fmt.Errorf("Invalid sdk key. Call NewDVCClient with a valid sdk key.")
@@ -104,7 +105,7 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	c.platformData = GeneratePlatformData()
 
 	if c.DevCycleOptions.Logger != nil {
-		SetLogger(c.DevCycleOptions.Logger)
+		util.SetLogger(c.DevCycleOptions.Logger)
 	}
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
@@ -228,7 +229,7 @@ func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
 			}
 			return user.Features, err
 		} else {
-			warnf("AllFeatures called before client initialized")
+			util.Warnf("AllFeatures called before client initialized")
 			return map[string]Feature{}, nil
 		}
 
@@ -300,14 +301,14 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if !c.hasConfig() {
-			warnf("Variable called before client initialized, returning default value")
+			util.Warnf("Variable called before client initialized, returning default value")
 			err = c.queueAggregateEvent(BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, DVCEvent{
 				Type_:  api.EventType_AggVariableDefaulted,
 				Target: key,
 			})
 
 			if err != nil {
-				warnf("Error queuing aggregate event: ", err)
+				util.Warnf("Error queuing aggregate event: ", err)
 			}
 
 			return variable, nil
@@ -320,7 +321,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 			variable.IsDefaulted = false
 		} else {
 			if !sameTypeAsDefault && bucketedVariable.Value != nil {
-				warnf("Type mismatch for variable %s. Expected type %s, got %s",
+				util.Warnf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
 					reflect.TypeOf(bucketedVariable.Value).String(),
@@ -362,7 +363,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 				variable.Value = localVarReturnValue.Value
 				variable.IsDefaulted = false
 			} else {
-				warnf("Type mismatch for variable %s. Expected type %s, got %s",
+				util.Warnf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
 					reflect.TypeOf(localVarReturnValue.Value).String(),
@@ -376,10 +377,10 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	var v ErrorResponse
 	err = decode(&v, body, r.Header.Get("Content-Type"))
 	if err != nil {
-		warnf("Error decoding response body %s", err)
+		util.Warnf("Error decoding response body %s", err)
 		return variable, nil
 	}
-	warnf(v.Message)
+	util.Warnf(v.Message)
 	return variable, nil
 }
 
@@ -397,7 +398,7 @@ func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, err
 			}
 			return user.Variables, err
 		} else {
-			warnf("AllFeatures called before client initialized")
+			util.Warnf("AllFeatures called before client initialized")
 			return map[string]ReadOnlyVariable{}, nil
 		}
 	}
@@ -448,7 +449,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 			err := c.eventQueue.QueueEvent(user, event)
 			return err == nil, err
 		} else {
-			warnf("Track called before client initialized")
+			util.Warnf("Track called before client initialized")
 			return true, nil
 		}
 	}
@@ -506,7 +507,7 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 		if c.isInitialized {
 			return c.localBucketing.SetClientCustomData(customData)
 		} else {
-			warnf("SetClientCustomData called before client initialized")
+			util.Warnf("SetClientCustomData called before client initialized")
 			return nil
 		}
 	}
@@ -523,7 +524,7 @@ func (c *DVCClient) Close() (err error) {
 	}
 
 	if !c.isInitialized {
-		infof("Awaiting client initialization before closing")
+		util.Infof("Awaiting client initialization before closing")
 		<-c.internalOnInitializedChannel
 	}
 
@@ -620,7 +621,7 @@ func (c *DVCClient) handleError(r *http.Response, body []byte) (err error) {
 	newErr.model = v
 
 	if r.StatusCode >= 500 {
-		warnf("Server reported a 5xx error: ", newErr)
+		util.Warnf("Server reported a 5xx error: ", newErr)
 		return nil
 	}
 	return newErr
@@ -671,7 +672,7 @@ func variableTypeFromValue(key string, value interface{}) (varType string, err e
 		return "JSON", nil
 	}
 
-	return "", errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
+	return "", util.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
 }
 
 // callAPI do the request.
