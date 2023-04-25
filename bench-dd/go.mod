@@ -43,9 +43,9 @@ require (
 	go4.org/intern v0.0.0-20211027215823-ae77deb06f29 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20220617031537-928513b29760 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
-	golang.org/x/exp v0.0.0-20230321023759-10a507213a29 // indirect
+	golang.org/x/exp v0.0.0-20230811145659-89c5cff77bcb // indirect
 	golang.org/x/sys v0.6.0 // indirect
-	golang.org/x/text v0.8.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/genproto v0.0.0-20200726014623-da3ae01ef02d // indirect
@@ -54,6 +54,4 @@ require (
 	inet.af/netaddr v0.0.0-20220617031823-097006376321 // indirect
 )
 
-replace (
-	github.com/devcyclehq/go-server-sdk/v2 => ../.
-)
+replace github.com/devcyclehq/go-server-sdk/v2 => ../.
