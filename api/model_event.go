@@ -84,6 +84,15 @@ type EventQueueOptions struct {
 	EventsAPIBasePath            string        `json:"eventsAPIBasePath,omitempty"`
 }
 
+func (o *EventQueueOptions) CheckBounds() {
+	if o.MaxEventQueueSize < 100 {
+		o.MaxEventQueueSize = 100
+	} else if o.MaxEventQueueSize > 1000 {
+		o.MaxEventQueueSize = 1000
+	}
+
+}
+
 func (o *EventQueueOptions) IsEventLoggingDisabled(event *DVCEvent) bool {
 	switch event.Type_ {
 	case EventType_VariableEvaluated, EventType_AggVariableEvaluated, EventType_VariableDefaulted, EventType_AggVariableDefaulted:
