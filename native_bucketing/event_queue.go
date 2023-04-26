@@ -5,15 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/api"
-	"github.com/devcyclehq/go-server-sdk/v2/util"
-	"github.com/google/uuid"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"sync"
 	"sync/atomic"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"github.com/google/uuid"
 )
 
 type aggEventData struct {

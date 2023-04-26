@@ -89,6 +89,8 @@ func (o *DVCOptions) eventQueueOptions() *EventQueueOptions {
 		DisableCustomEventLogging:    o.DisableCustomEventLogging,
 		MaxEventQueueSize:            o.MaxEventQueueSize,
 		FlushEventQueueSize:          o.FlushEventQueueSize,
+		EventRequestChunkSize:        100, // TODO: make this configurable
+		EventsAPIBasePath:            o.EventsAPIURI,
 	}
 }
 
