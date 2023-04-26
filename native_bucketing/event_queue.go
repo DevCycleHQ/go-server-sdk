@@ -94,6 +94,7 @@ func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue,
 		return nil, fmt.Errorf("sdk key is required")
 	}
 
+	options.CheckBounds()
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	eq := &EventQueue{
@@ -107,7 +108,7 @@ func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue,
 		httpClient:        &http.Client{},
 		flushMutex:        &sync.Mutex{},
 		pendingPayloads:   make(map[string]api.FlushPayload, 0),
-		done: cancel,
+		done:              cancel,
 	}
 
 	go eq.processEvents(ctx)
@@ -128,7 +129,7 @@ type EventQueue struct {
 	httpClient        *http.Client
 	flushMutex        *sync.Mutex
 	pendingPayloads   map[string]api.FlushPayload
-	done func()
+	done              func()
 }
 
 func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {

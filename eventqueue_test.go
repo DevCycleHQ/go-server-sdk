@@ -49,7 +49,7 @@ func TestEventQueue_QueueEvent_100_DropEvent(t *testing.T) {
 }
 
 func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
-	//skipIfNative(t)
+	skipIfNative(t)
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
