@@ -334,8 +334,6 @@ func (eq *EventQueue) Close() (err error) {
 }
 
 func (eq *EventQueue) updateFailedPayloads() {
-	eq.flushMutex.Lock()
-	defer eq.flushMutex.Unlock()
 	for _, pl := range eq.pendingPayloads {
 		if pl.Status == "failed" {
 			pl.Status = "sending"
@@ -344,8 +342,6 @@ func (eq *EventQueue) updateFailedPayloads() {
 }
 
 func (eq *EventQueue) reportPayloadSuccess(payload *api.FlushPayload) error {
-	eq.flushMutex.Lock()
-	defer eq.flushMutex.Unlock()
 	if _, ok := eq.pendingPayloads[payload.PayloadId]; ok {
 		delete(eq.pendingPayloads, payload.PayloadId)
 	} else {
@@ -355,9 +351,6 @@ func (eq *EventQueue) reportPayloadSuccess(payload *api.FlushPayload) error {
 }
 
 func (eq *EventQueue) reportPayloadFailure(payload *api.FlushPayload, retryable bool) error {
-	eq.flushMutex.Lock()
-	defer eq.flushMutex.Unlock()
-
 	if v, ok := eq.pendingPayloads[payload.PayloadId]; ok {
 		if retryable {
 			v.Status = "failed"
