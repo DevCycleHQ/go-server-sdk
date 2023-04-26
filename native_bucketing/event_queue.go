@@ -9,6 +9,7 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/google/uuid"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"sync"
@@ -169,19 +170,32 @@ func (eq *EventQueue) QueueAggregateEvent(config BucketedUserConfig, event api.D
 		return fmt.Errorf("target is required for aggregate events")
 	}
 
-	eq.aggEventQueueRaw <- aggEventData{
+	select {
+	case eq.aggEventQueueRaw <- aggEventData{
 		event:                &event,
 		variableVariationMap: config.VariableVariationMap,
 		aggregateByVariation: event.Type_ == api.EventType_AggVariableEvaluated,
+	}:
+		util.Debugf("Queued event: %+v", event)
+	default:
+		return fmt.Errorf("event queue is full, dropping event: %+v", event)
 	}
+
 	return nil
 }
 
 func (eq *EventQueue) QueueEvent(user DVCUser, event api.DVCEvent) error {
-	eq.userEventQueueRaw <- userEventData{
+
+	select {
+	case eq.userEventQueueRaw <- userEventData{
 		event: &event,
 		user:  &user,
+	}:
+		util.Debugf("Queued event: %+v", event)
+	default:
+		return util.Errorf("event queue is full, dropping event: %+v", event)
 	}
+
 	return nil
 }
 

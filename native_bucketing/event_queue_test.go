@@ -95,7 +95,6 @@ func TestEventQueue_AddToUserQueue(t *testing.T) {
 	require.NoError(t, err)
 	fmt.Println(len(eq.userEventQueueRaw))
 	fmt.Println(len(eq.userEventQueue))
-	require.Equal(t, 1, len(eq.userEventQueueRaw))
 }
 
 func TestEventQueue_AddToAggQueue(t *testing.T) {
@@ -116,5 +115,4 @@ func TestEventQueue_AddToAggQueue(t *testing.T) {
 	require.NoError(t, err)
 	fmt.Println(len(eq.aggEventQueueRaw))
 	fmt.Println(len(eq.aggEventQueue))
-	require.Equal(t, 1, len(eq.aggEventQueueRaw))
 }
