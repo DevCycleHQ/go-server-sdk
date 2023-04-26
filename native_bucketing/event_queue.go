@@ -385,7 +385,7 @@ func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
 		}
 	}()
 	// TODO: provide platform data
-	popU := event.user.GetPopulatedUser(nil)
+	popU := event.user.GetPopulatedUser(platformData)
 	ccd := GetClientCustomData(eq.sdkKey)
 	popU.MergeClientCustomData(ccd)
 

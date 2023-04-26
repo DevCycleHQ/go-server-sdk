@@ -32,8 +32,6 @@ func TestEventQueue_FlushEvents(t *testing.T) {
 	require.NoError(t, err)
 	eq.MergeAggEventQueueKeys(config)
 
-	// Parsing the large config should succeed without an error
-
 }
 
 func TestEventQueue_ProcessUserEvent(t *testing.T) {
@@ -55,4 +53,29 @@ func TestEventQueue_ProcessUserEvent(t *testing.T) {
 	err = eq.processUserEvent(event)
 	require.NoError(t, err)
 	fmt.Println(eq.userEventQueue)
+}
+
+func TestEventQueue_ProcessAggregateEvent(t *testing.T) {
+	event := aggEventData{
+		event: &api.DVCEvent{
+			Type_:      api.EventType_VariableEvaluated,
+			Target:     "somevariablekey",
+			CustomType: "testingtype",
+			UserId:     "testing",
+		},
+		variableVariationMap: map[string]api.FeatureVariation{
+			"somevariablekey": {
+				Feature:   "featurekey",
+				Variation: "somevariation",
+			},
+		},
+		aggregateByVariation: false,
+	}
+	err := SetConfig(test_config, "dvc_server_token_hash", "")
+	require.NoError(t, err)
+	eq, err := InitEventQueue("dvc_server_token_hash", &api.EventQueueOptions{})
+	require.NoError(t, err)
+	err = eq.processAggregateEvent(event)
+	require.NoError(t, err)
+	fmt.Println(eq.aggEventQueue)
 }
