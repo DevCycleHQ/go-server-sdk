@@ -110,8 +110,10 @@ func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue,
 		pendingPayloads:   make(map[string]api.FlushPayload, 0),
 		done:              cancel,
 	}
-
-	go eq.processEvents(ctx)
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	//go eq.processEvents(ctx)
 
 	return eq, nil
 }
