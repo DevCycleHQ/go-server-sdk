@@ -110,10 +110,7 @@ func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue,
 		pendingPayloads:   make(map[string]api.FlushPayload, 0),
 		done:              cancel,
 	}
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
-	//go eq.processEvents(ctx)
+	go eq.processEvents(ctx)
 
 	return eq, nil
 }
@@ -376,7 +373,7 @@ func (eq *EventQueue) processEvents(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("Closing native event queues")
+			util.Infof("Closing native event queues")
 			close(eq.userEventQueueRaw)
 			close(eq.aggEventQueueRaw)
 			return
@@ -432,7 +429,7 @@ func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
 func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("recovered from panic in processAggregateEvent: %v", r)
+			util.Warnf("recovered from panic in processAggregateEvent: %v", r)
 			if errVal, ok := r.(error); ok {
 				err = errVal
 			}
