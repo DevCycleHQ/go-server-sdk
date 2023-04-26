@@ -295,7 +295,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 		if r := recover(); r != nil {
 			// Return a usable default value in a panic situation
 			result = variable
-			err = errorf("recovered from panic in Variable eval: %v ", r)
+			err = util.Errorf("recovered from panic in Variable eval: %v ", r)
 		}
 	}()
 

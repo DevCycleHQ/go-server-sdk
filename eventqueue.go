@@ -136,7 +136,7 @@ func (e *EventQueue) FlushEvents() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			// get the stack trace and potentially log it here
-			err = errorf("recovered from panic in flushEvents: %v", r)
+			err = util.Errorf("recovered from panic in flushEvents: %v", r)
 		}
 	}()
 
