@@ -98,3 +98,19 @@ type DiscardLogger struct{}
 func (DiscardLogger) Printf(_ string, _ ...any) {
 
 }
+
+func (DiscardLogger) Infof(_ string, _ ...any) {
+
+}
+
+func (DiscardLogger) Debugf(_ string, _ ...any) {
+
+}
+
+func (DiscardLogger) Warnf(_ string, _ ...any) {
+
+}
+
+func (DiscardLogger) Errorf(_ string, _ ...any) error {
+	return nil
+}

@@ -3,11 +3,53 @@ package native_bucketing
 import (
 	"fmt"
 	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 )
 
+func BenchmarkEventQueue_QueueEvent(b *testing.B) {
+	util.SetLogger(util.DiscardLogger{})
+	event := api.DVCEvent{
+		Type_:      api.EventType_VariableEvaluated,
+		Target:     "somevariablekey",
+		CustomType: "testingtype",
+		UserId:     "testing",
+	}
+	err := SetConfig(test_config, "dvc_server_token_hash", "")
+	require.NoError(b, err)
+	eq, err := InitEventQueue("dvc_server_token_hash", &api.EventQueueOptions{MaxEventQueueSize: b.N + 10})
+	require.NoError(b, err)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = eq.QueueEvent(DVCUser{UserId: "testing"}, event)
+	}
+	b.StopTimer()
+	fmt.Println(len(eq.userEventQueueRaw))
+	fmt.Println(len(eq.userEventQueue))
+}
+
+func BenchmarkEventQueue_QueueEvent_WithDrop(b *testing.B) {
+	util.SetLogger(util.DiscardLogger{})
+	event := api.DVCEvent{
+		Type_:      api.EventType_VariableEvaluated,
+		Target:     "somevariablekey",
+		CustomType: "testingtype",
+		UserId:     "testing",
+	}
+	err := SetConfig(test_config, "dvc_server_token_hash", "")
+	require.NoError(b, err)
+	eq, err := InitEventQueue("dvc_server_token_hash", &api.EventQueueOptions{MaxEventQueueSize: b.N / 2})
+	require.NoError(b, err)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = eq.QueueEvent(DVCUser{UserId: "testing"}, event)
+	}
+	b.StopTimer()
+	fmt.Println(len(eq.userEventQueueRaw))
+	fmt.Println(len(eq.userEventQueue))
+}
 func TestEventQueue_MergeAggEventQueueKeys(t *testing.T) {
 	// should not panic/error.
 	eq, err := InitEventQueue("dvc_server_token_hash", &api.EventQueueOptions{})
@@ -114,6 +156,8 @@ func TestEventQueue_AddToAggQueue(t *testing.T) {
 	require.NoError(t, err)
 	err = eq.QueueAggregateEvent(*bucketedConfig, event)
 	require.NoError(t, err)
+	time.Sleep(1 * time.Second)
+	require.Equal(t, 1, len(eq.aggEventQueue))
 	fmt.Println(len(eq.aggEventQueueRaw))
 	fmt.Println(len(eq.aggEventQueue))
 }
@@ -179,9 +223,13 @@ func TestEventQueue_QueueAndFlush(t *testing.T) {
 	fmt.Printf("UserEventQueue Length: %d\n", len(eq.userEventQueue))
 	fmt.Printf("UserEventQueue Channel Length: %d\n", len(eq.userEventQueueRaw))
 	fmt.Printf("Pending Payloads Length: %d\n", len(eq.pendingPayloads))
+	require.Equal(t, 50, len(eq.userEventQueue))
+	require.Equal(t, 0, len(eq.userEventQueueRaw))
 	err = eq.FlushEvents()
 	require.NoError(t, err)
 	fmt.Printf("UserEventQueue Length: %d\n", len(eq.userEventQueue))
 	fmt.Printf("UserEventQueue Channel Length: %d\n", len(eq.userEventQueueRaw))
 	fmt.Printf("Pending Payloads Length: %d\n", len(eq.pendingPayloads))
+	require.Equal(t, 0, len(eq.userEventQueue))
+	require.Equal(t, 0, len(eq.pendingPayloads))
 }
