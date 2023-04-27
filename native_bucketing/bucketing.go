@@ -3,6 +3,8 @@ package native_bucketing
 import (
 	"fmt"
 	"time"
+
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
 // Max value of an unsigned 32-bit integer, which is what murmurhash returns
@@ -228,9 +230,15 @@ type BucketedVariableResponse struct {
 	Variation Variation
 }
 
+var emptyVariableVariationMap = map[string]FeatureVariation{}
+
 func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, variableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (*ReadOnlyVariable, error) {
 	result, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
+		eventErr := eventQueue.QueueVariableEvaluatedEvent(emptyVariableVariationMap, nil, variableKey)
+		if eventErr != nil {
+			util.Warnf("Failed to queue variable defaulted event: %s", eventErr)
+		}
 		return nil, err
 	}
 
@@ -243,9 +251,13 @@ func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, v
 			Variation: result.Variation.Id,
 			Feature:   result.Feature.Id,
 		}
+
+		err = eventQueue.QueueVariableEvaluatedEvent(variableVariationMap, &result.Variable, variableKey)
+		if err != nil {
+			util.Warnf("Failed to queue variable evaluated event: %s", err)
+		}
 	}
 
-	_ = eventQueue.QueueVariableEvaluatedEvent(variableVariationMap, &result.Variable, variableKey)
 	return &result.Variable, nil
 }
 

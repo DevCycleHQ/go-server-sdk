@@ -114,8 +114,12 @@ func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue,
 		pendingPayloads:   make(map[string]api.FlushPayload, 0),
 		done:              cancel,
 	}
+
 	go eq.processEvents(ctx)
-	go eq.flushEventsPeriodically(ctx, options.FlushEventsInterval)
+
+	if options.FlushEventsInterval > 0 {
+		go eq.flushEventsPeriodically(ctx, options.FlushEventsInterval)
+	}
 
 	return eq, nil
 }
