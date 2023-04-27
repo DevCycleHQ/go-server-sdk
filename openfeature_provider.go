@@ -16,104 +16,6 @@ func (p DevCycleProvider) Metadata() openfeature.Metadata {
 	return openfeature.Metadata{Name: "devcycle-go-provider"}
 }
 
-func createUserFromEvaluationContext(evalCtx openfeature.FlattenedContext) (DVCUser, error) {
-	userId := ""
-	_, exists := evalCtx["userId"]
-	if exists {
-		userId = evalCtx["userId"].(string)
-	} else {
-		_, exists = evalCtx["targetingKey"]
-		if exists {
-			userId = evalCtx["targetingKey"].(string)
-		}
-	}
-
-	if userId == "" {
-		return DVCUser{}, errors.New("userId or targetingKey must be provided")
-	}
-	user := DVCUser{
-		UserId: userId,
-	}
-
-	customData := make(map[string]interface{})
-	privateCustomData := make(map[string]interface{})
-
-	for key, value := range evalCtx {
-		if value == nil {
-			continue
-		}
-		if str, ok := value.(string); ok {
-			if key == "email" {
-				user.Email = str
-			} else if key == "name" {
-				user.Name = str
-			} else if key == "language" {
-				user.Language = str
-			} else if key == "country" {
-				user.Country = str
-			} else if key == "appVersion" {
-				user.AppVersion = str
-			} else if key == "appBuild" {
-				user.AppBuild = str
-			} else if key == "deviceModel" {
-				user.DeviceModel = str
-			}
-		} else if kvp, ok := value.(map[string]interface{}); ok {
-			if key == "customData" {
-				for k, v := range kvp {
-					setCustomDataValue(customData, k, v)
-				}
-			} else if key == "privateCustomData" {
-				for k, v := range kvp {
-					setCustomDataValue(privateCustomData, k, v)
-				}
-			}
-		} else {
-			setCustomDataValue(customData, key, value)
-		}
-	}
-
-	if len(customData) > 0 {
-		user.CustomData = customData
-	}
-
-	if len(privateCustomData) > 0 {
-		user.PrivateCustomData = privateCustomData
-	}
-
-	return user, nil
-}
-
-func setCustomDataValue(customData map[string]interface{}, key string, val interface{}) {
-	if val == nil {
-		return
-	}
-	// Custom Data only supports specific types, load the ones we can and
-	// ignore the rest with warnings
-	switch v := val.(type) {
-	case string:
-		customData[key] = v
-	case float64:
-		customData[key] = v
-	case int:
-		customData[key] = float64(v)
-	case float32:
-		customData[key] = float64(v)
-	case int32:
-		customData[key] = float64(v)
-	case int64:
-		customData[key] = float64(v)
-	case uint:
-		customData[key] = float64(v)
-	case uint64:
-		customData[key] = float64(v)
-	case bool:
-		customData[key] = v
-	default:
-		warnf("Unsupported type for custom data value: %s=%v", key, val)
-	}
-}
-
 // BooleanEvaluation returns a boolean flag
 func (p DevCycleProvider) BooleanEvaluation(ctx context.Context, flag string, defaultValue bool, evalCtx openfeature.FlattenedContext) openfeature.BoolResolutionDetail {
 
@@ -265,4 +167,102 @@ func (p DevCycleProvider) ObjectEvaluation(ctx context.Context, flag string, def
 // Hooks returns hooks
 func (p DevCycleProvider) Hooks() []openfeature.Hook {
 	return []openfeature.Hook{}
+}
+
+func createUserFromEvaluationContext(evalCtx openfeature.FlattenedContext) (DVCUser, error) {
+	userId := ""
+	_, exists := evalCtx["userId"]
+	if exists {
+		userId = evalCtx["userId"].(string)
+	} else {
+		_, exists = evalCtx["targetingKey"]
+		if exists {
+			userId = evalCtx["targetingKey"].(string)
+		}
+	}
+
+	if userId == "" {
+		return DVCUser{}, errors.New("userId or targetingKey must be provided")
+	}
+	user := DVCUser{
+		UserId: userId,
+	}
+
+	customData := make(map[string]interface{})
+	privateCustomData := make(map[string]interface{})
+
+	for key, value := range evalCtx {
+		if value == nil {
+			continue
+		}
+		if str, ok := value.(string); ok {
+			if key == "email" {
+				user.Email = str
+			} else if key == "name" {
+				user.Name = str
+			} else if key == "language" {
+				user.Language = str
+			} else if key == "country" {
+				user.Country = str
+			} else if key == "appVersion" {
+				user.AppVersion = str
+			} else if key == "appBuild" {
+				user.AppBuild = str
+			} else if key == "deviceModel" {
+				user.DeviceModel = str
+			}
+		} else if kvp, ok := value.(map[string]interface{}); ok {
+			if key == "customData" {
+				for k, v := range kvp {
+					setCustomDataValue(customData, k, v)
+				}
+			} else if key == "privateCustomData" {
+				for k, v := range kvp {
+					setCustomDataValue(privateCustomData, k, v)
+				}
+			}
+		} else {
+			setCustomDataValue(customData, key, value)
+		}
+	}
+
+	if len(customData) > 0 {
+		user.CustomData = customData
+	}
+
+	if len(privateCustomData) > 0 {
+		user.PrivateCustomData = privateCustomData
+	}
+
+	return user, nil
+}
+
+func setCustomDataValue(customData map[string]interface{}, key string, val interface{}) {
+	if val == nil {
+		return
+	}
+	// Custom Data only supports specific types, load the ones we can and
+	// ignore the rest with warnings
+	switch v := val.(type) {
+	case string:
+		customData[key] = v
+	case float64:
+		customData[key] = v
+	case int:
+		customData[key] = float64(v)
+	case float32:
+		customData[key] = float64(v)
+	case int32:
+		customData[key] = float64(v)
+	case int64:
+		customData[key] = float64(v)
+	case uint:
+		customData[key] = float64(v)
+	case uint64:
+		customData[key] = float64(v)
+	case bool:
+		customData[key] = v
+	default:
+		warnf("Unsupported type for custom data value: %s=%v", key, val)
+	}
 }
