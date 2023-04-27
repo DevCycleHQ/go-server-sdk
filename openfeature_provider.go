@@ -90,25 +90,25 @@ func setCustomDataValue(customData map[string]interface{}, key string, val inter
 	}
 	// Custom Data only supports specific types, load the ones we can and
 	// ignore the rest with warnings
-	switch val.(type) {
+	switch v := val.(type) {
 	case string:
-		customData[key] = val.(string)
+		customData[key] = v
 	case float64:
-		customData[key] = val.(float64)
+		customData[key] = v
 	case int:
-		customData[key] = float64(val.(int))
+		customData[key] = float64(v)
 	case float32:
-		customData[key] = float64(val.(float32))
+		customData[key] = float64(v)
 	case int32:
-		customData[key] = float64(val.(int32))
+		customData[key] = float64(v)
 	case int64:
-		customData[key] = float64(val.(int64))
+		customData[key] = float64(v)
 	case uint:
-		customData[key] = float64(val.(uint))
+		customData[key] = float64(v)
 	case uint64:
-		customData[key] = float64(val.(uint64))
+		customData[key] = float64(v)
 	case bool:
-		customData[key] = val.(bool)
+		customData[key] = v
 	default:
 		warnf("Unsupported type for custom data value: %s=%v", key, val)
 	}
