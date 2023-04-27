@@ -211,7 +211,8 @@ func (eq *EventQueue) flushEventQueue() (map[string]api.FlushPayload, error) {
 
 	records = append(records, eq.aggEventQueue.BuildBatchRecords())
 	records = append(records, eq.userEventQueue.BuildBatchRecords()...)
-
+	eq.aggEventQueue = make(AggregateEventQueue)
+	eq.userEventQueue = make(UserEventQueue)
 	for _, record := range records {
 		var payload *api.FlushPayload
 		for _, pl := range eq.pendingPayloads {
@@ -230,8 +231,7 @@ func (eq *EventQueue) flushEventQueue() (map[string]api.FlushPayload, error) {
 		payload.AddBatchRecordForUser(record, eq.options.EventRequestChunkSize)
 		eq.pendingPayloads[payload.PayloadId] = *payload
 	}
-	eq.aggEventQueue = make(AggregateEventQueue)
-	eq.userEventQueue = make(UserEventQueue)
+
 	eq.updateFailedPayloads()
 
 	return eq.pendingPayloads, nil
