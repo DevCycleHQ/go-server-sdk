@@ -50,18 +50,19 @@ func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
 	if err != nil {
 		userId = "aggregate"
 	}
+	emptyFeatureVars := make(map[string]string)
 
 	for _type, variableAggMap := range *agg {
 		for variableKey, featureAggMap := range variableAggMap {
-
 			if variationAggMap, ok := featureAggMap["value"]; ok {
 				if variationValue, ok := variationAggMap["value"]; ok {
 					value := float64(variationValue)
 					event := api.DVCEvent{
-						Type_:  _type,
-						Target: variableKey,
-						Value:  value,
-						UserId: userId,
+						Type_:       _type,
+						Target:      variableKey,
+						Value:       value,
+						UserId:      userId,
+						FeatureVars: emptyFeatureVars,
 					}
 					aggregateEvents = append(aggregateEvents, event)
 				}
@@ -77,6 +78,7 @@ func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
 								"_variation": variation,
 								"_feature":   feature,
 							},
+							FeatureVars: emptyFeatureVars,
 						}
 						aggregateEvents = append(aggregateEvents, event)
 					}
