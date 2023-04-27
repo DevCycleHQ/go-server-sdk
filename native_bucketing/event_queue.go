@@ -5,15 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/api"
-	"github.com/devcyclehq/go-server-sdk/v2/util"
-	"github.com/google/uuid"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"github.com/google/uuid"
 )
 
 type aggEventData struct {
@@ -111,6 +113,7 @@ func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue,
 		done:              cancel,
 	}
 	go eq.processEvents(ctx)
+	go eq.flushEventsPeriodically(ctx, options.FlushEventsInterval)
 
 	return eq, nil
 }
@@ -262,10 +265,8 @@ func (eq *EventQueue) flushEventQueue() (map[string]api.FlushPayload, error) {
 }
 
 func (eq *EventQueue) FlushEvents() (err error) {
-
 	eq.flushMutex.Lock()
 	defer eq.flushMutex.Unlock()
-	util.Debugf("Started flushing events")
 
 	payloads, err := eq.flushEventQueue()
 	if err != nil {
@@ -354,6 +355,7 @@ func (eq *EventQueue) Metrics() (int32, int32) {
 }
 
 func (eq *EventQueue) Close() (err error) {
+	util.Debugf("Flushing events from Close()")
 	err = eq.FlushEvents()
 	eq.done()
 	return
@@ -393,7 +395,7 @@ func (eq *EventQueue) processEvents(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			util.Infof("Closing native event queues")
+			util.Debugf("Closing native event queues")
 			close(eq.userEventQueueRaw)
 			close(eq.aggEventQueueRaw)
 			return
@@ -406,6 +408,24 @@ func (eq *EventQueue) processEvents(ctx context.Context) {
 			err := eq.processAggregateEvent(aggEvent)
 			if err != nil {
 				return
+			}
+		}
+	}
+}
+
+func (eq *EventQueue) flushEventsPeriodically(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	for {
+		select {
+		case <-ctx.Done():
+			util.Debugf("Stopping event flusher")
+			ticker.Stop()
+			return
+		case <-ticker.C:
+			util.Debugf("Flushing events from timer")
+			err := eq.FlushEvents()
+			if err != nil {
+				_ = util.Errorf("Failed to flush events: %s", err)
 			}
 		}
 	}
