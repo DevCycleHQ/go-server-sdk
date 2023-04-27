@@ -90,7 +90,9 @@ func (o *EventQueueOptions) CheckBounds() {
 	} else if o.MaxEventQueueSize > 1000 {
 		o.MaxEventQueueSize = 1000
 	}
-
+	if o.EventsAPIBasePath == "" {
+		o.EventsAPIBasePath = "https://events.devcycle.com"
+	}
 }
 
 func (o *EventQueueOptions) IsEventLoggingDisabled(event *DVCEvent) bool {

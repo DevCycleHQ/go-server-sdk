@@ -229,6 +229,7 @@ func (eq *EventQueue) flushEventQueue() (map[string]api.FlushPayload, error) {
 			}
 		}
 		payload.AddBatchRecordForUser(record, eq.options.EventRequestChunkSize)
+		payload.EventCount = len(payload.Records)
 		eq.pendingPayloads[payload.PayloadId] = *payload
 	}
 
@@ -258,18 +259,22 @@ func (eq *EventQueue) FlushEvents() (err error) {
 }
 
 func (eq *EventQueue) flushEventPayload(payload *api.FlushPayload) error {
+	if len(payload.Records) == 0 {
+		_ = eq.reportPayloadFailure(payload, false)
+		return util.Errorf("cannot flush empty payload")
+	}
 	eventsHost := eq.options.EventsAPIBasePath
 	var req *http.Request
 	var resp *http.Response
 	requestBody, err := json.Marshal(api.BatchEventsBody{Batch: payload.Records})
 	if err != nil {
-		_ = util.Errorf("Failed to marshal batch events body: %s", err)
+		_ = util.Errorf("failed to marshal batch events body: %s", err)
 		_ = eq.reportPayloadFailure(payload, false)
 		return err
 	}
 	req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(requestBody))
 	if err != nil {
-		_ = util.Errorf("Failed to create request to events api: %s", err)
+		_ = util.Errorf("failed to create request to events api: %s", err)
 		_ = eq.reportPayloadFailure(payload, false)
 		return err
 	}
@@ -307,15 +312,11 @@ func (eq *EventQueue) flushEventPayload(payload *api.FlushPayload) error {
 		util.Warnf("Events API Returned a 5xx error, retrying later.")
 		_ = eq.reportPayloadFailure(payload, true)
 		return err
-	}
-
-	if resp.StatusCode >= 400 {
+	} else if resp.StatusCode >= 400 {
 		_ = eq.reportPayloadFailure(payload, false)
 		_ = util.Errorf("Error sending events - Response: %s", string(responseBody))
 		return err
-	}
-
-	if resp.StatusCode == 201 {
+	} else if resp.StatusCode == 201 {
 		err = eq.reportPayloadSuccess(payload)
 		eq.eventsReported.Add(1)
 		return err

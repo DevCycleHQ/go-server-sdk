@@ -5,6 +5,7 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 func TestEventQueue_MergeAggEventQueueKeys(t *testing.T) {
@@ -143,4 +144,43 @@ func TestEventQueue_UserMaxQueueDrop(t *testing.T) {
 	require.Errorf(t, err, "dropping")
 	fmt.Println(len(eq.userEventQueueRaw))
 	fmt.Println(len(eq.userEventQueue))
+}
+
+func TestEventQueue_QueueAndFlush(t *testing.T) {
+	user := DVCUser{UserId: "testing"}
+	event := api.DVCEvent{
+		Type_:      api.EventType_VariableEvaluated,
+		Target:     "somevariablekey",
+		CustomType: "testingtype",
+		UserId:     "testing",
+	}
+	err := SetConfig(test_config, "dvc_server_token_hash", "")
+	require.NoError(t, err)
+	eq, err := InitEventQueue("dvc_server_token_hash", &api.EventQueueOptions{})
+	require.NoError(t, err)
+	hasErrored := false
+	for i := 0; i <= 50; i++ {
+		event.Target = fmt.Sprintf("somevariablekey%d", i)
+		err = eq.QueueEvent(user, event)
+		if err != nil {
+			hasErrored = true
+			break
+		}
+	}
+	require.False(t, hasErrored)
+	require.NoError(t, err)
+	fmt.Printf("UserEventQueue Length: %d\n", len(eq.userEventQueue))
+	fmt.Printf("UserEventQueue Channel Length: %d\n", len(eq.userEventQueueRaw))
+	fmt.Printf("Pending Payloads Length: %d\n", len(eq.pendingPayloads))
+
+	// Let the events process through the background worker
+	time.Sleep(5 * time.Second)
+	fmt.Printf("UserEventQueue Length: %d\n", len(eq.userEventQueue))
+	fmt.Printf("UserEventQueue Channel Length: %d\n", len(eq.userEventQueueRaw))
+	fmt.Printf("Pending Payloads Length: %d\n", len(eq.pendingPayloads))
+	err = eq.FlushEvents()
+	require.NoError(t, err)
+	fmt.Printf("UserEventQueue Length: %d\n", len(eq.userEventQueue))
+	fmt.Printf("UserEventQueue Channel Length: %d\n", len(eq.userEventQueueRaw))
+	fmt.Printf("Pending Payloads Length: %d\n", len(eq.pendingPayloads))
 }
