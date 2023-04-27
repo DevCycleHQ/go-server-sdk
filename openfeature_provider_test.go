@@ -1,6 +1,8 @@
 package devcycle
 
 import (
+	"context"
+	"github.com/jarcoal/httpmock"
 	"github.com/open-feature/go-sdk/pkg/openfeature"
 	"reflect"
 	"testing"
@@ -15,17 +17,13 @@ func Test_createUserFromEvaluationContext_NoUserID(t *testing.T) {
 
 func Test_createUserFromEvaluationContext_SimpleUser(t *testing.T) {
 	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": "1234"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	fatalErr(t, err)
 	if user.UserId != "1234" {
 		t.Errorf("Expected userId to be '1234', but got '%s'", user.UserId)
 	}
 
 	user, err = createUserFromEvaluationContext(openfeature.FlattenedContext{"targetingKey": "1234"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	fatalErr(t, err)
 	if user.UserId != "1234" {
 		t.Errorf("Expected userId to be '1234' when sourced from targetingKey, but got '%s'", user.UserId)
 	}
@@ -43,9 +41,7 @@ func Test_createUserFromEvaluationContext_AllUserProperties(t *testing.T) {
 		"deviceModel": "iPhone X21",
 	}
 	user, err := createUserFromEvaluationContext(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	fatalErr(t, err)
 	if user.UserId != ctx["userId"] {
 		t.Errorf("Expected userId to be '%s', but got '%s'", ctx["userId"], user.UserId)
 	}
@@ -70,7 +66,7 @@ func Test_createUserFromEvaluationContext_AllUserProperties(t *testing.T) {
 	}
 
 	if user.AppBuild != ctx["appBuild"] {
-		t.Errorf("Expected appBuild to be '%s', but got '%s'", ctx["appBuild"], user.AppBuild)
+		t.Errorf("Exfpected appBuild to be '%s', but got '%s'", ctx["appBuild"], user.AppBuild)
 	}
 
 	if user.DeviceModel != ctx["deviceModel"] {
@@ -89,9 +85,7 @@ func Test_createUserFromEvaluationContext_AllUserProperties(t *testing.T) {
 
 func Test_createUserFromEvaluationContext_InvalidDataType(t *testing.T) {
 	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": "1234", "email": 1234})
-	if err != nil {
-		t.Fatal(err)
-	}
+	fatalErr(t, err)
 	if user.Email != "" {
 		t.Errorf("Expected email to be empty due to bad data, but got '%s'", user.Email)
 	}
@@ -101,9 +95,7 @@ func Test_createUserFromEvaluationContext_CustomData(t *testing.T) {
 	testCustomData := map[string]interface{}{"key1": "strVal", "key2": float64(1234), "key3": true}
 	testPrivateData := map[string]interface{}{"key1": "otherVal", "key2": float64(9999), "key3": false}
 	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": "1234", "customData": testCustomData, "privateCustomData": testPrivateData})
-	if err != nil {
-		t.Fatal(err)
-	}
+	fatalErr(t, err)
 	if user.CustomData == nil {
 		t.Errorf("Expected email to be empty due to bad data, but got '%s'", user.Email)
 	}
@@ -147,5 +139,77 @@ func Test_setCustomDataValue(t *testing.T) {
 	setCustomDataValue(customData, "nilTest", nil)
 	if len(customData) != 0 {
 		t.Errorf("Nil value should not be set into custom data, but got '%v'", customData)
+	}
+}
+
+func Test_BooleanEvaluation_Default(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpCustomConfigMock(test_environmentKey, 200, test_config)
+
+	client, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	fatalErr(t, err)
+
+	provider := DevCycleProvider{Client: client}
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	resolutionDetail := provider.BooleanEvaluation(context.Background(), "unknownFlag", false, evalCtx)
+
+	if resolutionDetail.Value != false {
+		t.Errorf("Expected value to be false, but got '%v'", resolutionDetail.Value)
+	}
+
+	if resolutionDetail.ProviderResolutionDetail.Reason != openfeature.DefaultReason {
+		t.Errorf("Expected reason to be 'DefaultReason', but got '%s'", resolutionDetail.ProviderResolutionDetail.Reason)
+	}
+}
+
+func Test_BooleanEvaluation_BadUserData(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpCustomConfigMock(test_environmentKey, 200, test_config)
+
+	client, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	fatalErr(t, err)
+
+	provider := DevCycleProvider{Client: client}
+
+	evalCtx := openfeature.FlattenedContext{
+		"badUserIDKey": "1234",
+	}
+	resolutionDetail := provider.BooleanEvaluation(context.Background(), "test", false, evalCtx)
+
+	if resolutionDetail.Value != false {
+		t.Errorf("Expected value to be false, but got '%v'", resolutionDetail.Value)
+	}
+
+	if resolutionDetail.ProviderResolutionDetail.Reason != openfeature.ErrorReason {
+		t.Errorf("Expected reason to be 'ErrorReason', but got '%s'", resolutionDetail.ProviderResolutionDetail.Reason)
+	}
+}
+
+func Test_BooleanEvaluation_TargetMatch(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpCustomConfigMock(test_environmentKey, 200, test_config)
+
+	client, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	fatalErr(t, err)
+
+	provider := DevCycleProvider{Client: client}
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	resolutionDetail := provider.BooleanEvaluation(context.Background(), "test", false, evalCtx)
+
+	if resolutionDetail.Value != true {
+		t.Errorf("Expected value to be true, but got '%v'", resolutionDetail.Value)
+	}
+
+	if resolutionDetail.ProviderResolutionDetail.Reason != openfeature.TargetingMatchReason {
+		t.Errorf("Expected reason to be 'TargetingMatchReason', but got '%s'", resolutionDetail.ProviderResolutionDetail.Reason)
 	}
 }
