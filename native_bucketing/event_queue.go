@@ -230,6 +230,8 @@ func (eq *EventQueue) flushEventQueue() (map[string]api.FlushPayload, error) {
 		payload.AddBatchRecordForUser(record, eq.options.EventRequestChunkSize)
 		eq.pendingPayloads[payload.PayloadId] = *payload
 	}
+	eq.aggEventQueue = make(AggregateEventQueue)
+	eq.userEventQueue = make(UserEventQueue)
 	eq.updateFailedPayloads()
 
 	return eq.pendingPayloads, nil
@@ -248,10 +250,10 @@ func (eq *EventQueue) FlushEvents() (err error) {
 
 	for _, payload := range payloads {
 		_ = eq.flushEventPayload(&payload)
+
 	}
 
 	util.Debugf("Finished flushing events")
-
 	return
 }
 

@@ -116,3 +116,31 @@ func TestEventQueue_AddToAggQueue(t *testing.T) {
 	fmt.Println(len(eq.aggEventQueueRaw))
 	fmt.Println(len(eq.aggEventQueue))
 }
+
+func TestEventQueue_UserMaxQueueDrop(t *testing.T) {
+	user := DVCUser{UserId: "testing"}
+	event := api.DVCEvent{
+		Type_:      api.EventType_VariableEvaluated,
+		Target:     "somevariablekey",
+		CustomType: "testingtype",
+		UserId:     "testing",
+	}
+	err := SetConfig(test_config, "dvc_server_token_hash", "")
+	require.NoError(t, err)
+	eq, err := InitEventQueue("dvc_server_token_hash", &api.EventQueueOptions{})
+	require.NoError(t, err)
+	hasErrored := false
+	for i := 0; i <= 1000; i++ {
+		event.Target = fmt.Sprintf("somevariablekey%d", i)
+		err = eq.QueueEvent(user, event)
+		if err != nil {
+			hasErrored = true
+			break
+		}
+	}
+	fmt.Println(len(eq.userEventQueueRaw))
+	require.True(t, hasErrored)
+	require.Errorf(t, err, "dropping")
+	fmt.Println(len(eq.userEventQueueRaw))
+	fmt.Println(len(eq.userEventQueue))
+}
