@@ -5,16 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"github.com/google/uuid"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"sync"
 	"sync/atomic"
-
-	"github.com/devcyclehq/go-server-sdk/v2/api"
-	"github.com/devcyclehq/go-server-sdk/v2/util"
-	"github.com/google/uuid"
 )
 
 type aggEventData struct {
@@ -163,7 +162,11 @@ func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
 // QueueAggregateEvent queues an aggregate event to be sent to the server - but offloads actual computing of the event itself
 // to a different goroutine.
 func (eq *EventQueue) QueueAggregateEvent(config BucketedUserConfig, event api.DVCEvent) error {
-	if eq.options != nil && eq.options.IsEventLoggingDisabled(&event) {
+	return eq.queueAggregateEventInternal(&event, config.VariableVariationMap, event.Type_ == api.EventType_AggVariableEvaluated)
+}
+
+func (eq *EventQueue) queueAggregateEventInternal(event *api.DVCEvent, variableVariationMap map[string]FeatureVariation, aggregateByVariation bool) error {
+	if eq.options != nil && eq.options.IsEventLoggingDisabled(event) {
 		return nil
 	}
 
@@ -173,13 +176,13 @@ func (eq *EventQueue) QueueAggregateEvent(config BucketedUserConfig, event api.D
 
 	select {
 	case eq.aggEventQueueRaw <- aggEventData{
-		event:                &event,
-		variableVariationMap: config.VariableVariationMap,
-		aggregateByVariation: event.Type_ == api.EventType_AggVariableEvaluated,
+		event:                event,
+		variableVariationMap: variableVariationMap,
+		aggregateByVariation: aggregateByVariation,
 	}:
 		util.Debugf("Queued event: %+v", event)
 	default:
-		return fmt.Errorf("event queue is full, dropping event: %+v", event)
+		return util.Errorf("event queue is full, dropping event: %+v", event)
 	}
 
 	return nil
@@ -198,6 +201,26 @@ func (eq *EventQueue) QueueEvent(user DVCUser, event api.DVCEvent) error {
 	}
 
 	return nil
+}
+
+func (eq *EventQueue) QueueVariableEvaluatedEvent(variableVariationMap map[string]FeatureVariation, variable *ReadOnlyVariable, variableKey string) error {
+	if eq.options.DisableAutomaticEventLogging {
+		return nil
+	}
+
+	eventType := ""
+	if variable != nil {
+		eventType = api.EventType_AggVariableEvaluated
+	} else {
+		eventType = api.EventType_AggVariableDefaulted
+	}
+
+	event := api.DVCEvent{
+		Type_:  eventType,
+		Target: variableKey,
+	}
+
+	return eq.queueAggregateEventInternal(&event, variableVariationMap, eventType == api.EventType_AggVariableEvaluated)
 }
 
 func (eq *EventQueue) flushEventQueue() (map[string]api.FlushPayload, error) {

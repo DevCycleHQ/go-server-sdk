@@ -228,12 +228,24 @@ type BucketedVariableResponse struct {
 	Variation Variation
 }
 
-func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, variableType string, shouldTrackEvent bool, clientCustomData map[string]interface{}) (*ReadOnlyVariable, error) {
+func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, variableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (*ReadOnlyVariable, error) {
 	result, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
 		return nil, err
 	}
 
+	if _, ok := VariableTypes[variableType]; !ok {
+		result = nil
+	}
+	variableVariationMap := map[string]FeatureVariation{}
+	if !eventQueue.options.DisableAutomaticEventLogging {
+		variableVariationMap[variableKey] = FeatureVariation{
+			Variation: result.Variation.Id,
+			Feature:   result.Feature.Id,
+		}
+	}
+
+	_ = eventQueue.QueueVariableEvaluatedEvent(variableVariationMap, &result.Variable, variableKey)
 	return &result.Variable, nil
 }
 
@@ -251,11 +263,11 @@ func generateBucketedVariableForUser(sdkKey string, user DVCPopulatedUser, key s
 		return nil, fmt.Errorf("config missing feature for variable %s", key)
 	}
 
-	targetAndHashes, err := doesUserQualifyForFeature(config, *featForVariable, user, clientCustomData)
+	th, err := doesUserQualifyForFeature(config, *featForVariable, user, clientCustomData)
 	if err != nil {
 		return nil, err
 	}
-	variation, err := bucketUserForVariation(featForVariable, targetAndHashes)
+	variation, err := bucketUserForVariation(featForVariable, th)
 	if err != nil {
 		return nil, err
 	}

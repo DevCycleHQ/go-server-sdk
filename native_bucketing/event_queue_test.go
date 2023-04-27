@@ -159,8 +159,9 @@ func TestEventQueue_QueueAndFlush(t *testing.T) {
 	eq, err := InitEventQueue("dvc_server_token_hash", &api.EventQueueOptions{})
 	require.NoError(t, err)
 	hasErrored := false
-	for i := 0; i <= 50; i++ {
+	for i := 0; i < 50; i++ {
 		event.Target = fmt.Sprintf("somevariablekey%d", i)
+		user.UserId = fmt.Sprintf("testing%d", i)
 		err = eq.QueueEvent(user, event)
 		if err != nil {
 			hasErrored = true

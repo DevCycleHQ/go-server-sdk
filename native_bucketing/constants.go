@@ -53,3 +53,19 @@ const (
 	DataKeyTypeBoolean = "Boolean"
 	DataKeyTypeNumber  = "Number"
 )
+
+const (
+	VariableTypesString = "String"
+	VariableTypesNumber = "Number"
+	VariableTypesJSON   = "JSON"
+	VariableTypesBool   = "Boolean"
+)
+
+var (
+	VariableTypes = map[string]string{
+		VariableTypesString: VariableTypesString,
+		VariableTypesNumber: VariableTypesNumber,
+		VariableTypesJSON:   VariableTypesJSON,
+		VariableTypesBool:   VariableTypesBool,
+	}
+)
