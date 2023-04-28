@@ -8,13 +8,16 @@
  */
 package api
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	EventType_VariableEvaluated    = "variableEvaluated"
 	EventType_AggVariableEvaluated = "aggVariableEvaluated"
 	EventType_VariableDefaulted    = "variableDefaulted"
 	EventType_AggVariableDefaulted = "aggVariableDefaulted"
+	EventType_CustomEvent          = "customEvent"
 )
 
 type DVCEvent struct {
@@ -37,6 +40,35 @@ type FlushPayload struct {
 	PayloadId  string                  `json:"payloadId"`
 	EventCount int                     `json:"eventCount"`
 	Records    []UserEventsBatchRecord `json:"records"`
+	Status     string
+}
+
+func (fp *FlushPayload) AddBatchRecordForUser(record UserEventsBatchRecord, chunkSize int) {
+	userRecord := fp.getRecordForUser(record.User.UserId)
+	chunkedEvents := ChunkSlice(record.Events, chunkSize)
+	if userRecord != nil {
+		userRecord.User = record.User
+		for _, chunk := range chunkedEvents {
+			userRecord.Events = append(userRecord.Events, chunk...)
+		}
+	} else {
+		for _, chunk := range chunkedEvents {
+			fp.Records = append(fp.Records, UserEventsBatchRecord{
+				User:   record.User,
+				Events: chunk,
+			})
+		}
+	}
+
+}
+
+func (fp *FlushPayload) getRecordForUser(userId string) *UserEventsBatchRecord {
+	for _, record := range fp.Records {
+		if record.User.UserId == userId {
+			return &record
+		}
+	}
+	return nil
 }
 
 type BatchEventsBody struct {
@@ -49,6 +81,19 @@ type EventQueueOptions struct {
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging"`
 	MaxEventQueueSize            int           `json:"maxEventsPerFlush,omitempty"`
 	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
+	EventRequestChunkSize        int           `json:"eventRequestChunkSize,omitempty"`
+	EventsAPIBasePath            string        `json:"eventsAPIBasePath,omitempty"`
+}
+
+func (o *EventQueueOptions) CheckBounds() {
+	if o.MaxEventQueueSize < 100 {
+		o.MaxEventQueueSize = 100
+	} else if o.MaxEventQueueSize > 1000 {
+		o.MaxEventQueueSize = 1000
+	}
+	if o.EventsAPIBasePath == "" {
+		o.EventsAPIBasePath = "https://events.devcycle.com"
+	}
 }
 
 func (o *EventQueueOptions) IsEventLoggingDisabled(event *DVCEvent) bool {

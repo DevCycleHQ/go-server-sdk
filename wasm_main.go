@@ -3,6 +3,7 @@ package devcycle
 import (
 	_ "embed"
 	"github.com/bytecodealliance/wasmtime-go/v6"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
 //go:embed bucketing-lib.release.wasm
@@ -21,7 +22,7 @@ func (d *WASMMain) Initialize(options *DVCOptions) (err error) {
 	d.wasm = wasmMainBinary
 	d.wasmEngine = wasmtime.NewEngine()
 	if options != nil && options.UseDebugWASM {
-		infof("Using debug WASM binary. (This is not recommended for production use)")
+		util.Infof("Using debug WASM binary. (This is not recommended for production use)")
 		d.wasm = wasmDebugBinary
 	}
 	d.wasmModule, err = wasmtime.NewModule(d.wasmEngine, d.wasm)

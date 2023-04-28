@@ -58,7 +58,7 @@ func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
 	c, err := NewDVCClient("dvc_server_token_hash", &DVCOptions{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
 	fatalErr(t, err)
 
-	for i := 0; i < 101; i++ {
+	for i := 0; i <= 100; i++ {
 		log.Println(i)
 		_, err = c.Track(DVCUser{UserId: "j_test", DeviceModel: "testing"},
 			DVCEvent{Target: "customevent", Type_: "event"})

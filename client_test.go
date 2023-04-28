@@ -3,6 +3,8 @@ package devcycle
 import (
 	"flag"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"github.com/stretchr/testify/require"
 	"io"
 	"log"
 	"net/http"
@@ -125,6 +127,35 @@ func TestDVCClient_VariableLocalNumber(t *testing.T) {
 	fmt.Println(variable)
 }
 
+func TestDVCClient_VariableEventIsQueued(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
+	httpEventsApiMock()
+
+	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	fatalErr(t, err)
+
+	user := DVCUser{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
+	fmt.Println(c.AllVariables(user))
+	variable, err := c.Variable(
+		user,
+		"v-key-76", 69)
+	fatalErr(t, err)
+
+	if variable.IsDefaulted || variable.Value == 69 {
+		t.Fatal("variable should not be defaulted")
+	}
+	fmt.Println(variable.Value)
+	if variable.Value.(float64) != 60.0 {
+		t.Fatal("variable should be 60")
+	}
+	fmt.Println(variable.IsDefaulted)
+	fmt.Println(variable)
+	err = c.eventQueue.FlushEvents()
+	require.NoError(t, err)
+}
+
 func TestDVCClient_VariableLocal(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -138,6 +169,23 @@ func TestDVCClient_VariableLocal(t *testing.T) {
 		"test", true)
 	fatalErr(t, err)
 
+	fmt.Println(variable)
+}
+
+func TestDVCClient_VariableLocalFlush(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+
+	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	fatalErr(t, err)
+
+	variable, err := c.Variable(
+		DVCUser{UserId: "j_test", DeviceModel: "testing"},
+		"variableThatShouldBeDefaulted", true)
+	fatalErr(t, err)
+	err = c.FlushEvents()
+	fatalErr(t, err)
 	fmt.Println(variable)
 }
 
@@ -426,6 +474,7 @@ func init() {
 }
 
 func BenchmarkDVCClient_VariableSerial(b *testing.B) {
+	util.SetLogger(util.DiscardLogger{})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
@@ -474,6 +523,7 @@ func BenchmarkDVCClient_VariableSerial(b *testing.B) {
 }
 
 func BenchmarkDVCClient_VariableParallel(b *testing.B) {
+	util.SetLogger(util.DiscardLogger{})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
@@ -494,7 +544,7 @@ func BenchmarkDVCClient_VariableParallel(b *testing.B) {
 		},
 	}
 	if benchmarkEnableEvents {
-		infof("Enabling event logging")
+		util.Infof("Enabling event logging")
 		options.DisableAutomaticEventLogging = false
 		options.DisableCustomEventLogging = false
 		options.EventFlushIntervalMS = time.Millisecond * 500

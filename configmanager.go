@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"io"
 	"net/http"
 	"sync/atomic"
@@ -58,13 +59,13 @@ func (e *EnvironmentConfigManager) StartPolling(
 		for {
 			select {
 			case <-e.context.Done():
-				warnf("Stopping config polling.")
+				util.Warnf("Stopping config polling.")
 				e.ticker.Stop()
 				return
 			case <-e.ticker.C:
 				err := e.fetchConfig(CONFIG_RETRIES)
 				if err != nil {
-					warnf("Error fetching config: %s\n", err)
+					util.Warnf("Error fetching config: %s\n", err)
 				}
 			}
 		}
@@ -79,7 +80,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 	defer func() {
 		if r := recover(); r != nil {
 			// get the stack trace and potentially log it here
-			err = errorf("recovered from panic in fetchConfig: %v", r)
+			err = util.Errorf("recovered from panic in fetchConfig: %v", r)
 		}
 	}()
 
@@ -94,7 +95,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 	resp, err := e.httpClient.Do(req)
 	if err != nil {
 		if numRetriesRemaining > 0 {
-			warnf("Retrying config fetch %d more times. Error: %s", numRetriesRemaining, err)
+			util.Warnf("Retrying config fetch %d more times. Error: %s", numRetriesRemaining, err)
 			return e.fetchConfig(numRetriesRemaining - 1)
 		}
 		return err
@@ -110,12 +111,12 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 		return nil
 	case statusCode == http.StatusForbidden:
 		e.stopPolling()
-		return errorf("invalid SDK key. Aborting config polling")
+		return util.Errorf("invalid SDK key. Aborting config polling")
 	case statusCode >= 500:
 		// Retryable Errors. Continue polling.
-		warnf("Config fetch failed. Status:" + resp.Status)
+		util.Warnf("Config fetch failed. Status:" + resp.Status)
 	default:
-		err = errorf("Unexpected response code: %d\n"+
+		err = util.Errorf("Unexpected response code: %d\n"+
 			"Body: %s\n"+
 			"URL: %s\n"+
 			"Headers: %s\n"+
@@ -124,7 +125,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 	}
 
 	if numRetriesRemaining > 0 {
-		warnf("Retrying config fetch %d more times. Status: %s", numRetriesRemaining, resp.Status)
+		util.Warnf("Retrying config fetch %d more times. Status: %s", numRetriesRemaining, resp.Status)
 		return e.fetchConfig(numRetriesRemaining - 1)
 	}
 
@@ -139,7 +140,7 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 	// Check
 	valid := json.Valid(config)
 	if !valid {
-		return errorf("invalid JSON data received for config")
+		return util.Errorf("invalid JSON data received for config")
 	}
 
 	e.configETag = response.Header.Get("Etag")
@@ -150,10 +151,10 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 		return err
 	}
 
-	infof("Config set. ETag: %s\n", e.configETag)
+	util.Infof("Config set. ETag: %s\n", e.configETag)
 	if e.firstLoad {
 		e.firstLoad = false
-		infof("DevCycle SDK Initialized.")
+		util.Infof("DevCycle SDK Initialized.")
 	}
 	return nil
 }

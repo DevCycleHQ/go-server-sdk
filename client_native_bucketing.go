@@ -4,6 +4,7 @@ package devcycle
 
 import (
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"sync"
 	"time"
 
@@ -70,6 +71,7 @@ func (n *NativeLocalBucketing) SetClientCustomData(customData map[string]interfa
 }
 
 func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variableType string) (Variable, error) {
+
 	defaultVar := Variable{
 		BaseVariable: api.BaseVariable{
 			Key:   variableKey,
@@ -81,8 +83,9 @@ func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variab
 	}
 	clientCustomData := native_bucketing.GetClientCustomData(n.sdkKey)
 	populatedUser := user.GetPopulatedUserWithTime(n.platformData, DEFAULT_USER_TIME)
-	variable, err := native_bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, false, clientCustomData)
-	if err != nil {
+
+	variable, err := native_bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
+	if err != nil || variable == nil {
 		// TODO: Are there errors that can be returned here that should be surfaced to the client?
 		return defaultVar, nil
 	}
@@ -94,5 +97,8 @@ func (n *NativeLocalBucketing) Variable(user DVCUser, variableKey string, variab
 }
 
 func (n *NativeLocalBucketing) Close() {
-	//TODO: Implement
+	err := n.eventQueue.Close()
+	if err != nil {
+		_ = util.Errorf("Error closing event queue: %v", err)
+	}
 }

@@ -3,6 +3,8 @@ package native_bucketing
 import (
 	"fmt"
 	"time"
+
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
 // Max value of an unsigned 32-bit integer, which is what murmurhash returns
@@ -228,13 +230,43 @@ type BucketedVariableResponse struct {
 	Variation Variation
 }
 
-func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, variableType string, shouldTrackEvent bool, clientCustomData map[string]interface{}) (*ReadOnlyVariable, error) {
+var emptyVariableVariationMap = map[string]FeatureVariation{}
+
+func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, variableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (*ReadOnlyVariable, error) {
+	var variablePtr *ReadOnlyVariable = nil
+	variableVariationMap := map[string]FeatureVariation{}
 	result, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
+		eventErr := eventQueue.QueueVariableEvaluatedEvent(emptyVariableVariationMap, nil, variableKey)
+		if eventErr != nil {
+			util.Warnf("Failed to queue variable defaulted event: %s", eventErr)
+		}
 		return nil, err
 	}
 
-	return &result.Variable, nil
+	if _, ok := VariableTypes[variableType]; !ok || result.Variable.Type_ != variableType {
+		result = nil
+	}
+
+	if result != nil {
+		variablePtr = &result.Variable
+	}
+
+	if !eventQueue.options.DisableAutomaticEventLogging {
+		if result != nil {
+			variableVariationMap[variableKey] = FeatureVariation{
+				Variation: result.Variation.Id,
+				Feature:   result.Feature.Id,
+			}
+		}
+
+		err = eventQueue.QueueVariableEvaluatedEvent(variableVariationMap, variablePtr, variableKey)
+		if err != nil {
+			util.Warnf("Failed to queue variable evaluated event: %s", err)
+		}
+	}
+	return variablePtr, nil
+
 }
 
 func generateBucketedVariableForUser(sdkKey string, user DVCPopulatedUser, key string, clientCustomData map[string]interface{}) (*BucketedVariableResponse, error) {
@@ -251,11 +283,11 @@ func generateBucketedVariableForUser(sdkKey string, user DVCPopulatedUser, key s
 		return nil, fmt.Errorf("config missing feature for variable %s", key)
 	}
 
-	targetAndHashes, err := doesUserQualifyForFeature(config, *featForVariable, user, clientCustomData)
+	th, err := doesUserQualifyForFeature(config, *featForVariable, user, clientCustomData)
 	if err != nil {
 		return nil, err
 	}
-	variation, err := bucketUserForVariation(featForVariable, targetAndHashes)
+	variation, err := bucketUserForVariation(featForVariable, th)
 	if err != nil {
 		return nil, err
 	}
