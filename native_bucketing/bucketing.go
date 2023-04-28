@@ -258,7 +258,11 @@ func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, v
 		}
 	}
 
-	return &result.Variable, nil
+	if result == nil {
+		return nil, nil
+	} else {
+		return &result.Variable, nil
+	}
 }
 
 func generateBucketedVariableForUser(sdkKey string, user DVCPopulatedUser, key string, clientCustomData map[string]interface{}) (*BucketedVariableResponse, error) {
