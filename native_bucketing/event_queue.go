@@ -71,16 +71,12 @@ func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
 						if count == 0 {
 							continue
 						}
-						metaData := map[string]interface{}{}
-						if _type == api.EventType_AggVariableDefaulted {
-							metaData = nil
 
-						} else {
-							metaData = map[string]interface{}{
-								"_variation": variation,
-								"_feature":   feature,
-							}
+						metaData := map[string]interface{}{
+							"_variation": variation,
+							"_feature":   feature,
 						}
+
 						event := api.DVCEvent{
 							Type_:       _type,
 							Target:      variableKey,
@@ -155,7 +151,7 @@ func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
 	if eq.aggEventQueue == nil {
 		eq.aggEventQueue = make(AggregateEventQueue)
 	}
-	for _, target := range []string{api.EventType_AggVariableEvaluated, api.EventType_AggVariableDefaulted, api.EventType_VariableEvaluated, api.EventType_VariableDefaulted} {
+	for _, target := range []string{api.EventType_AggVariableEvaluated, api.EventType_VariableEvaluated} {
 		if _, ok := eq.aggEventQueue[target]; !ok {
 			eq.aggEventQueue[target] = make(VariableAggMap, len(config.Variables))
 		}

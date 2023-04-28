@@ -184,7 +184,8 @@ func TestDVCClient_VariableLocalFlush(t *testing.T) {
 		DVCUser{UserId: "j_test", DeviceModel: "testing"},
 		"variableThatShouldBeDefaulted", true)
 	fatalErr(t, err)
-	c.FlushEvents()
+	err = c.FlushEvents()
+	fatalErr(t, err)
 	fmt.Println(variable)
 }
 
