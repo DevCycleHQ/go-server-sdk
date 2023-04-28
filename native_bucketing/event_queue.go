@@ -71,10 +71,14 @@ func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
 						if count == 0 {
 							continue
 						}
-
-						metaData := map[string]interface{}{
-							"_variation": variation,
-							"_feature":   feature,
+						metaData := map[string]interface{}{}
+						if _type == api.EventType_AggVariableDefaulted || _type == api.EventType_VariableDefaulted {
+							metaData = nil
+						} else {
+							metaData = map[string]interface{}{
+								"_variation": variation,
+								"_feature":   feature,
+							}
 						}
 
 						event := api.DVCEvent{
