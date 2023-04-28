@@ -528,7 +528,7 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 		if v, ok := featureVariationAggregationMap[featureVar.Feature]; ok {
 			variationAggMap = v
 		}
-		variationAggMap[featureVar.Variation] += 1
+		variationAggMap[featureVar.Variation]++
 		featureVariationAggregationMap[featureVar.Feature] = variationAggMap
 	} else {
 		if feature, ok := featureVariationAggregationMap["value"]; ok {
@@ -544,5 +544,7 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 			// increment event queue count
 		}
 	}
+	variableFeatureVariationAggregationMap[eTarget] = featureVariationAggregationMap
+	eq.aggEventQueue[eType] = variableFeatureVariationAggregationMap
 	return nil
 }
