@@ -533,15 +533,19 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 	} else {
 		if feature, ok := featureVariationAggregationMap["value"]; ok {
 			if _, ok2 := feature["value"]; ok2 {
-				feature["value"]++
+				featureVariationAggregationMap["value"]["value"]++
 			} else {
 				return fmt.Errorf("missing second value map for aggVariableDefaulted")
 			}
-			featureVariationAggregationMap["value"] = feature
 		} else {
-			featureVariationAggregationMap[eTarget] = VariationAggMap{
-				"value": 1,
+			if _, ok2 := featureVariationAggregationMap[eTarget]; ok2 {
+				featureVariationAggregationMap[eTarget]["value"]++
+			} else {
+				featureVariationAggregationMap[eTarget] = VariationAggMap{
+					"value": 1,
+				}
 			}
+
 			// increment event queue count
 		}
 	}
