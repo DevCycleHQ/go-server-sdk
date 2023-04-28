@@ -55,7 +55,7 @@ func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
 	for _type, variableAggMap := range *agg {
 		for variableKey, featureAggMap := range variableAggMap {
 			if variationAggMap, ok := featureAggMap["value"]; ok {
-				if variationValue, ok := variationAggMap["value"]; ok {
+				if variationValue, ok2 := variationAggMap["value"]; ok2 && variationValue > 0 {
 					value := float64(variationValue)
 					event := api.DVCEvent{
 						Type_:       _type,
@@ -69,6 +69,9 @@ func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
 			} else {
 				for feature, _variationAggMap := range featureAggMap {
 					for variation, count := range _variationAggMap {
+						if count == 0 {
+							continue
+						}
 						event := api.DVCEvent{
 							Type_:  _type,
 							Target: variableKey,
