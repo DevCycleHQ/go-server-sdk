@@ -149,8 +149,6 @@ func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
 	if eq.aggEventQueue == nil {
 		eq.aggEventQueue = make(AggregateEventQueue)
 	}
-	eq.aggEventMutex.Lock()
-	defer eq.aggEventMutex.Unlock()
 	for _, target := range []string{api.EventType_AggVariableEvaluated, api.EventType_AggVariableDefaulted, api.EventType_VariableEvaluated, api.EventType_VariableDefaulted} {
 		if _, ok := eq.aggEventQueue[target]; !ok {
 			eq.aggEventQueue[target] = make(VariableAggMap, len(config.Variables))
