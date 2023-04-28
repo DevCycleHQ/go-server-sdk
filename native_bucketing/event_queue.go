@@ -71,7 +71,7 @@ func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
 						if count == 0 {
 							continue
 						}
-						metaData := map[string]interface{}{}
+						var metaData map[string]interface{}
 						if _type == api.EventType_AggVariableDefaulted || _type == api.EventType_VariableDefaulted {
 							metaData = nil
 						} else {
