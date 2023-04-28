@@ -242,7 +242,7 @@ func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, v
 		return nil, err
 	}
 
-	if _, ok := VariableTypes[variableType]; !ok {
+	if _, ok := VariableTypes[variableType]; !ok || result.Variable.Type_ != variableType {
 		result = nil
 	}
 	variableVariationMap := map[string]FeatureVariation{}
