@@ -466,6 +466,16 @@ func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
 		return err
 	}
 	event.event.FeatureVars = bucketedConfig.FeatureVariationMap
+
+	switch event.event.Type_ {
+	case api.EventType_AggVariableDefaulted, api.EventType_VariableDefaulted, api.EventType_AggVariableEvaluated, api.EventType_VariableEvaluated:
+		break
+	default:
+		event.event.CustomType = event.event.Type_
+		event.event.Type_ = api.EventType_CustomEvent
+		event.event.UserId = event.user.UserId
+	}
+
 	if _, ok := eq.userEventQueue[popU.UserId]; ok {
 		records := eq.userEventQueue[popU.UserId]
 		records.Events = append(records.Events, *event.event)

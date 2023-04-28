@@ -17,6 +17,7 @@ const (
 	EventType_AggVariableEvaluated = "aggVariableEvaluated"
 	EventType_VariableDefaulted    = "variableDefaulted"
 	EventType_AggVariableDefaulted = "aggVariableDefaulted"
+	EventType_CustomEvent          = "customEvent"
 )
 
 type DVCEvent struct {
