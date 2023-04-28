@@ -474,6 +474,7 @@ func init() {
 }
 
 func BenchmarkDVCClient_VariableSerial(b *testing.B) {
+	util.SetLogger(util.DiscardLogger{})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
@@ -522,6 +523,7 @@ func BenchmarkDVCClient_VariableSerial(b *testing.B) {
 }
 
 func BenchmarkDVCClient_VariableParallel(b *testing.B) {
+	util.SetLogger(util.DiscardLogger{})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
