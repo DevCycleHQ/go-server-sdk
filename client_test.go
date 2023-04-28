@@ -172,6 +172,22 @@ func TestDVCClient_VariableLocal(t *testing.T) {
 	fmt.Println(variable)
 }
 
+func TestDVCClient_VariableLocalFlush(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+
+	c, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	fatalErr(t, err)
+
+	variable, err := c.Variable(
+		DVCUser{UserId: "j_test", DeviceModel: "testing"},
+		"variableThatShouldBeDefaulted", true)
+	fatalErr(t, err)
+	c.FlushEvents()
+	fmt.Println(variable)
+}
+
 func TestDVCClient_VariableLocalProtobuf(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()

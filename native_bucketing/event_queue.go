@@ -32,7 +32,6 @@ type userEventData struct {
 type VariationAggMap map[string]int64
 type FeatureAggMap map[string]VariationAggMap
 type VariableAggMap map[string]FeatureAggMap
-
 type AggregateEventQueue map[string]VariableAggMap
 type UserEventQueue map[string]api.UserEventsBatchRecord
 
@@ -72,15 +71,22 @@ func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
 						if count == 0 {
 							continue
 						}
-						event := api.DVCEvent{
-							Type_:  _type,
-							Target: variableKey,
-							Value:  float64(count),
-							UserId: userId,
-							MetaData: map[string]interface{}{
+						metaData := map[string]interface{}{}
+						if _type == api.EventType_AggVariableDefaulted {
+							metaData = nil
+
+						} else {
+							metaData = map[string]interface{}{
 								"_variation": variation,
 								"_feature":   feature,
-							},
+							}
+						}
+						event := api.DVCEvent{
+							Type_:       _type,
+							Target:      variableKey,
+							Value:       float64(count),
+							UserId:      userId,
+							MetaData:    metaData,
 							FeatureVars: emptyFeatureVars,
 						}
 						aggregateEvents = append(aggregateEvents, event)
