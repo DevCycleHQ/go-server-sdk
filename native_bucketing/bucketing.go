@@ -233,6 +233,8 @@ type BucketedVariableResponse struct {
 var emptyVariableVariationMap = map[string]FeatureVariation{}
 
 func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, variableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (*ReadOnlyVariable, error) {
+	var variablePtr *ReadOnlyVariable = nil
+	variableVariationMap := map[string]FeatureVariation{}
 	result, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
 		eventErr := eventQueue.QueueVariableEvaluatedEvent(emptyVariableVariationMap, nil, variableKey)
@@ -245,24 +247,26 @@ func VariableForUser(sdkKey string, user DVCPopulatedUser, variableKey string, v
 	if _, ok := VariableTypes[variableType]; !ok || result.Variable.Type_ != variableType {
 		result = nil
 	}
-	variableVariationMap := map[string]FeatureVariation{}
+
+	if result != nil {
+		variablePtr = &result.Variable
+	}
+
 	if !eventQueue.options.DisableAutomaticEventLogging {
-		variableVariationMap[variableKey] = FeatureVariation{
-			Variation: result.Variation.Id,
-			Feature:   result.Feature.Id,
+		if result != nil {
+			variableVariationMap[variableKey] = FeatureVariation{
+				Variation: result.Variation.Id,
+				Feature:   result.Feature.Id,
+			}
 		}
 
-		err = eventQueue.QueueVariableEvaluatedEvent(variableVariationMap, &result.Variable, variableKey)
+		err = eventQueue.QueueVariableEvaluatedEvent(variableVariationMap, variablePtr, variableKey)
 		if err != nil {
 			util.Warnf("Failed to queue variable evaluated event: %s", err)
 		}
 	}
+	return variablePtr, nil
 
-	if result == nil {
-		return nil, nil
-	} else {
-		return &result.Variable, nil
-	}
 }
 
 func generateBucketedVariableForUser(sdkKey string, user DVCPopulatedUser, key string, clientCustomData map[string]interface{}) (*BucketedVariableResponse, error) {
