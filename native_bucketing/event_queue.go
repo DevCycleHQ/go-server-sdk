@@ -278,6 +278,8 @@ func (eq *EventQueue) flushEventQueue() (map[string]api.FlushPayload, error) {
 
 	eq.updateFailedPayloads()
 
+	eq.eventsFlushed.Add(int32(len(eq.pendingPayloads)))
+
 	return eq.pendingPayloads, nil
 }
 
