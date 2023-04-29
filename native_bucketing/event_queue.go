@@ -242,6 +242,8 @@ func (eq *EventQueue) QueueVariableEvaluatedEvent(variableVariationMap map[strin
 }
 
 func (eq *EventQueue) flushEventQueue() (map[string]api.FlushPayload, error) {
+	eq.aggEventMutex.Lock()
+	defer eq.aggEventMutex.Unlock()
 	var records []api.UserEventsBatchRecord
 
 	for _, record := range eq.pendingPayloads {
@@ -275,6 +277,8 @@ func (eq *EventQueue) flushEventQueue() (map[string]api.FlushPayload, error) {
 	}
 
 	eq.updateFailedPayloads()
+
+	eq.eventsFlushed.Add(int32(len(eq.pendingPayloads)))
 
 	return eq.pendingPayloads, nil
 }
