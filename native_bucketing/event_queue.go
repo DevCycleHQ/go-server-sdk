@@ -198,7 +198,6 @@ func (eq *EventQueue) queueAggregateEventInternal(event *api.DVCEvent, variableV
 		variableVariationMap: variableVariationMap,
 		aggregateByVariation: aggregateByVariation,
 	}:
-		util.Debugf("Queued event: %+v", event)
 	default:
 		return util.Errorf("event queue is full, dropping event: %+v", event)
 	}
@@ -213,7 +212,6 @@ func (eq *EventQueue) QueueEvent(user DVCUser, event api.DVCEvent) error {
 		event: &event,
 		user:  &user,
 	}:
-		util.Debugf("Queued event: %+v", event)
 	default:
 		return util.Errorf("event queue is full, dropping event: %+v", event)
 	}
@@ -284,6 +282,8 @@ func (eq *EventQueue) flushEventQueue() (map[string]api.FlushPayload, error) {
 }
 
 func (eq *EventQueue) FlushEvents() (err error) {
+	util.Debugf("Flushing events")
+
 	eq.flushMutex.Lock()
 	defer eq.flushMutex.Unlock()
 
@@ -304,7 +304,7 @@ func (eq *EventQueue) FlushEvents() (err error) {
 func (eq *EventQueue) flushEventPayload(payload *api.FlushPayload) error {
 	if len(payload.Records) == 0 {
 		_ = eq.reportPayloadFailure(payload, false)
-		return util.Errorf("cannot flush empty payload")
+		return fmt.Errorf("cannot flush empty payload")
 	}
 	eventsHost := eq.options.EventsAPIBasePath
 	var req *http.Request
@@ -374,7 +374,6 @@ func (eq *EventQueue) Metrics() (int32, int32) {
 }
 
 func (eq *EventQueue) Close() (err error) {
-	util.Debugf("Flushing events from Close()")
 	err = eq.FlushEvents()
 	eq.done()
 	return
@@ -414,7 +413,6 @@ func (eq *EventQueue) processEvents(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			util.Debugf("Closing native event queues")
 			close(eq.userEventQueueRaw)
 			close(eq.aggEventQueueRaw)
 			return
@@ -437,11 +435,9 @@ func (eq *EventQueue) flushEventsPeriodically(ctx context.Context, interval time
 	for {
 		select {
 		case <-ctx.Done():
-			util.Debugf("Stopping event flusher")
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			util.Debugf("Flushing events from timer")
 			err := eq.FlushEvents()
 			if err != nil {
 				_ = util.Errorf("Failed to flush events: %s", err)
