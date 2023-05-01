@@ -39,3 +39,15 @@ To find usage documentation, visit our [docs](https://docs.devcycle.com/docs/sdk
 ## Testing
 
 This SDK is supported by our [test harness](https://github.com/DevCycleHQ/test-harness), a test suite shared between all DevCycle SDKs for consistency.
+
+## Native Bucketing Library (Experimental)
+
+This SDK also supports an experimental version of the DevCycle bucketing and segmentation logic built natively in Go. This system is designed as a ultra-high performance alternative to the WASM and Cloud bucketing solutions. 
+
+To activate the native bucketing library, include the following build tag for your application:
+
+```bash
+-tags native_bucketing
+```
+
+This implementation is still under-going active development. Take care when utilizing it in production environments.
