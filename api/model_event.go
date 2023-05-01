@@ -94,6 +94,9 @@ func (o *EventQueueOptions) CheckBounds() {
 	if o.EventsAPIBasePath == "" {
 		o.EventsAPIBasePath = "https://events.devcycle.com"
 	}
+	if o.FlushEventQueueSize == 0 {
+		o.FlushEventQueueSize = 100
+	}
 }
 
 func (o *EventQueueOptions) IsEventLoggingDisabled(event *DVCEvent) bool {

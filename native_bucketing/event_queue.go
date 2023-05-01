@@ -492,6 +492,12 @@ func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
 		}
 		eq.userEventQueue[popU.UserId] = record
 	}
+	if len(eq.userEventQueue[popU.UserId].Events) >= eq.options.FlushEventQueueSize {
+		err = eq.FlushEvents()
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -549,7 +555,6 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 					"value": 1,
 				}
 			}
-
 			// increment event queue count
 		}
 	}

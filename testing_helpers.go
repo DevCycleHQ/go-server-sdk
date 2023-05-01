@@ -2,11 +2,9 @@ package devcycle
 
 import (
 	_ "embed"
+	"github.com/jarcoal/httpmock"
 	"net/http"
 	"strings"
-	"testing"
-
-	"github.com/jarcoal/httpmock"
 )
 
 var (
@@ -33,12 +31,6 @@ func init() {
 
 	// Set default options
 	test_options.CheckDefaults()
-}
-
-func skipIfNative(t *testing.T) {
-	if NATIVE_SDK {
-		t.Skip("Skipping test for native SDK")
-	}
 }
 
 func httpBucketingAPIMock() {

@@ -1,8 +1,10 @@
 package devcycle
 
 import (
+	"github.com/stretchr/testify/require"
 	"log"
 	"testing"
+	"time"
 
 	"github.com/jarcoal/httpmock"
 )
@@ -23,8 +25,6 @@ func TestEventQueue_QueueEvent(t *testing.T) {
 }
 
 func TestEventQueue_QueueEvent_100_DropEvent(t *testing.T) {
-	skipIfNative(t)
-
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
@@ -49,8 +49,6 @@ func TestEventQueue_QueueEvent_100_DropEvent(t *testing.T) {
 }
 
 func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
-	skipIfNative(t)
-
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
@@ -67,7 +65,9 @@ func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
 			break
 		}
 	}
-	if httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"] != 10 {
-		t.Fatal("Expected 10 flushes to be forced. Got ", httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"])
-	}
+
+	require.Eventually(t, func() bool {
+		return httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"] == 10
+	}, 1*time.Second, 100*time.Millisecond)
+
 }
