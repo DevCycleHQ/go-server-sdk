@@ -2,6 +2,7 @@ package devcycle
 
 import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
 type ErrorResponse = api.ErrorResponse
@@ -26,3 +27,7 @@ type UserEventsBatchRecord = api.UserEventsBatchRecord
 type FlushPayload = api.FlushPayload
 type BatchEventsBody = api.BatchEventsBody
 type Feature = api.Feature
+type Logger = util.Logger
+type DiscardLogger = util.DiscardLogger
+
+func SetLogger(log Logger) { util.SetLogger(log) }
