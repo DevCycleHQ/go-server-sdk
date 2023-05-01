@@ -3,6 +3,7 @@ package devcycle
 import (
 	"context"
 	"errors"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/open-feature/go-sdk/pkg/openfeature"
 )
 
@@ -263,6 +264,6 @@ func setCustomDataValue(customData map[string]interface{}, key string, val inter
 	case bool:
 		customData[key] = v
 	default:
-		warnf("Unsupported type for custom data value: %s=%v", key, val)
+		util.Warnf("Unsupported type for custom data value: %s=%v", key, val)
 	}
 }
