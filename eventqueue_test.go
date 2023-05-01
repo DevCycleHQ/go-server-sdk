@@ -1,6 +1,7 @@
 package devcycle
 
 import (
+	"github.com/stretchr/testify/require"
 	"log"
 	"testing"
 	"time"
@@ -65,12 +66,8 @@ func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
 		}
 	}
 
-	if NATIVE_SDK {
-		// Native SDK has a background worker that flushes the queue. It's not inline and we need to wait for it to finish.
-		time.Sleep(10 * time.Second)
-	}
+	require.Eventually(t, func() bool {
+		return httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"] == 10
+	}, 1*time.Second, 100*time.Millisecond)
 
-	if httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"] != 10 {
-		t.Fatal("Expected 10 flushes to be forced. Got ", httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"])
-	}
 }
