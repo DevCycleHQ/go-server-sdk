@@ -1,10 +1,11 @@
 package devcycle
 
 import (
-	"github.com/stretchr/testify/require"
 	"log"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/jarcoal/httpmock"
 )
@@ -57,7 +58,6 @@ func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
 	fatalErr(t, err)
 
 	for i := 0; i <= 100; i++ {
-		log.Println(i)
 		_, err = c.Track(DVCUser{UserId: "j_test", DeviceModel: "testing"},
 			DVCEvent{Target: "customevent", Type_: "event"})
 		if err != nil {
