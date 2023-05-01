@@ -42,7 +42,7 @@ jobs:
         with:
           go-version: 1.19
       - name: Run benchmark
-        run: go test -tags native_bucketing  -bench=^BenchmarkDVCClient_Variable -run=^# -benchDisableLogs | tee bench_native_output.txt
+        run: go test -tags native_bucketing -bench=^BenchmarkDVCClient_Variable -run=^# -benchDisableLogs | tee bench_native_output.txt
       - name: Download previous benchmark data
         uses: actions/cache@v3
         with:

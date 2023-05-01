@@ -3,6 +3,7 @@ package devcycle
 import (
 	"log"
 	"testing"
+	"time"
 
 	"github.com/jarcoal/httpmock"
 )
@@ -23,8 +24,6 @@ func TestEventQueue_QueueEvent(t *testing.T) {
 }
 
 func TestEventQueue_QueueEvent_100_DropEvent(t *testing.T) {
-	skipIfNative(t)
-
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
@@ -49,8 +48,6 @@ func TestEventQueue_QueueEvent_100_DropEvent(t *testing.T) {
 }
 
 func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
-	skipIfNative(t)
-
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
@@ -67,6 +64,12 @@ func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
 			break
 		}
 	}
+
+	if NATIVE_SDK {
+		// Native SDK has a background worker that flushes the queue. It's not inline and we need to wait for it to finish.
+		time.Sleep(10 * time.Second)
+	}
+
 	if httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"] != 10 {
 		t.Fatal("Expected 10 flushes to be forced. Got ", httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"])
 	}
