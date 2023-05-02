@@ -5,29 +5,40 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
+// Aliases for the types in the api package
 type ErrorResponse = api.ErrorResponse
 type BucketedUserConfig = api.BucketedUserConfig
-type Environment = api.Environment
 type BaseVariable = api.BaseVariable
 type Variable = api.Variable
 type ReadOnlyVariable = api.ReadOnlyVariable
-type DVCUser = api.DVCUser
-type DVCPopulatedUser = api.DVCPopulatedUser
-type UserFeatureData = api.UserFeatureData
+type User = api.User
 type UserDataAndEventsBody = api.UserDataAndEventsBody
-type Project = api.Project
-type ProjectSettings = api.ProjectSettings
-type EdgeDBSettings = api.EdgeDBSettings
-type OptInSettings = api.OptInSettings
-type OptInColors = api.OptInColors
 type PlatformData = api.PlatformData
 type FeatureVariation = api.FeatureVariation
-type DVCEvent = api.DVCEvent
-type UserEventsBatchRecord = api.UserEventsBatchRecord
+type Event = api.Event
 type FlushPayload = api.FlushPayload
 type BatchEventsBody = api.BatchEventsBody
 type Feature = api.Feature
+
+// Aliases to support customizing logging
 type Logger = util.Logger
 type DiscardLogger = util.DiscardLogger
 
 func SetLogger(log Logger) { util.SetLogger(log) }
+
+// Deprecated: Use devcycle.Options instead
+type DVCOptions = Options
+
+// Deprecated: Use devcycle.Client instead
+type DVCClient = Client
+
+// Deprecated: Use devcycle.User instead
+type DVCUser = api.User
+
+// Deprecated: Use devcycle.Event instead
+type DVCEvent = api.Event
+
+// Deprecated: Use devcycle.NewClient instead
+func NewDVCClient(sdkKey string, options *Options) (*Client, error) {
+	return NewClient(sdkKey, options)
+}

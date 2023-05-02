@@ -33,7 +33,7 @@ type EnvironmentConfigManager struct {
 func NewEnvironmentConfigManager(
 	sdkKey string,
 	localBucketing ConfigReceiver,
-	options *DVCOptions,
+	options *Options,
 	cfg *HTTPConfiguration,
 ) (e *EnvironmentConfigManager) {
 	configManager := &EnvironmentConfigManager{

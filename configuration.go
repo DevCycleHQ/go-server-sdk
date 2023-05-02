@@ -9,11 +9,12 @@
 package devcycle
 
 import (
-	"github.com/devcyclehq/go-server-sdk/v2/api"
-	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"net/http"
 	"runtime"
 	"time"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
 // contextKeys are used to identify the type of value in the context.
@@ -63,7 +64,7 @@ type AdvancedOptions struct {
 	MaxWasmWorkers             int
 }
 
-type DVCOptions struct {
+type Options struct {
 	EnableEdgeDB                 bool          `json:"enableEdgeDb,omitempty"`
 	EnableCloudBucketing         bool          `json:"enableCloudBucketing,omitempty"`
 	EventFlushIntervalMS         time.Duration `json:"eventFlushIntervalMS,omitempty"`
@@ -82,7 +83,7 @@ type DVCOptions struct {
 	AdvancedOptions
 }
 
-func (o *DVCOptions) eventQueueOptions() *EventQueueOptions {
+func (o *Options) eventQueueOptions() *EventQueueOptions {
 	return &EventQueueOptions{
 		FlushEventsInterval:          o.EventFlushIntervalMS,
 		DisableAutomaticEventLogging: o.DisableAutomaticEventLogging,
@@ -94,7 +95,7 @@ func (o *DVCOptions) eventQueueOptions() *EventQueueOptions {
 	}
 }
 
-func (o *DVCOptions) CheckDefaults() {
+func (o *Options) CheckDefaults() {
 	if o.EventFlushIntervalMS < time.Millisecond*500 || o.EventFlushIntervalMS > time.Minute*1 {
 		util.Warnf("EventFlushIntervalMS cannot be less than 500ms or longer than 1 minute. Defaulting to 30 seconds.")
 		o.EventFlushIntervalMS = time.Second * 30
@@ -134,7 +135,7 @@ type HTTPConfiguration struct {
 	HTTPClient        *http.Client
 }
 
-func NewConfiguration(options *DVCOptions) *HTTPConfiguration {
+func NewConfiguration(options *Options) *HTTPConfiguration {
 	configBasePath := "https://config-cdn.devcycle.com"
 	if options.ConfigCDNURI != "" {
 		configBasePath = options.ConfigCDNURI

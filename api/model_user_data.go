@@ -14,7 +14,7 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-type DVCUser struct {
+type User struct {
 	// Unique id to identify the user
 	UserId string `json:"user_id"`
 	// User's email used to identify the user on the dashboard / target audiences
@@ -39,15 +39,15 @@ type DVCUser struct {
 	LastSeenDate time.Time `json:"lastSeenDate,omitempty"`
 }
 
-type DVCPopulatedUser struct {
-	DVCUser
+type PopulatedUser struct {
+	User
 	*PlatformData
 	// Date the user was created, Unix epoch timestamp format
 	CreatedDate time.Time `json:"createdDate,omitempty"`
 }
 
-func (user DVCUser) GetPopulatedUser(platformData *PlatformData) DVCPopulatedUser {
-	return DVCPopulatedUser{
+func (user User) GetPopulatedUser(platformData *PlatformData) PopulatedUser {
+	return PopulatedUser{
 		user,
 		platformData,
 		time.Now(),
@@ -55,8 +55,8 @@ func (user DVCUser) GetPopulatedUser(platformData *PlatformData) DVCPopulatedUse
 }
 
 // GetPopulatedUserWithTime returns a populated user with a specific created date
-func (user DVCUser) GetPopulatedUserWithTime(platformData *PlatformData, createDate time.Time) DVCPopulatedUser {
-	return DVCPopulatedUser{
+func (user User) GetPopulatedUserWithTime(platformData *PlatformData, createDate time.Time) PopulatedUser {
+	return PopulatedUser{
 		user,
 		platformData,
 		createDate,
@@ -64,11 +64,11 @@ func (user DVCUser) GetPopulatedUserWithTime(platformData *PlatformData, createD
 }
 
 type UserFeatureData struct {
-	User        DVCUser `json:"user"`
+	User        User `json:"user"`
 	FeatureVars map[string]string
 }
 
-func (p *DVCPopulatedUser) MergeClientCustomData(ccd map[string]interface{}) {
+func (p *PopulatedUser) MergeClientCustomData(ccd map[string]interface{}) {
 	if p.CustomData == nil {
 		p.CustomData = make(map[string]interface{})
 	}
@@ -79,7 +79,7 @@ func (p *DVCPopulatedUser) MergeClientCustomData(ccd map[string]interface{}) {
 	}
 }
 
-func (p *DVCPopulatedUser) CombinedCustomData() map[string]interface{} {
+func (p *PopulatedUser) CombinedCustomData() map[string]interface{} {
 	ret := make(map[string]interface{}, len(p.CustomData)+len(p.PrivateCustomData))
 	maps.Copy(ret, p.CustomData)
 	maps.Copy(ret, p.PrivateCustomData)

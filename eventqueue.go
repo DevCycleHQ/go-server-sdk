@@ -15,7 +15,7 @@ import (
 
 type EventQueue struct {
 	localBucketing      *WASMLocalBucketingClient
-	options             *DVCOptions
+	options             *Options
 	cfg                 *HTTPConfiguration
 	closed              bool
 	flushStop           chan bool
@@ -30,7 +30,7 @@ type FlushResult struct {
 	FailureWithRetryPayloads []string
 }
 
-func (e *EventQueue) initialize(options *DVCOptions, localBucketing *WASMLocalBucketingClient, bucketingObjectPool *BucketingPool, cfg *HTTPConfiguration) (err error) {
+func (e *EventQueue) initialize(options *Options, localBucketing *WASMLocalBucketingClient, bucketingObjectPool *BucketingPool, cfg *HTTPConfiguration) (err error) {
 	e.cfg = cfg
 	e.options = options
 	e.flushStop = make(chan bool, 1)
@@ -78,7 +78,7 @@ func (e *EventQueue) initialize(options *DVCOptions, localBucketing *WASMLocalBu
 	return err
 }
 
-func (e *EventQueue) QueueEvent(user DVCUser, event DVCEvent) error {
+func (e *EventQueue) QueueEvent(user User, event Event) error {
 	if e.closed {
 		return util.Errorf("DevCycle client was closed, no more events can be tracked.")
 	}
@@ -100,7 +100,7 @@ func (e *EventQueue) QueueEvent(user DVCUser, event DVCEvent) error {
 	return nil
 }
 
-func (e *EventQueue) QueueAggregateEvent(config BucketedUserConfig, event DVCEvent) error {
+func (e *EventQueue) QueueAggregateEvent(config BucketedUserConfig, event Event) error {
 	if q, err := e.checkEventQueueSize(); err != nil || q {
 		return util.Errorf("Max event queue size reached, dropping aggregate event")
 	}

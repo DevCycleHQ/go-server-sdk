@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"io"
 	"math"
 	"math/rand"
@@ -17,6 +16,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/proto"
@@ -39,13 +40,13 @@ func GeneratePlatformData() *api.PlatformData {
 	}
 }
 
-// DVCClient
-// In most cases there should be only one, shared, DVCClient.
-type DVCClient struct {
+// DevCycle Client
+// In most cases there should be only one, shared, Client.
+type Client struct {
 	cfg             *HTTPConfiguration
 	ctx             context.Context
 	common          service // Reuse a single struct instead of allocating one for each service on the heap.
-	DevCycleOptions *DVCOptions
+	DevCycleOptions *Options
 	sdkKey          string
 	configManager   *EnvironmentConfigManager
 	eventQueue      EventQueuer
@@ -59,15 +60,15 @@ type DVCClient struct {
 
 type LocalBucketing interface {
 	ConfigReceiver
-	GenerateBucketedConfigForUser(user DVCUser) (ret *BucketedUserConfig, err error)
+	GenerateBucketedConfigForUser(user User) (ret *BucketedUserConfig, err error)
 	SetClientCustomData(map[string]interface{}) error
-	Variable(user DVCUser, key string, variableType string) (variable Variable, err error)
+	Variable(user User, key string, variableType string) (variable Variable, err error)
 	Close()
 }
 
 type EventQueuer interface {
-	QueueEvent(user DVCUser, event DVCEvent) error
-	QueueAggregateEvent(config BucketedUserConfig, event DVCEvent) error
+	QueueEvent(user User, event Event) error
+	QueueAggregateEvent(config BucketedUserConfig, event Event) error
 	FlushEvents() (err error)
 	Metrics() (int32, int32)
 	Close() (err error)
@@ -81,23 +82,23 @@ type SDKEvent struct {
 }
 
 type service struct {
-	client *DVCClient
+	client *Client
 }
 
-// NewDVCClient creates a new API client.
+// NewClient creates a new API client.
 // optionally pass a custom http.Client to allow for advanced features such as caching.
-func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
+func NewClient(sdkKey string, options *Options) (*Client, error) {
 	if sdkKey == "" {
-		return nil, util.Errorf("missing sdk key! Call NewDVCClient with a valid sdk key")
+		return nil, util.Errorf("missing sdk key! Call NewClient with a valid sdk key")
 	}
 	if !sdkKeyIsValid(sdkKey) {
-		return nil, fmt.Errorf("Invalid sdk key. Call NewDVCClient with a valid sdk key.")
+		return nil, fmt.Errorf("Invalid sdk key. Call NewClient with a valid sdk key.")
 	}
 	cfg := NewConfiguration(options)
 
 	options.CheckDefaults()
 
-	c := &DVCClient{sdkKey: sdkKey}
+	c := &Client{sdkKey: sdkKey}
 	c.cfg = cfg
 	c.ctx = context.Background()
 	c.common.client = c
@@ -146,7 +147,7 @@ func NewDVCClient(sdkKey string, options *DVCOptions) (*DVCClient, error) {
 	return c, nil
 }
 
-func (c *DVCClient) handleInitialization() {
+func (c *Client) handleInitialization() {
 	c.isInitialized = true
 	if c.DevCycleOptions.OnInitializedChannel != nil {
 		go func() {
@@ -157,7 +158,7 @@ func (c *DVCClient) handleInitialization() {
 	c.internalOnInitializedChannel <- true
 }
 
-func (c *DVCClient) generateBucketedConfig(user DVCUser) (config *BucketedUserConfig, err error) {
+func (c *Client) generateBucketedConfig(user User) (config *BucketedUserConfig, err error) {
 	config, err = c.localBucketing.GenerateBucketedConfigForUser(user)
 	if err != nil {
 		return nil, err
@@ -217,7 +218,7 @@ func createNullableCustomData(data map[string]interface{}) *proto.NullableCustom
 	}
 }
 
-func (c *DVCClient) queueAggregateEvent(bucketed BucketedUserConfig, event DVCEvent) (err error) {
+func (c *Client) queueAggregateEvent(bucketed BucketedUserConfig, event Event) (err error) {
 	err = c.eventQueue.QueueAggregateEvent(bucketed, event)
 	return
 }
@@ -228,7 +229,7 @@ DVCClientService Get all features by key for user data
 
 @return map[string]Feature
 */
-func (c *DVCClient) AllFeatures(user DVCUser) (map[string]Feature, error) {
+func (c *Client) AllFeatures(user User) (map[string]Feature, error) {
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.hasConfig() {
 			user, err := c.generateBucketedConfig(user)
@@ -284,7 +285,7 @@ Variable - Get variable by key for user data
 
     -@return Variable
 */
-func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interface{}) (result Variable, err error) {
+func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (result Variable, err error) {
 	if key == "" {
 		return Variable{}, errors.New("invalid key provided for call to Variable")
 	}
@@ -310,7 +311,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if !c.hasConfig() {
 			util.Warnf("Variable called before client initialized, returning default value")
-			err = c.queueAggregateEvent(BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, DVCEvent{
+			err = c.queueAggregateEvent(BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, Event{
 				Type_:  api.EventType_AggVariableDefaulted,
 				Target: key,
 			})
@@ -392,7 +393,7 @@ func (c *DVCClient) Variable(userdata DVCUser, key string, defaultValue interfac
 	return variable, nil
 }
 
-func (c *DVCClient) AllVariables(user DVCUser) (map[string]ReadOnlyVariable, error) {
+func (c *Client) AllVariables(user User) (map[string]ReadOnlyVariable, error) {
 	var (
 		httpMethod          = strings.ToUpper("Post")
 		postBody            interface{}
@@ -444,7 +445,7 @@ DVCClientService Post events to DevCycle for user
 @return InlineResponse201
 */
 
-func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
+func (c *Client) Track(user User, event Event) (bool, error) {
 	if c.DevCycleOptions.DisableCustomEventLogging {
 		return true, nil
 	}
@@ -468,7 +469,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 
 	populatedUser := user.GetPopulatedUser(c.platformData)
 
-	events := []DVCEvent{event}
+	events := []Event{event}
 	body := UserDataAndEventsBody{User: &populatedUser, Events: events}
 	// create path and map variables
 	path := c.cfg.BasePath + "/v1/track"
@@ -497,7 +498,7 @@ func (c *DVCClient) Track(user DVCUser, event DVCEvent) (bool, error) {
 	return false, c.handleError(r, rBody)
 }
 
-func (c *DVCClient) FlushEvents() error {
+func (c *Client) FlushEvents() error {
 	if c.DevCycleOptions.EnableCloudBucketing || !c.isInitialized {
 		return nil
 	}
@@ -510,7 +511,7 @@ func (c *DVCClient) FlushEvents() error {
 	return err
 }
 
-func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error {
+func (c *Client) SetClientCustomData(customData map[string]interface{}) error {
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.isInitialized {
 			return c.localBucketing.SetClientCustomData(customData)
@@ -526,7 +527,7 @@ func (c *DVCClient) SetClientCustomData(customData map[string]interface{}) error
 /*
 Close the client and flush any pending events. Stop any ongoing tickers
 */
-func (c *DVCClient) Close() (err error) {
+func (c *Client) Close() (err error) {
 	if c.DevCycleOptions.EnableCloudBucketing {
 		return
 	}
@@ -549,11 +550,11 @@ func (c *DVCClient) Close() (err error) {
 	return err
 }
 
-func (c *DVCClient) hasConfig() bool {
+func (c *Client) hasConfig() bool {
 	return c.configManager.HasConfig()
 }
 
-func (c *DVCClient) performRequest(
+func (c *Client) performRequest(
 	path string, method string,
 	postBody interface{},
 	headerParams map[string]string,
@@ -612,7 +613,7 @@ func (c *DVCClient) performRequest(
 
 }
 
-func (c *DVCClient) handleError(r *http.Response, body []byte) (err error) {
+func (c *Client) handleError(r *http.Response, body []byte) (err error) {
 	newErr := GenericError{
 		body:  body,
 		error: r.Status,
@@ -684,7 +685,7 @@ func variableTypeFromValue(key string, value interface{}) (varType string, err e
 }
 
 // callAPI do the request.
-func (c *DVCClient) callAPI(request *http.Request) (*http.Response, error) {
+func (c *Client) callAPI(request *http.Request) (*http.Response, error) {
 	return c.cfg.HTTPClient.Do(request)
 }
 
@@ -695,16 +696,16 @@ func exponentialBackoff(attempt int) float64 {
 }
 
 // Change base path to allow switching to mocks
-func (c *DVCClient) ChangeBasePath(path string) {
+func (c *Client) ChangeBasePath(path string) {
 	c.cfg.BasePath = path
 }
 
-func (c *DVCClient) SetOptions(dvcOptions DVCOptions) {
+func (c *Client) SetOptions(dvcOptions Options) {
 	c.DevCycleOptions = &dvcOptions
 }
 
 // prepareRequest build the request
-func (c *DVCClient) prepareRequest(
+func (c *Client) prepareRequest(
 	path string,
 	method string,
 	postBody interface{},

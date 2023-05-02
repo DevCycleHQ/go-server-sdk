@@ -5,15 +5,17 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 )
 
-var brooks = DVCPopulatedUser{
-	DVCUser: DVCUser{
+var brooks = api.PopulatedUser{
+	User: api.User{
 		Country:    "Canada",
 		Email:      "brooks@big.lunch",
 		AppVersion: "2.0.2",
 	},
-	PlatformData: &PlatformData{
+	PlatformData: &api.PlatformData{
 		Platform:        "iOS",
 		PlatformVersion: "10.3.1",
 	},
@@ -436,12 +438,12 @@ func TestEvaluateOperator_AndCustomData(t *testing.T) {
 }
 
 func TestEvaluateOperator_AndCustomDataMultiValue(t *testing.T) {
-	platformData := &PlatformData{
+	platformData := &api.PlatformData{
 		Platform:        "iOS",
 		PlatformVersion: "2.0.0",
 	}
-	brooks := DVCPopulatedUser{
-		DVCUser: DVCUser{
+	brooks := api.PopulatedUser{
+		User: api.User{
 			Country:    "Canada",
 			Email:      "brooks@big.lunch",
 			AppVersion: "2.0.2",
@@ -472,8 +474,8 @@ func TestEvaluateOperator_AndCustomDataMultiValue(t *testing.T) {
 }
 
 func TestEvaluateOperator_AndPrivateCustomDataMultiValue(t *testing.T) {
-	var brooks = DVCPopulatedUser{
-		DVCUser: DVCUser{
+	var brooks = api.PopulatedUser{
+		User: api.User{
 			Country:    "Canada",
 			Email:      "brooks@big.lunch",
 			AppVersion: "2.0.2",
@@ -481,7 +483,7 @@ func TestEvaluateOperator_AndPrivateCustomDataMultiValue(t *testing.T) {
 				"testKey": "dataValue",
 			},
 		},
-		PlatformData: &PlatformData{
+		PlatformData: &api.PlatformData{
 			Platform:        "iOS",
 			PlatformVersion: "2.0.0",
 		},

@@ -20,7 +20,7 @@ const (
 	EventType_CustomEvent          = "customEvent"
 )
 
-type DVCEvent struct {
+type Event struct {
 	Type_       string                 `json:"type"`
 	Target      string                 `json:"target,omitempty"`
 	CustomType  string                 `json:"customType,omitempty"`
@@ -32,8 +32,8 @@ type DVCEvent struct {
 }
 
 type UserEventsBatchRecord struct {
-	User   DVCPopulatedUser `json:"user"`
-	Events []DVCEvent       `json:"events"`
+	User   PopulatedUser `json:"user"`
+	Events []Event       `json:"events"`
 }
 
 type FlushPayload struct {
@@ -99,7 +99,7 @@ func (o *EventQueueOptions) CheckBounds() {
 	}
 }
 
-func (o *EventQueueOptions) IsEventLoggingDisabled(event *DVCEvent) bool {
+func (o *EventQueueOptions) IsEventLoggingDisabled(event *Event) bool {
 	switch event.Type_ {
 	case EventType_VariableEvaluated, EventType_AggVariableEvaluated, EventType_VariableDefaulted, EventType_AggVariableDefaulted:
 		return o.DisableAutomaticEventLogging

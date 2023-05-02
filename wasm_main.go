@@ -4,6 +4,7 @@ package devcycle
 
 import (
 	_ "embed"
+
 	"github.com/bytecodealliance/wasmtime-go/v6"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
@@ -20,7 +21,7 @@ type WASMMain struct {
 	wasmModule *wasmtime.Module
 }
 
-func (d *WASMMain) Initialize(options *DVCOptions) (err error) {
+func (d *WASMMain) Initialize(options *Options) (err error) {
 	d.wasm = wasmMainBinary
 	d.wasmEngine = wasmtime.NewEngine()
 	if options != nil && options.UseDebugWASM {

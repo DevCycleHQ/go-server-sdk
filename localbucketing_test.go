@@ -21,7 +21,7 @@ func TestDevCycleLocalBucketing_Initialize(t *testing.T) {
 	fatalErr(t, err)
 
 	localBucketing := WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func BenchmarkDevCycleLocalBucketing_Initialize(b *testing.B) {
 			b.Fatal(err)
 		}
 		localBucketing := WASMLocalBucketingClient{}
-		err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
+		err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &Options{})
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -53,7 +53,7 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 	err := wasmMain.Initialize(nil)
 	fatalErr(t, err)
 	localBucketing := WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 	}
 
 	genConfig, err := localBucketing.GenerateBucketedConfigForUser(
-		DVCUser{
+		User{
 			UserId:      "j_test",
 			DeviceModel: "testing",
 		},
@@ -94,7 +94,7 @@ func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
 	err := wasmMain.Initialize(nil)
 	fatalErr(t, err)
 	localBucketing := WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &Options{})
 
 	if err != nil {
 		t.Fatal(err)
@@ -111,12 +111,12 @@ func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	wasmMain := WASMMain{}
-	err := wasmMain.Initialize(&DVCOptions{})
+	err := wasmMain.Initialize(&Options{})
 	if err != nil {
 		b.Fatal(err)
 	}
 	localBucketing := WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &Options{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestDevCycleLocalBucketing_SetPlatformData(t *testing.T) {
 	err := wasmMain.Initialize(nil)
 	fatalErr(t, err)
 	localBucketing := WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +164,7 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 		b.Fatal(err)
 	}
 	localBucketing := WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &Options{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 
 	for i := 0; i < b.N; i++ {
 		_, err := localBucketing.GenerateBucketedConfigForUser(
-			DVCUser{
+			User{
 				UserId:      "j_test",
 				DeviceModel: "testing",
 			},
@@ -205,7 +205,7 @@ func BenchmarkDevCycleLocalBucketing_VariableForUser_PB(b *testing.B) {
 	}
 	localBucketing := WASMLocalBucketingClient{}
 
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &Options{
 		AdvancedOptions: AdvancedOptions{
 			MaxMemoryAllocationBuckets: 1,
 		},
@@ -270,7 +270,7 @@ func TestDevCycleLocalBucketing_newAssemblyScriptNoPoolByteArray(t *testing.T) {
 	err := wasmMain.Initialize(nil)
 	fatalErr(t, err)
 	localBucketing := WASMLocalBucketingClient{}
-	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &DVCOptions{})
+	err = localBucketing.Initialize(&wasmMain, test_environmentKey, GeneratePlatformData(), &Options{})
 
 	if err != nil {
 		t.Fatal(err)
