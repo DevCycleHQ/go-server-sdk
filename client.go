@@ -705,6 +705,8 @@ func variableTypeFromValue(key string, value interface{}) (varType string, err e
 		return "Boolean", nil
 	case map[string]any:
 		return "JSON", nil
+	case nil:
+		return "", nil
 	}
 
 	return "", fmt.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
