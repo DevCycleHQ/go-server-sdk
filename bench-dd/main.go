@@ -123,7 +123,6 @@ func main() {
 		numEventBatches:  expvar.NewInt("event_batches_total"),
 		numEvents:        expvar.NewInt("events_total"),
 	}
-
 	eventServer := newEventServer(eventFailureChance, &eventMetrics)
 	defer eventServer.Close()
 	log.Printf("Running stub event server at %v", eventServer.URL)
@@ -192,6 +191,11 @@ func main() {
 			return time.Duration(histogram.ValueAtPercentile(value)).String()
 		}))
 	}
+
+	expvar.Publish("events_dropped_total", expvar.Func(func() interface{} {
+		_, _, eventsDropped := client.EventQueueMetrics()
+		return eventsDropped
+	}))
 
 	mux := httptrace.NewServeMux()
 

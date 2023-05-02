@@ -550,6 +550,10 @@ func (c *Client) Close() (err error) {
 	return err
 }
 
+func (c *Client) EventQueueMetrics() (int32, int32, int32) {
+	return c.eventQueue.Metrics()
+}
+
 func (c *Client) hasConfig() bool {
 	return c.configManager.HasConfig()
 }
