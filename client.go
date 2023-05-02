@@ -70,7 +70,7 @@ type EventQueuer interface {
 	QueueEvent(user User, event Event) error
 	QueueAggregateEvent(config BucketedUserConfig, event Event) error
 	FlushEvents() (err error)
-	Metrics() (int32, int32)
+	Metrics() (int32, int32, int32)
 	Close() (err error)
 }
 
@@ -96,7 +96,7 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 	}
 	cfg := NewConfiguration(options)
 
-	options.CheckDefaults(true)
+	options.CheckDefaults()
 
 	c := &Client{sdkKey: sdkKey}
 	c.cfg = cfg
