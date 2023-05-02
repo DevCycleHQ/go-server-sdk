@@ -53,3 +53,7 @@ require (
 	google.golang.org/protobuf v1.29.1 // indirect
 	inet.af/netaddr v0.0.0-20220617031823-097006376321 // indirect
 )
+
+replace (
+	github.com/devcyclehq/go-server-sdk/v2 => ../.
+)
