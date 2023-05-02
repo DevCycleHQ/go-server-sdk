@@ -338,6 +338,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
 		if bucketedVariable.Value != nil && (sameTypeAsDefault || defaultValue == nil) {
+			variable.Type_ = bucketedVariable.Type_
 			variable.Value = bucketedVariable.Value
 			variable.IsDefaulted = false
 		} else {
