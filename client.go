@@ -96,7 +96,7 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 	}
 	cfg := NewConfiguration(options)
 
-	options.CheckDefaults()
+	options.CheckDefaults(true)
 
 	c := &Client{sdkKey: sdkKey}
 	c.cfg = cfg

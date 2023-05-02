@@ -95,13 +95,17 @@ func (o *Options) eventQueueOptions() *EventQueueOptions {
 	}
 }
 
-func (o *Options) CheckDefaults() {
+func (o *Options) CheckDefaults(logWarnings bool) {
 	if o.EventFlushIntervalMS < time.Millisecond*500 || o.EventFlushIntervalMS > time.Minute*1 {
-		util.Warnf("EventFlushIntervalMS cannot be less than 500ms or longer than 1 minute. Defaulting to 30 seconds.")
+		if logWarnings {
+			util.Warnf("EventFlushIntervalMS cannot be less than 500ms or longer than 1 minute. Defaulting to 30 seconds.")
+		}
 		o.EventFlushIntervalMS = time.Second * 30
 	}
 	if o.ConfigPollingIntervalMS < time.Second*1 {
-		util.Warnf("ConfigPollingIntervalMS cannot be less than 1 second. Defaulting to 10 seconds.")
+		if logWarnings {
+			util.Warnf("ConfigPollingIntervalMS cannot be less than 1 second. Defaulting to 10 seconds.")
+		}
 		o.ConfigPollingIntervalMS = time.Second * 10
 	}
 	if o.RequestTimeout <= time.Second*5 {

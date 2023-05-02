@@ -30,7 +30,7 @@ func init() {
 	test_large_config = strings.ReplaceAll(test_large_config, "\n", "")
 
 	// Set default options
-	test_options.CheckDefaults()
+	test_options.CheckDefaults(false)
 }
 
 func httpBucketingAPIMock() {
