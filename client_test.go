@@ -137,7 +137,7 @@ func TestClient_VariableEventIsQueued(t *testing.T) {
 	c, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
-	user := DVCUser{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
+	user := User{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
 	fmt.Println(c.AllVariables(user))
 	variable, err := c.Variable(
 		user,
@@ -182,7 +182,7 @@ func TestClient_VariableLocalFlush(t *testing.T) {
 	fatalErr(t, err)
 
 	variable, err := c.Variable(
-		DVCUser{UserId: "j_test", DeviceModel: "testing"},
+		User{UserId: "j_test", DeviceModel: "testing"},
 		"variableThatShouldBeDefaulted", true)
 	fatalErr(t, err)
 	err = c.FlushEvents()

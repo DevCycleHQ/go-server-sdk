@@ -9,6 +9,6 @@
 package api
 
 type UserDataAndEventsBody struct {
-	Events []Event           `json:"events,omitempty"`
-	User   *DVCPopulatedUser `json:"user,omitempty"`
+	Events []Event        `json:"events,omitempty"`
+	User   *PopulatedUser `json:"user,omitempty"`
 }

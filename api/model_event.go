@@ -32,8 +32,8 @@ type Event struct {
 }
 
 type UserEventsBatchRecord struct {
-	User   DVCPopulatedUser `json:"user"`
-	Events []Event          `json:"events"`
+	User   PopulatedUser `json:"user"`
+	Events []Event       `json:"events"`
 }
 
 type FlushPayload struct {

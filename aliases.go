@@ -26,12 +26,19 @@ type DiscardLogger = util.DiscardLogger
 
 func SetLogger(log Logger) { util.SetLogger(log) }
 
-// Aliases for old DVC-prefixed types
+// Deprecated: Use devcycle.Options instead
 type DVCOptions = Options
+
+// Deprecated: Use devcycle.Client instead
 type DVCClient = Client
+
+// Deprecated: Use devcycle.User instead
 type DVCUser = api.User
+
+// Deprecated: Use devcycle.Event instead
 type DVCEvent = api.Event
 
-func NewDVCClient(sdkKey string, options *Options) (*DVCClient, error) {
+// Deprecated: Use devcycle.NewClient instead
+func NewDVCClient(sdkKey string, options *Options) (*Client, error) {
 	return NewClient(sdkKey, options)
 }

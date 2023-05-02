@@ -9,7 +9,7 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 )
 
-var brooks = api.DVCPopulatedUser{
+var brooks = api.PopulatedUser{
 	User: api.User{
 		Country:    "Canada",
 		Email:      "brooks@big.lunch",
@@ -442,7 +442,7 @@ func TestEvaluateOperator_AndCustomDataMultiValue(t *testing.T) {
 		Platform:        "iOS",
 		PlatformVersion: "2.0.0",
 	}
-	brooks := api.DVCPopulatedUser{
+	brooks := api.PopulatedUser{
 		User: api.User{
 			Country:    "Canada",
 			Email:      "brooks@big.lunch",
@@ -474,7 +474,7 @@ func TestEvaluateOperator_AndCustomDataMultiValue(t *testing.T) {
 }
 
 func TestEvaluateOperator_AndPrivateCustomDataMultiValue(t *testing.T) {
-	var brooks = api.DVCPopulatedUser{
+	var brooks = api.PopulatedUser{
 		User: api.User{
 			Country:    "Canada",
 			Email:      "brooks@big.lunch",

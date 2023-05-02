@@ -89,10 +89,10 @@ type service struct {
 // optionally pass a custom http.Client to allow for advanced features such as caching.
 func NewClient(sdkKey string, options *Options) (*Client, error) {
 	if sdkKey == "" {
-		return nil, util.Errorf("missing sdk key! Call NewDVCClient with a valid sdk key")
+		return nil, util.Errorf("missing sdk key! Call NewClient with a valid sdk key")
 	}
 	if !sdkKeyIsValid(sdkKey) {
-		return nil, fmt.Errorf("Invalid sdk key. Call NewDVCClient with a valid sdk key.")
+		return nil, fmt.Errorf("Invalid sdk key. Call NewClient with a valid sdk key.")
 	}
 	cfg := NewConfiguration(options)
 
