@@ -337,7 +337,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 		bucketedVariable, err := c.localBucketing.Variable(userdata, key, variableType)
 
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
-		if bucketedVariable.Value != nil && sameTypeAsDefault {
+		if bucketedVariable.Value != nil && (sameTypeAsDefault || defaultValue == nil) {
 			variable.Value = bucketedVariable.Value
 			variable.IsDefaulted = false
 		} else {
