@@ -9,7 +9,7 @@ import (
 
 // DevCycleProvider implements the FeatureProvider interface and provides functions for evaluating flags
 type DevCycleProvider struct {
-	Client *DVCClient
+	Client *Client
 }
 
 // Metadata returns the metadata of the provider
@@ -170,7 +170,7 @@ func (p DevCycleProvider) Hooks() []openfeature.Hook {
 	return []openfeature.Hook{}
 }
 
-func createUserFromEvaluationContext(evalCtx openfeature.FlattenedContext) (DVCUser, error) {
+func createUserFromEvaluationContext(evalCtx openfeature.FlattenedContext) (User, error) {
 	userId := ""
 	_, exists := evalCtx["userId"]
 	if exists {
@@ -185,7 +185,7 @@ func createUserFromEvaluationContext(evalCtx openfeature.FlattenedContext) (DVCU
 	if userId == "" {
 		return DVCUser{}, errors.New("userId or targetingKey must be provided")
 	}
-	user := DVCUser{
+	user := User{
 		UserId: userId,
 	}
 

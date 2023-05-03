@@ -147,7 +147,7 @@ func Test_BooleanEvaluation_Default(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_config)
 
-	client, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	client, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
 	provider := DevCycleProvider{Client: client}
@@ -171,7 +171,7 @@ func Test_BooleanEvaluation_BadUserData(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_config)
 
-	client, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	client, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
 	provider := DevCycleProvider{Client: client}
@@ -195,7 +195,7 @@ func Test_BooleanEvaluation_TargetMatch(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpCustomConfigMock(test_environmentKey, 200, test_config)
 
-	client, err := NewDVCClient(test_environmentKey, &DVCOptions{})
+	client, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
 	provider := DevCycleProvider{Client: client}
