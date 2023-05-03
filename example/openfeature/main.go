@@ -15,7 +15,7 @@ func main() {
 		log.Fatal("DVC_SERVER_KEY env var not set: set it to your SDK key")
 	}
 
-	dvcOptions := devcycle.DVCOptions{
+	dvcOptions := devcycle.Options{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         true,
 		EventFlushIntervalMS:         time.Second * 10,
@@ -24,7 +24,7 @@ func main() {
 		DisableAutomaticEventLogging: false,
 		DisableCustomEventLogging:    false,
 	}
-	dvcClient, _ := devcycle.NewDVCClient(sdkKey, &dvcOptions)
+	dvcClient, _ := devcycle.NewClient(sdkKey, &dvcOptions)
 	openfeature.SetProvider(devcycle.DevCycleProvider{Client: dvcClient})
 	client := openfeature.NewClient("hello")
 
