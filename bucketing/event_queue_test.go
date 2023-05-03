@@ -131,7 +131,7 @@ func TestEventQueue_AddToAggQueue(t *testing.T) {
 		CustomType: "testingtype",
 		UserId:     "testing",
 	}
-	popu := api.User{UserId: "testing"}.GetPopulatedUser(platformData)
+	popu := api.User{UserId: "testing"}.GetPopulatedUser(api.PlatformData{}.Default())
 	err := SetConfig(test_config, "dvc_server_token_hash", "")
 	require.NoError(t, err)
 	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{FlushEventsInterval: time.Hour})
@@ -185,7 +185,7 @@ func TestEventQueue_QueueAndFlush(t *testing.T) {
 	require.NoError(t, err)
 	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{
 		FlushEventsInterval: time.Hour,
-	})
+	}, api.PlatformData{}.Default())
 	require.NoError(t, err)
 	hasErrored := false
 	for i := 0; i < 2; i++ {

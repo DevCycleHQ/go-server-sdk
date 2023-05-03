@@ -92,13 +92,16 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 	cfg := NewConfiguration(options)
 
 	options.CheckDefaults()
-
 	c := &Client{sdkKey: sdkKey}
 	c.cfg = cfg
 	c.ctx = context.Background()
 	c.common.client = c
 	c.DevCycleOptions = options
-	c.platformData = GeneratePlatformData()
+	if options.AdvancedOptions.OverridePlatformData != nil {
+		c.platformData = options.AdvancedOptions.OverridePlatformData
+	} else {
+		c.platformData = GeneratePlatformData()
+	}
 
 	if c.DevCycleOptions.Logger != nil {
 		util.SetLogger(c.DevCycleOptions.Logger)
