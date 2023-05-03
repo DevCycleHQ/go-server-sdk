@@ -109,10 +109,16 @@ func (o *Options) CheckDefaults() {
 	}
 	if o.MaxEventQueueSize <= 0 {
 		o.MaxEventQueueSize = 10000
+	} else if o.MaxEventQueueSize > 50000 {
+		o.MaxEventQueueSize = 50000
 	}
+
 	if o.FlushEventQueueSize <= 0 {
 		o.FlushEventQueueSize = 1000
+	} else if o.FlushEventQueueSize > 50000 {
+		o.FlushEventQueueSize = 50000
 	}
+
 	if o.MaxMemoryAllocationBuckets == 0 {
 		o.MaxMemoryAllocationBuckets = 12
 	} else if o.MaxMemoryAllocationBuckets <= -1 {

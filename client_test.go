@@ -599,7 +599,8 @@ func BenchmarkClient_VariableParallel(b *testing.B) {
 	b.ReportMetric(float64(benchmarkNumWorkers), "workers")
 	b.ReportMetric(float64(setConfigCount.Load()), "reconfigs")
 	b.ReportMetric(float64(opNanos.Load())/float64(b.N), "ns")
-	eventsFlushed, eventsReported := client.eventQueue.Metrics()
+	eventsFlushed, eventsReported, eventsDropped := client.eventQueue.Metrics()
 	b.ReportMetric(float64(eventsFlushed), "eventsFlushed")
 	b.ReportMetric(float64(eventsReported), "eventsReported")
+	b.ReportMetric(float64(eventsDropped), "eventsDropped")
 }

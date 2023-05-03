@@ -22,6 +22,7 @@ type EventQueue struct {
 	bucketingObjectPool *BucketingPool
 	eventsFlushed       atomic.Int32
 	eventsReported      atomic.Int32
+	eventsDropped       atomic.Int32
 }
 
 type FlushResult struct {
@@ -83,6 +84,7 @@ func (e *EventQueue) QueueEvent(user User, event Event) error {
 		return util.Errorf("DevCycle client was closed, no more events can be tracked.")
 	}
 	if q, err := e.checkEventQueueSize(); err != nil || q {
+		e.eventsDropped.Add(1)
 		return util.Errorf("Max event queue size reached, dropping event")
 	}
 	if !e.options.EnableCloudBucketing {
@@ -102,6 +104,7 @@ func (e *EventQueue) QueueEvent(user User, event Event) error {
 
 func (e *EventQueue) QueueAggregateEvent(config BucketedUserConfig, event Event) error {
 	if q, err := e.checkEventQueueSize(); err != nil || q {
+		e.eventsDropped.Add(1)
 		return util.Errorf("Max event queue size reached, dropping aggregate event")
 	}
 	if !e.options.EnableCloudBucketing {
@@ -300,8 +303,8 @@ func (e *EventQueue) reportPayloadFailure(
 	}
 }
 
-func (e *EventQueue) Metrics() (int32, int32) {
-	return e.eventsFlushed.Load(), e.eventsReported.Load()
+func (e *EventQueue) Metrics() (int32, int32, int32) {
+	return e.eventsFlushed.Load(), e.eventsReported.Load(), e.eventsDropped.Load()
 }
 
 func (e *EventQueue) Close() (err error) {

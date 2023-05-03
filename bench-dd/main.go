@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"expvar"
 	"flag"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"io"
 	"log"
 	"math/rand"
@@ -26,6 +28,14 @@ import (
 	"time"
 )
 
+type EventMetrics struct {
+	enableTracking   bool
+	numEventPayloads *expvar.Int
+	numBadPayloads   *expvar.Int
+	numEventBatches  *expvar.Int
+	numEvents        *expvar.Int
+}
+
 func main() {
 	var enableEvents bool
 	var configInterval, eventFlushInterval time.Duration
@@ -41,6 +51,7 @@ func main() {
 	var enableDatadog bool
 	var datadogEnv string
 	var disableLogging bool
+	var trackEventMetrics bool
 
 	flag.BoolVar(&enableEvents, "enable-events", true, "enable event logging")
 	flag.DurationVar(&configInterval, "config-interval", time.Minute, "interval between checks for config updates")
@@ -57,6 +68,7 @@ func main() {
 	flag.BoolVar(&enableDatadog, "datadog", true, "Use datadog for tracing and profiling")
 	flag.StringVar(&datadogEnv, "datadog-env", "benchmark", "Datadog environment to use")
 	flag.BoolVar(&disableLogging, "disable-logging", false, "Turns off detailed logging in the SDK")
+	flag.BoolVar(&trackEventMetrics, "track-event-metrics", true, "Enables processing and tracking of variable event metrics, this may cause some performance issues")
 
 	flag.Parse()
 
@@ -104,7 +116,14 @@ func main() {
 	defer configServer.Close()
 	log.Printf("Running stub config server at %v", configServer.URL)
 
-	eventServer := newEventServer(eventFailureChance)
+	var eventMetrics = EventMetrics{
+		enableTracking:   trackEventMetrics,
+		numEventPayloads: expvar.NewInt("event_payloads_total"),
+		numBadPayloads:   expvar.NewInt("bad_payloads_total"),
+		numEventBatches:  expvar.NewInt("event_batches_total"),
+		numEvents:        expvar.NewInt("events_total"),
+	}
+	eventServer := newEventServer(eventFailureChance, &eventMetrics)
 	defer eventServer.Close()
 	log.Printf("Running stub event server at %v", eventServer.URL)
 
@@ -172,6 +191,11 @@ func main() {
 			return time.Duration(histogram.ValueAtPercentile(value)).String()
 		}))
 	}
+
+	expvar.Publish("events_dropped_total", expvar.Func(func() interface{} {
+		_, _, eventsDropped := client.EventQueueMetrics()
+		return eventsDropped
+	}))
 
 	mux := httptrace.NewServeMux()
 
@@ -263,8 +287,28 @@ func newConfigServer(failureChance int) *httptest.Server {
 	}))
 }
 
-func newEventServer(failureChance int) *httptest.Server {
+func newEventServer(failureChance int, metrics *EventMetrics) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		if metrics.enableTracking {
+			metrics.numEventPayloads.Add(1)
+			body, err := io.ReadAll(req.Body)
+			if err != nil {
+				metrics.numBadPayloads.Add(1)
+			} else {
+				var data api.BatchEventsBody
+				err := json.Unmarshal(body, &data)
+				if err != nil {
+					metrics.numBadPayloads.Add(1)
+				} else {
+					metrics.numEventBatches.Add(int64(len(data.Batch)))
+					for _, batch := range data.Batch {
+						metrics.numEvents.Add(int64(len(batch.Events)))
+					}
+				}
+			}
+			_ = req.Body.Close()
+		}
+
 		if rand.Intn(100) < failureChance {
 			res.WriteHeader(http.StatusInternalServerError)
 			_, _ = res.Write([]byte("{}"))

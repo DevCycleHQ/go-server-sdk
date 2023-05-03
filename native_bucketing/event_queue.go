@@ -143,6 +143,7 @@ type EventQueue struct {
 	aggEventMutex     *sync.RWMutex
 	eventsFlushed     atomic.Int32
 	eventsReported    atomic.Int32
+	eventsDropped     atomic.Int32
 	httpClient        *http.Client
 	flushMutex        *sync.Mutex
 	pendingPayloads   map[string]api.FlushPayload
@@ -199,6 +200,7 @@ func (eq *EventQueue) queueAggregateEventInternal(event *api.Event, variableVari
 		aggregateByVariation: aggregateByVariation,
 	}:
 	default:
+		eq.eventsDropped.Add(1)
 		return util.Errorf("event queue is full, dropping event: %+v", event)
 	}
 
@@ -213,6 +215,7 @@ func (eq *EventQueue) QueueEvent(user api.User, event api.Event) error {
 		user:  &user,
 	}:
 	default:
+		eq.eventsDropped.Add(1)
 		return util.Errorf("event queue is full, dropping event: %+v", event)
 	}
 
@@ -369,8 +372,8 @@ func (eq *EventQueue) flushEventPayload(payload *api.FlushPayload) error {
 	return eq.reportPayloadFailure(payload, false)
 }
 
-func (eq *EventQueue) Metrics() (int32, int32) {
-	return eq.eventsFlushed.Load(), eq.eventsReported.Load()
+func (eq *EventQueue) Metrics() (int32, int32, int32) {
+	return eq.eventsFlushed.Load(), eq.eventsReported.Load(), eq.eventsDropped.Load()
 }
 
 func (eq *EventQueue) Close() (err error) {

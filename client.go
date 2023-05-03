@@ -70,7 +70,7 @@ type EventQueuer interface {
 	QueueEvent(user User, event Event) error
 	QueueAggregateEvent(config BucketedUserConfig, event Event) error
 	FlushEvents() (err error)
-	Metrics() (int32, int32)
+	Metrics() (int32, int32, int32)
 	Close() (err error)
 }
 
@@ -548,6 +548,10 @@ func (c *Client) Close() (err error) {
 	c.localBucketing.Close()
 
 	return err
+}
+
+func (c *Client) EventQueueMetrics() (int32, int32, int32) {
+	return c.eventQueue.Metrics()
 }
 
 func (c *Client) hasConfig() bool {
