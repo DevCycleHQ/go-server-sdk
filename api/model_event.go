@@ -87,15 +87,17 @@ type EventQueueOptions struct {
 
 func (o *EventQueueOptions) CheckBounds() {
 	if o.MaxEventQueueSize < 100 {
-		o.MaxEventQueueSize = 100
-	} else if o.MaxEventQueueSize > 1000 {
-		o.MaxEventQueueSize = 1000
+		o.MaxEventQueueSize = 10000
+	} else if o.MaxEventQueueSize > 50000 {
+		o.MaxEventQueueSize = 50000
 	}
 	if o.EventsAPIBasePath == "" {
 		o.EventsAPIBasePath = "https://events.devcycle.com"
 	}
 	if o.FlushEventQueueSize == 0 {
-		o.FlushEventQueueSize = 100
+		o.FlushEventQueueSize = 1000
+	} else if o.FlushEventQueueSize > 50000 {
+		o.FlushEventQueueSize = 50000
 	}
 }
 
