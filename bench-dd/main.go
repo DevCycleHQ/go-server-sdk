@@ -134,7 +134,7 @@ func main() {
 		log.Printf("Running with logging enabled")
 	}
 
-	client, err := devcycle.NewDVCClient("dvc_server_hello", &devcycle.DVCOptions{
+	client, err := devcycle.NewClient("dvc_server_hello", &devcycle.Options{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         false,
 		EventFlushIntervalMS:         eventFlushInterval,
@@ -191,6 +191,16 @@ func main() {
 			return time.Duration(histogram.ValueAtPercentile(value)).String()
 		}))
 	}
+
+	expvar.Publish("events_flushed_total", expvar.Func(func() interface{} {
+		eventsFlushed, _, _ := client.EventQueueMetrics()
+		return eventsFlushed
+	}))
+
+	expvar.Publish("events_reported_total", expvar.Func(func() interface{} {
+		_, eventsReported, _ := client.EventQueueMetrics()
+		return eventsReported
+	}))
 
 	expvar.Publish("events_dropped_total", expvar.Func(func() interface{} {
 		_, _, eventsDropped := client.EventQueueMetrics()
