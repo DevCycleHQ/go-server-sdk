@@ -277,11 +277,29 @@ func (c *Client) AllFeatures(user User) (map[string]Feature, error) {
 }
 
 /*
+VariableValue - Get variable value by key for user data
+
+  - @param body
+
+  - @param key Variable key
+
+  - @param defaultValue Default value
+
+    -@return interface{}
+*/
+func (c *Client) VariableValue(userdata User, key string, defaultValue interface{}) (result interface{}, err error) {
+	variable, err := c.Variable(userdata, key, defaultValue)
+	return variable.Value, err
+}
+
+/*
 Variable - Get variable by key for user data
 
   - @param body
 
   - @param key Variable key
+
+  - @param defaultValue Default value
 
     -@return Variable
 */

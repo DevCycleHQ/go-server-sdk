@@ -9,13 +9,13 @@ import (
 )
 
 func main() {
-	sdkKey := os.Getenv("DVC_SERVER_KEY")
+	sdkKey := os.Getenv("DVC_SERVER_SDK_KEY")
 	if sdkKey == "" {
-		log.Fatal("DVC_SERVER_KEY env var not set: set it to your SDK key")
+		log.Fatal("DVC_SERVER_SDK_KEY env var not set: set it to your SDK key")
 	}
-	variable := os.Getenv("DVC_VARIABLE")
-	if variable == "" {
-		log.Fatal("DVC_VARIABLE env var not set: set it to a variable key")
+	variableKey := os.Getenv("DVC_VARIABLE_KEY")
+	if variableKey == "" {
+		log.Fatal("DVC_VARIABLE_KEY env var not set: set it to a variable key")
 	}
 
 	user := devcycle.User{UserId: "test"}
@@ -43,16 +43,22 @@ func main() {
 		log.Printf("Key:%s, variable:%#v", key, variable)
 	}
 
-	existingVariable, err := client.Variable(user, variable, "DEFAULT")
+	existingVariable, err := client.Variable(user, variableKey, "DEFAULT")
 	if err != nil {
-		log.Fatalf("Error getting variable %v: %v", variable, err)
+		log.Fatalf("Error getting variable %v: %v", variableKey, err)
 	}
 	log.Printf("variable %v: value=%v (%v) defaulted=%t", existingVariable.Key, existingVariable.Value, existingVariable.Type_, existingVariable.IsDefaulted)
 	if existingVariable.IsDefaulted {
 		log.Printf("Warning: variable %v should not be defaulted", existingVariable.Key)
 	}
 
-	missingVariable, _ := client.Variable(user, variable+"-does-not-exist", "DEFAULT")
+	variableValue, err := client.VariableValue(user, variableKey, "DEFAULT")
+	if err != nil {
+		log.Fatalf("Error getting variable value %v: %v", variableValue, err)
+	}
+	log.Printf("variable value=%v", variableValue)
+
+	missingVariable, _ := client.Variable(user, variableKey+"-does-not-exist", "DEFAULT")
 	if err != nil {
 		log.Fatalf("Error getting variable: %v", err)
 	}

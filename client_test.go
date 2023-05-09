@@ -94,12 +94,14 @@ func TestClient_VariableCloud(t *testing.T) {
 	c, err := NewClient(test_environmentKey, &Options{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
 	fatalErr(t, err)
 
-	variable, err := c.Variable(
-		User{UserId: "j_test", DeviceModel: "testing"},
-		"test", true)
+	user := User{UserId: "j_test", DeviceModel: "testing"}
+	variable, err := c.Variable(user, "test", true)
 	fatalErr(t, err)
-
 	fmt.Println(variable)
+
+	variableValue, err := c.VariableValue(user, "test", true)
+	fatalErr(t, err)
+	fmt.Println(variableValue)
 }
 
 func TestClient_VariableLocalNumber(t *testing.T) {
@@ -112,9 +114,7 @@ func TestClient_VariableLocalNumber(t *testing.T) {
 
 	user := User{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
 	fmt.Println(c.AllVariables(user))
-	variable, err := c.Variable(
-		user,
-		"v-key-76", 69)
+	variable, err := c.Variable(user, "v-key-76", 69)
 	fatalErr(t, err)
 
 	if variable.IsDefaulted || variable.Value == 69 {
@@ -126,6 +126,13 @@ func TestClient_VariableLocalNumber(t *testing.T) {
 	}
 	fmt.Println(variable.IsDefaulted)
 	fmt.Println(variable)
+
+	variableValue, err := c.VariableValue(user, "v-key-76", 69)
+	fatalErr(t, err)
+	if variableValue.(float64) != 60.0 {
+		t.Fatal("variableValue should be 60")
+	}
+	fmt.Println(variableValue)
 }
 
 func TestClient_VariableEventIsQueued(t *testing.T) {
@@ -139,9 +146,7 @@ func TestClient_VariableEventIsQueued(t *testing.T) {
 
 	user := User{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
 	fmt.Println(c.AllVariables(user))
-	variable, err := c.Variable(
-		user,
-		"v-key-76", 69)
+	variable, err := c.Variable(user, "v-key-76", 69)
 	fatalErr(t, err)
 
 	if variable.IsDefaulted || variable.Value == 69 {
@@ -165,12 +170,14 @@ func TestClient_VariableLocal(t *testing.T) {
 	c, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
-	variable, err := c.Variable(
-		User{UserId: "j_test", DeviceModel: "testing"},
-		"test", true)
+	user := User{UserId: "j_test", DeviceModel: "testing"}
+	variable, err := c.Variable(user, "test", true)
 	fatalErr(t, err)
-
 	fmt.Println(variable)
+
+	variableValue, err := c.VariableValue(user, "test", true)
+	fatalErr(t, err)
+	fmt.Println(variableValue)
 }
 
 func TestClient_VariableLocalFlush(t *testing.T) {
@@ -181,9 +188,8 @@ func TestClient_VariableLocalFlush(t *testing.T) {
 	c, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
-	variable, err := c.Variable(
-		User{UserId: "j_test", DeviceModel: "testing"},
-		"variableThatShouldBeDefaulted", true)
+	user := User{UserId: "j_test", DeviceModel: "testing"}
+	variable, err := c.Variable(user, "variableThatShouldBeDefaulted", true)
 	fatalErr(t, err)
 	err = c.FlushEvents()
 	fatalErr(t, err)
@@ -198,9 +204,8 @@ func TestClient_VariableLocalProtobuf(t *testing.T) {
 	c, err := NewClient(test_environmentKey, &Options{})
 	fatalErr(t, err)
 
-	variable, err := c.Variable(
-		User{UserId: "j_test", DeviceModel: "testing"},
-		"test", true)
+	user := User{UserId: "j_test", DeviceModel: "testing"}
+	variable, err := c.Variable(user, "test", true)
 	fatalErr(t, err)
 
 	expected := Variable{
@@ -218,6 +223,12 @@ func TestClient_VariableLocalProtobuf(t *testing.T) {
 		t.Fatal("Expected variable to be equal to expected variable")
 	}
 	fmt.Println(variable)
+
+	variableValue, err := c.VariableValue(user, "test", true)
+	fatalErr(t, err)
+	if variableValue != true {
+		t.Fatal("Expected variableValue to be true")
+	}
 }
 
 func TestClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
@@ -238,17 +249,16 @@ func TestClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
 		"aPrivateValue": "asuh",
 	}
 
-	variable, err := c.Variable(
-		User{
-			UserId:            "j_test",
-			DeviceModel:       "testing",
-			Name:              "Pedro Pascal",
-			Email:             "pedro@pascal.com",
-			AppBuild:          "1.0.0",
-			CustomData:        customData,
-			PrivateCustomData: customPrivateData,
-		},
-		"test", true)
+	user := User{
+		UserId:            "j_test",
+		DeviceModel:       "testing",
+		Name:              "Pedro Pascal",
+		Email:             "pedro@pascal.com",
+		AppBuild:          "1.0.0",
+		CustomData:        customData,
+		PrivateCustomData: customPrivateData,
+	}
+	variable, err := c.Variable(user, "test", true)
 	fatalErr(t, err)
 
 	expected := Variable{
@@ -266,6 +276,12 @@ func TestClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
 		t.Fatal("Expected variable to be equal to expected variable")
 	}
 	fmt.Println(variable)
+
+	variableValue, err := c.VariableValue(user, "test", true)
+	fatalErr(t, err)
+	if variableValue != true {
+		t.Fatal("Expected variableValue to be true")
+	}
 }
 
 func TestClient_VariableLocal_403(t *testing.T) {
@@ -291,11 +307,8 @@ func TestClient_VariableLocalProtobuf_StringEncoding(t *testing.T) {
 	c, err := NewClient(test_environmentKey, options)
 	fatalErr(t, err)
 
-	variable, err := c.Variable(
-		User{
-			UserId: "someuser",
-		},
-		"test", "default_value")
+	user := User{UserId: "someuser"}
+	variable, err := c.Variable(user, "test", "default_value")
 	fatalErr(t, err)
 
 	fmt.Printf("Value: %v | bytes %v\n", variable.Value, []byte(variable.Value.(string)))
@@ -319,6 +332,12 @@ func TestClient_VariableLocalProtobuf_StringEncoding(t *testing.T) {
 		fmt.Println("got", variable)
 		fmt.Println("expected", expected)
 		t.Fatal("Expected variable to be equal to expected variable")
+	}
+
+	variableValue, err := c.VariableValue(user, "test", "default_value")
+	fatalErr(t, err)
+	if variableValue != "öé 🐍 ¥" {
+		t.Fatal("Expected variableValue to be öé 🐍 ¥")
 	}
 }
 
