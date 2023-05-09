@@ -128,9 +128,6 @@ func (e *EventManager) FlushEvents() (err error) {
 	}()
 
 	err = e.internalQueue.FlushEventQueue(func(payloads map[string]FlushPayload) (result *FlushResult, err error) {
-		// TODO: use sum of event count
-		e.eventsFlushed.Add(int32(len(payloads)))
-
 		return e.flushEventPayloads(payloads)
 	})
 
@@ -208,7 +205,7 @@ func (e *EventManager) flushEventPayload(
 
 	if resp.StatusCode == 201 {
 		e.reportPayloadSuccess(payload, successes)
-		e.eventsReported.Add(1)
+		e.eventsReported.Add(int32(payload.EventCount))
 		return
 	}
 
@@ -217,12 +214,12 @@ func (e *EventManager) flushEventPayload(
 }
 
 func (e *EventManager) flushEventPayloads(payloads map[string]FlushPayload) (result *FlushResult, err error) {
-	e.eventsFlushed.Add(int32(len(payloads)))
 	successes := make([]string, 0, len(payloads))
 	failures := make([]string, 0)
 	retryableFailures := make([]string, 0)
 
 	for _, payload := range payloads {
+		e.eventsFlushed.Add(int32(payload.EventCount))
 		e.flushEventPayload(&payload, &successes, &failures, &retryableFailures)
 	}
 

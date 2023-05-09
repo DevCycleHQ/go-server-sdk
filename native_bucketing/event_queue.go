@@ -303,7 +303,6 @@ func (eq *EventQueue) UserQueueLength() int {
 	return eq.userEventQueueCount
 }
 
-// TODO: I don't think this works if the FlushPayloads aren't pointers
 func (eq *EventQueue) updateFailedPayloads() {
 	for _, pl := range eq.pendingPayloads {
 		if pl.Status == "failed" {
