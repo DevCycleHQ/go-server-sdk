@@ -95,7 +95,6 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 	}, nil
 }
 
-// TODO: extract this into a separate type, or just use native_bucketing.EventQueue directly
 func (n *NativeLocalBucketing) Close() {
 	err := n.eventQueue.Close()
 	if err != nil {
@@ -117,6 +116,9 @@ func (n *NativeLocalBucketing) UserQueueLength() (int, error) {
 
 func (n *NativeLocalBucketing) FlushEventQueue(callback EventFlushCallback) error {
 	payloads, err := n.eventQueue.FlushEventQueue()
+	if err != nil {
+		return fmt.Errorf("Error flushing event queue: %w", err)
+	}
 
 	result, err := callback(payloads)
 	if err != nil {
