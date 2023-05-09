@@ -52,6 +52,12 @@ func main() {
 		log.Printf("Warning: variable %v should not be defaulted", existingVariable.Key)
 	}
 
+	variableValue, err := client.VariableValue(user, variable, "DEFAULT")
+	if err != nil {
+		log.Fatalf("Error getting variable value %v: %v", variableValue, err)
+	}
+	log.Printf("variable value=%v", variableValue)
+
 	missingVariable, _ := client.Variable(user, variable+"-does-not-exist", "DEFAULT")
 	if err != nil {
 		log.Fatalf("Error getting variable: %v", err)
