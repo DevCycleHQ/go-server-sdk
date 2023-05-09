@@ -289,11 +289,7 @@ VariableValue - Get variable value by key for user data
 */
 func (c *Client) VariableValue(userdata User, key string, defaultValue interface{}) (result interface{}, err error) {
 	variable, err := c.Variable(userdata, key, defaultValue)
-	if err != nil {
-		return variable.Value, err
-	}
-
-	return variable.Value, nil
+	return variable.Value, err
 }
 
 /*
