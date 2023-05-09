@@ -22,6 +22,8 @@ type InternalEventQueue interface {
 	UserQueueLength() (int, error)
 }
 
+// EventManager is responsible for flushing the event queue and reporting events to the server.
+// It wraps an InternalEventQueue which is implemented either natively by the native_bucketing package or in WASM.
 type EventManager struct {
 	internalQueue  InternalEventQueue
 	flushMutex     *sync.Mutex
