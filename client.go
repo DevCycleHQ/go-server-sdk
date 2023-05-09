@@ -279,7 +279,7 @@ func (c *Client) AllFeatures(user User) (map[string]Feature, error) {
 func (c *Client) VariableValue(userdata User, key string, defaultValue interface{}) (result interface{}, err error) {
 	variable, err := c.Variable(userdata, key, defaultValue)
 	if err != nil {
-		return Variable{}, err
+		return variable.Value, err
 	}
 
 	return variable.Value, nil

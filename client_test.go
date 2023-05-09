@@ -128,6 +128,7 @@ func TestClient_VariableLocalNumber(t *testing.T) {
 	fmt.Println(variable)
 
 	variableValue, err := c.VariableValue(user, "v-key-76", 69)
+	fatalErr(t, err)
 	if variableValue.(float64) != 60.0 {
 		t.Fatal("variableValue should be 60")
 	}
@@ -224,6 +225,7 @@ func TestClient_VariableLocalProtobuf(t *testing.T) {
 	fmt.Println(variable)
 
 	variableValue, err := c.VariableValue(user, "test", true)
+	fatalErr(t, err)
 	if variableValue != true {
 		t.Fatal("Expected variableValue to be true")
 	}
@@ -276,6 +278,7 @@ func TestClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
 	fmt.Println(variable)
 
 	variableValue, err := c.VariableValue(user, "test", true)
+	fatalErr(t, err)
 	if variableValue != true {
 		t.Fatal("Expected variableValue to be true")
 	}
@@ -332,6 +335,7 @@ func TestClient_VariableLocalProtobuf_StringEncoding(t *testing.T) {
 	}
 
 	variableValue, err := c.VariableValue(user, "test", "default_value")
+	fatalErr(t, err)
 	if variableValue != "öé 🐍 ¥" {
 		t.Fatal("Expected variableValue to be öé 🐍 ¥")
 	}
