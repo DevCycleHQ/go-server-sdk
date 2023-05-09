@@ -9,7 +9,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"math"
 	"math/rand"
 	"strconv"
@@ -17,6 +16,9 @@ import (
 	"sync"
 	"time"
 	"unsafe"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 
 	"github.com/devcyclehq/go-server-sdk/v2/proto"
 
@@ -61,6 +63,16 @@ func NewWASMLocalBucketing(sdkKey string, platformData *PlatformData, options *O
 
 	if err != nil {
 		return nil, err
+	}
+
+	var eventQueueOpt []byte
+	eventQueueOpt, err = json.Marshal(options.eventQueueOptions())
+	if err != nil {
+		return nil, err
+	}
+	err = localBucketing.initEventQueue(eventQueueOpt)
+	if err != nil {
+		return nil, fmt.Errorf("Error initializing WASM event queue: %s", err)
 	}
 
 	return &WASMLocalBucketing{
@@ -163,6 +175,77 @@ func (lb *WASMLocalBucketing) Variable(user User, key string, variableType strin
 		DefaultValue: nil,
 		IsDefaulted:  false,
 	}, nil
+}
+
+func (lb *WASMLocalBucketing) QueueEvent(user User, event Event) error {
+	userstring, err := json.Marshal(user)
+	if err != nil {
+		return err
+	}
+	eventstring, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+	err = lb.localBucketingClient.queueEvent(string(userstring), string(eventstring))
+	return err
+}
+
+func (lb *WASMLocalBucketing) QueueAggregateEvent(config BucketedUserConfig, event Event) error {
+	eventstring, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("Error marshalling event: %s", err)
+	}
+	return lb.localBucketingClient.queueAggregateEvent(string(eventstring), config)
+}
+
+func (lb *WASMLocalBucketing) FlushEventQueue(callback EventFlushCallback) error {
+	lb.localBucketingClient.startFlushEvents()
+	defer lb.localBucketingClient.finishFlushEvents()
+	payloads, err := lb.localBucketingClient.flushEventQueue()
+	if err != nil {
+		return err
+	}
+	result, err := callback(toPayloadMap(payloads))
+	if err != nil {
+		return err
+	}
+
+	lb.localBucketingClient.HandleFlushResults(result)
+
+	err = lb.bucketingObjectPool.ProcessAll("FlushEvents", func(object *BucketingPoolObject) error {
+		payloads, err := object.FlushEvents()
+		if err != nil {
+			return err
+		}
+
+		result, err := callback(toPayloadMap(payloads))
+		if err != nil {
+			return err
+		}
+
+		object.HandleFlushResults(result)
+
+		return nil
+	})
+	return err
+}
+
+func toPayloadMap(payloads []api.FlushPayload) map[string]api.FlushPayload {
+	payloadsMap := make(map[string]api.FlushPayload, len(payloads))
+	for _, payload := range payloads {
+		payloadsMap[payload.PayloadId] = payload
+	}
+
+	return payloadsMap
+}
+
+func (lb *WASMLocalBucketing) UserQueueLength() (int, error) {
+	queueSize, err := lb.localBucketingClient.checkEventQueueSize()
+	if err != nil {
+		return 0, err
+	}
+
+	return queueSize, nil
 }
 
 func (lb *WASMLocalBucketing) Close() {

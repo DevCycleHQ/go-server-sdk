@@ -4,9 +4,10 @@ package devcycle
 
 import (
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"sync"
 	"time"
+
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 
@@ -24,7 +25,6 @@ func (c *Client) setLBClient(sdkKey string, options *Options) error {
 		return err
 	}
 	c.localBucketing = localBucketing
-	c.eventQueue = localBucketing.eventQueue
 
 	return nil
 }
@@ -38,7 +38,7 @@ type NativeLocalBucketing struct {
 }
 
 func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, options *Options) (*NativeLocalBucketing, error) {
-	eq, err := native_bucketing.InitEventQueue(sdkKey, options.eventQueueOptions())
+	eq, err := native_bucketing.NewEventQueue(sdkKey, options.eventQueueOptions())
 	if err != nil {
 		return nil, err
 	}
@@ -95,9 +95,35 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 	}, nil
 }
 
+// TODO: extract this into a separate type, or just use native_bucketing.EventQueue directly
 func (n *NativeLocalBucketing) Close() {
 	err := n.eventQueue.Close()
 	if err != nil {
 		_ = util.Errorf("Error closing event queue: %v", err)
 	}
+}
+
+func (n *NativeLocalBucketing) QueueEvent(user User, event Event) error {
+	return n.eventQueue.QueueEvent(user, event)
+}
+
+func (n *NativeLocalBucketing) QueueAggregateEvent(config BucketedUserConfig, event Event) error {
+	return n.eventQueue.QueueAggregateEvent(config, event)
+}
+
+func (n *NativeLocalBucketing) UserQueueLength() (int, error) {
+	return n.eventQueue.UserQueueLength(), nil
+}
+
+func (n *NativeLocalBucketing) FlushEventQueue(callback EventFlushCallback) error {
+	payloads, err := n.eventQueue.FlushEventQueue()
+
+	result, err := callback(payloads)
+	if err != nil {
+		return err
+	}
+
+	n.eventQueue.HandleFlushResults(result.SuccessPayloads, result.FailurePayloads, result.FailureWithRetryPayloads)
+
+	return nil
 }

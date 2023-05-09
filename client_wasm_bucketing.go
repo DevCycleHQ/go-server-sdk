@@ -12,14 +12,5 @@ func (c *Client) setLBClient(sdkKey string, options *Options) error {
 
 	c.localBucketing = localBucketing
 
-	eventQueue := &EventQueue{}
-	err = eventQueue.initialize(options, localBucketing.localBucketingClient, localBucketing.bucketingObjectPool, c.cfg)
-
-	if err != nil {
-		return err
-	}
-
-	c.eventQueue = eventQueue
-
 	return nil
 }
