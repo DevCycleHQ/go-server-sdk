@@ -2,6 +2,7 @@ package devcycle
 
 import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/devcyclehq/go-server-sdk/v2/native_bucketing"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
@@ -19,6 +20,8 @@ type Event = api.Event
 type FlushPayload = api.FlushPayload
 type BatchEventsBody = api.BatchEventsBody
 type Feature = api.Feature
+
+var ErrQueueFull = native_bucketing.ErrQueueFull
 
 // Aliases to support customizing logging
 type Logger = util.Logger

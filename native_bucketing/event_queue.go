@@ -1,22 +1,20 @@
 package native_bucketing
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/google/uuid"
 )
+
+var ErrQueueFull = fmt.Errorf("Max queue size reached")
 
 type aggEventData struct {
 	event                *api.Event
@@ -102,7 +100,24 @@ func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
 	}
 }
 
-func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue, error) {
+type EventQueue struct {
+	sdkKey              string
+	options             *api.EventQueueOptions
+	aggEventQueueRaw    chan aggEventData
+	userEventQueueRaw   chan userEventData
+	userEventQueue      UserEventQueue
+	userEventQueueCount int
+	aggEventQueue       AggregateEventQueue
+	stateMutex          *sync.RWMutex
+	httpClient          *http.Client
+	pendingPayloads     map[string]api.FlushPayload
+	done                func()
+	eventsFlushed       atomic.Int32
+	eventsReported      atomic.Int32
+	eventsDropped       atomic.Int32
+}
+
+func NewEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue, error) {
 	if sdkKey == "" {
 		return nil, fmt.Errorf("sdk key is required")
 	}
@@ -117,42 +132,21 @@ func InitEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue,
 		userEventQueueRaw: make(chan userEventData, options.MaxEventQueueSize),
 		userEventQueue:    make(map[string]api.UserEventsBatchRecord),
 		aggEventQueue:     make(AggregateEventQueue),
-		aggEventMutex:     &sync.RWMutex{},
+		stateMutex:        &sync.RWMutex{},
 		httpClient:        &http.Client{},
-		flushMutex:        &sync.Mutex{},
 		pendingPayloads:   make(map[string]api.FlushPayload, 0),
 		done:              cancel,
 	}
 
 	go eq.processEvents(ctx)
 
-	if options.FlushEventsInterval > 0 {
-		go eq.flushEventsPeriodically(ctx, options.FlushEventsInterval)
-	}
-
 	return eq, nil
 }
 
-type EventQueue struct {
-	sdkKey            string
-	options           *api.EventQueueOptions
-	aggEventQueueRaw  chan aggEventData
-	userEventQueueRaw chan userEventData
-	userEventQueue    UserEventQueue
-	aggEventQueue     AggregateEventQueue
-	aggEventMutex     *sync.RWMutex
-	eventsFlushed     atomic.Int32
-	eventsReported    atomic.Int32
-	eventsDropped     atomic.Int32
-	httpClient        *http.Client
-	flushMutex        *sync.Mutex
-	pendingPayloads   map[string]api.FlushPayload
-	done              func()
-}
-
 func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
-	eq.aggEventMutex.Lock()
-	defer eq.aggEventMutex.Unlock()
+	eq.stateMutex.Lock()
+	defer eq.stateMutex.Unlock()
+
 	if eq.aggEventQueue == nil {
 		eq.aggEventQueue = make(AggregateEventQueue)
 	}
@@ -201,7 +195,7 @@ func (eq *EventQueue) queueAggregateEventInternal(event *api.Event, variableVari
 	}:
 	default:
 		eq.eventsDropped.Add(1)
-		return util.Errorf("event queue is full, dropping event: %+v", event)
+		return ErrQueueFull
 	}
 
 	return nil
@@ -216,7 +210,7 @@ func (eq *EventQueue) QueueEvent(user api.User, event api.Event) error {
 	}:
 	default:
 		eq.eventsDropped.Add(1)
-		return util.Errorf("event queue is full, dropping event: %+v", event)
+		return ErrQueueFull
 	}
 
 	return nil
@@ -242,21 +236,18 @@ func (eq *EventQueue) QueueVariableEvaluatedEvent(variableVariationMap map[strin
 	return eq.queueAggregateEventInternal(&event, variableVariationMap, eventType == api.EventType_AggVariableEvaluated)
 }
 
-func (eq *EventQueue) flushEventQueue() (map[string]api.FlushPayload, error) {
-	eq.aggEventMutex.Lock()
-	defer eq.aggEventMutex.Unlock()
-	var records []api.UserEventsBatchRecord
+func (eq *EventQueue) FlushEventQueue() (map[string]api.FlushPayload, error) {
+	eq.stateMutex.Lock()
+	defer eq.stateMutex.Unlock()
 
-	for _, record := range eq.pendingPayloads {
-		if record.Status == "failed" {
-			return nil, util.Errorf("Cannot flush events, event queue has failed payloads")
-		}
-	}
+	var records []api.UserEventsBatchRecord
 
 	records = append(records, eq.aggEventQueue.BuildBatchRecords())
 	records = append(records, eq.userEventQueue.BuildBatchRecords()...)
 	eq.aggEventQueue = make(AggregateEventQueue)
 	eq.userEventQueue = make(UserEventQueue)
+	eq.userEventQueueCount = 0
+
 	for _, record := range records {
 		var payload *api.FlushPayload
 		for _, pl := range eq.pendingPayloads {
@@ -274,6 +265,9 @@ func (eq *EventQueue) flushEventQueue() (map[string]api.FlushPayload, error) {
 		}
 		payload.AddBatchRecordForUser(record, eq.options.EventRequestChunkSize)
 		payload.EventCount = len(payload.Records)
+		if payload.EventCount == 0 {
+			continue
+		}
 		eq.pendingPayloads[payload.PayloadId] = *payload
 	}
 
@@ -284,92 +278,35 @@ func (eq *EventQueue) flushEventQueue() (map[string]api.FlushPayload, error) {
 	return eq.pendingPayloads, nil
 }
 
-func (eq *EventQueue) FlushEvents() (err error) {
-	util.Debugf("Flushing events")
+func (eq *EventQueue) HandleFlushResults(successPayloads []string, failurePayloads []string, failureWithRetryPayloads []string) {
+	eq.stateMutex.Lock()
+	defer eq.stateMutex.Unlock()
 
-	eq.flushMutex.Lock()
-	defer eq.flushMutex.Unlock()
+	var reported int32
 
-	payloads, err := eq.flushEventQueue()
-	if err != nil {
-		return err
+	for _, payloadId := range successPayloads {
+		if err := eq.reportPayloadSuccess(payloadId); err != nil {
+			_ = util.Errorf("failed to mark event payloads as successful", err)
+		} else {
+			reported++
+		}
+	}
+	for _, payloadId := range failurePayloads {
+		if err := eq.reportPayloadFailure(payloadId, false); err != nil {
+			_ = util.Errorf("failed to mark event payloads as failed", err)
+		} else {
+			reported++
+		}
+	}
+	for _, payloadId := range failureWithRetryPayloads {
+		if err := eq.reportPayloadFailure(payloadId, true); err != nil {
+			_ = util.Errorf("failed to mark event payloads as failed", err)
+		} else {
+			reported++
+		}
 	}
 
-	for _, payload := range payloads {
-		_ = eq.flushEventPayload(&payload)
-
-	}
-
-	util.Debugf("Finished flushing events")
-	return
-}
-
-func (eq *EventQueue) flushEventPayload(payload *api.FlushPayload) error {
-	if len(payload.Records) == 0 {
-		_ = eq.reportPayloadFailure(payload, false)
-		return fmt.Errorf("cannot flush empty payload")
-	}
-	eventsHost := eq.options.EventsAPIBasePath
-	var req *http.Request
-	var resp *http.Response
-	requestBody, err := json.Marshal(api.BatchEventsBody{Batch: payload.Records})
-	if err != nil {
-		_ = util.Errorf("failed to marshal batch events body: %s", err)
-		_ = eq.reportPayloadFailure(payload, false)
-		return err
-	}
-	req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(requestBody))
-	if err != nil {
-		_ = util.Errorf("failed to create request to events api: %s", err)
-		_ = eq.reportPayloadFailure(payload, false)
-		return err
-	}
-
-	req.Header.Set("Authorization", eq.sdkKey)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err = eq.httpClient.Do(req)
-
-	if err != nil {
-		_ = util.Errorf("Failed to make request to events api: %s", err)
-		_ = eq.reportPayloadFailure(payload, false)
-		return err
-	}
-
-	// always ensure body is closed to avoid goroutine leak
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	// always read response body fully - from net/http docs:
-	// If the Body is not both read to EOF and closed, the Client's
-	// underlying RoundTripper (typically Transport) may not be able to
-	// re-use a persistent TCP connection to the server for a subsequent
-	// "keep-alive" request.
-	responseBody, readError := io.ReadAll(resp.Body)
-	if readError != nil {
-		_ = util.Errorf("Failed to read response body: %v", readError)
-		_ = eq.reportPayloadFailure(payload, false)
-		return err
-	}
-
-	if resp.StatusCode >= 500 {
-		util.Warnf("Events API Returned a 5xx error, retrying later.")
-		_ = eq.reportPayloadFailure(payload, true)
-		return err
-	} else if resp.StatusCode >= 400 {
-		_ = eq.reportPayloadFailure(payload, false)
-		_ = util.Errorf("Error sending events - Response: %s", string(responseBody))
-		return err
-	} else if resp.StatusCode == 201 {
-		err = eq.reportPayloadSuccess(payload)
-		eq.eventsReported.Add(1)
-		return err
-	}
-
-	_ = util.Errorf("unknown status code when flushing events %d", resp.StatusCode)
-	return eq.reportPayloadFailure(payload, false)
+	eq.eventsReported.Add(reported)
 }
 
 func (eq *EventQueue) Metrics() (int32, int32, int32) {
@@ -377,9 +314,14 @@ func (eq *EventQueue) Metrics() (int32, int32, int32) {
 }
 
 func (eq *EventQueue) Close() (err error) {
-	err = eq.FlushEvents()
 	eq.done()
 	return
+}
+
+func (eq *EventQueue) UserQueueLength() int {
+	eq.stateMutex.RLock()
+	defer eq.stateMutex.RUnlock()
+	return eq.userEventQueueCount
 }
 
 func (eq *EventQueue) updateFailedPayloads() {
@@ -390,24 +332,24 @@ func (eq *EventQueue) updateFailedPayloads() {
 	}
 }
 
-func (eq *EventQueue) reportPayloadSuccess(payload *api.FlushPayload) error {
-	if _, ok := eq.pendingPayloads[payload.PayloadId]; ok {
-		delete(eq.pendingPayloads, payload.PayloadId)
+func (eq *EventQueue) reportPayloadSuccess(payloadId string) error {
+	if _, ok := eq.pendingPayloads[payloadId]; ok {
+		delete(eq.pendingPayloads, payloadId)
 	} else {
-		return util.Errorf("Failed to find payload: %s to mark as success", payload.PayloadId)
+		return util.Errorf("Failed to find payload: %s to mark as success", payloadId)
 	}
 	return nil
 }
 
-func (eq *EventQueue) reportPayloadFailure(payload *api.FlushPayload, retryable bool) error {
-	if v, ok := eq.pendingPayloads[payload.PayloadId]; ok {
+func (eq *EventQueue) reportPayloadFailure(payloadId string, retryable bool) error {
+	if v, ok := eq.pendingPayloads[payloadId]; ok {
 		if retryable {
 			v.Status = "failed"
 		} else {
-			delete(eq.pendingPayloads, payload.PayloadId)
+			delete(eq.pendingPayloads, payloadId)
 		}
 	} else {
-		return util.Errorf("Failed to find payload: %s, retryable: %b", payload.PayloadId, retryable)
+		return util.Errorf("Failed to find payload: %s, retryable: %b", payloadId, retryable)
 	}
 	return nil
 }
@@ -433,22 +375,6 @@ func (eq *EventQueue) processEvents(ctx context.Context) {
 	}
 }
 
-func (eq *EventQueue) flushEventsPeriodically(ctx context.Context, interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	for {
-		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			err := eq.FlushEvents()
-			if err != nil {
-				_ = util.Errorf("Failed to flush events: %s", err)
-			}
-		}
-	}
-}
-
 func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -458,6 +384,9 @@ func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
 			}
 		}
 	}()
+	eq.stateMutex.Lock()
+	defer eq.stateMutex.Unlock()
+
 	// TODO: provide platform data
 	popU := event.user.GetPopulatedUser(platformData)
 	ccd := GetClientCustomData(eq.sdkKey)
@@ -465,7 +394,6 @@ func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
 
 	bucketedConfig, err := GenerateBucketedConfig(eq.sdkKey, popU, ccd)
 	if err != nil {
-		// TODO: Log
 		return err
 	}
 	event.event.FeatureVars = bucketedConfig.FeatureVariationMap
@@ -491,12 +419,7 @@ func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
 		}
 		eq.userEventQueue[popU.UserId] = record
 	}
-	if len(eq.userEventQueue[popU.UserId].Events) >= eq.options.FlushEventQueueSize {
-		err = eq.FlushEvents()
-		if err != nil {
-			return err
-		}
-	}
+	eq.userEventQueueCount++
 	return nil
 }
 
@@ -510,8 +433,8 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 		}
 	}()
 
-	eq.aggEventMutex.Lock()
-	defer eq.aggEventMutex.Unlock()
+	eq.stateMutex.Lock()
+	defer eq.stateMutex.Unlock()
 	eType := event.event.Type_
 	eTarget := event.event.Target
 

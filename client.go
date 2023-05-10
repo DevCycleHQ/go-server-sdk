@@ -49,7 +49,7 @@ type Client struct {
 	DevCycleOptions *Options
 	sdkKey          string
 	configManager   *EnvironmentConfigManager
-	eventQueue      EventQueuer
+	eventQueue      *EventManager
 	localBucketing  LocalBucketing
 	platformData    *PlatformData
 
@@ -60,18 +60,11 @@ type Client struct {
 
 type LocalBucketing interface {
 	ConfigReceiver
+	InternalEventQueue
 	GenerateBucketedConfigForUser(user User) (ret *BucketedUserConfig, err error)
 	SetClientCustomData(map[string]interface{}) error
 	Variable(user User, key string, variableType string) (variable Variable, err error)
 	Close()
-}
-
-type EventQueuer interface {
-	QueueEvent(user User, event Event) error
-	QueueAggregateEvent(config BucketedUserConfig, event Event) error
-	FlushEvents() (err error)
-	Metrics() (int32, int32, int32)
-	Close() (err error)
 }
 
 type SDKEvent struct {
@@ -119,7 +112,13 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 
 		err := c.setLBClient(sdkKey, options)
 		if err != nil {
-			return c, err
+			return c, fmt.Errorf("Error setting up local bucketing: %w", err)
+		}
+
+		c.eventQueue, err = NewEventManager(options, c.localBucketing, c.cfg, sdkKey)
+
+		if err != nil {
+			return c, fmt.Errorf("Error initializing event queue: %w", err)
 		}
 
 		c.configManager = NewEnvironmentConfigManager(sdkKey, c.localBucketing, options, c.cfg)

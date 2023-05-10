@@ -10,7 +10,7 @@ import (
 	"github.com/jarcoal/httpmock"
 )
 
-func TestEventQueue_QueueEvent(t *testing.T) {
+func TestEventManager_QueueEvent(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
@@ -25,7 +25,7 @@ func TestEventQueue_QueueEvent(t *testing.T) {
 	}
 }
 
-func TestEventQueue_QueueEvent_100_DropEvent(t *testing.T) {
+func TestEventManager_QueueEvent_100_DropEvent(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
@@ -49,25 +49,41 @@ func TestEventQueue_QueueEvent_100_DropEvent(t *testing.T) {
 	}
 }
 
-func TestEventQueue_QueueEvent_100_Flush(t *testing.T) {
+func TestEventManager_QueueEvent_100_Flush(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	httpEventsApiMock()
-	c, err := NewClient("dvc_server_token_hash", &Options{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
+	c, err := NewClient("dvc_server_token_hash", &Options{
+		MaxEventQueueSize:       100,
+		FlushEventQueueSize:     10,
+		ConfigPollingIntervalMS: time.Second,
+		EventFlushIntervalMS:    time.Second,
+	})
 	fatalErr(t, err)
 
-	for i := 0; i <= 100; i++ {
+	// Track up to FlushEventQueueSize events
+	for i := 0; i < 10; i++ {
 		_, err = c.Track(User{UserId: "j_test", DeviceModel: "testing"},
 			Event{Target: "customevent", Type_: "event"})
 		if err != nil {
-			log.Println(err)
-			break
+			t.Fatalf("Error tracking event: %v", err)
 		}
+	}
+	// Wait for raw event queue to drain
+	require.Eventually(t, func() bool {
+		queueLength, _ := c.eventQueue.internalQueue.UserQueueLength()
+		return queueLength == 10
+	}, 1*time.Second, 100*time.Millisecond)
+
+	// Track one more event to trigger an automatic flush
+	_, err = c.Track(User{UserId: "j_test", DeviceModel: "testing"}, Event{Target: "customevent", Type_: "event"})
+	if err != nil {
+		t.Fatalf("Error tracking event: %v", err)
 	}
 
 	require.Eventually(t, func() bool {
-		return httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"] == 10
+		return httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"] == 1
 	}, 1*time.Second, 100*time.Millisecond)
 
 }
