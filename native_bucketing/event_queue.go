@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"sync/atomic"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
@@ -111,6 +112,9 @@ type EventQueue struct {
 	httpClient          *http.Client
 	pendingPayloads     map[string]api.FlushPayload
 	done                func()
+	eventsFlushed       atomic.Int32
+	eventsReported      atomic.Int32
+	eventsDropped       atomic.Int32
 }
 
 func NewEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue, error) {
@@ -190,6 +194,7 @@ func (eq *EventQueue) queueAggregateEventInternal(event *api.Event, variableVari
 		aggregateByVariation: aggregateByVariation,
 	}:
 	default:
+		eq.eventsDropped.Add(1)
 		return ErrQueueFull
 	}
 
@@ -204,6 +209,7 @@ func (eq *EventQueue) QueueEvent(user api.User, event api.Event) error {
 		user:  &user,
 	}:
 	default:
+		eq.eventsDropped.Add(1)
 		return ErrQueueFull
 	}
 
@@ -267,6 +273,8 @@ func (eq *EventQueue) FlushEventQueue() (map[string]api.FlushPayload, error) {
 
 	eq.updateFailedPayloads()
 
+	eq.eventsFlushed.Add(int32(len(eq.pendingPayloads)))
+
 	return eq.pendingPayloads, nil
 }
 
@@ -274,22 +282,35 @@ func (eq *EventQueue) HandleFlushResults(successPayloads []string, failurePayloa
 	eq.stateMutex.Lock()
 	defer eq.stateMutex.Unlock()
 
+	var reported int32
+
 	for _, payloadId := range successPayloads {
 		if err := eq.reportPayloadSuccess(payloadId); err != nil {
 			_ = util.Errorf("failed to mark event payloads as successful", err)
+		} else {
+			reported++
 		}
 	}
 	for _, payloadId := range failurePayloads {
 		if err := eq.reportPayloadFailure(payloadId, false); err != nil {
 			_ = util.Errorf("failed to mark event payloads as failed", err)
-
+		} else {
+			reported++
 		}
 	}
 	for _, payloadId := range failureWithRetryPayloads {
 		if err := eq.reportPayloadFailure(payloadId, true); err != nil {
 			_ = util.Errorf("failed to mark event payloads as failed", err)
+		} else {
+			reported++
 		}
 	}
+
+	eq.eventsReported.Add(reported)
+}
+
+func (eq *EventQueue) Metrics() (int32, int32, int32) {
+	return eq.eventsFlushed.Load(), eq.eventsReported.Load(), eq.eventsDropped.Load()
 }
 
 func (eq *EventQueue) Close() (err error) {

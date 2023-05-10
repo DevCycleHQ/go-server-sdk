@@ -129,3 +129,7 @@ func (n *NativeLocalBucketing) FlushEventQueue(callback EventFlushCallback) erro
 
 	return nil
 }
+
+func (n *NativeLocalBucketing) Metrics() (int32, int32, int32) {
+	return n.eventQueue.Metrics()
+}

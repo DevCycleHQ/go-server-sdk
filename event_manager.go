@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/util"
@@ -20,22 +19,20 @@ type InternalEventQueue interface {
 	QueueAggregateEvent(config BucketedUserConfig, event Event) error
 	FlushEventQueue(EventFlushCallback) error
 	UserQueueLength() (int, error)
+	Metrics() (int32, int32, int32)
 }
 
 // EventManager is responsible for flushing the event queue and reporting events to the server.
 // It wraps an InternalEventQueue which is implemented either natively by the native_bucketing package or in WASM.
 type EventManager struct {
-	internalQueue  InternalEventQueue
-	flushMutex     *sync.Mutex
-	sdkKey         string
-	options        *Options
-	cfg            *HTTPConfiguration
-	closed         bool
-	flushStop      chan bool
-	forceFlush     chan bool
-	eventsFlushed  atomic.Int32
-	eventsReported atomic.Int32
-	eventsDropped  atomic.Int32
+	internalQueue InternalEventQueue
+	flushMutex    *sync.Mutex
+	sdkKey        string
+	options       *Options
+	cfg           *HTTPConfiguration
+	closed        bool
+	flushStop     chan bool
+	forceFlush    chan bool
 }
 
 type FlushResult struct {
@@ -106,7 +103,6 @@ func (e *EventManager) QueueEvent(user User, event Event) error {
 	}
 	err = e.internalQueue.QueueEvent(user, event)
 	if err != nil && errors.Is(err, ErrQueueFull) {
-		e.eventsDropped.Add(1)
 		return util.Errorf("event queue is full, dropping event: %+v", event)
 	}
 	return err
@@ -207,7 +203,6 @@ func (e *EventManager) flushEventPayload(
 
 	if resp.StatusCode == 201 {
 		e.reportPayloadSuccess(payload, successes)
-		e.eventsReported.Add(int32(payload.EventCount))
 		return
 	}
 
@@ -221,7 +216,6 @@ func (e *EventManager) flushEventPayloads(payloads map[string]FlushPayload) (res
 	retryableFailures := make([]string, 0)
 
 	for _, payload := range payloads {
-		e.eventsFlushed.Add(int32(payload.EventCount))
 		e.flushEventPayload(&payload, &successes, &failures, &retryableFailures)
 	}
 
@@ -250,7 +244,7 @@ func (e *EventManager) reportPayloadFailure(
 }
 
 func (e *EventManager) Metrics() (int32, int32, int32) {
-	return e.eventsFlushed.Load(), e.eventsReported.Load(), e.eventsDropped.Load()
+	return e.internalQueue.Metrics()
 }
 
 func (e *EventManager) Close() (err error) {

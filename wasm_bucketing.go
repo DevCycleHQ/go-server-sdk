@@ -230,6 +230,11 @@ func (lb *WASMLocalBucketing) FlushEventQueue(callback EventFlushCallback) error
 	return err
 }
 
+// Stubbed out for now
+func (lb *WASMLocalBucketing) Metrics() (int32, int32, int32) {
+	return 0, 0, 0
+}
+
 func toPayloadMap(payloads []api.FlushPayload) map[string]api.FlushPayload {
 	payloadsMap := make(map[string]api.FlushPayload, len(payloads))
 	for _, payload := range payloads {
