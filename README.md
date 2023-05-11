@@ -44,6 +44,13 @@ This SDK is supported by our [test harness](https://github.com/DevCycleHQ/test-h
 
 Configuration of the SDK is done through the `Options` struct.
 
+## Logging
+
+By default, logging is disabled to avoid overhead and noise in your logs. To enable it for debugging the SDK, set the `devcycle_debug_logging` build tag when compiling your project:
+```
+go build -tags devcycle_debug_logging ...
+```
+
 ### Cloud Bucketing
 
 The following options are available when you are using the SDK in Cloud Bucketing mode.
