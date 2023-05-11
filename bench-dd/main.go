@@ -5,7 +5,6 @@ import (
 	"expvar"
 	"flag"
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"io"
 	"log"
 	"math/rand"
@@ -17,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 
 	"github.com/HdrHistogram/hdrhistogram-go"
 	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
@@ -103,7 +104,7 @@ func main() {
 
 		err := profiler.Start(
 			profiler.WithService("go-bench-dd"),
-			profiler.WithEnv("benchmark"),
+			profiler.WithEnv(datadogEnv),
 			profileTypes,
 		)
 		if err != nil {
@@ -134,7 +135,7 @@ func main() {
 		log.Printf("Running with logging enabled")
 	}
 
-	client, err := devcycle.NewDVCClient("dvc_server_hello", &devcycle.DVCOptions{
+	client, err := devcycle.NewClient("dvc_server_hello", &devcycle.Options{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         false,
 		EventFlushIntervalMS:         eventFlushInterval,
@@ -152,7 +153,7 @@ func main() {
 	})
 
 	if err != nil {
-		log.Fatalf("Error setting up DVC client: %v", err)
+		log.Fatalf("Error setting up DevCycle client: %v", err)
 	}
 
 	hostname, err := os.Hostname()
