@@ -1,7 +1,7 @@
 package native_bucketing
 
 import (
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
@@ -11,6 +11,13 @@ import (
 // Max value of an unsigned 32-bit integer, which is what murmurhash returns
 const maxHashValue uint32 = 4294967295
 const baseSeed = 1
+
+var ErrMissingVariableForVariation = errors.New("Config missing variable for variation")
+var ErrMissingFeature = errors.New("Config missing feature for variable")
+var ErrMissingVariable = errors.New("Config missing variable")
+var ErrMissingVariation = errors.New("Config missing variation")
+var ErrUserRollout = errors.New("User does not qualify for feature rollout")
+var ErrUserDoesNotQualifyForTargets = errors.New("User does not qualify for any targets for feature")
 
 type boundedHash struct {
 	RolloutHash   float64 `json:"rolloutHash"`
@@ -135,14 +142,14 @@ type targetAndHashes struct {
 func doesUserQualifyForFeature(config *configBody, feature ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) (targetAndHashes, error) {
 	target := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
 	if target == nil {
-		return targetAndHashes{}, fmt.Errorf("user %s does not qualify for any targets for feature %s", user.UserId, feature.Key)
+		return targetAndHashes{}, ErrUserDoesNotQualifyForTargets
 	}
 
 	boundedHashes := generateBoundedHashes(user.UserId, target.Id)
 	rolloutHash := boundedHashes.RolloutHash
 
 	if target.Rollout != nil && !doesUserPassRollout(*target.Rollout, rolloutHash) {
-		return targetAndHashes{}, fmt.Errorf("user %s does not qualify for feature %s rollout", user.UserId, feature.Key)
+		return targetAndHashes{}, ErrUserRollout
 	}
 	return targetAndHashes{
 		Target: *target,
@@ -160,7 +167,7 @@ func bucketUserForVariation(feature *ConfigFeature, hashes targetAndHashes) (Var
 			return v, nil
 		}
 	}
-	return Variation{}, fmt.Errorf("config missing variation %s", variationId)
+	return Variation{}, ErrMissingVariation
 }
 
 func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomData map[string]interface{}) (*api.BucketedUserConfig, error) {
@@ -196,7 +203,7 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 		for _, variationVar := range variation.Variables {
 			variable := config.GetVariableForId(variationVar.Var)
 			if variable == nil {
-				return nil, fmt.Errorf("config missing variable: %s", variationVar.Var)
+				return nil, ErrMissingVariable
 			}
 
 			variableVariationMap[variable.Key] = api.FeatureVariation{
@@ -277,11 +284,11 @@ func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key 
 	}
 	variable := config.GetVariableForKey(key)
 	if variable == nil {
-		return nil, fmt.Errorf("config missing variable %s", key)
+		return nil, ErrMissingVariable
 	}
 	featForVariable := config.GetFeatureForVariableId(variable.Id)
 	if featForVariable == nil {
-		return nil, fmt.Errorf("config missing feature for variable %s", key)
+		return nil, ErrMissingFeature
 	}
 
 	th, err := doesUserQualifyForFeature(config, *featForVariable, user, clientCustomData)
@@ -294,7 +301,7 @@ func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key 
 	}
 	variationVariable := variation.GetVariableById(variable.Id)
 	if variationVariable == nil {
-		return nil, fmt.Errorf("config processing error: config missing variable %s for variation %s", key, variation.Id)
+		return nil, ErrMissingVariableForVariation
 	}
 	return &BucketedVariableResponse{
 		Variable: api.ReadOnlyVariable{
