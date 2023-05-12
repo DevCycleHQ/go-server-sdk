@@ -17,9 +17,10 @@ import (
 var ErrQueueFull = fmt.Errorf("Max queue size reached")
 
 type aggEventData struct {
-	event                *api.Event
-	variableVariationMap map[string]api.FeatureVariation
-	aggregateByVariation bool
+	eventType   string
+	variableKey string
+	featureId   string
+	variationId string
 }
 
 type userEventData struct {
@@ -172,26 +173,27 @@ func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
 	}
 }
 
-// QueueAggregateEvent queues an aggregate event to be sent to the server - but offloads actual computing of the event itself
-// to a different goroutine.
+// QueueAggregateEvent queues an aggregate event to be sent to the server - but offloads aggregation of the event to a different goroutine.
 func (eq *EventQueue) QueueAggregateEvent(config api.BucketedUserConfig, event api.Event) error {
-	return eq.queueAggregateEventInternal(&event, config.VariableVariationMap, event.Type_ == api.EventType_AggVariableEvaluated)
+	// FIXME: This flow is only used by variable defaulted events triggered by the client, so rename and simplify it
+	return eq.queueAggregateEventInternal(event.Target, "", "", event.Type_)
 }
 
-func (eq *EventQueue) queueAggregateEventInternal(event *api.Event, variableVariationMap map[string]api.FeatureVariation, aggregateByVariation bool) error {
-	if eq.options != nil && eq.options.IsEventLoggingDisabled(event) {
+func (eq *EventQueue) queueAggregateEventInternal(variableKey, featureId, variationId, eventType string) error {
+	if eq.options != nil && eq.options.IsEventLoggingDisabled(eventType) {
 		return nil
 	}
 
-	if event.Target == "" {
-		return fmt.Errorf("target is required for aggregate events")
+	if variableKey == "" {
+		return fmt.Errorf("A variable key is required for aggregate events")
 	}
 
 	select {
 	case eq.aggEventQueueRaw <- aggEventData{
-		event:                event,
-		variableVariationMap: variableVariationMap,
-		aggregateByVariation: aggregateByVariation,
+		eventType:   eventType,
+		variableKey: variableKey,
+		featureId:   featureId,
+		variationId: variationId,
 	}:
 	default:
 		eq.eventsDropped.Add(1)
@@ -216,24 +218,19 @@ func (eq *EventQueue) QueueEvent(user api.User, event api.Event) error {
 	return nil
 }
 
-func (eq *EventQueue) QueueVariableEvaluatedEvent(variableVariationMap map[string]api.FeatureVariation, variable *api.ReadOnlyVariable, variableKey string) error {
+func (eq *EventQueue) QueueVariableEvaluatedEvent(variableKey, featureId, variationId string, variableDefaulted bool) error {
 	if eq.options.DisableAutomaticEventLogging {
 		return nil
 	}
 
 	eventType := ""
-	if variable != nil {
+	if !variableDefaulted {
 		eventType = api.EventType_AggVariableEvaluated
 	} else {
 		eventType = api.EventType_AggVariableDefaulted
 	}
 
-	event := api.Event{
-		Type_:  eventType,
-		Target: variableKey,
-	}
-
-	return eq.queueAggregateEventInternal(&event, variableVariationMap, eventType == api.EventType_AggVariableEvaluated)
+	return eq.queueAggregateEventInternal(variableKey, featureId, variationId, eventType)
 }
 
 func (eq *EventQueue) FlushEventQueue() (map[string]api.FlushPayload, error) {
@@ -435,8 +432,8 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 
 	eq.stateMutex.Lock()
 	defer eq.stateMutex.Unlock()
-	eType := event.event.Type_
-	eTarget := event.event.Target
+	eType := event.eventType
+	eTarget := event.variableKey
 
 	variableFeatureVariationAggregationMap := make(VariableAggMap)
 	if v, ok := eq.aggEventQueue[eType]; ok {
@@ -451,17 +448,13 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 		variableFeatureVariationAggregationMap[eTarget] = featureVariationAggregationMap
 	}
 
-	if event.aggregateByVariation {
-		if _, ok := event.variableVariationMap[eTarget]; !ok {
-			return fmt.Errorf("target mapping not found in variableVariationMap for %s", eTarget)
-		}
-		featureVar := event.variableVariationMap[eTarget]
+	if eType == api.EventType_AggVariableEvaluated {
 		variationAggMap := make(VariationAggMap)
-		if v, ok := featureVariationAggregationMap[featureVar.Feature]; ok {
+		if v, ok := featureVariationAggregationMap[event.featureId]; ok {
 			variationAggMap = v
 		}
-		variationAggMap[featureVar.Variation]++
-		featureVariationAggregationMap[featureVar.Feature] = variationAggMap
+		variationAggMap[event.variationId]++
+		featureVariationAggregationMap[event.featureId] = variationAggMap
 	} else {
 		if feature, ok := featureVariationAggregationMap["value"]; ok {
 			if _, ok2 := feature["value"]; ok2 {

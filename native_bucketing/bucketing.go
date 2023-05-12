@@ -242,10 +242,9 @@ var emptyVariableVariationMap = map[string]api.FeatureVariation{}
 
 func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, variableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (*api.ReadOnlyVariable, error) {
 	var variablePtr *api.ReadOnlyVariable = nil
-	variableVariationMap := map[string]api.FeatureVariation{}
 	result, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
-		eventErr := eventQueue.QueueVariableEvaluatedEvent(emptyVariableVariationMap, nil, variableKey)
+		eventErr := eventQueue.QueueVariableEvaluatedEvent(variableKey, "", "", true)
 		if eventErr != nil {
 			util.Warnf("Failed to queue variable defaulted event: %s", eventErr)
 		}
@@ -261,14 +260,14 @@ func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, 
 	}
 
 	if !eventQueue.options.DisableAutomaticEventLogging {
-		if result != nil {
-			variableVariationMap[variableKey] = api.FeatureVariation{
-				Variation: result.Variation.Id,
-				Feature:   result.Feature.Id,
-			}
+		var variationId, featureId string
+		variableDefaulted := result == nil
+		if !variableDefaulted {
+			featureId = result.Feature.Id
+			variationId = result.Variation.Id
 		}
 
-		err = eventQueue.QueueVariableEvaluatedEvent(variableVariationMap, variablePtr, variableKey)
+		err = eventQueue.QueueVariableEvaluatedEvent(variableKey, featureId, variationId, variableDefaulted)
 		if err != nil {
 			util.Warnf("Failed to queue variable evaluated event: %s", err)
 		}
