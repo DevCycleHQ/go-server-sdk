@@ -18,6 +18,7 @@ var ErrMissingVariable = errors.New("Config missing variable")
 var ErrMissingVariation = errors.New("Config missing variation")
 var ErrUserRollout = errors.New("User does not qualify for feature rollout")
 var ErrUserDoesNotQualifyForTargets = errors.New("User does not qualify for any targets for feature")
+var ErrInvalidVariableType = errors.New("Invalid variable type")
 
 type boundedHash struct {
 	RolloutHash   float64 `json:"rolloutHash"`
@@ -217,80 +218,68 @@ type BucketedVariableResponse struct {
 	Variation *Variation
 }
 
-var emptyVariableVariationMap = map[string]api.FeatureVariation{}
-
-func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, variableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (*api.ReadOnlyVariable, error) {
-	var variablePtr *api.ReadOnlyVariable = nil
-	result, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
+func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, variableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (resultVariableId, resultVariableType string, resultValue any, feature *ConfigFeature, variation *Variation, err error) {
+	var resultType string
+	resultVariableId, resultType, resultValue, feature, variation, err = generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
 		eventErr := eventQueue.QueueVariableEvaluatedEvent(variableKey, "", "", true)
 		if eventErr != nil {
 			util.Warnf("Failed to queue variable defaulted event: %s", eventErr)
 		}
-		return nil, err
+		return
 	}
 
-	if _, ok := VariableTypes[variableType]; !ok || result.Variable.Type_ != variableType {
-		result = nil
-	}
-
-	if result != nil {
-		variablePtr = &result.Variable
+	var variableDefaulted bool
+	if _, ok := VariableTypes[variableType]; !ok || resultType != variableType {
+		err = ErrInvalidVariableType
+		resultVariableId = ""
+		resultType = ""
+		resultValue = nil
+		variableDefaulted = true
 	}
 
 	if !eventQueue.options.DisableAutomaticEventLogging {
 		var variationId, featureId string
-		variableDefaulted := result == nil
-		if !variableDefaulted {
-			featureId = result.Feature.Id
-			variationId = result.Variation.Id
-		}
+		featureId = feature.Id
+		variationId = variation.Id
 
 		err = eventQueue.QueueVariableEvaluatedEvent(variableKey, featureId, variationId, variableDefaulted)
 		if err != nil {
 			util.Warnf("Failed to queue variable evaluated event: %s", err)
 		}
 	}
-	return variablePtr, nil
+	return
 
 }
 
-func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key string, clientCustomData map[string]interface{}) (*BucketedVariableResponse, error) {
+func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key string, clientCustomData map[string]interface{}) (variableId, variableType string, value any, feature *ConfigFeature, variation *Variation, err error) {
 	config, err := getConfig(sdkKey)
 	if err != nil {
-		return nil, err
+		return
 	}
 	variable := config.GetVariableForKey(key)
 	if variable == nil {
-		return nil, ErrMissingVariable
+		err = ErrMissingVariable
+		return
 	}
 	featForVariable := config.GetFeatureForVariableId(variable.Id)
 	if featForVariable == nil {
-		return nil, ErrMissingFeature
+		err = ErrMissingFeature
+		return
 	}
 
 	th, err := doesUserQualifyForFeature(config, featForVariable, user, clientCustomData)
 	if err != nil {
-		return nil, err
+		return
 	}
-	variation, err := bucketUserForVariation(featForVariable, th)
+	variation, err = bucketUserForVariation(featForVariable, th)
 	if err != nil {
-		return nil, err
+		return
 	}
 	variationVariable := variation.GetVariableById(variable.Id)
 	if variationVariable == nil {
-		return nil, ErrMissingVariableForVariation
+		err = ErrMissingVariableForVariation
+		return
 	}
-	return &BucketedVariableResponse{
-		Variable: api.ReadOnlyVariable{
-			Id: variable.Id,
-			BaseVariable: api.BaseVariable{
-				Type_: variable.Type,
-				Key:   variable.Key,
-				Value: variationVariable.Value,
-			},
-		},
-		Feature:   featForVariable,
-		Variation: variation,
-	}, nil
+	return variable.Id, variable.Type, variationVariable.Value, featForVariable, variation, nil
 }
