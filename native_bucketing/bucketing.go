@@ -104,12 +104,7 @@ func doesUserPassRollout(rollout Rollout, boundedHash float64) bool {
 	return rolloutPercentage != 0 && (boundedHash <= rolloutPercentage)
 }
 
-type segmentedFeatureData struct {
-	Feature ConfigFeature `json:"feature"`
-	Target  Target        `json:"target"`
-}
-
-func evaluateSegmentationForFeature(config *configBody, feature ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) *Target {
+func evaluateSegmentationForFeature(config *configBody, feature *ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) *Target {
 	for _, target := range feature.Configuration.Targets {
 		if _evaluateOperator(target.Audience.Filters, config.Audiences, user, clientCustomData) {
 			return target
@@ -118,28 +113,12 @@ func evaluateSegmentationForFeature(config *configBody, feature ConfigFeature, u
 	return nil
 }
 
-func getSegmentedFeatureDataFromConfig(config *configBody, user api.PopulatedUser, clientCustomData map[string]interface{}) []segmentedFeatureData {
-	var accumulator []segmentedFeatureData
-	for _, feature := range config.Features {
-		segmentedFeatureTarget := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
-
-		if segmentedFeatureTarget != nil {
-			featureData := segmentedFeatureData{
-				Feature: feature,
-				Target:  *segmentedFeatureTarget,
-			}
-			accumulator = append(accumulator, featureData)
-		}
-	}
-	return accumulator
-}
-
 type targetAndHashes struct {
 	Target Target
 	Hashes boundedHash
 }
 
-func doesUserQualifyForFeature(config *configBody, feature ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) (targetAndHashes, error) {
+func doesUserQualifyForFeature(config *configBody, feature *ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) (targetAndHashes, error) {
 	target := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
 	if target == nil {
 		return targetAndHashes{}, ErrUserDoesNotQualifyForTargets
@@ -157,17 +136,17 @@ func doesUserQualifyForFeature(config *configBody, feature ConfigFeature, user a
 	}, nil
 }
 
-func bucketUserForVariation(feature *ConfigFeature, hashes targetAndHashes) (Variation, error) {
+func bucketUserForVariation(feature *ConfigFeature, hashes targetAndHashes) (*Variation, error) {
 	variationId, err := hashes.Target.DecideTargetVariation(hashes.Hashes.BucketingHash)
 	if err != nil {
-		return Variation{}, err
+		return nil, err
 	}
 	for _, v := range feature.Variations {
 		if v.Id == variationId {
 			return v, nil
 		}
 	}
-	return Variation{}, ErrMissingVariation
+	return nil, ErrMissingVariation
 }
 
 func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomData map[string]interface{}) (*api.BucketedUserConfig, error) {
@@ -186,7 +165,7 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 			continue
 		}
 
-		variation, err := bucketUserForVariation(&feature, thash)
+		variation, err := bucketUserForVariation(feature, thash)
 		if err != nil {
 			continue
 		}
@@ -234,8 +213,8 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 
 type BucketedVariableResponse struct {
 	Variable  api.ReadOnlyVariable
-	Feature   ConfigFeature
-	Variation Variation
+	Feature   *ConfigFeature
+	Variation *Variation
 }
 
 var emptyVariableVariationMap = map[string]api.FeatureVariation{}
@@ -290,7 +269,7 @@ func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key 
 		return nil, ErrMissingFeature
 	}
 
-	th, err := doesUserQualifyForFeature(config, *featForVariable, user, clientCustomData)
+	th, err := doesUserQualifyForFeature(config, featForVariable, user, clientCustomData)
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +290,7 @@ func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key 
 				Value: variationVariable.Value,
 			},
 		},
-		Feature:   *featForVariable,
+		Feature:   featForVariable,
 		Variation: variation,
 	}, nil
 }

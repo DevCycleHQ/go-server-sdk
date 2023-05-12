@@ -143,7 +143,7 @@ func TestConfigParsing(t *testing.T) {
 	require.Equal(t, "=", filters[0].GetComparator())
 
 	// Check maps of variables IDs and keys
-	require.Equal(t, map[string]Variable{
+	require.Equal(t, map[string]*Variable{
 		"614ef6ea475129459160721a": {Id: "614ef6ea475129459160721a", Type: "String", Key: "test"},
 		"615356f120ed334a6054564c": {Id: "615356f120ed334a6054564c", Type: "String", Key: "swagTest"},
 		"61538237b0a70b58ae6af71f": {Id: "61538237b0a70b58ae6af71f", Type: "String", Key: "feature2Var"},
@@ -156,7 +156,7 @@ func TestConfigParsing(t *testing.T) {
 		"61538937b0a70b58ae6af71f": {Id: "61538937b0a70b58ae6af71f", Type: "String", Key: "feature4Var"}},
 		config.variableIdMap,
 	)
-	require.Equal(t, map[string]Variable{
+	require.Equal(t, map[string]*Variable{
 		"audience-match": {Id: "61538237b0a70b58ae6af71z", Type: "String", Key: "audience-match"},
 		"bool-var":       {Id: "61538237b0a70b58ae6af71y", Type: "Boolean", Key: "bool-var"},
 		"feature2.cool":  {Id: "61538237b0a70b58ae6af71g", Type: "String", Key: "feature2.cool"},
