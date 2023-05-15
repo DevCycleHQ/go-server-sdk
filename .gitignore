@@ -3,6 +3,8 @@
 *.a
 *.so
 
+go.work
+
 # Folders
 _obj
 _test
@@ -30,3 +32,4 @@ _testmain.go
 *.wat
 
 vendor/
+.bin/
