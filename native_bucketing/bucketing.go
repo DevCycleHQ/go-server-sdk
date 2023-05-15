@@ -233,7 +233,6 @@ func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, 
 	if _, ok := VariableTypes[variableType]; !ok || resultType != variableType {
 		err = ErrInvalidVariableType
 		resultVariableId = ""
-		resultType = ""
 		resultValue = nil
 		variableDefaulted = true
 	}
