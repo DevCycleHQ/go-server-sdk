@@ -88,3 +88,12 @@ To activate the native bucketing library, include the following build tag for yo
 ```
 
 This implementation is still under-going active development. Take care when utilizing it in production environments.
+
+## Linting
+
+We run golangci/golangci-lint on every PR to catch common errors. You can run the linter locally via the Makefile with:
+```
+make lint
+```
+
+Lint failures on PRs will show comments on the "Files changed" tab inline with the code, not on the main Conversation tab.
