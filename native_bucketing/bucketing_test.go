@@ -143,7 +143,7 @@ func TestConfigParsing(t *testing.T) {
 	require.Equal(t, "=", filters[0].GetComparator())
 
 	// Check maps of variables IDs and keys
-	require.Equal(t, map[string]Variable{
+	require.Equal(t, map[string]*Variable{
 		"614ef6ea475129459160721a": {Id: "614ef6ea475129459160721a", Type: "String", Key: "test"},
 		"615356f120ed334a6054564c": {Id: "615356f120ed334a6054564c", Type: "String", Key: "swagTest"},
 		"61538237b0a70b58ae6af71f": {Id: "61538237b0a70b58ae6af71f", Type: "String", Key: "feature2Var"},
@@ -156,7 +156,7 @@ func TestConfigParsing(t *testing.T) {
 		"61538937b0a70b58ae6af71f": {Id: "61538937b0a70b58ae6af71f", Type: "String", Key: "feature4Var"}},
 		config.variableIdMap,
 	)
-	require.Equal(t, map[string]Variable{
+	require.Equal(t, map[string]*Variable{
 		"audience-match": {Id: "61538237b0a70b58ae6af71z", Type: "String", Key: "audience-match"},
 		"bool-var":       {Id: "61538237b0a70b58ae6af71y", Type: "Boolean", Key: "bool-var"},
 		"feature2.cool":  {Id: "61538237b0a70b58ae6af71g", Type: "String", Key: "feature2.cool"},
@@ -406,9 +406,8 @@ func TestClientData(t *testing.T) {
 	// Ensure bucketed config has a feature variation map that's empty
 	bucketedUserConfig, err := GenerateBucketedConfig("test", user, nil)
 	require.NoError(t, err)
-	variableUser, err := generateBucketedVariableForUser("test", user, "num-var", nil)
+	_, _, _, _, err = generateBucketedVariableForUser("test", user, "num-var", nil)
 	require.ErrorContainsf(t, err, "does not qualify", "does not qualify")
-	require.Nil(t, variableUser)
 	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
 
 	clientCustomData := map[string]interface{}{
@@ -422,9 +421,12 @@ func TestClientData(t *testing.T) {
 		"614ef6aa473928459060721a": "615357cf7e9ebdca58446ed0",
 		"614ef6aa475928459060721a": "615382338424cb11646d7667",
 	}, bucketedUserConfig.FeatureVariationMap)
-	variableUser, err = generateBucketedVariableForUser("test", user, "num-var", clientCustomData)
+	variableType, value, featureId, variationId, err := generateBucketedVariableForUser("test", user, "num-var", clientCustomData)
+	require.Equal(t, VariableTypesNumber, variableType)
+	require.Equal(t, "614ef6aa473928459060721a", featureId)
+	require.Equal(t, "615357cf7e9ebdca58446ed0", variationId)
 	require.NoError(t, err)
-	require.Equal(t, 610.61, variableUser.Variable.Value)
+	require.Equal(t, 610.61, value)
 
 	user2 := api.User{
 		UserId: "hates-pizza",
@@ -455,9 +457,11 @@ func TestVariableForUser(t *testing.T) {
 	err := SetConfig(test_config, "test", "")
 	require.NoError(t, err)
 
-	userVariable, err := generateBucketedVariableForUser("test", user, "json-var", nil)
+	variableType, value, featureId, variationId, err := generateBucketedVariableForUser("test", user, "json-var", nil)
 	require.NoError(t, err)
-	require.Equal(t, "615357cf7e9ebdca58446ed0", userVariable.Variation.Id)
-	require.Equal(t, "{\"hello\":\"world\",\"num\":610,\"bool\":true}", userVariable.Variable.Value)
+	require.Equal(t, VariableTypesJSON, variableType)
+	require.Equal(t, "614ef6aa473928459060721a", featureId)
+	require.Equal(t, "615357cf7e9ebdca58446ed0", variationId)
+	require.Equal(t, "{\"hello\":\"world\",\"num\":610,\"bool\":true}", value)
 
 }

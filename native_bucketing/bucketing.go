@@ -1,7 +1,7 @@
 package native_bucketing
 
 import (
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
@@ -11,6 +11,14 @@ import (
 // Max value of an unsigned 32-bit integer, which is what murmurhash returns
 const maxHashValue uint32 = 4294967295
 const baseSeed = 1
+
+var ErrMissingVariableForVariation = errors.New("Config missing variable for variation")
+var ErrMissingFeature = errors.New("Config missing feature for variable")
+var ErrMissingVariable = errors.New("Config missing variable")
+var ErrMissingVariation = errors.New("Config missing variation")
+var ErrUserRollout = errors.New("User does not qualify for feature rollout")
+var ErrUserDoesNotQualifyForTargets = errors.New("User does not qualify for any targets for feature")
+var ErrInvalidVariableType = errors.New("Invalid variable type")
 
 type boundedHash struct {
 	RolloutHash   float64 `json:"rolloutHash"`
@@ -97,12 +105,7 @@ func doesUserPassRollout(rollout Rollout, boundedHash float64) bool {
 	return rolloutPercentage != 0 && (boundedHash <= rolloutPercentage)
 }
 
-type segmentedFeatureData struct {
-	Feature ConfigFeature `json:"feature"`
-	Target  Target        `json:"target"`
-}
-
-func evaluateSegmentationForFeature(config *configBody, feature ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) *Target {
+func evaluateSegmentationForFeature(config *configBody, feature *ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) *Target {
 	for _, target := range feature.Configuration.Targets {
 		if _evaluateOperator(target.Audience.Filters, config.Audiences, user, clientCustomData) {
 			return target
@@ -111,38 +114,22 @@ func evaluateSegmentationForFeature(config *configBody, feature ConfigFeature, u
 	return nil
 }
 
-func getSegmentedFeatureDataFromConfig(config *configBody, user api.PopulatedUser, clientCustomData map[string]interface{}) []segmentedFeatureData {
-	var accumulator []segmentedFeatureData
-	for _, feature := range config.Features {
-		segmentedFeatureTarget := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
-
-		if segmentedFeatureTarget != nil {
-			featureData := segmentedFeatureData{
-				Feature: feature,
-				Target:  *segmentedFeatureTarget,
-			}
-			accumulator = append(accumulator, featureData)
-		}
-	}
-	return accumulator
-}
-
 type targetAndHashes struct {
 	Target Target
 	Hashes boundedHash
 }
 
-func doesUserQualifyForFeature(config *configBody, feature ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) (targetAndHashes, error) {
+func doesUserQualifyForFeature(config *configBody, feature *ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) (targetAndHashes, error) {
 	target := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
 	if target == nil {
-		return targetAndHashes{}, fmt.Errorf("user %s does not qualify for any targets for feature %s", user.UserId, feature.Key)
+		return targetAndHashes{}, ErrUserDoesNotQualifyForTargets
 	}
 
 	boundedHashes := generateBoundedHashes(user.UserId, target.Id)
 	rolloutHash := boundedHashes.RolloutHash
 
 	if target.Rollout != nil && !doesUserPassRollout(*target.Rollout, rolloutHash) {
-		return targetAndHashes{}, fmt.Errorf("user %s does not qualify for feature %s rollout", user.UserId, feature.Key)
+		return targetAndHashes{}, ErrUserRollout
 	}
 	return targetAndHashes{
 		Target: *target,
@@ -150,17 +137,17 @@ func doesUserQualifyForFeature(config *configBody, feature ConfigFeature, user a
 	}, nil
 }
 
-func bucketUserForVariation(feature *ConfigFeature, hashes targetAndHashes) (Variation, error) {
+func bucketUserForVariation(feature *ConfigFeature, hashes targetAndHashes) (*Variation, error) {
 	variationId, err := hashes.Target.DecideTargetVariation(hashes.Hashes.BucketingHash)
 	if err != nil {
-		return Variation{}, err
+		return nil, err
 	}
 	for _, v := range feature.Variations {
 		if v.Id == variationId {
 			return v, nil
 		}
 	}
-	return Variation{}, fmt.Errorf("config missing variation %s", variationId)
+	return nil, ErrMissingVariation
 }
 
 func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomData map[string]interface{}) (*api.BucketedUserConfig, error) {
@@ -179,7 +166,7 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 			continue
 		}
 
-		variation, err := bucketUserForVariation(&feature, thash)
+		variation, err := bucketUserForVariation(feature, thash)
 		if err != nil {
 			continue
 		}
@@ -196,7 +183,7 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 		for _, variationVar := range variation.Variables {
 			variable := config.GetVariableForId(variationVar.Var)
 			if variable == nil {
-				return nil, fmt.Errorf("config missing variable: %s", variationVar.Var)
+				return nil, ErrMissingVariable
 			}
 
 			variableVariationMap[variable.Key] = api.FeatureVariation{
@@ -225,87 +212,73 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 	}, nil
 }
 
-type BucketedVariableResponse struct {
-	Variable  api.ReadOnlyVariable
-	Feature   ConfigFeature
-	Variation Variation
-}
-
-var emptyVariableVariationMap = map[string]api.FeatureVariation{}
-
-func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, variableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (*api.ReadOnlyVariable, error) {
-	var variablePtr *api.ReadOnlyVariable = nil
-	variableVariationMap := map[string]api.FeatureVariation{}
-	result, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
+func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, expectedVariableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (variableType string, variableValue any, err error) {
+	variableType, variableValue, featureId, variationId, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
-		eventErr := eventQueue.QueueVariableEvaluatedEvent(emptyVariableVariationMap, nil, variableKey)
+		eventErr := eventQueue.QueueVariableEvaluatedEvent(variableKey, "", "", true)
 		if eventErr != nil {
 			util.Warnf("Failed to queue variable defaulted event: %s", eventErr)
 		}
-		return nil, err
+		return "", nil, err
 	}
 
-	if _, ok := VariableTypes[variableType]; !ok || result.Variable.Type_ != variableType {
-		result = nil
-	}
-
-	if result != nil {
-		variablePtr = &result.Variable
+	var variableDefaulted bool
+	if !isVariableTypeValid(variableType, expectedVariableType) {
+		err = ErrInvalidVariableType
+		variableDefaulted = true
 	}
 
 	if !eventQueue.options.DisableAutomaticEventLogging {
-		if result != nil {
-			variableVariationMap[variableKey] = api.FeatureVariation{
-				Variation: result.Variation.Id,
-				Feature:   result.Feature.Id,
-			}
-		}
-
-		err = eventQueue.QueueVariableEvaluatedEvent(variableVariationMap, variablePtr, variableKey)
-		if err != nil {
-			util.Warnf("Failed to queue variable evaluated event: %s", err)
+		eventErr := eventQueue.QueueVariableEvaluatedEvent(variableKey, featureId, variationId, variableDefaulted)
+		if eventErr != nil {
+			util.Warnf("Failed to queue variable evaluated event: %s", eventErr)
 		}
 	}
-	return variablePtr, nil
 
+	return
 }
 
-func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key string, clientCustomData map[string]interface{}) (*BucketedVariableResponse, error) {
+func isVariableTypeValid(variableType string, expectedVariableType string) bool {
+	if variableType != VariableTypesString &&
+		variableType != VariableTypesNumber &&
+		variableType != VariableTypesJSON &&
+		variableType != VariableTypesBool {
+		return false
+	}
+	if variableType != expectedVariableType {
+		return false
+	}
+	return true
+}
+
+func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key string, clientCustomData map[string]interface{}) (variableType string, variableValue any, featureId string, variationId string, err error) {
 	config, err := getConfig(sdkKey)
 	if err != nil {
-		return nil, err
+		return "", nil, "", "", err
 	}
 	variable := config.GetVariableForKey(key)
 	if variable == nil {
-		return nil, fmt.Errorf("config missing variable %s", key)
+		err = ErrMissingVariable
+		return "", nil, "", "", err
 	}
 	featForVariable := config.GetFeatureForVariableId(variable.Id)
 	if featForVariable == nil {
-		return nil, fmt.Errorf("config missing feature for variable %s", key)
+		err = ErrMissingFeature
+		return "", nil, "", "", err
 	}
 
-	th, err := doesUserQualifyForFeature(config, *featForVariable, user, clientCustomData)
+	th, err := doesUserQualifyForFeature(config, featForVariable, user, clientCustomData)
 	if err != nil {
-		return nil, err
+		return "", nil, "", "", err
 	}
 	variation, err := bucketUserForVariation(featForVariable, th)
 	if err != nil {
-		return nil, err
+		return "", nil, "", "", err
 	}
 	variationVariable := variation.GetVariableById(variable.Id)
 	if variationVariable == nil {
-		return nil, fmt.Errorf("config processing error: config missing variable %s for variation %s", key, variation.Id)
+		err = ErrMissingVariableForVariation
+		return "", nil, "", "", err
 	}
-	return &BucketedVariableResponse{
-		Variable: api.ReadOnlyVariable{
-			Id: variable.Id,
-			BaseVariable: api.BaseVariable{
-				Type_: variable.Type,
-				Key:   variable.Key,
-				Value: variationVariable.Value,
-			},
-		},
-		Feature:   *featForVariable,
-		Variation: variation,
-	}, nil
+	return variable.Type, variationVariable.Value, featForVariable.Id, variation.Id, nil
 }

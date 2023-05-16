@@ -22,26 +22,6 @@ func SetLogger(log Logger) {
 	globalLock.Unlock()
 }
 
-func Printf(format string, a ...any) {
-	globalLogger.Printf(format, a...)
-}
-
-func Infof(format string, a ...any) {
-	globalLogger.Infof(format, a...)
-}
-
-func Debugf(format string, a ...any) {
-	globalLogger.Debugf(format, a...)
-}
-
-func Warnf(format string, a ...any) {
-	globalLogger.Warnf(format, a...)
-}
-
-func Errorf(format string, a ...any) error {
-	return globalLogger.Errorf(format, a...)
-}
-
 type Logger interface {
 	// Printf - Straight print passthrough
 	Printf(format string, a ...any)

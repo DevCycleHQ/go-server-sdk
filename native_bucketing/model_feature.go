@@ -4,7 +4,7 @@ type ConfigFeature struct {
 	Id            string                 `json:"_id"`
 	Type          string                 `json:"type" validate:"regexp=^(release|experiment|permission|ops)$"`
 	Key           string                 `json:"key"`
-	Variations    []Variation            `json:"variations"`
+	Variations    []*Variation           `json:"variations"`
 	Configuration FeatureConfiguration   `json:"configuration"`
 	Settings      map[string]interface{} `json:"settings"`
 }

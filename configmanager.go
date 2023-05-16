@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"io"
 	"net/http"
 	"sync/atomic"
 	"time"
+
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
 const CONFIG_RETRIES = 1
@@ -80,7 +81,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 	defer func() {
 		if r := recover(); r != nil {
 			// get the stack trace and potentially log it here
-			err = util.Errorf("recovered from panic in fetchConfig: %v", r)
+			err = fmt.Errorf("recovered from panic in fetchConfig: %v", r)
 		}
 	}()
 
@@ -111,12 +112,12 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 		return nil
 	case statusCode == http.StatusForbidden:
 		e.stopPolling()
-		return util.Errorf("invalid SDK key. Aborting config polling")
+		return fmt.Errorf("invalid SDK key. Aborting config polling")
 	case statusCode >= 500:
 		// Retryable Errors. Continue polling.
 		util.Warnf("Config fetch failed. Status:" + resp.Status)
 	default:
-		err = util.Errorf("Unexpected response code: %d\n"+
+		err = fmt.Errorf("Unexpected response code: %d\n"+
 			"Body: %s\n"+
 			"URL: %s\n"+
 			"Headers: %s\n"+
@@ -140,7 +141,7 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 	// Check
 	valid := json.Valid(config)
 	if !valid {
-		return util.Errorf("invalid JSON data received for config")
+		return fmt.Errorf("invalid JSON data received for config")
 	}
 
 	e.configETag = response.Header.Get("Etag")

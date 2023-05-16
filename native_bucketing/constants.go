@@ -60,12 +60,3 @@ const (
 	VariableTypesJSON   = "JSON"
 	VariableTypesBool   = "Boolean"
 )
-
-var (
-	VariableTypes = map[string]string{
-		VariableTypesString: VariableTypesString,
-		VariableTypesNumber: VariableTypesNumber,
-		VariableTypesJSON:   VariableTypesJSON,
-		VariableTypesBool:   VariableTypesBool,
-	}
-)

@@ -101,8 +101,8 @@ func (o *EventQueueOptions) CheckBounds() {
 	}
 }
 
-func (o *EventQueueOptions) IsEventLoggingDisabled(event *Event) bool {
-	switch event.Type_ {
+func (o *EventQueueOptions) IsEventLoggingDisabled(eventType string) bool {
+	switch eventType {
 	case EventType_VariableEvaluated, EventType_AggVariableEvaluated, EventType_VariableDefaulted, EventType_AggVariableDefaulted:
 		return o.DisableAutomaticEventLogging
 	default:

@@ -5,7 +5,6 @@ import (
 	"expvar"
 	"flag"
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"io"
 	"log"
 	"math/rand"
@@ -17,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 
 	"github.com/HdrHistogram/hdrhistogram-go"
 	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
@@ -59,7 +60,7 @@ func main() {
 	flag.IntVar(&maxMemoryBuckets, "max-memory-buckets", 0, "set max memory allocation buckets")
 	flag.IntVar(&maxWASMWorkers, "max-wasm-workers", 0, "set number of WASM workers (zero defaults to GOMAXPROCS)")
 	flag.StringVar(&listenAddr, "listen", ":8080", "[host]:port to listen on")
-	flag.IntVar(&numUniqueVariables, "num-variables", 85, "Unique variables to use in multipleVariables endpoint")
+	flag.IntVar(&numUniqueVariables, "num-variables", 27, "Unique variables to use in multipleVariables endpoint")
 	flag.IntVar(&configFailureChance, "config-failure-chance", 0, "Chance of config server returning 500")
 	flag.IntVar(&eventFailureChance, "event-failure-chance", 0, "Chance of event server returning 500")
 	flag.IntVar(&flushEventQueueSize, "flush-event-queue-size", 5000, "Max events to hold before flushing")
@@ -103,7 +104,7 @@ func main() {
 
 		err := profiler.Start(
 			profiler.WithService("go-bench-dd"),
-			profiler.WithEnv("benchmark"),
+			profiler.WithEnv(datadogEnv),
 			profileTypes,
 		)
 		if err != nil {
@@ -134,7 +135,7 @@ func main() {
 		log.Printf("Running with logging enabled")
 	}
 
-	client, err := devcycle.NewDVCClient("dvc_server_hello", &devcycle.DVCOptions{
+	client, err := devcycle.NewClient("dvc_server_hello", &devcycle.Options{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         false,
 		EventFlushIntervalMS:         eventFlushInterval,
@@ -152,7 +153,7 @@ func main() {
 	})
 
 	if err != nil {
-		log.Fatalf("Error setting up DVC client: %v", err)
+		log.Fatalf("Error setting up DevCycle client: %v", err)
 	}
 
 	hostname, err := os.Hostname()
@@ -223,20 +224,29 @@ func main() {
 			res.WriteHeader(500)
 		}
 
-		fmt.Fprintf(res, "%v\n", variable.Value)
+		if variable.IsDefaulted {
+			res.WriteHeader(http.StatusBadRequest)
+		}
+		fmt.Fprintf(res, "%v=%#v (defaulted:%v)\n", variable.Key, variable.Value, variable.IsDefaulted)
 	})
 
 	mux.HandleFunc("/multipleVariables", func(res http.ResponseWriter, req *http.Request) {
 		start := time.Now()
 		variable := devcycle.Variable{}
+		i := rand.Intn(len(userPool))
 
 		for j := 0; j < numUniqueVariables; j++ {
-			i := rand.Intn(len(userPool))
-			result, err := client.Variable(userPool[i], fmt.Sprintf("var-%d", j), false)
+			variableKey := booleanVariables[j%len(booleanVariables)]
+			result, err := client.Variable(userPool[i], variableKey, false)
 			variable = result
 			if err != nil {
 				log.Printf("Error calling Variables: %v", err)
 				res.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			if variable.IsDefaulted {
+				res.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(res, "%v=%#v (defaulted:%v)\n", variable.Key, variable.Value, variable.IsDefaulted)
 				return
 			}
 			numVariableCalls.Add(1)
@@ -252,8 +262,6 @@ func main() {
 		if err != nil {
 			fmt.Errorf("Error recording histogram value: %v", err)
 		}
-		fmt.Fprintf(res, "%v\n", variable.Value)
-
 	})
 
 	mux.HandleFunc("/empty", func(res http.ResponseWriter, req *http.Request) {

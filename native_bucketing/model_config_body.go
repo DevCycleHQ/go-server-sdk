@@ -28,12 +28,12 @@ type configBody struct {
 	Project                api.Project             `json:"project" validate:"required"`
 	Audiences              map[string]NoIdAudience `json:"audiences"`
 	Environment            api.Environment         `json:"environment" validate:"required"`
-	Features               []ConfigFeature         `json:"features" validate:"required"`
-	Variables              []Variable              `json:"variables" validate:"required,dive"`
+	Features               []*ConfigFeature        `json:"features" validate:"required"`
+	Variables              []*Variable             `json:"variables" validate:"required,dive"`
 	etag                   string                  // TODO: remove etag
-	variableIdMap          map[string]Variable
-	variableKeyMap         map[string]Variable
-	variableIdToFeatureMap map[string]ConfigFeature
+	variableIdMap          map[string]*Variable
+	variableKeyMap         map[string]*Variable
+	variableIdToFeatureMap map[string]*ConfigFeature
 }
 
 func newConfig(configJSON []byte, etag string) (*configBody, error) {
@@ -53,28 +53,28 @@ func newConfig(configJSON []byte, etag string) (*configBody, error) {
 
 func (c *configBody) GetVariableForKey(key string) *Variable {
 	if variable, ok := c.variableKeyMap[key]; ok {
-		return &variable
+		return variable
 	}
 	return nil
 }
 
 func (c *configBody) GetVariableForId(id string) *Variable {
 	if variable, ok := c.variableIdMap[id]; ok {
-		return &variable
+		return variable
 	}
 	return nil
 }
 
 func (c *configBody) GetFeatureForVariableId(id string) *ConfigFeature {
 	if feature, ok := c.variableIdToFeatureMap[id]; ok {
-		return &feature
+		return feature
 	}
 	return nil
 }
 
 func (c *configBody) compile(etag string) {
 	// Build mappings of IDs and keys to features and variables.
-	variableIdToFeatureMap := make(map[string]ConfigFeature)
+	variableIdToFeatureMap := make(map[string]*ConfigFeature)
 	for _, feature := range c.Features {
 		for _, v := range feature.Variations {
 			for _, vv := range v.Variables {
@@ -85,8 +85,8 @@ func (c *configBody) compile(etag string) {
 		}
 	}
 
-	variableKeyMap := make(map[string]Variable, len(c.Variables))
-	variableIdMap := make(map[string]Variable, len(c.Variables))
+	variableKeyMap := make(map[string]*Variable, len(c.Variables))
+	variableIdMap := make(map[string]*Variable, len(c.Variables))
 	for _, variable := range c.Variables {
 		variableKeyMap[variable.Key] = variable
 		variableIdMap[variable.Id] = variable

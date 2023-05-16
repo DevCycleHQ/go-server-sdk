@@ -96,19 +96,10 @@ func TestEventQueue_ProcessUserEvent(t *testing.T) {
 
 func TestEventQueue_ProcessAggregateEvent(t *testing.T) {
 	event := aggEventData{
-		event: &api.Event{
-			Type_:      api.EventType_VariableEvaluated,
-			Target:     "somevariablekey",
-			CustomType: "testingtype",
-			UserId:     "testing",
-		},
-		variableVariationMap: map[string]api.FeatureVariation{
-			"somevariablekey": {
-				Feature:   "featurekey",
-				Variation: "somevariation",
-			},
-		},
-		aggregateByVariation: false,
+		eventType:   api.EventType_AggVariableEvaluated,
+		variableKey: "somevariablekey",
+		featureId:   "featurekey",
+		variationId: "somevariation",
 	}
 	err := SetConfig(test_config, "dvc_server_token_hash", "")
 	require.NoError(t, err)

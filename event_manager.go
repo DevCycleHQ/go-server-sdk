@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
@@ -87,11 +89,11 @@ func NewEventManager(options *Options, localBucketing InternalEventQueue, cfg *H
 
 func (e *EventManager) QueueEvent(user User, event Event) error {
 	if e.closed {
-		return util.Errorf("DevCycle client was closed, no more events can be tracked.")
+		return fmt.Errorf("DevCycle client was closed, no more events can be tracked.")
 	}
 	queueSize, err := e.internalQueue.UserQueueLength()
 	if err != nil {
-		return util.Errorf("Failed to check queue size, dropping event: %w", err)
+		return fmt.Errorf("Failed to check queue size, dropping event: %w", err)
 	}
 
 	if queueSize >= e.options.FlushEventQueueSize {
@@ -103,13 +105,16 @@ func (e *EventManager) QueueEvent(user User, event Event) error {
 	}
 	err = e.internalQueue.QueueEvent(user, event)
 	if err != nil && errors.Is(err, ErrQueueFull) {
-		return util.Errorf("event queue is full, dropping event: %+v", event)
+		return fmt.Errorf("event queue is full, dropping event: %+v", event)
 	}
 	return err
 }
 
-func (e *EventManager) QueueAggregateEvent(config BucketedUserConfig, event Event) error {
-	return e.internalQueue.QueueAggregateEvent(config, event)
+func (e *EventManager) QueueVariableDefaultedEvent(variableKey string) error {
+	return e.internalQueue.QueueAggregateEvent(BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, Event{
+		Type_:  api.EventType_AggVariableDefaulted,
+		Target: variableKey,
+	})
 }
 
 func (e *EventManager) FlushEvents() (err error) {
@@ -121,7 +126,7 @@ func (e *EventManager) FlushEvents() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			// get the stack trace and potentially log it here
-			err = util.Errorf("recovered from panic in FlushEvents: %v", r)
+			err = fmt.Errorf("recovered from panic in FlushEvents: %v", r)
 		}
 	}()
 
@@ -149,13 +154,13 @@ func (e *EventManager) flushEventPayload(
 	var resp *http.Response
 	requestBody, err := json.Marshal(BatchEventsBody{Batch: payload.Records})
 	if err != nil {
-		_ = util.Errorf("Failed to marshal batch events body: %s", err)
+		util.Errorf("Failed to marshal batch events body: %s", err)
 		e.reportPayloadFailure(payload, false, failures, retryableFailures)
 		return
 	}
 	req, err = http.NewRequest("POST", eventsHost+"/v1/events/batch", bytes.NewReader(requestBody))
 	if err != nil {
-		_ = util.Errorf("Failed to create request to events api: %s", err)
+		util.Errorf("Failed to create request to events api: %s", err)
 		e.reportPayloadFailure(payload, false, failures, retryableFailures)
 		return
 	}
@@ -167,7 +172,7 @@ func (e *EventManager) flushEventPayload(
 	resp, err = e.cfg.HTTPClient.Do(req)
 
 	if err != nil {
-		_ = util.Errorf("Failed to make request to events api: %s", err)
+		util.Errorf("Failed to make request to events api: %s", err)
 		e.reportPayloadFailure(payload, false, failures, retryableFailures)
 		return
 	}
@@ -184,7 +189,7 @@ func (e *EventManager) flushEventPayload(
 	// "keep-alive" request.
 	responseBody, readError := io.ReadAll(resp.Body)
 	if readError != nil {
-		_ = util.Errorf("Failed to read response body: %v", readError)
+		util.Errorf("Failed to read response body: %v", readError)
 		e.reportPayloadFailure(payload, false, failures, retryableFailures)
 		return
 	}
@@ -197,7 +202,7 @@ func (e *EventManager) flushEventPayload(
 
 	if resp.StatusCode >= 400 {
 		e.reportPayloadFailure(payload, false, failures, retryableFailures)
-		_ = util.Errorf("Error sending events - Response: %s", string(responseBody))
+		util.Errorf("Error sending events - Response: %s", string(responseBody))
 		return
 	}
 
@@ -206,7 +211,7 @@ func (e *EventManager) flushEventPayload(
 		return
 	}
 
-	_ = util.Errorf("unknown status code when flushing events %d", resp.StatusCode)
+	util.Errorf("unknown status code when flushing events %d", resp.StatusCode)
 	e.reportPayloadFailure(payload, false, failures, retryableFailures)
 }
 
