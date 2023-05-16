@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
@@ -108,8 +109,11 @@ func (e *EventManager) QueueEvent(user User, event Event) error {
 	return err
 }
 
-func (e *EventManager) QueueAggregateEvent(config BucketedUserConfig, event Event) error {
-	return e.internalQueue.QueueAggregateEvent(config, event)
+func (e *EventManager) QueueVariableDefaultedEvent(variableKey string) error {
+	return e.internalQueue.QueueAggregateEvent(BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, Event{
+		Type_:  api.EventType_AggVariableDefaulted,
+		Target: variableKey,
+	})
 }
 
 func (e *EventManager) FlushEvents() (err error) {

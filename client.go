@@ -217,11 +217,6 @@ func createNullableCustomData(data map[string]interface{}) *proto.NullableCustom
 	}
 }
 
-func (c *Client) queueAggregateEvent(bucketed BucketedUserConfig, event Event) (err error) {
-	err = c.eventQueue.QueueAggregateEvent(bucketed, event)
-	return
-}
-
 /*
 DVCClientService Get all features by key for user data
   - @param body
@@ -328,11 +323,8 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if !c.hasConfig() {
 			util.Warnf("Variable called before client initialized, returning default value")
-			err = c.queueAggregateEvent(BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, Event{
-				Type_:  api.EventType_AggVariableDefaulted,
-				Target: key,
-			})
 
+			err = c.eventQueue.QueueVariableDefaultedEvent(key)
 			if err != nil {
 				util.Warnf("Error queuing aggregate event: ", err)
 			}

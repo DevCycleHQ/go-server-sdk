@@ -215,7 +215,6 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, expectedVariableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (variableType string, variableValue any, err error) {
 	variableType, variableValue, featureId, variationId, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
-		// TODO: convert this flow to just handle variable defaulted
 		eventErr := eventQueue.QueueVariableEvaluatedEvent(variableKey, "", "", true)
 		if eventErr != nil {
 			util.Warnf("Failed to queue variable defaulted event: %s", eventErr)
