@@ -83,9 +83,8 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 	clientCustomData := native_bucketing.GetClientCustomData(n.sdkKey)
 	populatedUser := user.GetPopulatedUserWithTime(n.platformData, DEFAULT_USER_TIME)
 
-	resultVariableId, resultVariableType, resultValue, _, _, err := native_bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
-	if err != nil || resultVariableId == "" {
-		// TODO: Are there errors that can be returned here that should be surfaced to the client?
+	resultVariableType, resultValue, err := native_bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
+	if err != nil {
 		return defaultVar, nil
 	}
 

@@ -212,36 +212,25 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 	}, nil
 }
 
-type BucketedVariableResponse struct {
-	Variable  api.ReadOnlyVariable
-	Feature   *ConfigFeature
-	Variation *Variation
-}
-
-func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, variableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (resultVariableId, resultVariableType string, resultValue any, feature *ConfigFeature, variation *Variation, err error) {
-	var resultType string
-	resultVariableId, resultType, resultValue, feature, variation, err = generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
+func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, expectedVariableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (variableType string, variableValue any, err error) {
+	variableType, variableValue, featureId, variationId, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
+		// TODO: convert this flow to just handle variable defaulted
 		eventErr := eventQueue.QueueVariableEvaluatedEvent(variableKey, "", "", true)
 		if eventErr != nil {
 			util.Warnf("Failed to queue variable defaulted event: %s", eventErr)
 		}
-		return
+		return "", nil, err
 	}
 
 	var variableDefaulted bool
-	if _, ok := VariableTypes[variableType]; !ok || resultType != variableType {
+	// TODO: rewrite map access to explicit conditional
+	if _, ok := VariableTypes[variableType]; !ok || variableType != expectedVariableType {
 		err = ErrInvalidVariableType
-		resultVariableId = ""
-		resultValue = nil
 		variableDefaulted = true
 	}
 
 	if !eventQueue.options.DisableAutomaticEventLogging {
-		var variationId, featureId string
-		featureId = feature.Id
-		variationId = variation.Id
-
 		err = eventQueue.QueueVariableEvaluatedEvent(variableKey, featureId, variationId, variableDefaulted)
 		if err != nil {
 			util.Warnf("Failed to queue variable evaluated event: %s", err)
@@ -251,7 +240,7 @@ func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, 
 
 }
 
-func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key string, clientCustomData map[string]interface{}) (variableId, variableType string, value any, feature *ConfigFeature, variation *Variation, err error) {
+func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key string, clientCustomData map[string]interface{}) (variableType string, variableValue any, featureId string, variationId string, err error) {
 	config, err := getConfig(sdkKey)
 	if err != nil {
 		return
@@ -271,7 +260,7 @@ func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key 
 	if err != nil {
 		return
 	}
-	variation, err = bucketUserForVariation(featForVariable, th)
+	variation, err := bucketUserForVariation(featForVariable, th)
 	if err != nil {
 		return
 	}
@@ -280,5 +269,5 @@ func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key 
 		err = ErrMissingVariableForVariation
 		return
 	}
-	return variable.Id, variable.Type, variationVariable.Value, featForVariable, variation, nil
+	return variable.Type, variationVariable.Value, featForVariable.Id, variation.Id, nil
 }
