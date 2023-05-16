@@ -254,31 +254,31 @@ func isVariableTypeValid(variableType string, expectedVariableType string) bool 
 func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key string, clientCustomData map[string]interface{}) (variableType string, variableValue any, featureId string, variationId string, err error) {
 	config, err := getConfig(sdkKey)
 	if err != nil {
-		return
+		return "", nil, "", "", err
 	}
 	variable := config.GetVariableForKey(key)
 	if variable == nil {
 		err = ErrMissingVariable
-		return
+		return "", nil, "", "", err
 	}
 	featForVariable := config.GetFeatureForVariableId(variable.Id)
 	if featForVariable == nil {
 		err = ErrMissingFeature
-		return
+		return "", nil, "", "", err
 	}
 
 	th, err := doesUserQualifyForFeature(config, featForVariable, user, clientCustomData)
 	if err != nil {
-		return
+		return "", nil, "", "", err
 	}
 	variation, err := bucketUserForVariation(featForVariable, th)
 	if err != nil {
-		return
+		return "", nil, "", "", err
 	}
 	variationVariable := variation.GetVariableById(variable.Id)
 	if variationVariable == nil {
 		err = ErrMissingVariableForVariation
-		return
+		return "", nil, "", "", err
 	}
 	return variable.Type, variationVariable.Value, featForVariable.Id, variation.Id, nil
 }
