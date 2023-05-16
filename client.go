@@ -82,7 +82,9 @@ type service struct {
 // optionally pass a custom http.Client to allow for advanced features such as caching.
 func NewClient(sdkKey string, options *Options) (*Client, error) {
 	if sdkKey == "" {
-		return nil, util.Errorf("missing sdk key! Call NewClient with a valid sdk key")
+		err := errors.New("missing sdk key! Call NewClient with a valid sdk key")
+		util.Errorf("%v", err)
+		return nil, err
 	}
 	if !sdkKeyIsValid(sdkKey) {
 		return nil, fmt.Errorf("Invalid sdk key. Call NewClient with a valid sdk key.")
@@ -316,7 +318,8 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 		if r := recover(); r != nil {
 			// Return a usable default value in a panic situation
 			result = variable
-			err = util.Errorf("recovered from panic in Variable eval: %v ", r)
+			err = fmt.Errorf("recovered from panic in Variable eval: %v ", r)
+			util.Errorf("%v", err)
 		}
 	}()
 
@@ -465,7 +468,11 @@ func (c *Client) Track(user User, event Event) (bool, error) {
 	if !c.DevCycleOptions.EnableCloudBucketing {
 		if c.hasConfig() {
 			err := c.eventQueue.QueueEvent(user, event)
-			return err == nil, err
+			if err != nil {
+				util.Errorf("Error queuing event: %v", err)
+				return false, err
+			}
+			return true, nil
 		} else {
 			util.Warnf("Track called before client initialized")
 			return true, nil
@@ -517,6 +524,9 @@ func (c *Client) FlushEvents() error {
 	}
 
 	err := c.eventQueue.FlushEvents()
+	if err != nil {
+		util.Errorf("Error flushing events: %v", err)
+	}
 	return err
 }
 
@@ -548,6 +558,9 @@ func (c *Client) Close() (err error) {
 
 	if c.eventQueue != nil {
 		err = c.eventQueue.Close()
+		if err != nil {
+			util.Errorf("Error closing event queue: %v", err)
+		}
 	}
 
 	if c.configManager != nil {
@@ -694,7 +707,7 @@ func variableTypeFromValue(key string, value interface{}) (varType string, err e
 		return "JSON", nil
 	}
 
-	return "", util.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
+	return "", fmt.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
 }
 
 // callAPI do the request.

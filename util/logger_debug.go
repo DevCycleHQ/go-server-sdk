@@ -26,6 +26,6 @@ func Warnf(format string, a ...any) {
 	globalLogger.Warnf(format, a...)
 }
 
-func Errorf(format string, a ...any) error {
-	return globalLogger.Errorf(format, a...)
+func Errorf(format string, a ...any) {
+	globalLogger.Errorf(format, a...)
 }

@@ -283,21 +283,21 @@ func (eq *EventQueue) HandleFlushResults(successPayloads []string, failurePayloa
 
 	for _, payloadId := range successPayloads {
 		if err := eq.reportPayloadSuccess(payloadId); err != nil {
-			_ = util.Errorf("failed to mark event payloads as successful", err)
+			util.Errorf("failed to mark event payloads as successful: %v", err)
 		} else {
 			reported++
 		}
 	}
 	for _, payloadId := range failurePayloads {
 		if err := eq.reportPayloadFailure(payloadId, false); err != nil {
-			_ = util.Errorf("failed to mark event payloads as failed", err)
+			util.Errorf("failed to mark event payloads as failed: %v", err)
 		} else {
 			reported++
 		}
 	}
 	for _, payloadId := range failureWithRetryPayloads {
 		if err := eq.reportPayloadFailure(payloadId, true); err != nil {
-			_ = util.Errorf("failed to mark event payloads as failed", err)
+			util.Errorf("failed to mark event payloads as failed: %v", err)
 		} else {
 			reported++
 		}
@@ -333,7 +333,7 @@ func (eq *EventQueue) reportPayloadSuccess(payloadId string) error {
 	if _, ok := eq.pendingPayloads[payloadId]; ok {
 		delete(eq.pendingPayloads, payloadId)
 	} else {
-		return util.Errorf("Failed to find payload: %s to mark as success", payloadId)
+		return fmt.Errorf("Failed to find payload: %s to mark as success", payloadId)
 	}
 	return nil
 }
@@ -346,7 +346,7 @@ func (eq *EventQueue) reportPayloadFailure(payloadId string, retryable bool) err
 			delete(eq.pendingPayloads, payloadId)
 		}
 	} else {
-		return util.Errorf("Failed to find payload: %s, retryable: %b", payloadId, retryable)
+		return fmt.Errorf("Failed to find payload: %s, retryable: %v", payloadId, retryable)
 	}
 	return nil
 }
