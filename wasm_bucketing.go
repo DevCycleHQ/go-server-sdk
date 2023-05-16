@@ -56,7 +56,7 @@ func NewWASMLocalBucketing(sdkKey string, platformData *PlatformData, options *O
 	localBucketing := &WASMLocalBucketingClient{}
 	err = localBucketing.Initialize(wasmMain, sdkKey, platformData, options)
 	if err != nil {
-		return nil, util.Errorf("error while initializing local bucketing", err)
+		return nil, fmt.Errorf("error while initializing local bucketing: %w", err)
 	}
 
 	bucketingObjectPool, err := NewBucketingPool(context.TODO(), wasmMain, sdkKey, platformData, options)
@@ -153,13 +153,13 @@ func (lb *WASMLocalBucketing) Variable(user User, key string, variableType strin
 	paramsBuffer, err := paramsPB.MarshalVT()
 
 	if err != nil {
-		return Variable{}, util.Errorf("Error marshalling protobuf object in variableForUserProtobuf: %w", err)
+		return Variable{}, fmt.Errorf("Error marshalling protobuf object in variableForUserProtobuf: %w", err)
 	}
 
 	variablePB, err := lb.bucketingObjectPool.VariableForUser(paramsBuffer)
 
 	if err != nil {
-		_ = util.Errorf("Error getting variable for user: %w", err)
+		util.Errorf("Error getting variable for user: %w", err)
 	}
 
 	if variablePB == nil {
@@ -331,16 +331,16 @@ func (d *WASMLocalBucketingClient) Initialize(wasmMain *WASMMain, sdkKey string,
 	err = d.wasmLinker.DefineFunc(d.wasmStore, "env", "abort", func(messagePtr, filenamePointer, lineNum, colNum int32) {
 		messagePtrData, err := d.readAssemblyScriptStringBytes(messagePtr)
 		if err != nil {
-			_ = util.Errorf("Failed to read abort function parameter values - WASM Error: %s", err)
+			util.Errorf("Failed to read abort function parameter values - WASM Error: %s", err)
 			return
 		}
 		filenamePointerData, err := d.readAssemblyScriptStringBytes(filenamePointer)
 		if err != nil {
-			_ = util.Errorf("Failed to read abort function parameter values - WASM Error: %s", err)
+			util.Errorf("Failed to read abort function parameter values - WASM Error: %s", err)
 			return
 		}
 		d.errorMessage = fmt.Sprintf("WASM Error: %s at %s:%d:%d", string(messagePtrData), string(filenamePointerData), lineNum, colNum)
-		_ = util.Errorf("WASM Error: %s", d.errorMessage)
+		util.Errorf("WASM Error: %s", d.errorMessage)
 	})
 
 	if err != nil {
@@ -454,7 +454,7 @@ func (c *WASMLocalBucketingClient) VariableTypeCodeFromType(varType string) (var
 		return c.VariableTypeCodes.JSON, nil
 	}
 
-	return 0, util.Errorf("variable type %s is not a valid type", varType)
+	return 0, fmt.Errorf("variable type %s is not a valid type", varType)
 }
 
 func (d *WASMLocalBucketingClient) setSDKKey(sdkKey string) (err error) {
@@ -562,7 +562,7 @@ func (d *WASMLocalBucketingClient) queueEvent(user, event string) (err error) {
 	defer func() {
 		err := d.assemblyScriptUnpin(userAddr)
 		if err != nil {
-			_ = util.Errorf(err.Error())
+			util.Errorf(err.Error())
 		}
 	}()
 	eventAddr, err := d.newAssemblyScriptString([]byte(event))
@@ -595,7 +595,7 @@ func (d *WASMLocalBucketingClient) queueAggregateEvent(event string, config Buck
 	defer func() {
 		err := d.assemblyScriptUnpin(variationMapAddr)
 		if err != nil {
-			_ = util.Errorf(err.Error())
+			util.Errorf(err.Error())
 		}
 	}()
 	eventAddr, err := d.newAssemblyScriptString([]byte(event))
@@ -678,7 +678,7 @@ func (d *WASMLocalBucketingClient) VariableForUser_PB(serializedParams []byte) (
 	paramsAddr, err := d.newAssemblyScriptByteArray(serializedParams)
 
 	if err != nil {
-		return nil, util.Errorf("Error allocating WASM string: %w", err)
+		return nil, fmt.Errorf("Error allocating WASM string: %w", err)
 	}
 
 	varPtr, err := d.variableForUser_PB_Preallocated.Call(d.wasmStore, paramsAddr, int32(len(serializedParams)))
@@ -697,14 +697,14 @@ func (d *WASMLocalBucketingClient) VariableForUser_PB(serializedParams []byte) (
 
 	rawVar, err := d.readAssemblyScriptByteArray(intPtr)
 	if err != nil {
-		return nil, util.Errorf("Error converting WASM result to bytes: %w", err)
+		return nil, fmt.Errorf("Error converting WASM result to bytes: %w", err)
 	}
 
 	sdkVariable := proto.SDKVariable_PB{}
 	err = sdkVariable.UnmarshalVT(rawVar)
 
 	if err != nil {
-		return nil, util.Errorf("Error deserializing WASM result: %w", err)
+		return nil, fmt.Errorf("Error deserializing WASM result: %w", err)
 	}
 
 	return &sdkVariable, nil
@@ -713,7 +713,7 @@ func (d *WASMLocalBucketingClient) VariableForUser_PB(serializedParams []byte) (
 func (d *WASMLocalBucketingClient) StoreConfig(config []byte) error {
 	defer func() {
 		if err := recover(); err != nil {
-			_ = util.Errorf("Failed to process config: ", err)
+			util.Errorf("Failed to process config: %v", err)
 		}
 	}()
 	d.wasmMutex.Lock()
@@ -768,18 +768,18 @@ func (d *WASMLocalBucketingClient) HandleFlushResults(result *FlushResult) {
 
 	for _, payloadId := range result.SuccessPayloads {
 		if err := d.onPayloadSuccess(payloadId); err != nil {
-			_ = util.Errorf("failed to mark event payloads as successful", err)
+			util.Errorf("failed to mark event payloads as successful", err)
 		}
 	}
 	for _, payloadId := range result.FailurePayloads {
 		if err := d.onPayloadFailure(payloadId, false); err != nil {
-			_ = util.Errorf("failed to mark event payloads as failed", err)
+			util.Errorf("failed to mark event payloads as failed", err)
 
 		}
 	}
 	for _, payloadId := range result.FailureWithRetryPayloads {
 		if err := d.onPayloadFailure(payloadId, true); err != nil {
-			_ = util.Errorf("failed to mark event payloads as failed", err)
+			util.Errorf("failed to mark event payloads as failed", err)
 		}
 	}
 }
@@ -804,7 +804,7 @@ func (d *WASMLocalBucketingClient) newAssemblyScriptString(param []byte) (int32,
 
 	dataAddress := ptr.(int32)
 	if dataAddress == 0 {
-		return -1, util.Errorf("Failed to allocate memory for string")
+		return -1, fmt.Errorf("Failed to allocate memory for string")
 	}
 	return ptr.(int32), nil
 }
@@ -952,7 +952,7 @@ func (d *WASMLocalBucketingClient) newAssemblyScriptByteArray(param []byte) (int
 // there isn't a great way to parse UTF-16 cleanly that matches the WTF-16 format that ASC uses.
 func (d *WASMLocalBucketingClient) readAssemblyScriptStringBytes(pointer int32) ([]byte, error) {
 	if pointer == 0 {
-		return nil, util.Errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
+		return nil, fmt.Errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
 	}
 
 	data := d.wasmMemory.UnsafeData(d.wasmStore)
@@ -970,7 +970,7 @@ func (d *WASMLocalBucketingClient) readAssemblyScriptStringBytes(pointer int32) 
 
 func (d *WASMLocalBucketingClient) readAssemblyScriptByteArray(pointer int32) ([]byte, error) {
 	if pointer == 0 {
-		return nil, util.Errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
+		return nil, fmt.Errorf("null pointer passed to mallocAssemblyScriptString - cannot write string")
 	}
 
 	data := d.wasmMemory.UnsafeData(d.wasmStore)
@@ -988,7 +988,7 @@ func (d *WASMLocalBucketingClient) readAssemblyScriptByteArray(pointer int32) ([
 }
 func (d *WASMLocalBucketingClient) assemblyScriptPin(pointer int32) (err error) {
 	if pointer == 0 {
-		return util.Errorf("null pointer passed to assemblyScriptPin - cannot pin")
+		return fmt.Errorf("null pointer passed to assemblyScriptPin - cannot pin")
 	}
 	_, err = d.__pinFunc.Call(d.wasmStore, pointer)
 	err = d.handleWASMErrors("__pin", err)
@@ -1003,7 +1003,7 @@ func (d *WASMLocalBucketingClient) assemblyScriptCollect() (err error) {
 
 func (d *WASMLocalBucketingClient) assemblyScriptUnpin(pointer int32) (err error) {
 	if pointer == 0 {
-		return util.Errorf("null pointer passed to assemblyScriptUnpin - cannot unpin")
+		return fmt.Errorf("null pointer passed to assemblyScriptUnpin - cannot unpin")
 	}
 
 	_, err = d.__unpinFunc.Call(d.wasmStore, pointer)
@@ -1014,18 +1014,18 @@ func (d *WASMLocalBucketingClient) assemblyScriptUnpin(pointer int32) (err error
 func (d *WASMLocalBucketingClient) handleWASMErrors(prefix string, err error) error {
 	if d.errorMessage != "" {
 		if err != nil {
-			return util.Errorf(
+			return fmt.Errorf(
 				"Error Message calling %s: err: [%s] errorMessage:[%s]",
 				prefix,
 				strings.ReplaceAll(err.Error(), "\n", ""),
 				d.errorMessage,
 			)
 		}
-		return util.Errorf(d.errorMessage)
+		return fmt.Errorf(d.errorMessage)
 	}
 
 	if err != nil {
-		return util.Errorf("Error calling %s: %w", prefix, err)
+		return fmt.Errorf("Error calling %s: %w", prefix, err)
 	}
 
 	return nil

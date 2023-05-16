@@ -101,7 +101,7 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 func (n *NativeLocalBucketing) Close() {
 	err := n.eventQueue.Close()
 	if err != nil {
-		_ = util.Errorf("Error closing event queue: %v", err)
+		util.Errorf("Error closing event queue: %v", err)
 	}
 }
 
