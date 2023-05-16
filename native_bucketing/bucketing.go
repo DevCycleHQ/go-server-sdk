@@ -224,20 +224,32 @@ func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, 
 	}
 
 	var variableDefaulted bool
-	// TODO: rewrite map access to explicit conditional
-	if _, ok := VariableTypes[variableType]; !ok || variableType != expectedVariableType {
+	if !isVariableTypeValid(variableType, expectedVariableType) {
 		err = ErrInvalidVariableType
 		variableDefaulted = true
 	}
 
 	if !eventQueue.options.DisableAutomaticEventLogging {
-		err = eventQueue.QueueVariableEvaluatedEvent(variableKey, featureId, variationId, variableDefaulted)
-		if err != nil {
-			util.Warnf("Failed to queue variable evaluated event: %s", err)
+		eventErr := eventQueue.QueueVariableEvaluatedEvent(variableKey, featureId, variationId, variableDefaulted)
+		if eventErr != nil {
+			util.Warnf("Failed to queue variable evaluated event: %s", eventErr)
 		}
 	}
-	return
 
+	return
+}
+
+func isVariableTypeValid(variableType string, expectedVariableType string) bool {
+	if variableType != VariableTypesString &&
+		variableType != VariableTypesNumber &&
+		variableType != VariableTypesJSON &&
+		variableType != VariableTypesBool {
+		return false
+	}
+	if variableType != expectedVariableType {
+		return false
+	}
+	return true
 }
 
 func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key string, clientCustomData map[string]interface{}) (variableType string, variableValue any, featureId string, variationId string, err error) {
