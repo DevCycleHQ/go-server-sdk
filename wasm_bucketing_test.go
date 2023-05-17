@@ -8,14 +8,9 @@ import (
 	"testing"
 
 	"github.com/devcyclehq/go-server-sdk/v2/proto"
-	"github.com/jarcoal/httpmock"
 )
 
 func TestDevCycleLocalBucketing_Initialize(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
-
 	wasmMain := WASMMain{}
 	err := wasmMain.Initialize(nil)
 	fatalErr(t, err)
@@ -28,9 +23,6 @@ func TestDevCycleLocalBucketing_Initialize(t *testing.T) {
 }
 
 func BenchmarkDevCycleLocalBucketing_Initialize(b *testing.B) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
 	for i := 0; i < b.N; i++ {
 		wasmMain := WASMMain{}
 		err := wasmMain.Initialize(nil)
@@ -46,9 +38,6 @@ func BenchmarkDevCycleLocalBucketing_Initialize(b *testing.B) {
 }
 
 func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
 	wasmMain := WASMMain{}
 	err := wasmMain.Initialize(nil)
 	fatalErr(t, err)
@@ -83,13 +72,9 @@ func TestDevCycleLocalBucketing_GenerateBucketedConfigForUser(t *testing.T) {
 	} else {
 		t.Fatal("Incorrectly bucketed user.")
 	}
-
 }
 
 func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
 	wasmMain := WASMMain{}
 	err := wasmMain.Initialize(nil)
 	fatalErr(t, err)
@@ -107,9 +92,6 @@ func TestDevCycleLocalBucketing_StoreConfig(t *testing.T) {
 }
 
 func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
 	wasmMain := WASMMain{}
 	err := wasmMain.Initialize(&Options{})
 	if err != nil {
@@ -133,10 +115,6 @@ func BenchmarkDevCycleLocalBucketing_StoreConfig(b *testing.B) {
 }
 
 func TestDevCycleLocalBucketing_SetPlatformData(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
-
 	wasmMain := WASMMain{}
 	err := wasmMain.Initialize(nil)
 	fatalErr(t, err)
@@ -153,11 +131,6 @@ func TestDevCycleLocalBucketing_SetPlatformData(t *testing.T) {
 }
 
 func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B) {
-
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
-
 	wasmMain := WASMMain{}
 	err := wasmMain.Initialize(nil)
 	if err != nil {
@@ -193,11 +166,6 @@ func BenchmarkDevCycleLocalBucketing_GenerateBucketedConfigForUser(b *testing.B)
 }
 
 func BenchmarkDevCycleLocalBucketing_VariableForUser_PB(b *testing.B) {
-
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
-
 	wasmMain := WASMMain{}
 	err := wasmMain.Initialize(nil)
 	if err != nil {
@@ -263,9 +231,6 @@ func BenchmarkDevCycleLocalBucketing_VariableForUser_PB(b *testing.B) {
 }
 
 func TestDevCycleLocalBucketing_newAssemblyScriptNoPoolByteArray(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
 	wasmMain := WASMMain{}
 	err := wasmMain.Initialize(nil)
 	fatalErr(t, err)
