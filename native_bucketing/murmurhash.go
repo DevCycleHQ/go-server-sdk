@@ -1,8 +1,7 @@
 package native_bucketing
 
-import "github.com/spaolacci/murmur3"
+import "github.com/twmb/murmur3"
 
-func murmurhashV3(data []byte, seed uint32) uint32 {
-	mh := murmur3.Sum32WithSeed(data, seed)
-	return mh
+func murmurhashV3(data string, seed uint32) uint32 {
+	return murmur3.SeedStringSum32(seed, data)
 }

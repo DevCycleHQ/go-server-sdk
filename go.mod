@@ -9,8 +9,8 @@ require (
 	github.com/jarcoal/httpmock v1.2.0
 	github.com/jolestar/go-commons-pool/v2 v2.1.2
 	github.com/matryer/try v0.0.0-20161228173917-9ac251b645a2
-	github.com/spaolacci/murmur3 v1.1.0
 	github.com/stretchr/testify v1.8.2
+	github.com/twmb/murmur3 v1.1.7
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
 	google.golang.org/protobuf v1.29.1
 )
