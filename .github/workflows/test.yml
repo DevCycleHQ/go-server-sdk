@@ -21,4 +21,7 @@ jobs:
       run: RACE=1 make test
 
     - name: Test Native Bucketing build
-      run: RACE=1 CGO_ENABLED=0 TAGS=native_bucketing make test
+      run: RACE=1 TAGS=native_bucketing make test
+
+    - name: Test that CGO is not required for native bucketing
+      run: CGO_ENABLED=0 go test -tags native_bucketing -run="^$" ./...
