@@ -139,7 +139,9 @@ func NewEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue, 
 		done:              cancel,
 	}
 
-	go eq.processEvents(ctx)
+	if !options.DisableAutomaticEventLogging || !options.DisableCustomEventLogging {
+		go eq.processEvents(ctx)
+	}
 
 	return eq, nil
 }
@@ -313,6 +315,12 @@ func (eq *EventQueue) Metrics() (int32, int32, int32) {
 func (eq *EventQueue) Close() (err error) {
 	eq.done()
 	return
+}
+
+func (eq *EventQueue) aggQueueLength() int {
+	eq.stateMutex.RLock()
+	defer eq.stateMutex.RUnlock()
+	return len(eq.aggEventQueue)
 }
 
 func (eq *EventQueue) UserQueueLength() int {

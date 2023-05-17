@@ -140,8 +140,7 @@ func TestEventQueue_AddToAggQueue(t *testing.T) {
 	require.NoError(t, err)
 	err = eq.QueueAggregateEvent(*bucketedConfig, event)
 	require.NoError(t, err)
-	require.Eventually(t, func() bool { return len(eq.aggEventQueue) == 1 }, 10*time.Second, time.Millisecond)
-	require.Equal(t, 1, len(eq.aggEventQueue))
+	require.Eventually(t, func() bool { return eq.aggQueueLength() == 1 }, 10*time.Second, time.Millisecond)
 }
 
 func TestEventQueue_UserMaxQueueDrop(t *testing.T) {
@@ -154,9 +153,12 @@ func TestEventQueue_UserMaxQueueDrop(t *testing.T) {
 	}
 	err := SetConfig(test_config, "dvc_server_token_hash", "")
 	require.NoError(t, err)
-	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{})
+	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{
+		DisableAutomaticEventLogging: true,
+		DisableCustomEventLogging:    true,
+	})
 	require.NoError(t, err)
-	// Replace inbound event queue so nothing will read from the other side
+	// Replace the user event queue with a channel that can only hold 3 events
 	eq.userEventQueueRaw = make(chan userEventData, 3)
 	hasErrored := false
 	for i := 0; i <= 3; i++ {
@@ -199,7 +201,8 @@ func TestEventQueue_QueueAndFlush(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for the events to progress through the background worker
-	require.Eventually(t, func() bool { return len(eq.userEventQueue) == 2 }, 10*time.Second, time.Millisecond)
+	require.Eventually(t, func() bool { return eq.UserQueueLength() == 2 }, 10*time.Second, time.Millisecond)
+
 	require.Equal(t, 2, len(eq.userEventQueue))
 	require.Equal(t, 0, len(eq.userEventQueueRaw))
 
