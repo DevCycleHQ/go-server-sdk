@@ -18,7 +18,7 @@ jobs:
         go-version: 1.19
 
     - name: Test
-      run: make test
+      run: RACE=1 make test
 
     - name: Test Native Bucketing build
-      run: CGO_ENABLED=0 TAGS=native_bucketing make test
+      run: RACE=1 CGO_ENABLED=0 TAGS=native_bucketing make test
