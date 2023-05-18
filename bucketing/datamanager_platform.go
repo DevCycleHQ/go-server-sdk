@@ -1,4 +1,4 @@
-package native_bucketing
+package bucketing
 
 var clientCustomData = map[string]map[string]interface{}{}
 

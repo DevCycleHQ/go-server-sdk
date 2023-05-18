@@ -11,7 +11,7 @@ import (
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 
-	"github.com/devcyclehq/go-server-sdk/v2/native_bucketing"
+	"github.com/devcyclehq/go-server-sdk/v2/bucketing"
 )
 
 const NATIVE_SDK = true
@@ -34,11 +34,11 @@ type NativeLocalBucketing struct {
 	options      *Options
 	configMutex  sync.RWMutex
 	platformData *api.PlatformData
-	eventQueue   *native_bucketing.EventQueue
+	eventQueue   *bucketing.EventQueue
 }
 
 func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, options *Options) (*NativeLocalBucketing, error) {
-	eq, err := native_bucketing.NewEventQueue(sdkKey, options.eventQueueOptions())
+	eq, err := bucketing.NewEventQueue(sdkKey, options.eventQueueOptions())
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, opti
 }
 
 func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string) error {
-	err := native_bucketing.SetConfig(configJSON, n.sdkKey, eTag, n.eventQueue)
+	err := bucketing.SetConfig(configJSON, n.sdkKey, eTag, n.eventQueue)
 	if err != nil {
 		return fmt.Errorf("Error parsing config: %w", err)
 	}
@@ -60,12 +60,12 @@ func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string) error
 
 func (n *NativeLocalBucketing) GenerateBucketedConfigForUser(user User) (ret *BucketedUserConfig, err error) {
 	populatedUser := user.GetPopulatedUserWithTime(n.platformData, DEFAULT_USER_TIME)
-	clientCustomData := native_bucketing.GetClientCustomData(n.sdkKey)
-	return native_bucketing.GenerateBucketedConfig(n.sdkKey, populatedUser, clientCustomData)
+	clientCustomData := bucketing.GetClientCustomData(n.sdkKey)
+	return bucketing.GenerateBucketedConfig(n.sdkKey, populatedUser, clientCustomData)
 }
 
 func (n *NativeLocalBucketing) SetClientCustomData(customData map[string]interface{}) error {
-	native_bucketing.SetClientCustomData(n.sdkKey, customData)
+	bucketing.SetClientCustomData(n.sdkKey, customData)
 	return nil
 }
 
@@ -80,10 +80,10 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 		DefaultValue: nil,
 		IsDefaulted:  true,
 	}
-	clientCustomData := native_bucketing.GetClientCustomData(n.sdkKey)
+	clientCustomData := bucketing.GetClientCustomData(n.sdkKey)
 	populatedUser := user.GetPopulatedUserWithTime(n.platformData, DEFAULT_USER_TIME)
 
-	resultVariableType, resultValue, err := native_bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
+	resultVariableType, resultValue, err := bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
 	if err != nil {
 		return defaultVar, nil
 	}
