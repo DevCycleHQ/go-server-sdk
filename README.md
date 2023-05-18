@@ -40,6 +40,8 @@ To find usage documentation, visit our [docs](https://docs.devcycle.com/docs/sdk
 
 This SDK is supported by our [test harness](https://github.com/DevCycleHQ/test-harness), a test suite shared between all DevCycle SDKs for consistency.
 
+Unit tests can be run with the standard Go testing tools, or with `make test`. They are run automatically on PRs with the [Go race detector](https://go.dev/doc/articles/race_detector) enabled. To reproduce this locally, run with `RACE=1 make test` or `RACE=1 TAGS=native_bucketing make test`. Some race detector errors might only show up on Github actions due to differences in how quickly tests are executed.
+
 ## Configuration
 
 Configuration of the SDK is done through the `Options` struct.
