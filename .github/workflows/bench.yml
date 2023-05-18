@@ -40,7 +40,7 @@ jobs:
         with:
           go-version: 1.19
       - name: Run benchmark
-        run: CGO_ENABLED=0 go test -tags native_bucketing -bench=^BenchmarkClient_VariableSerial -run=^# -benchDisableLogs | tee bench_native_output.txt
+        run: CGO_ENABLED=0 go test -bench=^BenchmarkClient_VariableSerial -run=^# -benchDisableLogs | tee bench_native_output.txt
       - name: Download previous benchmark data
         uses: actions/cache@v3
         with:

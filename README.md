@@ -40,7 +40,7 @@ To find usage documentation, visit our [docs](https://docs.devcycle.com/docs/sdk
 
 This SDK is supported by our [test harness](https://github.com/DevCycleHQ/test-harness), a test suite shared between all DevCycle SDKs for consistency.
 
-Unit tests can be run with the standard Go testing tools, or with `make test`. They are run automatically on PRs with the [Go race detector](https://go.dev/doc/articles/race_detector) enabled. To reproduce this locally, run with `RACE=1 make test` or `RACE=1 TAGS=native_bucketing make test`. Some race detector errors might only show up on Github actions due to differences in how quickly tests are executed.
+Unit tests can be run with the standard Go testing tools, or with `make test`. They are run automatically on PRs with the [Go race detector](https://go.dev/doc/articles/race_detector) enabled. To reproduce this locally, run with `RACE=1 make test`. Some race detector errors might only show up on Github actions due to differences in how quickly tests are executed.
 
 ## Configuration
 
@@ -88,12 +88,12 @@ The following options are available when you are using the SDK in Local Bucketin
 
 ## Native Bucketing Library
 
-This SDK also supports a version of the DevCycle bucketing and segmentation logic built natively in Go. This system is designed as an ultra-high performance alternative to the WASM and Cloud bucketing solutions. 
+This SDK also supports a version of the DevCycle bucketing and segmentation logic built using WASM.
 
-To activate the native bucketing library, include the following build tag for your application:
+To activate the WASM bucketing library, include the following build tag for your application:
 
 ```bash
--tags native_bucketing
+-tags devcycle_wasm_bucketing
 ```
 
 This implementation is still under-going active development. Take care when utilizing it in production environments.

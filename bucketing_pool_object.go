@@ -1,4 +1,4 @@
-//go:build !native_bucketing
+//go:build devcycle_wasm_bucketing
 
 package devcycle
 
