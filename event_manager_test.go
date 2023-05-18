@@ -17,6 +17,7 @@ func TestEventManager_QueueEvent(t *testing.T) {
 
 	c, err := NewClient("dvc_server_token_hash", &Options{})
 	fatalErr(t, err)
+	defer c.Close()
 
 	_, err = c.Track(User{UserId: "j_test", DeviceModel: "testing"},
 		Event{Target: "customevent", Type_: "event"})
@@ -32,6 +33,7 @@ func TestEventManager_QueueEvent_100_DropEvent(t *testing.T) {
 
 	c, err := NewClient("dvc_server_token_hash", &Options{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
 	fatalErr(t, err)
+	defer c.Close()
 
 	errored := false
 	for i := 0; i < 1000; i++ {
@@ -61,6 +63,7 @@ func TestEventManager_QueueEvent_100_Flush(t *testing.T) {
 		EventFlushIntervalMS:    time.Second,
 	})
 	fatalErr(t, err)
+	defer c.Close()
 
 	// Track up to FlushEventQueueSize events
 	for i := 0; i < 10; i++ {

@@ -26,7 +26,7 @@ type boundedHash struct {
 }
 
 func generateBoundedHashes(userId, targetId string) boundedHash {
-	var targetHash = murmurhashV3([]byte(targetId), baseSeed)
+	var targetHash = murmurhashV3(targetId, baseSeed)
 	var bhash = boundedHash{
 		RolloutHash:   generateBoundedHash(userId+"_rollout", targetHash),
 		BucketingHash: generateBoundedHash(userId, targetHash),
@@ -35,7 +35,7 @@ func generateBoundedHashes(userId, targetId string) boundedHash {
 }
 
 func generateBoundedHash(input string, hashSeed uint32) float64 {
-	mh := murmurhashV3([]byte(input), hashSeed)
+	mh := murmurhashV3(input, hashSeed)
 	return float64(mh) / float64(maxHashValue)
 }
 
