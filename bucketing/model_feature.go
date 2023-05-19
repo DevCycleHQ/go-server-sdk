@@ -1,4 +1,4 @@
-package native_bucketing
+package bucketing
 
 type ConfigFeature struct {
 	Id            string                 `json:"_id"`

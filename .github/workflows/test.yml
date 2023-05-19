@@ -20,8 +20,8 @@ jobs:
     - name: Test
       run: RACE=1 make test
 
-    - name: Test Native Bucketing build
-      run: RACE=1 TAGS=native_bucketing make test
+    - name: Test WASM build
+      run: RACE=1 TAGS=devcycle_wasm_bucketing make test
 
     - name: Test that CGO is not required for native bucketing
-      run: CGO_ENABLED=0 go test -tags native_bucketing -run="^$" ./...
+      run: CGO_ENABLED=0 go test -run="^$" ./...

@@ -1,4 +1,4 @@
-package native_bucketing
+package bucketing
 
 // test for murmurhashv3
 import (

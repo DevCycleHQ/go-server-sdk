@@ -1,4 +1,4 @@
-package native_bucketing
+package bucketing
 
 import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"

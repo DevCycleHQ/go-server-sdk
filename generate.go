@@ -1,4 +1,4 @@
-//go:build !native_bucketing
+//go:build devcycle_wasm_bucketing
 
 //go:generate go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 //go:generate go install github.com/planetscale/vtprotobuf/cmd/protoc-gen-go-vtproto@latest

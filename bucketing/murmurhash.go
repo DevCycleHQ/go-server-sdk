@@ -1,4 +1,4 @@
-package native_bucketing
+package bucketing
 
 import "github.com/twmb/murmur3"
 
