@@ -42,7 +42,7 @@ func (u *UserEventQueue) BuildBatchRecords() []api.UserEventsBatchRecord {
 	return records
 }
 
-func (agg *AggregateEventQueue) BuildBatchRecords() api.UserEventsBatchRecord {
+func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData) api.UserEventsBatchRecord {
 	var aggregateEvents []api.Event
 	userId, err := os.Hostname()
 	if err != nil {
@@ -116,9 +116,10 @@ type EventQueue struct {
 	eventsFlushed       atomic.Int32
 	eventsReported      atomic.Int32
 	eventsDropped       atomic.Int32
+	platformData		*api.PlatformData
 }
 
-func NewEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue, error) {
+func NewEventQueue(sdkKey string, options *api.EventQueueOptions, platformData *api.PlatformData) (*EventQueue, error) {
 	if sdkKey == "" {
 		return nil, fmt.Errorf("sdk key is required")
 	}
@@ -137,6 +138,7 @@ func NewEventQueue(sdkKey string, options *api.EventQueueOptions) (*EventQueue, 
 		httpClient:        &http.Client{},
 		pendingPayloads:   make(map[string]api.FlushPayload, 0),
 		done:              cancel,
+		platformData:      platformData,
 	}
 
 	if !options.DisableAutomaticEventLogging || !options.DisableCustomEventLogging {
@@ -241,7 +243,7 @@ func (eq *EventQueue) FlushEventQueue() (map[string]api.FlushPayload, error) {
 
 	var records []api.UserEventsBatchRecord
 
-	records = append(records, eq.aggEventQueue.BuildBatchRecords())
+	records = append(records, eq.aggEventQueue.BuildBatchRecords(eq.platformData))
 	records = append(records, eq.userEventQueue.BuildBatchRecords()...)
 	eq.aggEventQueue = make(AggregateEventQueue)
 	eq.userEventQueue = make(UserEventQueue)
@@ -393,7 +395,7 @@ func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
 	defer eq.stateMutex.Unlock()
 
 	// TODO: provide platform data
-	popU := event.user.GetPopulatedUser(platformData)
+	popU := event.user.GetPopulatedUser(eq.platformData)
 	ccd := GetClientCustomData(eq.sdkKey)
 	popU.MergeClientCustomData(ccd)
 

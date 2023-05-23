@@ -62,6 +62,7 @@ type AdvancedOptions struct {
 	// This takes \sum_{k=5}^{n+5} 2^k memory usage
 	MaxMemoryAllocationBuckets int
 	MaxWasmWorkers             int
+	OverridePlatformData       *api.PlatformData
 }
 
 type Options struct {

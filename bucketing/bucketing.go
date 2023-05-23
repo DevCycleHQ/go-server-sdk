@@ -223,7 +223,7 @@ func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, 
 	}
 
 	var variableDefaulted bool
-	if !isVariableTypeValid(variableType, expectedVariableType) {
+	if !isVariableTypeValid(variableType, expectedVariableType) && expectedVariableType != "" {
 		err = ErrInvalidVariableType
 		variableDefaulted = true
 	}

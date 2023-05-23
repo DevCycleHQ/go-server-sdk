@@ -92,13 +92,16 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 	cfg := NewConfiguration(options)
 
 	options.CheckDefaults()
-
 	c := &Client{sdkKey: sdkKey}
 	c.cfg = cfg
 	c.ctx = context.Background()
 	c.common.client = c
 	c.DevCycleOptions = options
-	c.platformData = GeneratePlatformData()
+	if options.AdvancedOptions.OverridePlatformData != nil {
+		c.platformData = options.AdvancedOptions.OverridePlatformData
+	} else {
+		c.platformData = GeneratePlatformData()
+	}
 
 	if c.DevCycleOptions.Logger != nil {
 		util.SetLogger(c.DevCycleOptions.Logger)
@@ -283,7 +286,7 @@ VariableValue - Get variable value by key for user data
 
     -@return interface{}
 */
-func (c *Client) VariableValue(userdata User, key string, defaultValue interface{}) (result interface{}, err error) {
+func (c *Client) VariableValue(userdata User, key string, defaultValue interface{}) (interface{}, error) {
 	variable, err := c.Variable(userdata, key, defaultValue)
 	return variable.Value, err
 }
@@ -305,7 +308,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 	}
 
 	convertedDefaultValue := convertDefaultValueType(defaultValue)
-	variableType, err := variableTypeFromValue(key, convertedDefaultValue)
+	variableType, err := variableTypeFromValue(key, convertedDefaultValue, !c.DevCycleOptions.EnableCloudBucketing)
 
 	if err != nil {
 		return Variable{}, err
@@ -337,7 +340,8 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 		bucketedVariable, err := c.localBucketing.Variable(userdata, key, variableType)
 
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
-		if bucketedVariable.Value != nil && sameTypeAsDefault {
+		if bucketedVariable.Value != nil && (sameTypeAsDefault || defaultValue == nil) {
+			variable.Type_ = bucketedVariable.Type_
 			variable.Value = bucketedVariable.Value
 			variable.IsDefaulted = false
 		} else {
@@ -695,7 +699,7 @@ func convertDefaultValueType(value interface{}) interface{} {
 	}
 }
 
-func variableTypeFromValue(key string, value interface{}) (varType string, err error) {
+func variableTypeFromValue(key string, value interface{}, allowNil bool) (varType string, err error) {
 	switch value.(type) {
 	case float64:
 		return "Number", nil
@@ -705,6 +709,10 @@ func variableTypeFromValue(key string, value interface{}) (varType string, err e
 		return "Boolean", nil
 	case map[string]any:
 		return "JSON", nil
+	case nil:
+		if allowNil {
+			return "", nil
+		}
 	}
 
 	return "", fmt.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)

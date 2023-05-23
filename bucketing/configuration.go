@@ -1,7 +1,6 @@
 package bucketing
 
 import (
-	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"time"
 )
 
@@ -12,5 +11,3 @@ type NativeBucketingConfiguration struct {
 }
 
 var configuration = NativeBucketingConfiguration{}
-
-var platformData = (api.PlatformData{}).Default()
