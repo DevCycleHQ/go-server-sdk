@@ -286,7 +286,7 @@ VariableValue - Get variable value by key for user data
 
     -@return interface{}
 */
-func (c *Client) VariableValue(userdata User, key string, defaultValue interface{}) (result interface{}, err error) {
+func (c *Client) VariableValue(userdata User, key string, defaultValue interface{}) (interface{}, error) {
 	variable, err := c.Variable(userdata, key, defaultValue)
 	return variable.Value, err
 }
@@ -308,7 +308,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 	}
 
 	convertedDefaultValue := convertDefaultValueType(defaultValue)
-	variableType, err := variableTypeFromValue(key, convertedDefaultValue)
+	variableType, err := variableTypeFromValue(key, convertedDefaultValue, !c.DevCycleOptions.EnableCloudBucketing)
 
 	if err != nil {
 		return Variable{}, err
@@ -699,7 +699,7 @@ func convertDefaultValueType(value interface{}) interface{} {
 	}
 }
 
-func variableTypeFromValue(key string, value interface{}) (varType string, err error) {
+func variableTypeFromValue(key string, value interface{}, allowNil bool) (varType string, err error) {
 	switch value.(type) {
 	case float64:
 		return "Number", nil
@@ -710,7 +710,10 @@ func variableTypeFromValue(key string, value interface{}) (varType string, err e
 	case map[string]any:
 		return "JSON", nil
 	case nil:
-		return "", nil
+		if allowNil {
+			return "", nil
+		}
+		break
 	}
 
 	return "", fmt.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
