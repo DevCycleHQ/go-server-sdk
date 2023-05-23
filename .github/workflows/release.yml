@@ -2,7 +2,7 @@ name: Release
 
 on:
   release:
-    types: [published] # TODO: change to released once this workflow is tested
+    types: [released]
       
 permissions:
   contents: write
@@ -30,7 +30,6 @@ jobs:
       run: |
         git config --global user.email "github-tracker-bot@taplytics.com"
         git config --global user.name "taplytics-robot"
-        git checkout -b "release-${TAG_VERSION}" # TODO: remove
         git add ./version.go
         git commit -m "Set VERSION to ${TAG_VERSION}"
-        git push origin "release-${TAG_VERSION}" # TODO: remove
+        git push origin main
