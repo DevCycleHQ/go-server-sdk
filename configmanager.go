@@ -104,10 +104,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 	defer resp.Body.Close()
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
-		if err = e.setConfigFromResponse(resp); err != nil {
-			return err
-		}
-		return nil
+		return e.setConfigFromResponse(resp)
 	case statusCode == http.StatusNotModified:
 		return nil
 	case statusCode == http.StatusForbidden:

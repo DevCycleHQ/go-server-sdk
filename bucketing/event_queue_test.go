@@ -20,7 +20,7 @@ func BenchmarkEventQueue_QueueEvent(b *testing.B) {
 	}
 	err := SetConfig(test_config, "dvc_server_token_hash", "")
 	require.NoError(b, err)
-	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{MaxEventQueueSize: b.N + 10})
+	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{MaxEventQueueSize: b.N + 10}, (&api.PlatformData{}).Default())
 	require.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -39,7 +39,7 @@ func BenchmarkEventQueue_QueueEvent_WithDrop(b *testing.B) {
 	}
 	err := SetConfig(test_config, "dvc_server_token_hash", "")
 	require.NoError(b, err)
-	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{MaxEventQueueSize: b.N / 2})
+	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{MaxEventQueueSize: b.N / 2}, (&api.PlatformData{}).Default())
 	require.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -49,7 +49,7 @@ func BenchmarkEventQueue_QueueEvent_WithDrop(b *testing.B) {
 }
 func TestEventQueue_MergeAggEventQueueKeys(t *testing.T) {
 	// should not panic/error.
-	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{})
+	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{}, (&api.PlatformData{}).Default())
 	require.NoError(t, err)
 	// Parsing the large config should succeed without an error
 	err = SetConfig(test_config, "test", "")
@@ -68,7 +68,7 @@ func TestEventQueue_FlushEvents(t *testing.T) {
 	require.NoError(t, err)
 	config, err := getConfig("test")
 	require.NoError(t, err)
-	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{})
+	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{}, (&api.PlatformData{}).Default())
 	require.NoError(t, err)
 	eq.MergeAggEventQueueKeys(config)
 
@@ -88,7 +88,7 @@ func TestEventQueue_ProcessUserEvent(t *testing.T) {
 	}
 	err := SetConfig(test_config, "dvc_server_token_hash", "")
 	require.NoError(t, err)
-	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{})
+	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{}, (&api.PlatformData{}).Default())
 	require.NoError(t, err)
 	err = eq.processUserEvent(event)
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestEventQueue_ProcessAggregateEvent(t *testing.T) {
 	}
 	err := SetConfig(test_config, "dvc_server_token_hash", "")
 	require.NoError(t, err)
-	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{})
+	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{}, (&api.PlatformData{}).Default())
 	require.NoError(t, err)
 	err = eq.processAggregateEvent(event)
 	require.NoError(t, err)
@@ -118,7 +118,7 @@ func TestEventQueue_AddToUserQueue(t *testing.T) {
 	}
 	err := SetConfig(test_config, "dvc_server_token_hash", "")
 	require.NoError(t, err)
-	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{})
+	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{}, (&api.PlatformData{}).Default())
 	require.NoError(t, err)
 	err = eq.QueueEvent(api.User{UserId: "testing"}, event)
 	require.NoError(t, err)
@@ -134,7 +134,7 @@ func TestEventQueue_AddToAggQueue(t *testing.T) {
 	popu := api.User{UserId: "testing"}.GetPopulatedUser(api.PlatformData{}.Default())
 	err := SetConfig(test_config, "dvc_server_token_hash", "")
 	require.NoError(t, err)
-	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{FlushEventsInterval: time.Hour})
+	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{FlushEventsInterval: time.Hour}, (&api.PlatformData{}).Default())
 	require.NoError(t, err)
 	bucketedConfig, err := GenerateBucketedConfig("dvc_server_token_hash", popu, nil)
 	require.NoError(t, err)
@@ -156,7 +156,7 @@ func TestEventQueue_UserMaxQueueDrop(t *testing.T) {
 	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{
 		DisableAutomaticEventLogging: true,
 		DisableCustomEventLogging:    true,
-	})
+	}, (&api.PlatformData{}).Default())
 	require.NoError(t, err)
 	// Replace the user event queue with a channel that can only hold 3 events
 	eq.userEventQueueRaw = make(chan userEventData, 3)

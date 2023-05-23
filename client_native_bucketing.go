@@ -38,7 +38,7 @@ type NativeLocalBucketing struct {
 }
 
 func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, options *Options) (*NativeLocalBucketing, error) {
-	eq, err := bucketing.NewEventQueue(sdkKey, options.eventQueueOptions(), intentionallybreak)
+	eq, err := bucketing.NewEventQueue(sdkKey, options.eventQueueOptions(), platformData)
 	if err != nil {
 		return nil, err
 	}
