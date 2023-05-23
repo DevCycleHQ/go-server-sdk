@@ -29,6 +29,7 @@ jobs:
     - name: Test that serial variable flow requires zero heap allocations
       run: >
         go test -run=^$ -bench "^Benchmark.*_VariableSerial$" -benchmem .
+        | tee /dev/stderr
         | grep '0 allocs/op'
         || ( echo "::error title=Heap allocations detected in variable evaluations::The variable evaluation flow cannot have any allocations, or performance will degrade at high concurrency. See https://www.notion.so/How-to-profile-with-Go-613eb85b95c74df898552958f6b1541f for more information on how to resolve this."; false )
 
