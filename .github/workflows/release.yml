@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  release:
+    types: [published] # TODO: change to released once this workflow is tested
+      
+permissions:
+  contents: write
+
+jobs:
+  update_version:
+    name: Update VERSION in Go code
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Get Release Version
+      run: |
+        echo "TAG_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+    - name: Ensure release tag looks like a valid version
+      run: echo "${TAG_VERSION}" | egrep '^v[0-9]+\.[0-9]+\.[0-9]+'
+
+    - uses: actions/checkout@v3
+
+    - name: Update appVersion in chart
+      run: |
+        sed -i "s/^const VERSION = \".*\"/const VERSION = \"${TAG_VERSION#v}\"/" ./version.go
+
+    - name: Commit and push
+      run: |
+        git config --global user.email "github-tracker-bot@taplytics.com"
+        git config --global user.name "taplytics-robot"
+        git checkout -b "release-${TAG_VERSION}" # TODO: remove
+        git add ./version.go
+        git commit -m "Set VERSION to ${TAG_VERSION}"
+        git push origin "release-${TAG_VERSION}" # TODO: remove
