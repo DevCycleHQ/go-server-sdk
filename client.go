@@ -713,7 +713,6 @@ func variableTypeFromValue(key string, value interface{}, allowNil bool) (varTyp
 		if allowNil {
 			return "", nil
 		}
-		break
 	}
 
 	return "", fmt.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
