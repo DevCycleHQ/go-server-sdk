@@ -31,5 +31,7 @@ jobs:
         git config --global user.email "github-tracker-bot@taplytics.com"
         git config --global user.name "taplytics-robot"
         git add ./version.go
-        git commit -m "Set VERSION to ${TAG_VERSION}"
-        git push origin main
+        git commit -m "Release ${TAG_VERSION}"
+        git push origin HEAD:${{ github.event.release.target_commitish }}
+        git tag --annotate --force "${TAG_VERSION}"
+        git push --force origin ${{ github.event.release.tag_name }}
