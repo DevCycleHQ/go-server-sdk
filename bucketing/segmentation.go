@@ -45,15 +45,9 @@ func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, us
 		if !ok {
 			return false
 		}
-		if amF.Validate() != nil {
-			return false
-		}
 		return filterForAudienceMatch(amF, audiences, user, clientCustomData)
 	}
 
-	if err := filter.Validate(); err != nil {
-		return false
-	}
 	return filterFunctionsBySubtype(filter.GetSubType(), user, filter, clientCustomData)
 
 }
@@ -93,9 +87,6 @@ func filterFunctionsBySubtype(subType string, user api.PopulatedUser, filter Bas
 	} else if subType == "customData" {
 		customDataFilter, ok := filter.(*CustomDataFilter)
 		if !ok {
-			return false
-		}
-		if err := customDataFilter.Validate(); err != nil {
 			return false
 		}
 		return checkCustomData(user.CombinedCustomData(), clientCustomData, customDataFilter)
