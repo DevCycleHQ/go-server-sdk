@@ -1,3 +1,3 @@
 package devcycle
 
-const VERSION = "2.10.2"
+const VERSION = "2.10.3"
