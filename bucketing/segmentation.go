@@ -41,7 +41,7 @@ func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, us
 	} else if filter.GetType() == "optIn" {
 		return false
 	} else if filter.GetType() == "audienceMatch" {
-		amF, ok := filter.(AudienceMatchFilter)
+		amF, ok := filter.(*AudienceMatchFilter)
 		if !ok {
 			return false
 		}
@@ -58,8 +58,7 @@ func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, us
 
 }
 
-func filterForAudienceMatch(filter AudienceMatchFilter, configAudiences map[string]NoIdAudience, user api.PopulatedUser, clientCustomData map[string]interface{}) bool {
-
+func filterForAudienceMatch(filter *AudienceMatchFilter, configAudiences map[string]NoIdAudience, user api.PopulatedUser, clientCustomData map[string]interface{}) bool {
 	audiences := filter.Audiences
 	comparator := filter.GetComparator()
 

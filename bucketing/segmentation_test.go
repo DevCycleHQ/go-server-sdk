@@ -145,7 +145,7 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 	}{
 		{
 			name: "audienceMatchFilter - in the audience",
-			filters: []BaseFilter{AudienceMatchFilter{
+			filters: []BaseFilter{&AudienceMatchFilter{
 				filter: filter{
 					Type:       "audienceMatch",
 					Comparator: "=",
@@ -158,7 +158,7 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 		},
 		{
 			name: "audienceMatchFilter - not in the audience",
-			filters: []BaseFilter{AudienceMatchFilter{
+			filters: []BaseFilter{&AudienceMatchFilter{
 				filter: filter{
 					Type:       "audienceMatch",
 					Comparator: "!=",
@@ -171,7 +171,7 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 		},
 		{
 			name: "audienceMatchFilter - audience ID not in list",
-			filters: []BaseFilter{AudienceMatchFilter{
+			filters: []BaseFilter{&AudienceMatchFilter{
 				filter: filter{
 					Type:       "audienceMatch",
 					Comparator: "==",
@@ -184,7 +184,7 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 		},
 		{
 			name: "audienceMatchFilter - audience ID not in list",
-			filters: []BaseFilter{AudienceMatchFilter{
+			filters: []BaseFilter{&AudienceMatchFilter{
 				filter: filter{
 					Type:       "audienceMatch",
 					Comparator: "==",
