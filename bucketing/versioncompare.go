@@ -34,7 +34,7 @@ func versionCompare(v1, v2 string, options OptionsType) float64 {
 	v2parts := strings.Split(v2, ".")
 	hasV1 := hasValidParts(lexicographical, v1parts)
 	hasV2 := hasValidParts(lexicographical, v2parts)
-	if !hasV1 && !hasV2 {
+	if !hasV1 || !hasV2 {
 		return math.NaN()
 	}
 	if zeroExtend {
