@@ -205,6 +205,54 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 	}
 }
 
+func TestEvaluateOperator_AudienceNested(t *testing.T) {
+	countryFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "country",
+			Comparator: "=",
+		},
+		Values: []interface{}{"Canada"},
+	}
+	require.NoError(t, countryFilter.Initialize())
+	audience1 := NoIdAudience{
+		Filters: &AudienceOperator{
+			Operator: OperatorAnd,
+			Filters:  []BaseFilter{countryFilter},
+		},
+	}
+	audience2 := NoIdAudience{
+		Filters: &AudienceOperator{
+			Operator: OperatorAnd,
+			Filters: []BaseFilter{&AudienceMatchFilter{
+				filter: filter{
+					Type:       "audienceMatch",
+					Comparator: "=",
+					Operator:   OperatorAnd,
+				},
+				Audiences: []string{"inner"},
+			}},
+		},
+	}
+	operator := &AudienceOperator{
+		Operator: OperatorAnd,
+		Filters: []BaseFilter{&AudienceMatchFilter{
+			filter: filter{
+				Type:       "audienceMatch",
+				Comparator: "=",
+				Operator:   OperatorAnd,
+			},
+			Audiences: []string{"outer"},
+		}},
+	}
+	audiences := map[string]NoIdAudience{
+		"outer": audience2,
+		"inner": audience1,
+	}
+	result := _evaluateOperator(operator, audiences, brooks, nil)
+	require.True(t, result)
+}
+
 func TestEvaluateOperator_UserSubFilterInvalid(t *testing.T) {
 	userAllFilter := &UserFilter{
 		filter: filter{
