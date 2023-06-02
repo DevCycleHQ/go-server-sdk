@@ -215,13 +215,13 @@ func TestEvaluateOperator_AudienceNested(t *testing.T) {
 		Values: []interface{}{"Canada"},
 	}
 	require.NoError(t, countryFilter.Initialize())
-	audience1 := NoIdAudience{
+	audienceInner := NoIdAudience{
 		Filters: &AudienceOperator{
 			Operator: OperatorAnd,
 			Filters:  []BaseFilter{countryFilter},
 		},
 	}
-	audience2 := NoIdAudience{
+	audienceOuter := NoIdAudience{
 		Filters: &AudienceOperator{
 			Operator: OperatorAnd,
 			Filters: []BaseFilter{&AudienceMatchFilter{
@@ -234,6 +234,10 @@ func TestEvaluateOperator_AudienceNested(t *testing.T) {
 			}},
 		},
 	}
+	audiences := map[string]NoIdAudience{
+		"outer": audienceOuter,
+		"inner": audienceInner,
+	}
 	operator := &AudienceOperator{
 		Operator: OperatorAnd,
 		Filters: []BaseFilter{&AudienceMatchFilter{
@@ -245,11 +249,24 @@ func TestEvaluateOperator_AudienceNested(t *testing.T) {
 			Audiences: []string{"outer"},
 		}},
 	}
-	audiences := map[string]NoIdAudience{
-		"outer": audience2,
-		"inner": audience1,
-	}
 	result := _evaluateOperator(operator, audiences, brooks, nil)
+	require.True(t, result)
+
+	operator2 := &AudienceOperator{
+		Operator: OperatorAnd,
+		Filters: []BaseFilter{
+			countryFilter,
+			&AudienceMatchFilter{
+				filter: filter{
+					Type:       "audienceMatch",
+					Comparator: "=",
+					Operator:   OperatorAnd,
+				},
+				Audiences: []string{"inner"},
+			},
+		},
+	}
+	result = _evaluateOperator(operator2, audiences, brooks, nil)
 	require.True(t, result)
 }
 
