@@ -80,3 +80,341 @@ func Test_CheckBooleanFilter(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckVersionFilters(t *testing.T) {
+	type VersionTestCase struct {
+		expected   bool
+		version    string
+		values     []interface{}
+		comparator string
+	}
+
+	type TestCaseGroup struct {
+		name      string
+		testCases []VersionTestCase
+	}
+
+	groups := []TestCaseGroup{
+		{
+			name: "should return true if string versions equal",
+			testCases: []VersionTestCase{
+				{expected: true, version: "1", values: []interface{}{"1"}, comparator: "="},
+				{expected: true, version: "1.1", values: []interface{}{"1.1"}, comparator: "="},
+				{expected: true, version: "1.1.1", values: []interface{}{"1.1.1"}, comparator: "="},
+				{expected: true, version: "1.1.", values: []interface{}{"1.1"}, comparator: "="},
+			},
+		},
+		{
+			name: "should return false if string versions not equal",
+			testCases: []VersionTestCase{
+				{expected: false, version: "", values: []interface{}{"2"}, comparator: "="},
+				{expected: false, version: "1", values: []interface{}{"2"}, comparator: "="},
+				{expected: false, version: "1.1", values: []interface{}{"1.2"}, comparator: "="},
+				{expected: false, version: "1.1", values: []interface{}{"1.1.1"}, comparator: "="},
+				{expected: false, version: "1.1.", values: []interface{}{"1.1.1"}, comparator: "="},
+				{expected: false, version: "1.1.1", values: []interface{}{"1.1"}, comparator: "="},
+				{expected: false, version: "1.1.1", values: []interface{}{"1.1."}, comparator: "="},
+				{expected: false, version: "1.1.1", values: []interface{}{"1.2.3"}, comparator: "="},
+			},
+		},
+		{
+			name: "should return false if string versions not equal",
+			testCases: []VersionTestCase{
+				{expected: false, version: "1", values: []interface{}{"1"}, comparator: "!="},
+				{expected: false, version: "1.1", values: []interface{}{"1.1"}, comparator: "!="},
+				{expected: false, version: "1.1.1", values: []interface{}{"1.1.1"}, comparator: "!="},
+				{expected: false, version: "1.1.", values: []interface{}{"1.1"}, comparator: "!="},
+			},
+		},
+		{
+			name: "should return true if string versions not equal",
+			testCases: []VersionTestCase{
+				{expected: true, version: "1", values: []interface{}{"2"}, comparator: "!="},
+				{expected: true, version: "1.1", values: []interface{}{"1.2"}, comparator: "!="},
+				{expected: true, version: "1.1", values: []interface{}{"1.1.1"}, comparator: "!="},
+				{expected: true, version: "1.1.", values: []interface{}{"1.1.1"}, comparator: "!="},
+				{expected: true, version: "1.1.1", values: []interface{}{"1.1"}, comparator: "!="},
+				{expected: true, version: "1.1.1", values: []interface{}{"1.1."}, comparator: "!="},
+				{expected: true, version: "1.1.1", values: []interface{}{"1.2.3"}, comparator: "!="},
+			},
+		},
+		{
+			name: "should return false if string versions greater than",
+			testCases: []VersionTestCase{
+				{expected: false, version: "", values: []interface{}{"1"}, comparator: ">"},
+				{expected: false, version: "1", values: []interface{}{"1"}, comparator: ">"},
+				{expected: false, version: "1.1", values: []interface{}{"1.1"}, comparator: ">"},
+				{expected: false, version: "1.1.1", values: []interface{}{"1.1.1"}, comparator: ">"},
+				{expected: false, version: "1.1.", values: []interface{}{"1.1"}, comparator: ">"},
+				{expected: false, version: "1", values: []interface{}{"2"}, comparator: ">"},
+				{expected: false, version: "1.1", values: []interface{}{"1.2"}, comparator: ">"},
+				{expected: false, version: "1.1", values: []interface{}{"1.1.1"}, comparator: ">"},
+				{expected: false, version: "1.1.", values: []interface{}{"1.1.1"}, comparator: ">"},
+				{expected: false, version: "1.1.1", values: []interface{}{"1.2.3"}, comparator: ">"},
+			},
+		},
+		{
+			name: "should return true if string versions greater than",
+			testCases: []VersionTestCase{
+				{expected: true, version: "2", values: []interface{}{"1"}, comparator: ">"},
+				{expected: true, version: "1.2", values: []interface{}{"1.1"}, comparator: ">"},
+				{expected: true, version: "2.1", values: []interface{}{"1.1"}, comparator: ">"},
+				{expected: true, version: "1.2.1", values: []interface{}{"1.2"}, comparator: ">"},
+				{expected: true, version: "1.2.", values: []interface{}{"1.1"}, comparator: ">"},
+				{expected: true, version: "1.2.1", values: []interface{}{"1.1.1"}, comparator: ">"},
+				{expected: true, version: "1.2.2", values: []interface{}{"1.2"}, comparator: ">"},
+				{expected: true, version: "1.2.2", values: []interface{}{"1.2.1"}, comparator: ">"},
+				{expected: true, version: "4.8.241", values: []interface{}{"4.8"}, comparator: ">"},
+				{expected: true, version: "4.8.241.2", values: []interface{}{"4"}, comparator: ">"},
+				{expected: true, version: "4.8.241.2", values: []interface{}{"4.8"}, comparator: ">"},
+				{expected: true, version: "4.8.241.2", values: []interface{}{"4.8.2"}, comparator: ">"},
+				{expected: true, version: "4.8.241.2", values: []interface{}{"4.8.241.0"}, comparator: ">"},
+			},
+		},
+		{
+			name: "should return false if string versions greater than or equal",
+			testCases: []VersionTestCase{
+				{expected: false, version: "", values: []interface{}{"2"}, comparator: ">="},
+				{expected: false, version: "1", values: []interface{}{"2"}, comparator: ">="},
+				{expected: false, version: "1.1", values: []interface{}{"1.2"}, comparator: ">="},
+				{expected: false, version: "1.1", values: []interface{}{"1.1.1"}, comparator: ">="},
+				{expected: false, version: "1.1.", values: []interface{}{"1.1.1"}, comparator: ">="},
+				{expected: false, version: "1.1.1", values: []interface{}{"1.2.3"}, comparator: ">="},
+				{expected: false, version: "4.8.241", values: []interface{}{"4.9"}, comparator: ">="},
+				{expected: false, version: "4.8.241.2", values: []interface{}{"5"}, comparator: ">="},
+				{expected: false, version: "4.8.241.2", values: []interface{}{"4.9"}, comparator: ">="},
+				{expected: false, version: "4.8.241.2", values: []interface{}{"4.8.242"}, comparator: ">="},
+				{expected: false, version: "4.8.241.2", values: []interface{}{"4.8.241.5"}, comparator: ">="},
+			},
+		},
+		{
+			name: "should return true if string versions greater than or equal",
+			testCases: []VersionTestCase{
+				{expected: true, version: "1", values: []interface{}{"1"}, comparator: ">="},
+				{expected: true, version: "1.1", values: []interface{}{"1.1"}, comparator: ">="},
+				{expected: true, version: "1.1.1", values: []interface{}{"1.1.1"}, comparator: ">="},
+				{expected: true, version: "1.1.", values: []interface{}{"1.1"}, comparator: ">="},
+				{expected: true, version: "2", values: []interface{}{"1"}, comparator: ">="},
+				{expected: true, version: "1.2", values: []interface{}{"1.1"}, comparator: ">="},
+				{expected: true, version: "2.1", values: []interface{}{"1.1"}, comparator: ">="},
+				{expected: true, version: "1.2.1", values: []interface{}{"1.2"}, comparator: ">="},
+				{expected: true, version: "1.2.", values: []interface{}{"1.1"}, comparator: ">="},
+				{expected: true, version: "1.2.1", values: []interface{}{"1.1.1"}, comparator: ">="},
+				{expected: true, version: "1.2.2", values: []interface{}{"1.2"}, comparator: ">="},
+				{expected: true, version: "1.2.2", values: []interface{}{"1.2.1"}, comparator: ">="},
+				{expected: true, version: "4.8.241.2", values: []interface{}{"4"}, comparator: ">="},
+				{expected: true, version: "4.8.241.2", values: []interface{}{"4.8"}, comparator: ">="},
+				{expected: true, version: "4.8.241.2", values: []interface{}{"4.8.2"}, comparator: ">="},
+				{expected: true, version: "4.8.241.2", values: []interface{}{"4.8.241.0"}, comparator: ">="},
+				{expected: true, version: "4.8.241.2", values: []interface{}{"4.8.241.2"}, comparator: ">="},
+			},
+		},
+		{
+			name: "should work if version has other characters",
+			testCases: []VersionTestCase{
+				{expected: true, version: "1.2.2", values: []interface{}{"v1.2.1-2v3asda"}, comparator: ">="},
+				{expected: true, version: "1.2.2", values: []interface{}{"v1.2.1-va1sda"}, comparator: ">"},
+				{expected: true, version: "1.2.1", values: []interface{}{"v1.2.1-vasd32a"}, comparator: ">="},
+				{expected: false, version: "1.2.1", values: []interface{}{"v1.2.1-vasda"}, comparator: "="},
+				{expected: false, version: "v1.2.1-va21sda", values: []interface{}{"v1.2.1-va13sda"}, comparator: "="},
+				{expected: false, version: "1.2.0", values: []interface{}{"v1.2.1-vas1da"}, comparator: ">="},
+				{expected: true, version: "1.2.1", values: []interface{}{"v1.2.1- va34sda"}, comparator: "<="},
+				{expected: true, version: "1.2.0", values: []interface{}{"v1.2.1-vas3da"}, comparator: "<="},
+			},
+		},
+		{
+			name: "should return true if string versions less than",
+			testCases: []VersionTestCase{
+				{expected: true, version: "1", values: []interface{}{"2"}, comparator: "<"},
+				{expected: true, version: "1.1", values: []interface{}{"1.2"}, comparator: "<"},
+				{expected: true, version: "1.1", values: []interface{}{"1.1.1"}, comparator: "<"},
+				{expected: true, version: "1.1.", values: []interface{}{"1.1.1"}, comparator: "<"},
+				{expected: true, version: "1.1.1", values: []interface{}{"1.2.3"}, comparator: "<"},
+				{expected: true, version: "4.8.241.2", values: []interface{}{"5"}, comparator: "<"},
+				{expected: true, version: "4.8.241.2", values: []interface{}{"4.9"}, comparator: "<"},
+				{expected: true, version: "4.8.241.2", values: []interface{}{"4.8.242"}, comparator: "<"},
+				{expected: true, version: "4.8.241.2", values: []interface{}{"4.8.241.5"}, comparator: "<"}},
+		},
+		{
+			name: "should return false if string versions less than",
+			testCases: []VersionTestCase{
+				{expected: false, version: "", values: []interface{}{"1"}, comparator: "<"},
+				{expected: false, version: "1", values: []interface{}{"1"}, comparator: "<"},
+				{expected: false, version: "1.1", values: []interface{}{"1.1"}, comparator: "<"},
+				{expected: false, version: "1.1.1", values: []interface{}{"1.1.1"}, comparator: "<"},
+				{expected: false, version: "1.1.", values: []interface{}{"1.1"}, comparator: "<"},
+				{expected: false, version: "2", values: []interface{}{"1"}, comparator: "<"},
+				{expected: false, version: "1.2", values: []interface{}{"1.1"}, comparator: "<"},
+				{expected: false, version: "2.1", values: []interface{}{"1.1"}, comparator: "<"},
+				{expected: false, version: "1.2.1", values: []interface{}{"1.2"}, comparator: "<"},
+				{expected: false, version: "1.2.", values: []interface{}{"1.1"}, comparator: "<"},
+				{expected: false, version: "1.2.1", values: []interface{}{"1.1.1"}, comparator: "<"},
+				{expected: false, version: "1.2.2", values: []interface{}{"1.2"}, comparator: "<"},
+				{expected: false, version: "1.2.2", values: []interface{}{"1.2."}, comparator: "<"},
+				{expected: false, version: "1.2.2", values: []interface{}{"1.2.1"}, comparator: "<"},
+				{expected: false, version: "4.8.241.2", values: []interface{}{"4"}, comparator: "<"},
+				{expected: false, version: "4.8.241.2", values: []interface{}{"4.8"}, comparator: "<"},
+				{expected: false, version: "4.8.241.2", values: []interface{}{"4.8.241"}, comparator: "<"},
+				{expected: false, version: "4.8.241.2", values: []interface{}{"4.8.241.0"}, comparator: "<"}},
+		},
+		{
+			name: "should return true if string versions less than or equal",
+			testCases: []VersionTestCase{
+				{expected: true, version: "1", values: []interface{}{"1"}, comparator: "<="},
+				{expected: true, version: "1.1", values: []interface{}{"1.1"}, comparator: "<="},
+				{expected: true, version: "1.1.1", values: []interface{}{"1.1.1"}, comparator: "<="},
+				{expected: true, version: "1.1.", values: []interface{}{"1.1"}, comparator: "<="},
+				{expected: true, version: "1", values: []interface{}{"2"}, comparator: "<="},
+				{expected: true, version: "1.1", values: []interface{}{"1.2"}, comparator: "<="},
+				{expected: true, version: "1.1", values: []interface{}{"1.1.1"}, comparator: "<="},
+				{expected: true, version: "1.1.", values: []interface{}{"1.1.1"}, comparator: "<="},
+				{expected: true, version: "1.1.1", values: []interface{}{"1.2.3"}, comparator: "<="},
+				{expected: true, version: "4.8.241.2", values: []interface{}{"4.8.241.2"}, comparator: "<="}},
+		},
+		{
+			name: "should return false if string versions less than or equal",
+			testCases: []VersionTestCase{
+				{expected: false, version: "", values: []interface{}{"1"}, comparator: "<="},
+				{expected: false, version: "2", values: []interface{}{"1"}, comparator: "<="},
+				{expected: false, version: "1.2", values: []interface{}{"1.1"}, comparator: "<="},
+				{expected: false, version: "2.1", values: []interface{}{"1.1"}, comparator: "<="},
+				{expected: false, version: "1.2.1", values: []interface{}{"1.2"}, comparator: "<="},
+				{expected: false, version: "1.2.", values: []interface{}{"1.1"}, comparator: "<="},
+				{expected: false, version: "1.2.1", values: []interface{}{"1.1.1"}, comparator: "<="},
+				{expected: false, version: "1.2.2", values: []interface{}{"1.2"}, comparator: "<="},
+				{expected: false, version: "1.2.2", values: []interface{}{"1.2."}, comparator: "<="},
+				{expected: false, version: "1.2.2", values: []interface{}{"1.2.1"}, comparator: "<="},
+				{expected: false, version: "4.8.241.2", values: []interface{}{"4.8.241"}, comparator: "<="}},
+		},
+		{
+			name: "should return true if any numbers equal array",
+			testCases: []VersionTestCase{
+				{expected: true, version: "1", values: []interface{}{"1", "1.1"}, comparator: "="},
+				{expected: true, version: "1.1", values: []interface{}{"1", "1.1"}, comparator: "="},
+				{expected: true, version: "1.1", values: []interface{}{"1.1", ""}, comparator: "="}},
+		},
+		{
+			name: "should return false if all numbers not equal array",
+			testCases: []VersionTestCase{
+				{expected: false, version: "1", values: []interface{}{"2", "1.1"}, comparator: "="},
+				{expected: false, version: "1.1", values: []interface{}{"1.2", "1"}, comparator: "="}},
+		},
+		{
+			name: "should return true if any string versions equal array",
+			testCases: []VersionTestCase{
+				{expected: true, version: "1", values: []interface{}{"1", "1.1"}, comparator: "="},
+				{expected: true, version: "1.1", values: []interface{}{"1.1", "1"}, comparator: "="},
+				{expected: true, version: "1.1.1", values: []interface{}{"1.1.1", "1.1"}, comparator: "="},
+				{expected: true, version: "1.1.", values: []interface{}{"1.1", "1.1"}, comparator: "="}},
+		},
+		{
+			name: "should return false if all string versions not equal array",
+			testCases: []VersionTestCase{
+				{expected: false, version: "", values: []interface{}{"2", "3"}, comparator: "="},
+				{expected: false, version: "1", values: []interface{}{"2", "3"}, comparator: "="},
+				{expected: false, version: "1.1", values: []interface{}{"1.2", "1.2"}, comparator: "="},
+				{expected: false, version: "1.1", values: []interface{}{"1.1.1", "1.2"}, comparator: "="},
+				{expected: false, version: "1.1.", values: []interface{}{"1.1.1", "1.2"}, comparator: "="},
+				{expected: false, version: "1.1.1", values: []interface{}{"1.1", "1.1"}, comparator: "="},
+				{expected: false, version: "1.1.1", values: []interface{}{"1", "1.1."}, comparator: "="},
+				{expected: false, version: "1.1.1", values: []interface{}{"1.2.3", "1."}, comparator: "="}},
+		},
+		{
+			name: " should return false if multiple versions do not equal the version",
+			testCases: []VersionTestCase{
+				{expected: false, version: "1", values: []interface{}{"2", "1"}, comparator: "!="},
+				{expected: false, version: "1.1", values: []interface{}{"1.2", "1.1"}, comparator: "!="}},
+		},
+		{
+			name: "should return true if multiple versions do not equal version",
+			testCases: []VersionTestCase{
+				{expected: true, version: "1.1", values: []interface{}{"1.1.1", "1.2"}, comparator: "!="},
+				{expected: true, version: "1.1.", values: []interface{}{"1.1.1", "1"}, comparator: "!="}},
+		},
+
+		{
+			name: "should return false if any string versions not greater than array",
+			testCases: []VersionTestCase{
+				{expected: false, version: "1", values: []interface{}{"1", "1"}, comparator: ">"},
+				{expected: false, version: "1.1", values: []interface{}{"1.1", "1.1.", "1.1"}, comparator: ">"},
+				{expected: false, version: "1", values: []interface{}{"2"}, comparator: ">"},
+				{expected: false, version: "1.1", values: []interface{}{"1.1.0"}, comparator: ">"}},
+		},
+
+		{
+			name: "should return true any if string versions greater than array",
+			testCases: []VersionTestCase{
+				{expected: true, version: "2", values: []interface{}{"1", "2.0"}, comparator: ">"},
+				{expected: true, version: "1.2.1", values: []interface{}{"1.2", "1.2"}, comparator: ">"},
+				{expected: true, version: "1.2.", values: []interface{}{"1.1", "1.9."}, comparator: ">"}},
+		},
+
+		{
+			name: "should return false if all string versions not greater than or equal array",
+			testCases: []VersionTestCase{
+				{expected: false, version: "1", values: []interface{}{"2", "1.2"}, comparator: ">="},
+				{expected: false, version: "1.1", values: []interface{}{"1.2"}, comparator: ">="},
+				{expected: false, version: "1.1", values: []interface{}{"1.1.1", "1.2"}, comparator: ">="}},
+		},
+
+		{
+			name: "should return true if any string versions greater than or equal array",
+			testCases: []VersionTestCase{
+				{expected: true, version: "1", values: []interface{}{"1", "1.1"}, comparator: ">="},
+				{expected: true, version: "1.1", values: []interface{}{"1.1", "1"}, comparator: ">="},
+				{expected: true, version: "1.1.1", values: []interface{}{"1.2", "1.1.1"}, comparator: ">="},
+				{expected: true, version: "1.1.", values: []interface{}{"1.1"}, comparator: ">="},
+				{expected: true, version: "2", values: []interface{}{"1", "3"}, comparator: ">="}},
+		},
+
+		{
+			name: "should return true if any string versions less than array",
+			testCases: []VersionTestCase{
+				{expected: true, version: "1", values: []interface{}{"2", "1"}, comparator: "<"},
+				{expected: true, version: "1.1", values: []interface{}{"1.2", "1.5"}, comparator: "<"},
+				{expected: true, version: "1.1.", values: []interface{}{"1.1.1"}, comparator: "<"}},
+		},
+
+		{
+			name: "should return false if all string versions less than array",
+			testCases: []VersionTestCase{
+				{expected: false, version: "1", values: []interface{}{"1", "1.0"}, comparator: "<"},
+				{expected: false, version: "1.1.", values: []interface{}{"1.1", "1.1.0"}, comparator: "<"}},
+		},
+
+		{
+			name: "should return true if any string versions less than or equal array",
+			testCases: []VersionTestCase{
+				{expected: true, version: "1", values: []interface{}{"1", "5"}, comparator: "<="},
+				{expected: true, version: "1.1", values: []interface{}{"1.1", "1.1."}, comparator: "<="},
+				{expected: true, version: "1.1.", values: []interface{}{"1.1.1", "1.1."}, comparator: "<="}},
+		},
+
+		{
+			name: "should return false if all string versions not less than or equal array",
+			testCases: []VersionTestCase{
+				{expected: false, version: "2", values: []interface{}{"1", "1.9"}, comparator: "<="},
+				{expected: false, version: "1.2.1", values: []interface{}{"1.2", "1.2"}, comparator: "<="},
+				{expected: false, version: "1.2.", values: []interface{}{"1.1", "1.1.9"}, comparator: "<="}},
+		},
+	}
+	for _, tg := range groups {
+		for x, tc := range tg.testCases {
+			versionFilter := &UserFilter{
+				filter: filter{
+					Type:       "user",
+					SubType:    "appVersion",
+					Comparator: tc.comparator,
+					Operator:   OperatorAnd,
+				},
+				Values: tc.values,
+			}
+			require.NoError(t, versionFilter.Initialize())
+			result := checkVersionFilters(tc.version, versionFilter)
+			if result != tc.expected {
+				t.Errorf("Group: %s #%d: Expected %t, but got %t", tg.name, x, tc.expected, result)
+			}
+		}
+	}
+
+}
