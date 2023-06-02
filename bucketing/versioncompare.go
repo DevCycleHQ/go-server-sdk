@@ -60,7 +60,7 @@ func versionCompare(v1, v2 string, options OptionsType) float64 {
 			if v2Float, err := strconv.ParseFloat(v2part, 64); err == nil {
 				v2PartsFinal = append(v2PartsFinal, v2Float)
 			} else {
-				v1PartsFinal = append(v1PartsFinal, math.NaN())
+				v2PartsFinal = append(v2PartsFinal, math.NaN())
 			}
 		}
 	}
