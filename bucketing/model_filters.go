@@ -349,10 +349,5 @@ func _checkBooleanFilter(b bool, filter *UserFilter) bool {
 func checkVersionFilters(appVersion string, filter *UserFilter) bool {
 	operator := filter.GetComparator()
 	values := filter.CompiledStringVals
-	// don't need to do semver if they're looking for an exact match. Adds support for non semver versions.
-	if operator == "=" {
-		return checkStringsFilter(appVersion, filter)
-	} else {
-		return checkVersionFilter(appVersion, values, operator)
-	}
+	return checkVersionFilter(appVersion, values, operator)
 }
