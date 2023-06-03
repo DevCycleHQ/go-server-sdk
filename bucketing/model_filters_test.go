@@ -6,6 +6,44 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestCheckCustomData(t *testing.T) {
+	tests := []struct {
+		name             string
+		comparator       string
+		values           []interface{}
+		dataKeyType      string
+		dataKey          string
+		expected         bool
+		data             map[string]interface{}
+		clientCustomData map[string]interface{}
+	}{
+		{"no data", ComparatorEqual, []interface{"value"}, "String", "", false, map[string]interface{}{}, map[string]interface{}{}},
+	}
+
+	for _, test := range tests {
+		testFilter := &CustomDataFilter{
+			UserFilter: &UserFilter{
+				filter: filter{
+					Type:       "user",
+					SubType:    "customData",
+					Comparator: test.comparator,
+				},
+				Values: test.values,
+			},
+			DataKey:     test.dataKey,
+			DataKeyType: test.dataKeyType,
+		}
+
+		require.NoError(t, testFilter.Initialize())
+		require.NoError(t, testFilter.UserFilter.Initialize())
+
+		result := checkCustomData(test.data, test.clientCustomData, testFilter)
+		if result != test.expected {
+			t.Errorf("Test %s failed. Expected %t, got %t", test.name, test.expected, result)
+		}
+	}
+}
+
 func TestCheckStringsFilter(t *testing.T) {
 	tests := []struct {
 		name       string
