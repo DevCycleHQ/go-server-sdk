@@ -14,21 +14,35 @@ func TestCheckStringsFilter(t *testing.T) {
 		subject    string
 		expected   bool
 	}{
-		{"=_empty", ComparatorEqual, []string{""}, "", false},
+		{"=_empty test, no values", ComparatorEqual, []string{}, "", false},
+		{"=_empty test with values", ComparatorEqual, []string{"1", "2"}, "", false},
+
 		{"=_match", ComparatorEqual, []string{"foo"}, "foo", true},
+		{"=_match in list", ComparatorEqual, []string{"iPhone OS", "Android", "Blackberry"}, "Android", true},
 		{"=_nomatch", ComparatorEqual, []string{"foo"}, "fo", false},
+
 		{"!=_empty", ComparatorNotEqual, []string{""}, "", false},
 		{"!=_match", ComparatorNotEqual, []string{"foo"}, "foo", false},
+		{"!=_match in list", ComparatorNotEqual, []string{"iPhone OS", "Android", "Blackberry"}, "Android", false},
 		{"!=_nomatch", ComparatorNotEqual, []string{"foo"}, "bar", true},
-		{"exist_empty", ComparatorExist, []string{}, "", false},
-		{"exist_notempty", ComparatorExist, []string{}, "exists", true},
-		{"exist_empty", ComparatorNotExist, []string{}, "", true},
-		{"exist_notempty", ComparatorNotExist, []string{}, "exists", false},
-		{"contain_empty", ComparatorContain, []string{""}, "", false},
-		{"contain_match", ComparatorContain, []string{"oob"}, "foobar", true},
+
+		{"exist_empty test", ComparatorExist, []string{}, "", false},
+		{"exist_notempty test, no values", ComparatorExist, []string{}, "string", true},
+		{"exist_notempty test, with values", ComparatorExist, []string{"hello", "world"}, "string", true},
+
+		{"!exist_empty", ComparatorNotExist, []string{}, "", true},
+		{"!exist_notempty, no values", ComparatorNotExist, []string{}, "exists", false},
+		{"!exist_notempty test, with values", ComparatorNotExist, []string{"hello", "world"}, "exists", false},
+
+		{"contain_empty test", ComparatorContain, []string{""}, "", false},
+		{"contain_match, browser filter", ComparatorContain, []string{"Chrome"}, "Chrome", true},
+		{"contain_match, device filter", ComparatorContain, []string{"Desktop"}, "Desktop", true},
+		{"contain_partialMatch", ComparatorContain, []string{"hello"}, "helloWorld", true},
 		{"contain_nomatch", ComparatorContain, []string{"foo"}, "bar", false},
-		{"contain_empty", ComparatorNotContain, []string{""}, "", true},
-		{"contain_match", ComparatorNotContain, []string{"oob"}, "foobar", false},
+
+		{"contain_empty test", ComparatorNotContain, []string{""}, "", true},
+		{"contain_match", ComparatorNotContain, []string{"Desktop"}, "Desktop", false},
+		{"contain_partialMatch", ComparatorNotContain, []string{"oob"}, "foobar", false},
 		{"contain_nomatch", ComparatorNotContain, []string{"foo"}, "bar", true},
 	}
 	for _, test := range tests {
