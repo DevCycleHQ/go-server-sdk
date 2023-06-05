@@ -98,9 +98,6 @@ func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64
 }
 
 func doesUserPassRollout(rollout Rollout, boundedHash float64) bool {
-	if rollout.StartDate == time.Unix(0, 0) && rollout.Type == "" && len(rollout.Stages) == 0 {
-		return true
-	}
 	var rolloutPercentage = getCurrentRolloutPercentage(rollout, time.Now())
 	return rolloutPercentage != 0 && (boundedHash <= rolloutPercentage)
 }
