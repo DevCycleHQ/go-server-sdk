@@ -858,6 +858,35 @@ func TestEvaluateOperator_MultiNotExistsCustomDataFilters(t *testing.T) {
 	}
 }
 
+func TestEvaluateOperator_OptIn(t *testing.T) {
+	// The OptIn feature is not supported by Local Bucketing but we do need to make sure it return false and doesn't generate a panic
+	optInFilter := &UserFilter{
+		filter: filter{
+			Type:       "optIn",
+			Comparator: ComparatorEqual,
+		},
+		Values: []interface{}{},
+	}
+	require.NoError(t, optInFilter.Initialize())
+
+	var optInUser = api.PopulatedUser{
+		User: api.User{
+			Country:    "Canada",
+			Email:      "brooks@big.lunch",
+			AppVersion: "2.0.2",
+		},
+		PlatformData: &api.PlatformData{
+			Platform:        "iOS",
+			PlatformVersion: "2.0.0",
+		},
+	}
+
+	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{optInFilter}}, nil, optInUser, nil)
+	if result {
+		t.Error("should fail optIn filter when feature in optIns and isOptInEnabled")
+	}
+}
+
 func Test_checkVersionValue(t *testing.T) {
 	testCases := []struct {
 		filterVersion string
