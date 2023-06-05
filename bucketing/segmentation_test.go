@@ -622,6 +622,60 @@ func TestEvaluateOperator_AndCustomData(t *testing.T) {
 	}
 }
 
+func TestEvaluateOperator_AndCustomDataPrioritizeUserData(t *testing.T) {
+	platformData := &api.PlatformData{
+		Platform:        "iOS",
+		PlatformVersion: "2.0.0",
+	}
+	testUser := api.PopulatedUser{
+		User: api.User{
+			Country:    "Canada",
+			Email:      "brooks@big.lunch",
+			AppVersion: "2.0.2",
+			CustomData: map[string]interface{}{
+				"user_tier": "Gold",
+			},
+		},
+		PlatformData: platformData,
+	}
+	customDataFilter := &CustomDataFilter{
+		UserFilter: &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: ComparatorEqual,
+			},
+			Values: []interface{}{"Gold"},
+		},
+		DataKeyType: "String",
+		DataKey:     "user_tier",
+	}
+	require.NoError(t, customDataFilter.Initialize())
+
+	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{customDataFilter}}, nil, testUser, map[string]interface{}{"user_tier": "Silver"})
+	if !result {
+		t.Error("Expected true, got false")
+	}
+
+	testUser = api.PopulatedUser{
+		User: api.User{
+			Country:    "Canada",
+			Email:      "brooks@big.lunch",
+			AppVersion: "2.0.2",
+			CustomData: map[string]interface{}{
+				"user_tier": "Silver",
+			},
+		},
+		PlatformData: platformData,
+	}
+
+	// the user has a custom data value of "Silver" but the filter is looking for "Gold", the clientCustomData is irrelevant
+	result = _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{customDataFilter}}, nil, testUser, map[string]interface{}{"user_tier": "Gold"})
+	if result {
+		t.Error("Expected false, got true")
+	}
+}
+
 func TestEvaluateOperator_AndCustomDataMultiValue(t *testing.T) {
 	platformData := &api.PlatformData{
 		Platform:        "iOS",
@@ -653,6 +707,11 @@ func TestEvaluateOperator_AndCustomDataMultiValue(t *testing.T) {
 	require.NoError(t, customDataFilter.Initialize())
 
 	result := _evaluateOperator(AudienceOperator{Operator: "or", Filters: MixedFilters{customDataFilter}}, nil, brooks, nil)
+	if !result {
+		t.Error("Expected true, got false")
+	}
+
+	result = _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{customDataFilter}}, nil, brooks, nil)
 	if !result {
 		t.Error("Expected true, got false")
 	}
@@ -691,6 +750,51 @@ func TestEvaluateOperator_AndPrivateCustomDataMultiValue(t *testing.T) {
 	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{customDataFilter}}, nil, brooks, nil)
 	if result {
 		t.Error("Expected false, got true")
+	}
+}
+
+func TestEvaluateOperator_AndClientCustomDataMultiValue(t *testing.T) {
+	platformData := &api.PlatformData{
+		Platform:        "iOS",
+		PlatformVersion: "2.0.0",
+	}
+	brooks := api.PopulatedUser{
+		User: api.User{
+			Country:    "Canada",
+			Email:      "brooks@big.lunch",
+			AppVersion: "2.0.2",
+		},
+		PlatformData: platformData,
+	}
+	customDataFilter := &CustomDataFilter{
+		UserFilter: &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: "=",
+			},
+			Values: []interface{}{"dataValue", "dataValue2"},
+		},
+		DataKeyType: "String",
+		DataKey:     "something",
+	}
+	require.NoError(t, customDataFilter.Initialize())
+
+	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{customDataFilter}}, nil, brooks, map[string]interface{}{"something": "dataValue"})
+	if !result {
+		t.Error("Expected true, got false")
+	}
+
+	// test clientCustomData with different key
+	result = _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{customDataFilter}}, nil, brooks, map[string]interface{}{"otherKey": "dataValue"})
+	if result {
+		t.Error("Expected true, got false")
+	}
+
+	// test empty clientCustomData map
+	result = _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{customDataFilter}}, nil, brooks, map[string]interface{}{})
+	if result {
+		t.Error("Expected true, got false")
 	}
 }
 
@@ -1004,6 +1108,74 @@ func TestEvaluateOperator_OptIn(t *testing.T) {
 	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{optInFilter}}, nil, optInUser, nil)
 	if result {
 		t.Error("should fail optIn filter when feature in optIns and isOptInEnabled")
+	}
+}
+
+func TestEvaluateOperator_MultiCustomDataFiltersMergedCustomData(t *testing.T) {
+	strFilter := &CustomDataFilter{
+		UserFilter: &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: ComparatorEqual,
+			},
+			Values: []interface{}{"value"},
+		},
+		DataKey:     "strKey",
+		DataKeyType: "String",
+	}
+	require.NoError(t, strFilter.Initialize())
+	require.NoError(t, strFilter.UserFilter.Initialize())
+
+	numFilter := &CustomDataFilter{
+		UserFilter: &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: ComparatorEqual,
+			},
+			Values: []interface{}{float64(0)},
+		},
+		DataKey:     "numKey",
+		DataKeyType: "Number",
+	}
+	require.NoError(t, numFilter.Initialize())
+	require.NoError(t, numFilter.UserFilter.Initialize())
+
+	boolFilter := &CustomDataFilter{
+		UserFilter: &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: ComparatorEqual,
+			},
+			Values: []interface{}{false},
+		},
+		DataKey:     "boolKey",
+		DataKeyType: "Boolean",
+	}
+	require.NoError(t, boolFilter.Initialize())
+	require.NoError(t, boolFilter.UserFilter.Initialize())
+
+	platformData := &api.PlatformData{
+		Platform:        "iOS",
+		PlatformVersion: "2.0.0",
+	}
+
+	userAllValues := api.PopulatedUser{
+		User: api.User{
+			UserId: "12345",
+			CustomData: map[string]interface{}{
+				"strKey": "value",
+			},
+			PrivateCustomData: map[string]interface{}{"numKey": float64(0)},
+		},
+		PlatformData: platformData,
+	}
+
+	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{strFilter, numFilter, boolFilter}}, nil, userAllValues, map[string]interface{}{"boolKey": false})
+	if !result {
+		t.Errorf("Test 'should return true all the custom data matches from customData, privateCustomData nd clientCustomData' failed. Expected %t, got %t", true, result)
 	}
 }
 
