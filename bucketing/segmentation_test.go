@@ -675,3 +675,363 @@ func TestCheckValueExists(t *testing.T) {
 		}
 	}
 }
+func TestDoesUserPassFilter_WithUserIDFilter(t *testing.T) {
+	user := api.PopulatedUser{
+		User: api.User{
+			UserId: "1234",
+		},
+		PlatformData: (&api.PlatformData{}).Default(),
+	}
+
+	testCases := []struct {
+		name       string
+		comparator string
+		values     []interface{}
+		expected   bool
+	}{
+		{
+			name:       "User id equals filter",
+			comparator: ComparatorEqual,
+			values:     []interface{}{"1234"},
+			expected:   true,
+		},
+		{
+			name:       "User id does not equal filter",
+			comparator: ComparatorEqual,
+			values:     []interface{}{"5678"},
+			expected:   false,
+		},
+		{
+			name:       "User id in filter set",
+			comparator: ComparatorContain,
+			values:     []interface{}{"5678", "1234", "000099"},
+			expected:   true,
+		},
+	}
+
+	for _, tc := range testCases {
+		testFilter := &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "user_id",
+				Comparator: tc.comparator,
+			},
+			Values: tc.values,
+		}
+		require.NoError(t, testFilter.Initialize())
+		result := doesUserPassFilter(testFilter, nil, user, nil)
+		if result != tc.expected {
+			t.Errorf("doesUserPassFilter(%v) = %v; want %v", tc.name, result, tc.expected)
+		}
+	}
+}
+
+func TestDoesUserPassFilter_WithUserCountryFilter(t *testing.T) {
+	user := api.PopulatedUser{
+		User: api.User{
+			UserId:  "1234",
+			Country: "CA",
+		},
+		PlatformData: (&api.PlatformData{}).Default(),
+	}
+
+	testCases := []struct {
+		name       string
+		comparator string
+		values     []interface{}
+		expected   bool
+	}{
+		{
+			name:       "User country equals filter",
+			comparator: ComparatorEqual,
+			values:     []interface{}{"CA"},
+			expected:   true,
+		},
+		{
+			name:       "User country does not equal filter",
+			comparator: ComparatorEqual,
+			values:     []interface{}{"JP"},
+			expected:   false,
+		},
+		{
+			name:       "User country in filter set",
+			comparator: ComparatorContain,
+			values:     []interface{}{"US", "JP", "CA"},
+			expected:   true,
+		},
+	}
+
+	for _, tc := range testCases {
+		testFilter := &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "country",
+				Comparator: tc.comparator,
+			},
+			Values: tc.values,
+		}
+		require.NoError(t, testFilter.Initialize())
+		result := doesUserPassFilter(testFilter, nil, user, nil)
+		if result != tc.expected {
+			t.Errorf("doesUserPassFilter(%v) = %v; want %v", tc.name, result, tc.expected)
+		}
+	}
+}
+
+func TestDoesUserPassFilter_WithUserEmailFilter(t *testing.T) {
+	user := api.PopulatedUser{
+		User: api.User{
+			UserId: "1234",
+			Email:  "test@devcycle.com",
+		},
+		PlatformData: (&api.PlatformData{}).Default(),
+	}
+
+	testCases := []struct {
+		name       string
+		comparator string
+		values     []interface{}
+		expected   bool
+	}{
+		{
+			name:       "User email equals filter",
+			comparator: ComparatorEqual,
+			values:     []interface{}{"test@devcycle.com"},
+			expected:   true,
+		},
+		{
+			name:       "User email does not equal filter",
+			comparator: ComparatorEqual,
+			values:     []interface{}{"someone.else@devcycle.com"},
+			expected:   false,
+		},
+		{
+			name:       "User email in filter set",
+			comparator: ComparatorContain,
+			values:     []interface{}{"@gmail.com", "@devcycle.com", "@hotmail.com"},
+			expected:   true,
+		},
+	}
+
+	for _, tc := range testCases {
+		testFilter := &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "email",
+				Comparator: tc.comparator,
+			},
+			Values: tc.values,
+		}
+		require.NoError(t, testFilter.Initialize())
+		result := doesUserPassFilter(testFilter, nil, user, nil)
+		if result != tc.expected {
+			t.Errorf("doesUserPassFilter(%v) = %v; want %v", tc.name, result, tc.expected)
+		}
+	}
+}
+
+func TestDoesUserPassFilter_WithUserAppVersionFilter(t *testing.T) {
+	user := api.PopulatedUser{
+		User: api.User{
+			UserId:     "1234",
+			AppVersion: "1.2.3",
+		},
+		PlatformData: (&api.PlatformData{}).Default(),
+	}
+
+	testCases := []struct {
+		name       string
+		comparator string
+		values     []interface{}
+		expected   bool
+	}{
+		{
+			name:       "User app version equals filter",
+			comparator: ComparatorEqual,
+			values:     []interface{}{"1.2.3"},
+			expected:   true,
+		},
+		{
+			name:       "User app version does not equal filter",
+			comparator: ComparatorEqual,
+			values:     []interface{}{"0.0.1"},
+			expected:   false,
+		},
+	}
+
+	for _, tc := range testCases {
+		testFilter := &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "appVersion",
+				Comparator: tc.comparator,
+			},
+			Values: tc.values,
+		}
+		require.NoError(t, testFilter.Initialize())
+		result := doesUserPassFilter(testFilter, nil, user, nil)
+		if result != tc.expected {
+			t.Errorf("doesUserPassFilter(%v) = %v; want %v", tc.name, result, tc.expected)
+		}
+	}
+}
+
+func TestDoesUserPassFilter_WithUserPlatformVersionFilter(t *testing.T) {
+	user := api.PopulatedUser{
+		User: api.User{
+			UserId: "1234",
+		},
+		PlatformData: &api.PlatformData{
+			Platform:        "iOS",
+			PlatformVersion: "10.3.1",
+		},
+	}
+
+	testCases := []struct {
+		name       string
+		comparator string
+		values     []interface{}
+		expected   bool
+	}{
+		{
+			name:       "User platform version equals filter",
+			comparator: ComparatorEqual,
+			values:     []interface{}{"10.3.1"},
+			expected:   true,
+		},
+		{
+			name:       "User platform version does not equal filter",
+			comparator: ComparatorEqual,
+			values:     []interface{}{"0.0.1"},
+			expected:   false,
+		},
+		{
+			name:       "User platform version is greater",
+			comparator: ComparatorGreaterEqual,
+			values:     []interface{}{"10.3"},
+			expected:   true,
+		},
+	}
+
+	for _, tc := range testCases {
+		testFilter := &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "platformVersion",
+				Comparator: tc.comparator,
+			},
+			Values: tc.values,
+		}
+		require.NoError(t, testFilter.Initialize())
+		result := doesUserPassFilter(testFilter, nil, user, nil)
+		if result != tc.expected {
+			t.Errorf("doesUserPassFilter(%v) = %v; want %v", tc.name, result, tc.expected)
+		}
+	}
+}
+
+func TestDoesUserPassFilter_WithUserDeviceModelFilter(t *testing.T) {
+	user := api.PopulatedUser{
+		User: api.User{
+			UserId:      "1234",
+			DeviceModel: "Samsung Galaxy F12",
+		},
+		PlatformData: (&api.PlatformData{}).Default(),
+	}
+
+	testCases := []struct {
+		name       string
+		comparator string
+		values     []interface{}
+		expected   bool
+	}{
+		{
+			name:       "User device model equals filter",
+			comparator: ComparatorEqual,
+			values:     []interface{}{"Samsung Galaxy F12"},
+			expected:   true,
+		},
+		{
+			name:       "User device model does not equal filter",
+			comparator: ComparatorEqual,
+			values:     []interface{}{"iPhone X"},
+			expected:   false,
+		},
+		{
+			name:       "User device model in filter set",
+			comparator: ComparatorContain,
+			values:     []interface{}{"iPhone X", "Google Pixel 49", "Samsung Galaxy F12"},
+			expected:   true,
+		},
+	}
+
+	for _, tc := range testCases {
+		testFilter := &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "deviceModel",
+				Comparator: tc.comparator,
+			},
+			Values: tc.values,
+		}
+		require.NoError(t, testFilter.Initialize())
+		result := doesUserPassFilter(testFilter, nil, user, nil)
+		if result != tc.expected {
+			t.Errorf("doesUserPassFilter(%v) = %v; want %v", tc.name, result, tc.expected)
+		}
+	}
+}
+
+func TestDoesUserPassFilter_WithUserPlatformFilter(t *testing.T) {
+	user := api.PopulatedUser{
+		User: api.User{
+			UserId: "1234",
+		},
+		PlatformData: &api.PlatformData{
+			Platform:        "iOS",
+			PlatformVersion: "10.3.1",
+		},
+	}
+
+	testCases := []struct {
+		name       string
+		comparator string
+		values     []interface{}
+		expected   bool
+	}{
+		{
+			name:       "User platform equals filter",
+			comparator: ComparatorEqual,
+			values:     []interface{}{"iOS"},
+			expected:   true,
+		},
+		{
+			name:       "User platform does not equal filter",
+			comparator: ComparatorEqual,
+			values:     []interface{}{"Linux"},
+			expected:   false,
+		},
+		{
+			name:       "User platform in filter set",
+			comparator: ComparatorContain,
+			values:     []interface{}{"Linux", "macOS", "iOS"},
+			expected:   true,
+		},
+	}
+
+	for _, tc := range testCases {
+		testFilter := &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "platform",
+				Comparator: tc.comparator,
+			},
+			Values: tc.values,
+		}
+		require.NoError(t, testFilter.Initialize())
+		result := doesUserPassFilter(testFilter, nil, user, nil)
+		if result != tc.expected {
+			t.Errorf("doesUserPassFilter(%v) = %v; want %v", tc.name, result, tc.expected)
+		}
+	}
+}
