@@ -574,6 +574,290 @@ func TestEvaluateOperator_AndPrivateCustomDataMultiValue(t *testing.T) {
 	}
 }
 
+func TestEvaluateOperator_MultiEqualCustomDataFilters(t *testing.T) {
+	strFilter := &CustomDataFilter{
+		UserFilter: &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: ComparatorEqual,
+			},
+			Values: []interface{}{"value"},
+		},
+		DataKey:     "strKey",
+		DataKeyType: "String",
+	}
+	require.NoError(t, strFilter.Initialize())
+	require.NoError(t, strFilter.UserFilter.Initialize())
+
+	numFilter := &CustomDataFilter{
+		UserFilter: &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: ComparatorEqual,
+			},
+			Values: []interface{}{float64(0)},
+		},
+		DataKey:     "numKey",
+		DataKeyType: "Number",
+	}
+	require.NoError(t, numFilter.Initialize())
+	require.NoError(t, numFilter.UserFilter.Initialize())
+
+	boolFilter := &CustomDataFilter{
+		UserFilter: &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: ComparatorEqual,
+			},
+			Values: []interface{}{false},
+		},
+		DataKey:     "boolKey",
+		DataKeyType: "Boolean",
+	}
+	require.NoError(t, boolFilter.Initialize())
+	require.NoError(t, boolFilter.UserFilter.Initialize())
+
+	platformData := &api.PlatformData{
+		Platform:        "iOS",
+		PlatformVersion: "2.0.0",
+	}
+
+	userAllValues := api.PopulatedUser{
+		User: api.User{
+			UserId: "12345",
+			CustomData: map[string]interface{}{
+				"strKey": "value", "boolKey": false, "numKey": float64(0),
+			},
+		},
+		PlatformData: platformData,
+	}
+	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{strFilter, numFilter, boolFilter}}, nil, userAllValues, nil)
+	if !result {
+		t.Errorf("Test 'should return true if all filters are equal' failed. Expected %t, got %t", false, result)
+	}
+
+	userMissingKey := api.PopulatedUser{
+		User: api.User{
+			UserId: "12345",
+			CustomData: map[string]interface{}{
+				"strKey": "value", "boolKey": false,
+			},
+		},
+		PlatformData: platformData,
+	}
+
+	result = _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{strFilter, numFilter, boolFilter}}, nil, userMissingKey, nil)
+	if result {
+		t.Errorf("Test 'should return false if one custom data key is missing' failed. Expected %t, got %t", false, result)
+	}
+
+	userNoCustomData := api.PopulatedUser{
+		User: api.User{
+			UserId:     "12345",
+			CustomData: map[string]interface{}{},
+		},
+		PlatformData: platformData,
+	}
+
+	result = _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{strFilter, numFilter, boolFilter}}, nil, userNoCustomData, map[string]interface{}{"strKey": "value", "boolKey": false, "numKey": float64(0)})
+	if !result {
+		t.Errorf("Test 'should return true if all data keys are in clientCustomData' failed. Expected %t, got %t", false, result)
+	}
+}
+
+func TestEvaluateOperator_MultiNotEqualCustomDataFilters(t *testing.T) {
+	strFilter := &CustomDataFilter{
+		UserFilter: &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: ComparatorEqual,
+			},
+			Values: []interface{}{"value"},
+		},
+		DataKey:     "strKey",
+		DataKeyType: "String",
+	}
+	require.NoError(t, strFilter.Initialize())
+	require.NoError(t, strFilter.UserFilter.Initialize())
+
+	numFilter := &CustomDataFilter{
+		UserFilter: &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: ComparatorNotEqual,
+			},
+			Values: []interface{}{float64(0)},
+		},
+		DataKey:     "numKey",
+		DataKeyType: "Number",
+	}
+	require.NoError(t, numFilter.Initialize())
+	require.NoError(t, numFilter.UserFilter.Initialize())
+
+	boolFilter := &CustomDataFilter{
+		UserFilter: &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: ComparatorEqual,
+			},
+			Values: []interface{}{false},
+		},
+		DataKey:     "boolKey",
+		DataKeyType: "Boolean",
+	}
+	require.NoError(t, boolFilter.Initialize())
+	require.NoError(t, boolFilter.UserFilter.Initialize())
+
+	platformData := &api.PlatformData{
+		Platform:        "iOS",
+		PlatformVersion: "2.0.0",
+	}
+
+	userAllValues := api.PopulatedUser{
+		User: api.User{
+			UserId: "12345",
+			CustomData: map[string]interface{}{
+				"strKey": "value", "boolKey": false, "numKey": float64(0),
+			},
+		},
+		PlatformData: platformData,
+	}
+
+	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{strFilter, numFilter, boolFilter}}, nil, userAllValues, nil)
+	if result {
+		t.Errorf("Test 'should return false all the keys match with not equal filter value' failed. Expected %t, got %t", false, result)
+	}
+
+	userMissingKey := api.PopulatedUser{
+		User: api.User{
+			UserId: "12345",
+			CustomData: map[string]interface{}{
+				"strKey": "value", "boolKey": false,
+			},
+		},
+		PlatformData: platformData,
+	}
+
+	result = _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{strFilter, numFilter, boolFilter}}, nil, userMissingKey, nil)
+	if !result {
+		t.Errorf("Test 'should return true if one custom data key is missing with not equal filter value' failed. Expected %t, got %t", true, result)
+	}
+
+	userNoCustomData := api.PopulatedUser{
+		User: api.User{
+			UserId:     "12345",
+			CustomData: map[string]interface{}{},
+		},
+		PlatformData: platformData,
+	}
+
+	result = _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{strFilter, numFilter, boolFilter}}, nil, userNoCustomData, nil)
+	if result {
+		t.Errorf("Test 'should return false if no custom data is provided with just not equal filter value' failed. Expected %t, got %t", false, result)
+	}
+}
+
+func TestEvaluateOperator_MultiNotExistsCustomDataFilters(t *testing.T) {
+	strFilter := &CustomDataFilter{
+		UserFilter: &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: ComparatorEqual,
+			},
+			Values: []interface{}{"value"},
+		},
+		DataKey:     "strKey",
+		DataKeyType: "String",
+	}
+	require.NoError(t, strFilter.Initialize())
+	require.NoError(t, strFilter.UserFilter.Initialize())
+
+	numFilter := &CustomDataFilter{
+		UserFilter: &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: ComparatorNotExist,
+			},
+			Values: []interface{}{float64(0)},
+		},
+		DataKey:     "numKey",
+		DataKeyType: "Number",
+	}
+	require.NoError(t, numFilter.Initialize())
+	require.NoError(t, numFilter.UserFilter.Initialize())
+
+	boolFilter := &CustomDataFilter{
+		UserFilter: &UserFilter{
+			filter: filter{
+				Type:       "user",
+				SubType:    "customData",
+				Comparator: ComparatorEqual,
+			},
+			Values: []interface{}{false},
+		},
+		DataKey:     "boolKey",
+		DataKeyType: "Boolean",
+	}
+	require.NoError(t, boolFilter.Initialize())
+	require.NoError(t, boolFilter.UserFilter.Initialize())
+
+	platformData := &api.PlatformData{
+		Platform:        "iOS",
+		PlatformVersion: "2.0.0",
+	}
+
+	userAllValues := api.PopulatedUser{
+		User: api.User{
+			UserId: "12345",
+			CustomData: map[string]interface{}{
+				"strKey": "value", "boolKey": false, "numKey": float64(0),
+			},
+		},
+		PlatformData: platformData,
+	}
+
+	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{strFilter, numFilter, boolFilter}}, nil, userAllValues, nil)
+	if result {
+		t.Errorf("Test 'should return false all the keys match with !exists filter value' failed. Expected %t, got %t", false, result)
+	}
+
+	userMissingKey := api.PopulatedUser{
+		User: api.User{
+			UserId: "12345",
+			CustomData: map[string]interface{}{
+				"strKey": "value", "boolKey": false,
+			},
+		},
+		PlatformData: platformData,
+	}
+
+	result = _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{strFilter, numFilter, boolFilter}}, nil, userMissingKey, nil)
+	if !result {
+		t.Errorf("Test 'should return true if one custom data key is missing with !exists filter value' failed. Expected %t, got %t", true, result)
+	}
+
+	userNoCustomData := api.PopulatedUser{
+		User: api.User{
+			UserId:     "12345",
+			CustomData: map[string]interface{}{},
+		},
+		PlatformData: platformData,
+	}
+
+	result = _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{strFilter, numFilter, boolFilter}}, nil, userNoCustomData, nil)
+	if result {
+		t.Errorf("Test 'should return false if no custom data is provided with just !exists filter value' failed. Expected %t, got %t", false, result)
+	}
+}
+
 func Test_checkVersionValue(t *testing.T) {
 	testCases := []struct {
 		filterVersion string

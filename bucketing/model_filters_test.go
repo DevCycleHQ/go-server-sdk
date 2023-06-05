@@ -8,18 +8,46 @@ import (
 
 func TestCheckCustomData(t *testing.T) {
 	tests := []struct {
-		name             string
-		comparator       string
-		values           []interface{}
-		dataKeyType      string
-		dataKey          string
-		expected         bool
-		data             map[string]interface{}
-		clientCustomData map[string]interface{}
+		name        string
+		comparator  string
+		values      []interface{}
+		dataKeyType string
+		dataKey     string
+		expected    bool
+		data        map[string]interface{}
 	}{
-		{"no data", ComparatorEqual, []interface{"value"}, "String", "", false, map[string]interface{}{}, map[string]interface{}{}},
-	}
+		// String Value Filter Tests
+		{"should return false if filter and no data", ComparatorEqual, []interface{}{"value"}, "String", "strKey", false, map[string]interface{}{}},
+		{"should return false if filter and nil data", ComparatorEqual, []interface{}{"value"}, "String", "strKey", false, nil},
+		{"should return true if string value is equal", ComparatorEqual, []interface{}{"value"}, "String", "strKey", true, map[string]interface{}{"strKey": "value"}},
+		{"should return true if string is one OR value", ComparatorEqual, []interface{}{"value", "value too"}, "String", "strKey", true, map[string]interface{}{"strKey": "value"}},
+		{"should return false if string value is not equal", ComparatorEqual, []interface{}{"value"}, "String", "strKey", false, map[string]interface{}{"strKey": "rutabaga"}},
+		{"should return false if string value is not equal (empty string)", ComparatorEqual, []interface{}{"value"}, "String", "strKey", false, map[string]interface{}{"strKey": ""}},
+		{"should return false if string value is not present", ComparatorEqual, []interface{}{"value"}, "String", "strKey", false, map[string]interface{}{"otherKey": "something else"}},
+		{"should return true if string is not equal to multiple values", ComparatorNotEqual, []interface{}{"value1", "value2", "value3"}, "String", "strKey", true, map[string]interface{}{"strKey": "value"}},
+		// Number Value Filter Tests
+		{"should return true if number value is equal", ComparatorEqual, []interface{}{float64(0)}, "Number", "numKey", true, map[string]interface{}{"numKey": float64(0)}},
+		{"should return true if number is one OR value", ComparatorEqual, []interface{}{float64(0), float64(1)}, "Number", "numKey", true, map[string]interface{}{"numKey": float64(1)}},
+		{"should return false if number value is not equal", ComparatorEqual, []interface{}{float64(0)}, "Number", "numKey", false, map[string]interface{}{"numKey": float64(1)}},
+		// Boolean Value Filter Tests
+		{"should return true if bool value is equal", ComparatorEqual, []interface{}{false}, "Boolean", "boolKey", true, map[string]interface{}{"boolKey": false}},
+		{"should return false if bool value is not equal", ComparatorEqual, []interface{}{false}, "Boolean", "boolKey", false, map[string]interface{}{"boolKey": true}},
+		// != Value Filter Tests
+		{"should return true if no custom data is provided with not equal filter value", ComparatorNotEqual, []interface{}{"value"}, "String", "strKey", true, map[string]interface{}{}},
+		// !exist Filter Tests
+		{"should return true if no custom data is provided with not exists filter value", ComparatorNotExist, []interface{}{"value"}, "String", "strKey", true, map[string]interface{}{}},
+		{"should return false if custom data is provided with not exists filter value", ComparatorNotExist, []interface{}{"value"}, "String", "strKey", false, map[string]interface{}{"strKey": "value"}},
 
+		// Contains filter tests
+		{"should return true if custom data contains value", ComparatorContain, []interface{}{"FP"}, "String", "last_order_no", true, map[string]interface{}{"last_order_no": "FP2423423"}},
+		// !Contains filter tests
+		{"should return false if custom data contains value with !contain", ComparatorNotContain, []interface{}{"FP"}, "String", "last_order_no", false, map[string]interface{}{"last_order_no": "FP2423423"}},
+
+		// Exists filter tests
+		{"should return true if custom data contains field with value", ComparatorExist, []interface{}{}, "String", "last_order_no", true, map[string]interface{}{"last_order_no": "FP2423423"}},
+		{"should return false if custom data doesn't contain field with value", ComparatorExist, []interface{}{}, "String", "last_order_no", false, map[string]interface{}{"otherField": "value"}},
+		{"should return false if custom data empty with exists comparator ", ComparatorExist, []interface{}{}, "String", "last_order_no", false, map[string]interface{}{}},
+	}
 	for _, test := range tests {
 		testFilter := &CustomDataFilter{
 			UserFilter: &UserFilter{
@@ -37,9 +65,15 @@ func TestCheckCustomData(t *testing.T) {
 		require.NoError(t, testFilter.Initialize())
 		require.NoError(t, testFilter.UserFilter.Initialize())
 
-		result := checkCustomData(test.data, test.clientCustomData, testFilter)
+		result := checkCustomData(test.data, nil, testFilter)
 		if result != test.expected {
 			t.Errorf("Test %s failed. Expected %t, got %t", test.name, test.expected, result)
+		}
+
+		// test again but use the data as clientCustomData instead to make sure it still works
+		result2 := checkCustomData(nil, test.data, testFilter)
+		if result2 != test.expected {
+			t.Errorf("Test %s (clientCustomData variation) failed. Expected %t, got %t", test.name, test.expected, result)
 		}
 	}
 }
