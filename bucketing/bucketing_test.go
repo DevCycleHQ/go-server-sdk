@@ -17,6 +17,33 @@ var (
 	test_config []byte
 )
 
+// Bucketing puts the user in the target for the first audience they match
+func TestBucketingFirstMatchingTarget(t *testing.T) {
+	config, err := newConfig(test_config, "")
+	require.NoError(t, err)
+
+	feature := config.GetFeatureForVariableId("615356f120ed334a6054564c")
+	require.NotNil(t, feature)
+
+	user := api.User{
+		UserId:  "asuh",
+		Country: "Canada",
+	}.GetPopulatedUser(&api.PlatformData{})
+
+	target, err := doesUserQualifyForFeature(config, feature, user, nil)
+	require.NoError(t, err)
+
+	// should match target 2
+	require.Equal(t, target.Target.Id, "61536f468fd67f0091982533")
+
+	user.Email = "test@email.com"
+	target, err = doesUserQualifyForFeature(config, feature, user, nil)
+	require.NoError(t, err)
+
+	// should match target 1
+	require.Equal(t, target.Target.Id, "61536f3bc838a705c105eb62")
+}
+
 func TestUserHashingBucketing_BucketingDistribution(t *testing.T) {
 	buckets := map[string]float64{
 		"var1":  0,
