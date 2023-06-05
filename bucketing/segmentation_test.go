@@ -205,6 +205,126 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 	}
 }
 
+func TestEvaluateOperator_AudienceFilterMatchMultipleValuesAND(t *testing.T) {
+	countryCANFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "country",
+			Comparator: "=",
+			Operator:   OperatorAnd,
+		},
+		Values: []interface{}{"Canada"},
+	}
+	require.NoError(t, countryCANFilter.Initialize())
+
+	countryUSAFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "country",
+			Comparator: "=",
+			Operator:   OperatorAnd,
+		},
+		Values: []interface{}{"USA"},
+	}
+	require.NoError(t, countryUSAFilter.Initialize())
+
+	emailFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "email",
+			Comparator: "=",
+			Operator:   OperatorAnd,
+		},
+		Values: []interface{}{
+			"dexter@smells.nice",
+			"brooks@big.lunch",
+		},
+	}
+	require.NoError(t, emailFilter.Initialize())
+
+	versionFilter := &UserFilter{
+		filter: filter{
+			Type:       "user",
+			SubType:    "appVersion",
+			Comparator: ">",
+			Operator:   OperatorAnd,
+		},
+		Values: []interface{}{
+			"1.0.0",
+		},
+	}
+	require.NoError(t, versionFilter.Initialize())
+
+	audience := Audience{
+		NoIdAudience: NoIdAudience{
+			Filters: &AudienceOperator{
+				Operator: OperatorAnd,
+				Filters: []BaseFilter{
+					countryCANFilter,
+					emailFilter,
+					versionFilter,
+				},
+			},
+		},
+		Id: "test",
+	}
+
+	audience2 := Audience{
+		NoIdAudience: NoIdAudience{
+			Filters: &AudienceOperator{
+				Operator: OperatorAnd,
+				Filters: []BaseFilter{
+					countryUSAFilter,
+				},
+			},
+		},
+		Id: "test2",
+	}
+
+	// audience match filters only support = and != comparators
+	// a user is either in one of the audiences for `=` or they have to not be in any of the audiences for `!=`
+	testCases := []struct {
+		name      string
+		filters   []BaseFilter
+		audiences map[string]NoIdAudience
+		expected  bool
+	}{
+		{
+			name: "should pass seg for an AND operator with multiple values",
+			filters: []BaseFilter{&AudienceMatchFilter{
+				filter: filter{
+					Type:       "audienceMatch",
+					Comparator: ComparatorEqual,
+					Operator:   OperatorAnd,
+				},
+				Audiences: []string{"test", "test2"},
+			}},
+			audiences: map[string]NoIdAudience{"test": audience.NoIdAudience, "test2": audience2.NoIdAudience},
+			expected:  true,
+		},
+		{
+			name: "audienceMatchFilter - should not pass seg for an AND operator with multiple values",
+			filters: []BaseFilter{&AudienceMatchFilter{
+				filter: filter{
+					Type:       "audienceMatch",
+					Comparator: ComparatorNotEqual,
+					Operator:   OperatorAnd,
+				},
+				Audiences: []string{"test", "test2"},
+			}},
+			audiences: map[string]NoIdAudience{"test": audience.NoIdAudience, "test2": audience2.NoIdAudience},
+			expected:  false,
+		},
+	}
+
+	for _, tc := range testCases {
+		result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: tc.filters}, tc.audiences, brooks, nil)
+		if result != tc.expected {
+			t.Errorf("%v - Expected %t, got %t", tc.name, tc.expected, result)
+		}
+	}
+}
+
 func TestEvaluateOperator_AudienceNested(t *testing.T) {
 	countryFilter := &UserFilter{
 		filter: filter{
