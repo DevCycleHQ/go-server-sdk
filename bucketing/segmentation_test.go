@@ -205,6 +205,122 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 	}
 }
 
+func TestEvaluateOperator_AudienceFilterForPlatforms(t *testing.T) {
+	testCases := []struct {
+		name     string
+		filter   *UserFilter
+		expected bool
+	}{
+		{
+			name: "should filter all Android TV audiences properly if it is included in data - 3 elements",
+			filter: &UserFilter{
+				filter: filter{
+					Type:       "user",
+					SubType:    "platform",
+					Comparator: "=",
+					Operator:   OperatorAnd,
+				},
+				Values: []interface{}{"Android", "Fire TV", "Android TV"},
+			},
+			expected: true,
+		},
+		{
+			name: "should filter all Android TV audiences properly if it is included in data - 1 elements",
+			filter: &UserFilter{
+
+				filter: filter{
+					Type:       "user",
+					SubType:    "platform",
+					Comparator: "=",
+					Operator:   OperatorAnd,
+				},
+				Values: []interface{}{"Fire TV", "Android TV"},
+			},
+			expected: true,
+		},
+		{
+			name: "should filter all Android TV audiences properly if it is included in data - 1 element",
+			filter: &UserFilter{
+				filter: filter{
+					Type:       "user",
+					SubType:    "platform",
+					Comparator: "=",
+					Operator:   OperatorAnd,
+				},
+				Values: []interface{}{"Android TV"},
+			},
+			expected: true,
+		},
+		{
+			name: "should filter all Android TV audiences properly if it is included in data - similar but !=",
+			filter: &UserFilter{
+				filter: filter{
+					Type:       "user",
+					SubType:    "platform",
+					Comparator: "=",
+					Operator:   OperatorAnd,
+				},
+				Values: []interface{}{"Android"},
+			},
+			expected: false,
+		},
+		{
+			name: "should filter all Android TV audiences properly if it is included in data - different platform",
+			filter: &UserFilter{
+				filter: filter{
+					Type:       "user",
+					SubType:    "platform",
+					Comparator: "=",
+					Operator:   OperatorAnd,
+				},
+				Values: []interface{}{"iOS"},
+			},
+			expected: false,
+		},
+	}
+
+	testUser := api.PopulatedUser{
+		User: api.User{
+			UserId: "9999",
+		},
+		PlatformData: &api.PlatformData{
+			Platform: "Android TV",
+		},
+	}
+
+	for _, tc := range testCases {
+		require.NoError(t, tc.filter.Initialize())
+		audienceID := "test"
+		// create an audience with the test filter
+		audience := Audience{
+			NoIdAudience: NoIdAudience{
+				Filters: &AudienceOperator{
+					Operator: OperatorAnd,
+					Filters: []BaseFilter{
+						tc.filter,
+					},
+				},
+			},
+			Id: audienceID,
+		}
+
+		operatorFilters := []BaseFilter{&AudienceMatchFilter{
+			filter: filter{
+				Type:       "audienceMatch",
+				Comparator: ComparatorEqual,
+				Operator:   OperatorAnd,
+			},
+			Audiences: []string{audienceID},
+		}}
+
+		// Make sure that we are matching to the audience properly based on platform
+		result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: operatorFilters}, map[string]NoIdAudience{audienceID: audience.NoIdAudience}, testUser, nil)
+		if result != tc.expected {
+			t.Errorf("%v - Expected %t, got %t", tc.name, tc.expected, result)
+		}
+	}
+}
+
 func TestEvaluateOperator_AudienceFilterMatchMultipleValuesAND(t *testing.T) {
 	countryCANFilter := &UserFilter{
 		filter: filter{
