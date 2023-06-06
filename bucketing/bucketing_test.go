@@ -44,6 +44,40 @@ func TestBucketingFirstMatchingTarget(t *testing.T) {
 	require.Equal(t, target.Target.Id, "61536f3bc838a705c105eb62")
 }
 
+func TestBucketing_RolloutGatesUser(t *testing.T) {
+	user := api.User{
+		UserId: "does_not_pass_rollout",
+		Email:  "test@email.com",
+	}.GetPopulatedUser(&api.PlatformData{})
+
+	config, err := newConfig(test_config, "")
+	require.NoError(t, err)
+
+	feature := config.GetFeatureForVariableId("61538237b0a70b58ae6af71f")
+	require.NotNil(t, feature)
+	feature.Configuration.Targets[0].Rollout = &Rollout{
+		Type:            "gradual",
+		StartPercentage: 0,
+		StartDate:       time.Now().Add(time.Hour * -24),
+		Stages: []RolloutStage{
+			{
+				Type:       "linear",
+				Date:       time.Now().Add(time.Hour * 24),
+				Percentage: 1,
+			},
+		},
+	}
+
+	_, err = doesUserQualifyForFeature(config, feature, user, nil)
+	require.Error(t, err)
+	require.Equal(t, ErrUserRollout, err)
+
+	user.UserId = "pass_rollout"
+	target, err := doesUserQualifyForFeature(config, feature, user, nil)
+	require.NoError(t, err)
+	require.Equal(t, "61536f468fd67f0091982533", target.Target.Id)
+}
+
 func TestUserHashingBucketing_BucketingDistribution(t *testing.T) {
 	buckets := map[string]float64{
 		"var1":  0,
