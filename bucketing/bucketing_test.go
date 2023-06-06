@@ -471,6 +471,8 @@ func TestClientData(t *testing.T) {
 	require.ErrorContainsf(t, err, "does not qualify", "does not qualify")
 	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
 
+	// Test global client custom data -- combination of user.CustomData and global client custom data
+	// will should get the user bucketed properly
 	clientCustomData := map[string]interface{}{
 		"favouriteFood":  "NOT PIZZA!!",
 		"favouriteDrink": "coffee",
@@ -489,7 +491,31 @@ func TestClientData(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 610.61, value)
 
-	user2 := api.User{
+	// Test user with matching private custom data and no global client custom data
+	userWithPrivateCustomData := api.User{
+		UserId: "client-test",
+		PrivateCustomData: map[string]interface{}{
+			"favouriteFood":  "pizza",
+			"favouriteDrink": "coffee",
+		},
+	}.GetPopulatedUser(&api.PlatformData{
+		PlatformVersion: "1.1.2",
+	})
+	bucketedUserConfig, err = GenerateBucketedConfig("test", userWithPrivateCustomData, nil)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		"614ef6aa473928459060721a": "615357cf7e9ebdca58446ed0",
+		"614ef6aa475928459060721a": "615382338424cb11646d7667",
+	}, bucketedUserConfig.FeatureVariationMap)
+	variableType, value, featureId, variationId, err = generateBucketedVariableForUser("test", userWithPrivateCustomData, "num-var", clientCustomData)
+	require.Equal(t, VariableTypesNumber, variableType)
+	require.Equal(t, "614ef6aa473928459060721a", featureId)
+	require.Equal(t, "615357cf7e9ebdca58446ed0", variationId)
+	require.NoError(t, err)
+	require.Equal(t, 610.61, value)
+
+	// Test with a user that has custom data that doesn't match the feature
+	userWithWrongData := api.User{
 		UserId: "hates-pizza",
 		CustomData: map[string]interface{}{
 			"favouriteFood": "NOT PIZZA!",
@@ -497,9 +523,33 @@ func TestClientData(t *testing.T) {
 	}.GetPopulatedUser(&api.PlatformData{
 		PlatformVersion: "1.1.2",
 	})
-	bucketedUserConfig, err = GenerateBucketedConfig("test", user2, nil)
+	bucketedUserConfig, err = GenerateBucketedConfig("test", userWithWrongData, nil)
 	require.NoError(t, err)
+	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
 
+	// Test with a user that has no custom data
+	userWithNoCustomData := api.User{
+		UserId:     "hates-pizza",
+		CustomData: map[string]interface{}{},
+	}.GetPopulatedUser(&api.PlatformData{
+		PlatformVersion: "1.1.2",
+	})
+	bucketedUserConfig, err = GenerateBucketedConfig("test", userWithNoCustomData, nil)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
+
+	// bucketing requires platform version 1.1.1 or higher
+	userWithWrongPlatformVersion := api.User{
+		UserId: "hates-pizza",
+		CustomData: map[string]interface{}{
+			"favouriteFood":  "pizza",
+			"favouriteDrink": "coffee",
+		},
+	}.GetPopulatedUser(&api.PlatformData{
+		PlatformVersion: "0.3.99",
+	})
+	bucketedUserConfig, err = GenerateBucketedConfig("test", userWithWrongPlatformVersion, nil)
+	require.NoError(t, err)
 	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
 
 }
