@@ -1,7 +1,6 @@
 package bucketing
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -22,7 +21,7 @@ func (t *Target) DecideTargetVariation(boundedHash float64) (string, error) {
 			return d.Variation, nil
 		}
 	}
-	return "", fmt.Errorf("failed to decide target variation: %s", t.Id)
+	return "", ErrFailedToDecideVariation
 }
 
 type NoIdAudience struct {

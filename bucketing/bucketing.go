@@ -16,6 +16,7 @@ var ErrMissingVariableForVariation = errors.New("Config missing variable for var
 var ErrMissingFeature = errors.New("Config missing feature for variable")
 var ErrMissingVariable = errors.New("Config missing variable")
 var ErrMissingVariation = errors.New("Config missing variation")
+var ErrFailedToDecideVariation = errors.New("Failed to decide target variation")
 var ErrUserRollout = errors.New("User does not qualify for feature rollout")
 var ErrUserDoesNotQualifyForTargets = errors.New("User does not qualify for any targets for feature")
 var ErrInvalidVariableType = errors.New("Invalid variable type")
@@ -165,7 +166,7 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 
 		variation, err := bucketUserForVariation(feature, thash)
 		if err != nil {
-			continue
+			return nil, err
 		}
 		featureKeyMap[feature.Key] = api.Feature{
 			Id:            feature.Id,
