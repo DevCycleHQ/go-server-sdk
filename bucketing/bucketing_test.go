@@ -15,6 +15,9 @@ import (
 var (
 	//go:embed testdata/fixture_test_config.json
 	test_config []byte
+
+	//go:embed testdata/fixture_test_broken_config.json
+	test_broken_config []byte
 )
 
 // Bucketing puts the user in the target for the first audience they match
@@ -575,4 +578,50 @@ func TestVariableForUser(t *testing.T) {
 	require.Equal(t, "615357cf7e9ebdca58446ed0", variationId)
 	require.Equal(t, "{\"hello\":\"world\",\"num\":610,\"bool\":true}", value)
 
+}
+
+func TestGenerateBucketedConfig_MissingDistribution(t *testing.T) {
+	err := SetConfig(test_broken_config, "broken_config", "")
+	require.NoError(t, err)
+
+	user := api.User{
+		Country: "U S AND A",
+		UserId:  "asuh",
+		Email:   "test@email.com",
+	}.GetPopulatedUser(&api.PlatformData{})
+
+	_, err = GenerateBucketedConfig("broken_config", user, nil)
+	require.ErrorIs(t, err, ErrFailedToDecideVariation)
+}
+
+func TestGenerateBucketedConfig_MissingVariations(t *testing.T) {
+	err := SetConfig(test_broken_config, "broken_config", "")
+	require.NoError(t, err)
+
+	user := api.User{
+		UserId: "user",
+		CustomData: map[string]interface{}{
+			"favouriteFood":  "pizza",
+			"favouriteDrink": "coffee",
+		},
+	}.GetPopulatedUser(&api.PlatformData{
+		PlatformVersion: "1.1.2",
+	})
+
+	_, err = GenerateBucketedConfig("broken_config", user, nil)
+	require.ErrorIs(t, err, ErrMissingVariation)
+}
+
+func TestGenerateBucketedConfig_MissingVariables(t *testing.T) {
+	err := SetConfig(test_broken_config, "broken_config", "")
+	require.NoError(t, err)
+
+	user := api.User{
+		Country: "canada",
+		UserId:  "asuh",
+		Email:   "test@notemail.com",
+	}.GetPopulatedUser(&api.PlatformData{})
+
+	_, err = GenerateBucketedConfig("broken_config", user, nil)
+	require.ErrorIs(t, err, ErrMissingVariable)
 }

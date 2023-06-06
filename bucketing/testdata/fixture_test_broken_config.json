@@ -1,0 +1,355 @@
+{
+  "project": {
+    "_id": "61535533396f00bab586cb17",
+    "key": "test-project",
+    "a0_organization": "org_12345612345",
+    "settings": {
+      "edgeDB": {
+        "enabled": false
+      }
+    }
+  },
+  "environment": {
+    "_id": "6153553b8cf4e45e0464268d",
+    "key": "test-environment"
+  },
+  "audiences": {},
+  "features": [
+    {
+      "_id": "614ef6aa473928459060721a",
+      "type": "release",
+      "key": "feature1",
+      "configuration": {
+        "_id": "614ef6ea475328459060721a",
+        "targets": [
+          {
+            "_id": "61536f3bc838a705c105eb62",
+            "_audience": {
+              "_id": "614ef6ea475929459060721a",
+              "filters": {
+                "filters": [
+                  {
+                    "type": "user",
+                    "subType": "email",
+                    "comparator": "=",
+                    "values": [
+                      "test@email.com",
+                      "test2@email.com"
+                    ]
+                  }
+                ],
+                "operator": "and"
+              }
+            },
+            "distribution": []
+          },
+          {
+            "_id": "61536f3bc838a705c105eb63",
+            "_audience": {
+              "_id": "6153557f1ed7bac7268ea0d5",
+              "filters": {
+                "filters": [
+                  {
+                    "type": "user",
+                    "subType": "platformVersion",
+                    "comparator": ">",
+                    "values": [
+                      "1.1.1"
+                    ]
+                  },
+                  {
+                    "type": "user",
+                    "subType": "customData",
+                    "dataKey": "favouriteFood",
+                    "dataKeyType": "String",
+                    "comparator": "=",
+                    "values": [
+                      "pizza"
+                    ]
+                  },
+                  {
+                    "type": "user",
+                    "subType": "customData",
+                    "dataKey": "favouriteDrink",
+                    "dataKeyType": "String",
+                    "comparator": "=",
+                    "values": [
+                      "coffee"
+                    ]
+                  }
+                ],
+                "operator": "and"
+              }
+            },
+            "distribution": [
+              {
+                "_variation": "615382338424cb11646d7667",
+                "percentage": 1
+              }
+            ]
+          }
+        ]
+      },
+      "variations": [
+        {
+          "_id": "6153553b8cf4e45e0464268d",
+          "name": "variation 1",
+          "key": "variation-1-key",
+          "variables": [
+            {
+              "_var": "614ef6ea475129459160721a",
+              "value": "scat"
+            },
+            {
+              "_var": "615356f120ed334a6054564c",
+              "value": "man"
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71y",
+              "value": false
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71s",
+              "value": 610.61
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71q",
+              "value": "{\"hello\":\"world\",\"num\":610,\"bool\":true}"
+            }
+          ]
+        },
+        {
+          "_id": "615357cf7e9ebdca58446ed0",
+          "name": "variation 2",
+          "key": "variation-2-key",
+          "variables": [
+            {
+              "_var": "615356f120ed334a6054564c",
+              "value": "YEEEEOWZA"
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71y",
+              "value": false
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71s",
+              "value": 610.61
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71q",
+              "value": "{\"hello\":\"world\",\"num\":610,\"bool\":true}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_id": "614ef6aa475928459060721a",
+      "type": "release",
+      "key": "feature2",
+      "configuration": {
+        "_id": "61536f62502d80fff97ed649",
+        "targets": [
+          {
+            "_id": "61536f468fd67f0091982533",
+            "_audience": {
+              "_id": "6153557f1ed7bac7268ea0d9",
+              "filters": {
+                "filters": [
+                  {
+                    "filters": [
+                      {
+                        "type": "user",
+                        "subType": "user_id",
+                        "comparator": "=",
+                        "values": [
+                          "asuh"
+                        ]
+                      },
+                      {
+                        "type": "user",
+                        "subType": "country",
+                        "comparator": "!=",
+                        "values": [
+                          "U S AND A"
+                        ]
+                      }
+                    ],
+                    "operator": "and"
+                  },
+                  {
+                    "type": "user",
+                    "subType": "user_id",
+                    "comparator": "=",
+                    "values": [
+                      "asuh"
+                    ]
+                  },
+                  {
+                    "type": "user",
+                    "subType": "country",
+                    "comparator": "!=",
+                    "values": [
+                      "U S AND A"
+                    ]
+                  }
+                ],
+                "operator": "and"
+              }
+            },
+            "distribution": [
+              {
+                "_variation": "615382338424cb11646d7668",
+                "percentage": 1
+              },
+              {
+                "_variation": "615382338424cb11646d7669",
+                "percentage": 0
+              }
+            ]
+          },
+          {
+            "_id": "61536f669c69b86cccc5f15e",
+            "_audience": {
+              "_id": "6153557f1ed7bac7268ea0d5",
+              "filters": {
+                "filters": [
+                  {
+                    "type": "user",
+                    "subType": "platformVersion",
+                    "comparator": ">",
+                    "values": [
+                      "1.1.1"
+                    ]
+                  },
+                  {
+                    "type": "user",
+                    "subType": "customData",
+                    "dataKey": "favouriteFood",
+                    "dataKeyType": "String",
+                    "comparator": "=",
+                    "values": [
+                      "pizza"
+                    ]
+                  },
+                  {
+                    "type": "user",
+                    "subType": "customData",
+                    "dataKey": "favouriteDrink",
+                    "dataKeyType": "String",
+                    "comparator": "=",
+                    "values": [
+                      "coffee"
+                    ]
+                  }
+                ],
+                "operator": "and"
+              }
+            },
+            "distribution": [
+              {
+                "_variation": "615382338424cb11646d7667",
+                "percentage": 1
+              }
+            ]
+          }
+        ]
+      },
+      "variations": [
+        {
+          "_id": "6153553b8cf4e45e0464268d",
+          "name": "variation 1",
+          "key": "variation-1-key",
+          "variables": [
+            {
+              "_var": "614ef6ea475129459160721a",
+              "value": "scat"
+            },
+            {
+              "_var": "615356f120ed334a6054564c",
+              "value": "man"
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71y",
+              "value": false
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71s",
+              "value": 610.61
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71q",
+              "value": "{\"hello\":\"world\",\"num\":610,\"bool\":true}"
+            }
+          ]
+        },
+        {
+          "_id": "615357cf7e9ebdca58446ed0",
+          "name": "variation 2",
+          "key": "variation-2-key",
+          "variables": [
+            {
+              "_var": "615356f120ed334a6054564c",
+              "value": "YEEEEOWZA"
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71y",
+              "value": false
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71s",
+              "value": 610.61
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71q",
+              "value": "{\"hello\":\"world\",\"num\":610,\"bool\":true}"
+            }
+          ]
+        },
+        {
+          "_id": "615382338424cb11646d7667",
+          "name": "variation 1 aud 2",
+          "key": "variation-1-aud-2-key",
+          "variables": [
+            {
+              "_var": "61538237b0a70b58ae6af71f",
+              "value": "Var 1 aud 2"
+            }
+          ]
+        },
+        {
+          "_id": "615382338424cb11646d7668",
+          "name": "feature 2 variation",
+          "key": "variation-feature-2-key",
+          "variables": [
+            {
+              "_var": "61538237b0a70b58ae6af71g",
+              "value": "multivar first"
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71h",
+              "value": "multivar last"
+            }
+          ]
+        },
+        {
+          "_id": "615382338424cb11646d7669",
+          "name": "feature 2 never used variation",
+          "key": "variation-never-used-key",
+          "variables": [
+            {
+              "_var": "61538237b0a70b58ae6af71g",
+              "value": "multivar first unused"
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71h",
+              "value": "multivar last unused"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variables": [],
+  "variableHashes": {}
+}
