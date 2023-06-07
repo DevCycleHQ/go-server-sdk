@@ -105,7 +105,8 @@ func doesUserPassRollout(rollout Rollout, boundedHash float64) bool {
 
 func evaluateSegmentationForFeature(config *configBody, feature *ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) *Target {
 	for _, target := range feature.Configuration.Targets {
-		if _evaluateOperator(target.Audience.Filters, config.Audiences, user, clientCustomData) {
+		operator := target.Audience.Filters
+		if operator.Evaluate(config.Audiences, user, clientCustomData) {
 			return target
 		}
 	}

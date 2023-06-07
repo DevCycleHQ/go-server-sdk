@@ -65,13 +65,13 @@ func TestCheckCustomData(t *testing.T) {
 		require.NoError(t, testFilter.Initialize())
 		require.NoError(t, testFilter.UserFilter.Initialize())
 
-		result := checkCustomData(test.data, nil, testFilter)
+		result := checkCustomData(testFilter, test.data, nil)
 		if result != test.expected {
 			t.Errorf("Test %s failed. Expected %t, got %t", test.name, test.expected, result)
 		}
 
 		// test again but use the data as clientCustomData instead to make sure it still works
-		result2 := checkCustomData(nil, test.data, testFilter)
+		result2 := checkCustomData(testFilter, nil, test.data)
 		if result2 != test.expected {
 			t.Errorf("Test %s (clientCustomData variation) failed. Expected %t, got %t", test.name, test.expected, result)
 		}

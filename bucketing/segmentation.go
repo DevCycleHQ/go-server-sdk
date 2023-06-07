@@ -9,49 +9,6 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 )
 
-func _evaluateOperator(operator BaseOperator, audiences map[string]NoIdAudience, user api.PopulatedUser, clientCustomData map[string]interface{}) bool {
-	if len(operator.GetFilters()) == 0 {
-		return false
-	}
-	if operator.GetOperator() == "or" {
-		for _, f := range operator.GetFilters() {
-			if filterOperator, ok := f.GetOperator(); ok {
-				return _evaluateOperator(filterOperator, audiences, user, clientCustomData)
-			} else if doesUserPassFilter(f, audiences, user, clientCustomData) {
-				return true
-			}
-		}
-		return false
-	} else if operator.GetOperator() == "and" {
-		for _, f := range operator.GetFilters() {
-			if filterOperator, ok := f.GetOperator(); ok {
-				return _evaluateOperator(filterOperator, audiences, user, clientCustomData)
-			} else if !doesUserPassFilter(f, audiences, user, clientCustomData) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
-}
-
-func doesUserPassFilter(filter BaseFilter, audiences map[string]NoIdAudience, user api.PopulatedUser, clientCustomData map[string]interface{}) bool {
-	if filter.GetType() == "all" {
-		return true
-	} else if filter.GetType() == "optIn" {
-		return false
-	} else if filter.GetType() == "audienceMatch" {
-		amF, ok := filter.(*AudienceMatchFilter)
-		if !ok {
-			return false
-		}
-		return filterForAudienceMatch(amF, audiences, user, clientCustomData)
-	}
-
-	return filterFunctionsBySubtype(filter.GetSubType(), user, filter, clientCustomData)
-
-}
-
 func filterForAudienceMatch(filter *AudienceMatchFilter, configAudiences map[string]NoIdAudience, user api.PopulatedUser, clientCustomData map[string]interface{}) bool {
 	audiences := filter.Audiences
 	comparator := filter.GetComparator()
@@ -61,38 +18,143 @@ func filterForAudienceMatch(filter *AudienceMatchFilter, configAudiences map[str
 		if !ok {
 			return false
 		}
-		if _evaluateOperator(a.Filters, configAudiences, user, clientCustomData) {
+		if a.Filters.Evaluate(configAudiences, user, clientCustomData) {
 			return comparator == "="
 		}
 	}
 	return comparator == "!="
 }
 
-// TODO: Make this work with less casting
-func filterFunctionsBySubtype(subType string, user api.PopulatedUser, filter BaseFilter, clientCustomData map[string]interface{}) bool {
-	if subType == "country" {
-		return checkStringsFilter(user.Country, filter.(*UserFilter))
-	} else if subType == "email" {
-		return checkStringsFilter(user.Email, filter.(*UserFilter))
-	} else if subType == "user_id" {
-		return checkStringsFilter(user.UserId, filter.(*UserFilter))
-	} else if subType == "appVersion" {
-		return checkVersionFilters(user.AppVersion, filter.(*UserFilter))
-	} else if subType == "platformVersion" {
-		return checkVersionFilters(user.PlatformVersion, filter.(*UserFilter))
-	} else if subType == "deviceModel" {
-		return checkStringsFilter(user.User.DeviceModel, filter.(*UserFilter))
-	} else if subType == "platform" {
-		return checkStringsFilter(user.Platform, filter.(*UserFilter))
-	} else if subType == "customData" {
-		customDataFilter, ok := filter.(*CustomDataFilter)
-		if !ok {
-			return false
+func filterFunctionsBySubtype(filter *UserFilter, user api.PopulatedUser, clientCustomData map[string]interface{}) bool {
+	switch filter.SubType {
+	case SubTypeCountry:
+		return checkStringsFilter(user.Country, filter)
+	case SubTypeEmail:
+		return checkStringsFilter(user.Email, filter)
+	case SubTypeUserID:
+		return checkStringsFilter(user.UserId, filter)
+	case SubTypeAppVersion:
+		return checkVersionFilters(user.AppVersion, filter)
+	case SubTypePlatformVersion:
+		return checkVersionFilters(user.PlatformVersion, filter)
+	case SubTypeDeviceModel:
+		return checkStringsFilter(user.User.DeviceModel, filter)
+	case SubTypePlatform:
+		return checkStringsFilter(user.Platform, filter)
+	default:
+		return false
+	}
+}
+
+func checkCustomData(filter *CustomDataFilter, data map[string]interface{}, clientCustomData map[string]interface{}) bool {
+	operator := filter.GetComparator()
+	var dataValue interface{}
+
+	if _, ok := data[filter.DataKey]; !ok {
+		if v2, ok2 := clientCustomData[filter.DataKey]; ok2 {
+			dataValue = v2
 		}
-		return checkCustomData(user.CombinedCustomData(), clientCustomData, customDataFilter)
+	} else {
+		dataValue = data[filter.DataKey]
+	}
+
+	if operator == "exist" {
+		return checkValueExists(dataValue)
+	} else if operator == "!exist" {
+		return !checkValueExists(dataValue)
+	} else if v, ok := dataValue.(string); ok && filter.DataKeyType == "String" {
+		if dataValue == nil {
+			return checkStringsFilter("", filter.UserFilter)
+		} else {
+			return checkStringsFilter(v, filter.UserFilter)
+		}
+	} else if _, ok := dataValue.(float64); ok && filter.DataKeyType == "Number" {
+		return checkNumbersFilterJSONValue(dataValue, filter.UserFilter)
+	} else if v, ok := dataValue.(bool); ok && filter.DataKeyType == "Boolean" {
+		return _checkBooleanFilter(v, filter.UserFilter)
+	} else if dataValue == nil && operator == "!=" {
+		return true
+	}
+	return false
+}
+
+func checkNumbersFilterJSONValue(jsonValue interface{}, filter *UserFilter) bool {
+	return _checkNumbersFilter(jsonValue.(float64), filter)
+}
+
+func _checkNumbersFilter(number float64, filter *UserFilter) bool {
+	operator := filter.GetComparator()
+	values := filter.CompiledNumVals
+	return _checkNumberFilter(number, values, operator)
+}
+
+func checkStringsFilter(str string, filter *UserFilter) bool {
+	operator := filter.GetComparator()
+	values := filter.CompiledStringVals
+	if operator == "=" {
+		return str != "" && stringArrayIn(values, str)
+	} else if operator == "!=" {
+		return str != "" && !stringArrayIn(values, str)
+	} else if operator == "exist" {
+		return str != ""
+	} else if operator == "!exist" {
+		return str == ""
+	} else if operator == "contain" {
+		return str != "" && stringArrayContains(values, str)
+	} else if operator == "!contain" {
+		return str == "" || !stringArrayContains(values, str)
 	} else {
 		return false
 	}
+}
+
+func stringArrayIn(arr []string, search string) bool {
+	for _, s := range arr {
+		if s == search {
+			return true
+		}
+	}
+	return false
+}
+
+func stringArrayContains(substrings []string, search string) bool {
+	for _, substring := range substrings {
+		if strings.Contains(search, substring) {
+			return true
+		}
+	}
+	return false
+}
+
+func _checkBooleanFilter(b bool, filter *UserFilter) bool {
+	contains := func(arr []bool, search bool) bool {
+		for _, s := range arr {
+			if s == search {
+				return true
+			}
+		}
+		return false
+	}
+	operator := filter.GetComparator()
+	values := filter.CompiledBoolVals
+
+	if operator == "contain" || operator == "=" {
+		return contains(values, b)
+	} else if operator == "!contain" || operator == "!=" {
+		return !contains(values, b)
+	} else if operator == "exist" {
+		return true
+	} else if operator == "!exist" {
+		return false
+	} else {
+		return false
+	}
+}
+
+func checkVersionFilters(appVersion string, filter *UserFilter) bool {
+	operator := filter.GetComparator()
+	values := filter.CompiledStringVals
+	return checkVersionFilter(appVersion, values, operator)
 }
 
 func convertToSemanticVersion(version string) string {

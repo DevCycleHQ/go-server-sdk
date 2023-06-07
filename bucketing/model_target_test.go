@@ -68,26 +68,12 @@ func TestAudience_Parsing(t *testing.T) {
 							"145f66b2bfce4e7e9c8bd3a432e28c8d",
 						},
 					},
-					&AudienceFilter{
-						filter: filter{
-							Type: "all",
-						},
-					},
-					&AudienceFilter{
-						filter: filter{
-							Type: "optIn",
-						},
-					},
-					OperatorFilter{
-						Operator: &AudienceOperator{
-							Operator: "and",
-							Filters: []BaseFilter{
-								&AudienceFilter{
-									filter: filter{
-										Type: "all",
-									},
-								},
-							},
+					&AllFilter{},
+					&OptInFilter{},
+					&AudienceOperator{
+						Operator: "and",
+						Filters: MixedFilters{
+							&AllFilter{},
 						},
 					},
 				},
@@ -98,22 +84,17 @@ func TestAudience_Parsing(t *testing.T) {
 
 	filters := audience.NoIdAudience.Filters.Filters
 
-	require.Equal(t, "user", filters[0].GetType())
-	require.Equal(t, "customData", filters[0].GetSubType())
-	require.Equal(t, "=", filters[0].GetComparator())
+	customDataFilter := filters[0].(*CustomDataFilter)
+	require.Equal(t, "user", customDataFilter.GetType())
+	require.Equal(t, "customData", customDataFilter.GetSubType())
+	require.Equal(t, "=", customDataFilter.GetComparator())
 
-	require.Equal(t, "user", filters[1].GetType())
-	require.Equal(t, "user_id", filters[1].GetSubType())
-	require.Equal(t, "=", filters[1].GetComparator())
+	userFilter := filters[1].(*UserFilter)
+	require.Equal(t, "user", userFilter.GetType())
+	require.Equal(t, "user_id", userFilter.GetSubType())
+	require.Equal(t, "=", userFilter.GetComparator())
 
-	require.Equal(t, "audienceMatch", filters[2].GetType())
-	require.Equal(t, "!=", filters[2].GetComparator())
-
-	require.Equal(t, "all", filters[3].GetType())
-
-	require.Equal(t, "optIn", filters[4].GetType())
-
-	operator, isOperator := filters[5].GetOperator()
-	require.True(t, isOperator)
-	require.NotNil(t, operator)
+	audienceFilter := filters[2].(*AudienceMatchFilter)
+	require.Equal(t, "audienceMatch", audienceFilter.GetType())
+	require.Equal(t, "!=", audienceFilter.GetComparator())
 }

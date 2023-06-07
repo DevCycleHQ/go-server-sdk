@@ -202,9 +202,11 @@ func TestConfigParsing(t *testing.T) {
 	require.Len(t, targets, 3)
 	filters := targets[0].Audience.Filters.Filters
 	require.Len(t, filters, 1)
-	require.Equal(t, "user", filters[0].GetType())
-	require.Equal(t, "email", filters[0].GetSubType())
-	require.Equal(t, "=", filters[0].GetComparator())
+	require.IsType(t, &UserFilter{}, filters[0])
+	userFilter := filters[0].(*UserFilter)
+	require.Equal(t, "user", userFilter.GetType())
+	require.Equal(t, "email", userFilter.GetSubType())
+	require.Equal(t, "=", userFilter.GetComparator())
 
 	// Check maps of variables IDs and keys
 	require.Equal(t, map[string]*Variable{
