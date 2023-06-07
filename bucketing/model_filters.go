@@ -1,4 +1,3 @@
-// TODO: Add docstrings to all types in this file
 package bucketing
 
 import (
@@ -9,6 +8,7 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
+// A FilterOrOperator represents either an individual filter or a nested sequence of filters with a logical operator.
 type FilterOrOperator interface {
 	Evaluate(audiences map[string]NoIdAudience, user api.PopulatedUser, clientCustomData map[string]interface{}) bool
 }
@@ -38,6 +38,8 @@ func (f filter) GetComparator() string {
 	return f.Comparator
 }
 
+// MixedFilters is used to parse a list of generic filters from JSON that can be one of
+// several types, and transform them into specific implementations (e.g. UserFilter).
 type MixedFilters []FilterOrOperator
 
 func (m *MixedFilters) UnmarshalJSON(data []byte) error {
@@ -124,6 +126,7 @@ type AllFilter struct {
 	PassFilter
 }
 
+// OptInFilter never passes, because it's only supported by Cloud Bucketing.
 type OptInFilter struct {
 	NoPassFilter
 }
