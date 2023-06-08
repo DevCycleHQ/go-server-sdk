@@ -21,31 +21,27 @@ var brooks = api.PopulatedUser{
 	},
 }
 
+func _evaluateOperator(operator FilterOrOperator, audiences map[string]NoIdAudience, user api.PopulatedUser, clientCustomData map[string]interface{}) bool {
+	return operator.Evaluate(audiences, user, clientCustomData)
+}
+
 func TestSegmentation_EvaluateOperator_FailEmpty(t *testing.T) {
-	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: []BaseFilter{}}, nil, brooks, nil)
+	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: []FilterOrOperator{}}, nil, brooks, nil)
 	if result {
 		t.Error("Expected false, got true")
 	}
-	result = _evaluateOperator(AudienceOperator{Operator: "or", Filters: []BaseFilter{}}, nil, brooks, nil)
+	result = _evaluateOperator(AudienceOperator{Operator: "or", Filters: []FilterOrOperator{}}, nil, brooks, nil)
 	if result {
 		t.Error("Expected false, got true")
 	}
 }
 
 func TestSegmentation_EvaluateOperator_PassAll(t *testing.T) {
-	userAllFilter := &UserFilter{
-		filter: filter{
-			Type:       "all",
-			Comparator: "=",
-		},
-		Values: []interface{}{},
-	}
-
-	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: []BaseFilter{userAllFilter}}, nil, brooks, nil)
+	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: []FilterOrOperator{AllFilter{}}}, nil, brooks, nil)
 	if !result {
 		t.Error("Expected true, got false")
 	}
-	result = _evaluateOperator(AudienceOperator{Operator: "or", Filters: []BaseFilter{userAllFilter}}, nil, brooks, nil)
+	result = _evaluateOperator(AudienceOperator{Operator: "or", Filters: []FilterOrOperator{AllFilter{}}}, nil, brooks, nil)
 	if !result {
 		t.Error("Expected true, got false")
 	}
@@ -60,11 +56,11 @@ func TestSegmentation_EvaluateOperator_UnknownFilter(t *testing.T) {
 		Values: []interface{}{},
 	}
 
-	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: []BaseFilter{userAllFilter}}, nil, brooks, nil)
+	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: []FilterOrOperator{userAllFilter}}, nil, brooks, nil)
 	if result {
 		t.Error("Expected false, got true")
 	}
-	result = _evaluateOperator(AudienceOperator{Operator: "or", Filters: []BaseFilter{userAllFilter}}, nil, brooks, nil)
+	result = _evaluateOperator(AudienceOperator{Operator: "or", Filters: []FilterOrOperator{userAllFilter}}, nil, brooks, nil)
 	if result {
 		t.Error("Expected false, got true")
 	}
@@ -80,7 +76,7 @@ func TestEvaluateOperator_InvalidComparator(t *testing.T) {
 		Values: []interface{}{"brooks@big.lunch"},
 	}
 
-	result := _evaluateOperator(AudienceOperator{Operator: "xylophone", Filters: []BaseFilter{userEmailFilter}}, nil, brooks, nil)
+	result := _evaluateOperator(AudienceOperator{Operator: "xylophone", Filters: []FilterOrOperator{userEmailFilter}}, nil, brooks, nil)
 	if result {
 		t.Error("Expected false, got true")
 	}
@@ -127,7 +123,7 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 		NoIdAudience: NoIdAudience{
 			Filters: &AudienceOperator{
 				Operator: OperatorAnd,
-				Filters: []BaseFilter{
+				Filters: []FilterOrOperator{
 					countryFilter,
 					emailFilter,
 					versionFilter,
@@ -139,13 +135,13 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 
 	testCases := []struct {
 		name      string
-		filters   []BaseFilter
+		filters   []FilterOrOperator
 		audiences map[string]NoIdAudience
 		expected  bool
 	}{
 		{
 			name: "audienceMatchFilter - in the audience",
-			filters: []BaseFilter{&AudienceMatchFilter{
+			filters: []FilterOrOperator{&AudienceMatchFilter{
 				filter: filter{
 					Type:       "audienceMatch",
 					Comparator: "=",
@@ -158,7 +154,7 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 		},
 		{
 			name: "audienceMatchFilter - not in the audience",
-			filters: []BaseFilter{&AudienceMatchFilter{
+			filters: []FilterOrOperator{&AudienceMatchFilter{
 				filter: filter{
 					Type:       "audienceMatch",
 					Comparator: "!=",
@@ -171,7 +167,7 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 		},
 		{
 			name: "audienceMatchFilter - audience ID not in list",
-			filters: []BaseFilter{&AudienceMatchFilter{
+			filters: []FilterOrOperator{&AudienceMatchFilter{
 				filter: filter{
 					Type:       "audienceMatch",
 					Comparator: "==",
@@ -184,7 +180,7 @@ func TestEvaluateOperator_AudienceFilterMatch(t *testing.T) {
 		},
 		{
 			name: "audienceMatchFilter - audience ID not in list",
-			filters: []BaseFilter{&AudienceMatchFilter{
+			filters: []FilterOrOperator{&AudienceMatchFilter{
 				filter: filter{
 					Type:       "audienceMatch",
 					Comparator: "==",
@@ -296,7 +292,7 @@ func TestEvaluateOperator_AudienceFilterForPlatforms(t *testing.T) {
 			NoIdAudience: NoIdAudience{
 				Filters: &AudienceOperator{
 					Operator: OperatorAnd,
-					Filters: []BaseFilter{
+					Filters: []FilterOrOperator{
 						tc.filter,
 					},
 				},
@@ -304,7 +300,7 @@ func TestEvaluateOperator_AudienceFilterForPlatforms(t *testing.T) {
 			Id: audienceID,
 		}
 
-		operatorFilters := []BaseFilter{&AudienceMatchFilter{
+		operatorFilters := []FilterOrOperator{&AudienceMatchFilter{
 			filter: filter{
 				Type:       "audienceMatch",
 				Comparator: ComparatorEqual,
@@ -375,7 +371,7 @@ func TestEvaluateOperator_AudienceFilterMatchMultipleValuesAND(t *testing.T) {
 		NoIdAudience: NoIdAudience{
 			Filters: &AudienceOperator{
 				Operator: OperatorAnd,
-				Filters: []BaseFilter{
+				Filters: []FilterOrOperator{
 					countryCANFilter,
 					emailFilter,
 					versionFilter,
@@ -389,7 +385,7 @@ func TestEvaluateOperator_AudienceFilterMatchMultipleValuesAND(t *testing.T) {
 		NoIdAudience: NoIdAudience{
 			Filters: &AudienceOperator{
 				Operator: OperatorAnd,
-				Filters: []BaseFilter{
+				Filters: []FilterOrOperator{
 					countryUSAFilter,
 				},
 			},
@@ -401,13 +397,13 @@ func TestEvaluateOperator_AudienceFilterMatchMultipleValuesAND(t *testing.T) {
 	// a user is either in one of the audiences for `=` or they have to not be in any of the audiences for `!=`
 	testCases := []struct {
 		name      string
-		filters   []BaseFilter
+		filters   []FilterOrOperator
 		audiences map[string]NoIdAudience
 		expected  bool
 	}{
 		{
 			name: "should pass seg for an AND operator with multiple values",
-			filters: []BaseFilter{&AudienceMatchFilter{
+			filters: []FilterOrOperator{&AudienceMatchFilter{
 				filter: filter{
 					Type:       "audienceMatch",
 					Comparator: ComparatorEqual,
@@ -420,7 +416,7 @@ func TestEvaluateOperator_AudienceFilterMatchMultipleValuesAND(t *testing.T) {
 		},
 		{
 			name: "audienceMatchFilter - should not pass seg for an AND operator with multiple values",
-			filters: []BaseFilter{&AudienceMatchFilter{
+			filters: []FilterOrOperator{&AudienceMatchFilter{
 				filter: filter{
 					Type:       "audienceMatch",
 					Comparator: ComparatorNotEqual,
@@ -454,13 +450,13 @@ func TestEvaluateOperator_AudienceNested(t *testing.T) {
 	audienceInner := NoIdAudience{
 		Filters: &AudienceOperator{
 			Operator: OperatorAnd,
-			Filters:  []BaseFilter{countryFilter},
+			Filters:  []FilterOrOperator{countryFilter},
 		},
 	}
 	audienceOuter := NoIdAudience{
 		Filters: &AudienceOperator{
 			Operator: OperatorAnd,
-			Filters: []BaseFilter{&AudienceMatchFilter{
+			Filters: []FilterOrOperator{&AudienceMatchFilter{
 				filter: filter{
 					Type:       "audienceMatch",
 					Comparator: "=",
@@ -476,7 +472,7 @@ func TestEvaluateOperator_AudienceNested(t *testing.T) {
 	}
 	operator := &AudienceOperator{
 		Operator: OperatorAnd,
-		Filters: []BaseFilter{&AudienceMatchFilter{
+		Filters: []FilterOrOperator{&AudienceMatchFilter{
 			filter: filter{
 				Type:       "audienceMatch",
 				Comparator: "=",
@@ -490,7 +486,7 @@ func TestEvaluateOperator_AudienceNested(t *testing.T) {
 
 	operator2 := &AudienceOperator{
 		Operator: OperatorAnd,
-		Filters: []BaseFilter{
+		Filters: []FilterOrOperator{
 			countryFilter,
 			&AudienceMatchFilter{
 				filter: filter{
@@ -637,11 +633,9 @@ func TestEvaluateOperator_NestedAnd(t *testing.T) {
 	}
 	require.NoError(t, appVerFilter.Initialize())
 
-	nestedOperator := &OperatorFilter{
-		Operator: &AudienceOperator{
-			Operator: "and",
-			Filters:  MixedFilters{countryFilter, emailFilter, appVerFilter},
-		},
+	nestedOperator := &AudienceOperator{
+		Operator: "and",
+		Filters:  MixedFilters{countryFilter, emailFilter, appVerFilter},
 	}
 	topLevelFilter := &UserFilter{
 		filter: filter{
@@ -651,11 +645,15 @@ func TestEvaluateOperator_NestedAnd(t *testing.T) {
 		},
 		Values: []interface{}{"Nanada"},
 	}
+	require.NoError(t, topLevelFilter.Initialize())
 
-	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{topLevelFilter, nestedOperator}}, nil, brooks, nil)
-	if !result {
-		t.Error("Expected true, got false")
-	}
+	result := _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{nestedOperator, topLevelFilter}}, nil, brooks, nil)
+	require.True(t, result)
+
+	// If the second AND filter fails, should fail to match
+	topLevelFilter.filter.Comparator = "="
+	result = _evaluateOperator(AudienceOperator{Operator: "and", Filters: MixedFilters{nestedOperator, topLevelFilter}}, nil, brooks, nil)
+	require.False(t, result)
 }
 
 func TestEvaluateOperator_NestedOr(t *testing.T) {
@@ -687,11 +685,9 @@ func TestEvaluateOperator_NestedOr(t *testing.T) {
 	}
 	require.NoError(t, appVerFilter.Initialize())
 
-	nestedOperator := &OperatorFilter{
-		Operator: &AudienceOperator{
-			Operator: "or",
-			Filters:  MixedFilters{countryFilter, emailFilter, appVerFilter},
-		},
+	nestedOperator := &AudienceOperator{
+		Operator: "or",
+		Filters:  MixedFilters{countryFilter, emailFilter, appVerFilter},
 	}
 	topLevelFilter := &UserFilter{
 		filter: filter{
@@ -702,10 +698,8 @@ func TestEvaluateOperator_NestedOr(t *testing.T) {
 		Values: []interface{}{"Nanada"},
 	}
 
-	result := _evaluateOperator(AudienceOperator{Operator: "or", Filters: MixedFilters{topLevelFilter, nestedOperator}}, nil, brooks, nil)
-	if !result {
-		t.Error("Expected true, got false")
-	}
+	result := _evaluateOperator(AudienceOperator{Operator: "or", Filters: MixedFilters{nestedOperator, topLevelFilter}}, nil, brooks, nil)
+	require.True(t, result)
 }
 
 func TestEvaluateOperator_AndCustomData(t *testing.T) {
@@ -1505,7 +1499,7 @@ func TestDoesUserPassFilter_WithUserIDFilter(t *testing.T) {
 			Values: tc.values,
 		}
 		require.NoError(t, testFilter.Initialize())
-		result := doesUserPassFilter(testFilter, nil, user, nil)
+		result := testFilter.Evaluate(nil, user, nil)
 		if result != tc.expected {
 			t.Errorf("doesUserPassFilter(%v) = %v; want %v", tc.name, result, tc.expected)
 		}
@@ -1557,7 +1551,7 @@ func TestDoesUserPassFilter_WithUserCountryFilter(t *testing.T) {
 			Values: tc.values,
 		}
 		require.NoError(t, testFilter.Initialize())
-		result := doesUserPassFilter(testFilter, nil, user, nil)
+		result := testFilter.Evaluate(nil, user, nil)
 		if result != tc.expected {
 			t.Errorf("doesUserPassFilter(%v) = %v; want %v", tc.name, result, tc.expected)
 		}
@@ -1609,7 +1603,7 @@ func TestDoesUserPassFilter_WithUserEmailFilter(t *testing.T) {
 			Values: tc.values,
 		}
 		require.NoError(t, testFilter.Initialize())
-		result := doesUserPassFilter(testFilter, nil, user, nil)
+		result := testFilter.Evaluate(nil, user, nil)
 		if result != tc.expected {
 			t.Errorf("doesUserPassFilter(%v) = %v; want %v", tc.name, result, tc.expected)
 		}
@@ -1655,7 +1649,7 @@ func TestDoesUserPassFilter_WithUserAppVersionFilter(t *testing.T) {
 			Values: tc.values,
 		}
 		require.NoError(t, testFilter.Initialize())
-		result := doesUserPassFilter(testFilter, nil, user, nil)
+		result := testFilter.Evaluate(nil, user, nil)
 		if result != tc.expected {
 			t.Errorf("doesUserPassFilter(%v) = %v; want %v", tc.name, result, tc.expected)
 		}
@@ -1709,7 +1703,7 @@ func TestDoesUserPassFilter_WithUserPlatformVersionFilter(t *testing.T) {
 			Values: tc.values,
 		}
 		require.NoError(t, testFilter.Initialize())
-		result := doesUserPassFilter(testFilter, nil, user, nil)
+		result := testFilter.Evaluate(nil, user, nil)
 		if result != tc.expected {
 			t.Errorf("doesUserPassFilter(%v) = %v; want %v", tc.name, result, tc.expected)
 		}
@@ -1761,7 +1755,7 @@ func TestDoesUserPassFilter_WithUserDeviceModelFilter(t *testing.T) {
 			Values: tc.values,
 		}
 		require.NoError(t, testFilter.Initialize())
-		result := doesUserPassFilter(testFilter, nil, user, nil)
+		result := testFilter.Evaluate(nil, user, nil)
 		if result != tc.expected {
 			t.Errorf("doesUserPassFilter(%v) = %v; want %v", tc.name, result, tc.expected)
 		}
@@ -1815,7 +1809,7 @@ func TestDoesUserPassFilter_WithUserPlatformFilter(t *testing.T) {
 			Values: tc.values,
 		}
 		require.NoError(t, testFilter.Initialize())
-		result := doesUserPassFilter(testFilter, nil, user, nil)
+		result := testFilter.Evaluate(nil, user, nil)
 		if result != tc.expected {
 			t.Errorf("doesUserPassFilter(%v) = %v; want %v", tc.name, result, tc.expected)
 		}

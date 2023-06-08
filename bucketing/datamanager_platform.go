@@ -6,7 +6,8 @@ func GetClientCustomData(sdkKey string) map[string]interface{} {
 	if data, ok := clientCustomData[sdkKey]; ok {
 		return data
 	}
-	return map[string]interface{}{}
+	// Nil maps are safe to read but not write, and this avoids an allocation
+	return nil
 }
 
 func SetClientCustomData(sdkKey string, data map[string]interface{}) {
