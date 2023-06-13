@@ -8,6 +8,7 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
@@ -116,7 +117,7 @@ type EventQueue struct {
 	eventsFlushed       atomic.Int32
 	eventsReported      atomic.Int32
 	eventsDropped       atomic.Int32
-	platformData		*api.PlatformData
+	platformData        *api.PlatformData
 }
 
 func NewEventQueue(sdkKey string, options *api.EventQueueOptions, platformData *api.PlatformData) (*EventQueue, error) {
@@ -135,10 +136,14 @@ func NewEventQueue(sdkKey string, options *api.EventQueueOptions, platformData *
 		userEventQueue:    make(map[string]api.UserEventsBatchRecord),
 		aggEventQueue:     make(AggregateEventQueue),
 		stateMutex:        &sync.RWMutex{},
-		httpClient:        &http.Client{},
-		pendingPayloads:   make(map[string]api.FlushPayload, 0),
-		done:              cancel,
-		platformData:      platformData,
+		httpClient: &http.Client{
+			// Set an explicit timeout so that we don't wait forever on a request
+			// Use a separate hardcoded timeout here because event requests should not be blocking.
+			Timeout: time.Second * 60,
+		},
+		pendingPayloads: make(map[string]api.FlushPayload, 0),
+		done:            cancel,
+		platformData:    platformData,
 	}
 
 	if !options.DisableAutomaticEventLogging || !options.DisableCustomEventLogging {
