@@ -41,9 +41,13 @@ func NewEnvironmentConfigManager(
 		sdkKey:         sdkKey,
 		localBucketing: localBucketing,
 		cfg:            cfg,
-		httpClient:     &http.Client{Timeout: options.RequestTimeout},
-		hasConfig:      atomic.Bool{},
-		firstLoad:      true,
+		httpClient: &http.Client{
+			// Set an explicit timeout so that we don't wait forever on a request
+			// Use the configurable timeout because fetching the first config can block SDK initialization.
+			Timeout: options.RequestTimeout,
+		},
+		hasConfig: atomic.Bool{},
+		firstLoad: true,
 	}
 
 	configManager.context, configManager.stopPolling = context.WithCancel(context.Background())

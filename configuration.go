@@ -156,7 +156,10 @@ func NewConfiguration(options *Options) *HTTPConfiguration {
 		EventsAPIBasePath: eventsApiBasePath,
 		DefaultHeader:     make(map[string]string),
 		UserAgent:         "DevCycle-Server-SDK/" + VERSION + "/go",
-		HTTPClient:        http.DefaultClient,
+		HTTPClient: &http.Client{
+			// Set an explicit timeout so that we don't wait forever on a request
+			Timeout: options.RequestTimeout,
+		},
 	}
 	return cfg
 }
