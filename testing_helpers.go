@@ -2,9 +2,11 @@ package devcycle
 
 import (
 	_ "embed"
-	"github.com/jarcoal/httpmock"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/jarcoal/httpmock"
 )
 
 var (
@@ -20,7 +22,11 @@ var (
 	test_large_config          string
 	test_large_config_variable = "v-key-25"
 
-	test_options = &Options{}
+	test_options = &Options{
+		// use defaults that will be set by the CheckDefaults
+		EventFlushIntervalMS:    time.Second * 30,
+		ConfigPollingIntervalMS: time.Second * 10,
+	}
 )
 
 func init() {
