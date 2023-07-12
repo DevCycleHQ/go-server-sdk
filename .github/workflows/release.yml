@@ -1,30 +1,34 @@
 name: Release
 
 on:
-  release:
-    types: [released, prereleased]
+  workflow_dispatch:
       
 permissions:
   contents: write
 
 jobs:
-  update_version:
-    name: Update VERSION in Go code
+  release:
+    name: Version Bump and Release
     runs-on: ubuntu-latest
 
     steps:
-    - name: Get Release Version
-      run: |
-        echo "TAG_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
-    - name: Ensure release tag looks like a valid version
-      run: echo "${TAG_VERSION}" | egrep '^v[0-9]+\.[0-9]+\.[0-9]+'
-
     - uses: actions/checkout@v3
-
+    - name: Get latest non-prerelease release
+      id: latestrelease
+      uses: cardinalby/git-get-release-action@v1
+      with:
+        latest: true
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+    - name: Get next minor version
+      id: semverbump
+      uses: WyriHaximus/github-action-next-semvers@v1.2.1
+      with:
+        version: ${{ steps.latestrelease.outputs.tag_name }}
     - name: Update appVersion in chart
       run: |
-        sed -i "s/^const VERSION = \".*\"/const VERSION = \"${TAG_VERSION#v}\"/" ./version.go
+        sed -i "s/^const VERSION = \".*\"/const VERSION = \"${{steps.semverbump.outputs.minor}}\"/" ./version.go
 
     - name: Commit and push
       run: |
@@ -33,5 +37,7 @@ jobs:
         git add ./version.go
         git commit -m "Release ${TAG_VERSION}"
         git push origin main
-        git tag --force "${TAG_VERSION}"
-        git push --force origin ${{ github.event.release.tag_name }}
+    - name: Release SDK
+      uses: DevCycleHQ/release-action@main
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
