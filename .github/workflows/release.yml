@@ -38,6 +38,6 @@ jobs:
         git commit -m "Release ${TAG_VERSION}"
         git push origin main
     - name: Release SDK
-      uses: DevCycleHQ/release-action@main
+      uses: DevCycleHQ/release-action/gh-release@main
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
