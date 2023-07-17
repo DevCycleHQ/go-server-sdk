@@ -51,7 +51,7 @@ jobs:
       - name: Commit and push
         run: |
           git config --global user.email "github-tracker-bot@taplytics.com"
-          git config --global user.name "taplytics-robot"
+          git config --global user.name "DevCycle Automation"
           git add ./version.go
           git commit -m "Release ${{steps.prepare-release.outputs.next-release-tag}}"
           git push origin HEAD:main
@@ -66,3 +66,8 @@ jobs:
           prerelease: ${{ github.event.inputs.prerelease }}
           draft: ${{ github.event.inputs.draft }}
           changelog: ${{ steps.prepare-release.outputs.changelog }}
+
+      - name: Display link to release
+        run: |
+          echo "::notice title=Release ID::${{ steps.create-release.outputs.release-id }}"
+          echo "::notice title=Release URL::${{ steps.create-release.outputs.release-url }}"
