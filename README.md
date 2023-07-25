@@ -16,7 +16,7 @@ import "github.com/devcyclehq/go-server-sdk/v2"
 ## Getting Started
 
 ```golang
-    sdkKey := os.Getenv("DVC_SERVER_KEY")
+    sdkKey := os.Getenv("DEVCYCLE_SERVER_SDK_KEY")
 	user := devcycle.User{UserId: "test"}
 
 	options := devcycle.Options{
