@@ -26,7 +26,7 @@ jobs:
           output-file-path: bench_output.txt
           external-data-json-path: ./cache/benchmark-data.json
           summary-always: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.AUTOMATION_USER_TOKEN }}
           comment-on-alert: true
           alert-threshold: 125%
           fail-on-alert: true
