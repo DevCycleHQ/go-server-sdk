@@ -223,7 +223,7 @@ func createNullableCustomData(data map[string]interface{}) *proto.NullableCustom
 }
 
 /*
-DVCClientService Get all features by key for user data
+Get all features by key for user data
   - @param body
 
 @return map[string]Feature
@@ -454,7 +454,7 @@ func (c *Client) AllVariables(user User) (map[string]ReadOnlyVariable, error) {
 }
 
 /*
-DVCClientService Post events to DevCycle for user
+Post events to DevCycle for user
   - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
   - @param body
 

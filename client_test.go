@@ -420,10 +420,10 @@ func TestClient_TrackLocal_QueueEventBeforeConfig(t *testing.T) {
 }
 
 func TestProduction_Local(t *testing.T) {
-	environmentKey := os.Getenv("DVC_SERVER_KEY")
+	environmentKey := os.Getenv("DEVCYCLE_SERVER_SDK_KEY")
 	user := User{UserId: "test"}
 	if environmentKey == "" {
-		t.Skip("DVC_SERVER_KEY not set. Not using production tests.")
+		t.Skip("DEVCYCLE_SERVER_SDK_KEY not set. Not using production tests.")
 	}
 	dvcOptions := Options{
 		EnableEdgeDB:                 false,

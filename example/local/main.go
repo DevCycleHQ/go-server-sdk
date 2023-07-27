@@ -9,13 +9,13 @@ import (
 )
 
 func main() {
-	sdkKey := os.Getenv("DVC_SERVER_SDK_KEY")
+	sdkKey := os.Getenv("DEVCYCLE_SERVER_SDK_KEY")
 	if sdkKey == "" {
-		log.Fatal("DVC_SERVER_SDK_KEY env var not set: set it to your SDK key")
+		log.Fatal("DEVCYCLE_SERVER_SDK_KEY env var not set: set it to your SDK key")
 	}
-	variableKey := os.Getenv("DVC_VARIABLE_KEY")
+	variableKey := os.Getenv("DEVCYCLE_VARIABLE_KEY")
 	if variableKey == "" {
-		log.Fatal("DVC_VARIABLE_KEY env var not set: set it to a variable key")
+		log.Fatal("DEVCYCLE_VARIABLE_KEY env var not set: set it to a variable key")
 	}
 
 	user := devcycle.User{UserId: "test"}
