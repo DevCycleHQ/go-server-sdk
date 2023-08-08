@@ -52,7 +52,6 @@ type Client struct {
 	eventQueue      *EventManager
 	localBucketing  LocalBucketing
 	platformData    *PlatformData
-
 	// Set to true when the client has been initialized, regardless of whether the config has loaded successfully.
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
@@ -169,6 +168,16 @@ func (c *Client) generateBucketedConfig(user User) (config *BucketedUserConfig, 
 	}
 	config.User = &user
 	return
+}
+
+func (c *Client) GetRawConfig() (config []byte, etag string, err error) {
+	if c.configManager == nil {
+		return nil, "", errors.New("cannot read raw config; config manager is nil")
+	}
+	if c.configManager.HasConfig() {
+		return c.configManager.rawConfig, c.configManager.configETag, nil
+	}
+	return nil, "", errors.New("cannot read raw config; config manager has no config")
 }
 
 func createNullableString(val string) *proto.NullableString {

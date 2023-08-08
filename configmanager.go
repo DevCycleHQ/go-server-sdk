@@ -20,6 +20,7 @@ type ConfigReceiver interface {
 
 type EnvironmentConfigManager struct {
 	sdkKey         string
+	rawConfig      []byte
 	configETag     string
 	localBucketing ConfigReceiver
 	firstLoad      bool
@@ -166,8 +167,9 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag string) error {
 	if err != nil {
 		return err
 	}
-
+	e.rawConfig = config
 	e.hasConfig.Store(true)
+
 	return nil
 }
 
