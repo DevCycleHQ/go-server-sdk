@@ -170,14 +170,14 @@ func (c *Client) generateBucketedConfig(user User) (config *BucketedUserConfig, 
 	return
 }
 
-func (c *Client) GetRawConfig() (config []byte, err error) {
+func (c *Client) GetRawConfig() (config []byte, etag string, err error) {
 	if c.configManager == nil {
-		return nil, errors.New("cannot read raw config; config manager is nil")
+		return nil, "", errors.New("cannot read raw config; config manager is nil")
 	}
 	if c.configManager.HasConfig() {
-		return c.configManager.rawConfig, nil
+		return c.configManager.rawConfig, c.configManager.configETag, nil
 	}
-	return nil, errors.New("cannot read raw config; config manager has no config")
+	return nil, "", errors.New("cannot read raw config; config manager has no config")
 }
 
 func createNullableString(val string) *proto.NullableString {
