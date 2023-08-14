@@ -88,9 +88,8 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 	if !sdkKeyIsValid(sdkKey) {
 		return nil, fmt.Errorf("Invalid sdk key. Call NewClient with a valid sdk key.")
 	}
-	cfg := NewConfiguration(options)
-
 	options.CheckDefaults()
+	cfg := NewConfiguration(options)
 	c := &Client{sdkKey: sdkKey}
 	c.cfg = cfg
 	c.ctx = context.Background()

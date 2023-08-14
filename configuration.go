@@ -89,6 +89,16 @@ func (o *Options) eventQueueOptions() *EventQueueOptions {
 }
 
 func (o *Options) CheckDefaults() {
+	if o.ConfigCDNURI == "" {
+		o.ConfigCDNURI = "https://config-cdn.devcycle.com"
+	}
+	if o.EventsAPIURI == "" {
+		o.EventsAPIURI = "https://events.devcycle.com"
+	}
+	if o.BucketingAPIURI == "" {
+		o.BucketingAPIURI = "https://bucketing-api.devcycle.com"
+	}
+
 	if o.EventFlushIntervalMS < time.Millisecond*500 || o.EventFlushIntervalMS > time.Minute*1 {
 		util.Warnf("EventFlushIntervalMS cannot be less than 500ms or longer than 1 minute. Defaulting to 30 seconds.")
 		o.EventFlushIntervalMS = time.Second * 30
@@ -135,25 +145,11 @@ type HTTPConfiguration struct {
 }
 
 func NewConfiguration(options *Options) *HTTPConfiguration {
-	configBasePath := "https://config-cdn.devcycle.com"
-	if options.ConfigCDNURI != "" {
-		configBasePath = options.ConfigCDNURI
-	}
-
-	eventsApiBasePath := "https://events.devcycle.com"
-	if options.EventsAPIURI != "" {
-		eventsApiBasePath = options.EventsAPIURI
-	}
-
-	bucketingBasePath := "https://bucketing-api.devcycle.com"
-	if options.BucketingAPIURI != "" {
-		bucketingBasePath = options.BucketingAPIURI
-	}
 
 	cfg := &HTTPConfiguration{
-		BasePath:          bucketingBasePath,
-		ConfigCDNBasePath: configBasePath,
-		EventsAPIBasePath: eventsApiBasePath,
+		BasePath:          options.BucketingAPIURI,
+		ConfigCDNBasePath: options.ConfigCDNURI,
+		EventsAPIBasePath: options.EventsAPIURI,
 		DefaultHeader:     make(map[string]string),
 		UserAgent:         "DevCycle-Server-SDK/" + VERSION + "/go",
 		HTTPClient: &http.Client{
