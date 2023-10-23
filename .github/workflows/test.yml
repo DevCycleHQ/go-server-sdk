@@ -1,8 +1,6 @@
 name: Test
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -25,7 +23,7 @@ jobs:
 
     - name: Test that CGO is not required for native bucketing
       run: CGO_ENABLED=0 go test -run="^$" ./...
-      
+
     - name: Test that variable evaluation requires zero heap allocations
       run: >
         go test -run=^$ -bench "^Benchmark.*_VariableSerial$" -benchmem .

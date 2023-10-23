@@ -2,17 +2,18 @@ package main
 
 import (
 	"context"
-	devcycle "github.com/devcyclehq/go-server-sdk/v2"
-	"github.com/open-feature/go-sdk/pkg/openfeature"
 	"log"
 	"os"
 	"time"
+
+	devcycle "github.com/devcyclehq/go-server-sdk/v2"
+	"github.com/open-feature/go-sdk/pkg/openfeature"
 )
 
 func main() {
-	sdkKey := os.Getenv("DVC_SERVER_KEY")
+	sdkKey := os.Getenv("DEVCYCLE_SERVER_SDK_KEY")
 	if sdkKey == "" {
-		log.Fatal("DVC_SERVER_KEY env var not set: set it to your SDK key")
+		log.Fatal("DEVCYCLE_SERVER_SDK_KEY env var not set: set it to your SDK key")
 	}
 
 	dvcOptions := devcycle.Options{
@@ -25,11 +26,13 @@ func main() {
 		DisableCustomEventLogging:    false,
 	}
 	dvcClient, _ := devcycle.NewClient(sdkKey, &dvcOptions)
-	openfeature.SetProvider(devcycle.DevCycleProvider{Client: dvcClient})
+
+	if err := openfeature.SetProvider(devcycle.DevCycleProvider{Client: dvcClient}); err != nil {
+		log.Fatalf("Failed to set DevCycle provider: %v", err)
+	}
 	client := openfeature.NewClient("hello")
 
 	evalCtx := openfeature.NewEvaluationContext("n/a", map[string]interface{}{
-		"userId":            "123",
 		"email":             "chris.hoefgen@taplytics.com",
 		"name":              "Chris Hoefgen",
 		"language":          "en",
@@ -46,7 +49,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Variable results: %v | %T \n", value, value)
+	log.Printf("Variable results: %#v | %T \n", value, value)
 
 	details, err := client.BooleanValueDetails(context.Background(), "doesnt-exist", false, evalCtx)
 
@@ -54,5 +57,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Printf("Variable results: %v\n", details)
+	log.Printf("Variable results: %#v\n", details)
 }
