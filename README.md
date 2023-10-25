@@ -85,6 +85,12 @@ The following options are available when you are using the SDK in Local Bucketin
 | MaxWasmWorkers               | int           | The number of WASM worker objects in the object pool to support high-concurrency. <br>*Not applicable for Native Bucketing Library.*                                                                                            | GOMAXPROCS | 
 | UseDebugWASM                 | bool           | Configures the SDK to use a debug WASM binary to generate more detailed error reporting. Use caution when enabling this setting in production environments.<br>*Not applicable for Native Bucketing Library.*                   | false      |
 
+# OpenFeature Provider
+
+The SDK includes a beta provider that allows you to use the standardized OpenFeature interface. See [example/openfeature](example/openfeature/main.go) for an example of how to use it, and the following references for more information on OpenFeature:
+
+- [The DevCycle Go OpenFeature Provider](https://docs.devcycle.com/sdk/server-side-sdks/go/go-openfeature)
+- [The OpenFeature documentation](https://openfeature.dev/docs/reference/intro)
 
 ## Native Bucketing Library
 
