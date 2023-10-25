@@ -61,7 +61,19 @@ func Test_createUserFromEvaluationContext_CustomData(t *testing.T) {
 	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": "1234", "customData": testCustomData, "privateCustomData": testPrivateData})
 	require.NoError(t, err)
 	require.Equal(t, testCustomData, user.CustomData)
-	require.NotNil(t, user.PrivateCustomData, "Expected customData to be set properly but it was nil")
+	require.Equal(t, testPrivateData, user.PrivateCustomData)
+}
+
+func Test_createUserFromEvaluationContext_NestedProperties(t *testing.T) {
+	testCustomData := map[string]interface{}{"key1": "strVal", "nested": map[string]string{"child": "value"}}
+	testPrivateData := map[string]interface{}{"key1": "otherVal", "nested": map[string]string{"child": "value"}}
+
+	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": "1234", "customData": testCustomData, "privateCustomData": testPrivateData})
+	require.NoError(t, err)
+
+	delete(testCustomData, "nested")
+	delete(testPrivateData, "nested")
+	require.Equal(t, testCustomData, user.CustomData)
 	require.Equal(t, testPrivateData, user.PrivateCustomData)
 }
 
