@@ -105,59 +105,297 @@ func Test_setCustomDataValue(t *testing.T) {
 	require.Len(t, customData, 0, "Nil value should not be set into custom data")
 }
 
-func Test_BooleanEvaluation_Default(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpCustomConfigMock(test_environmentKey, 200, test_config)
+func getProviderForConfig(t *testing.T, config string) openfeature.FeatureProvider {
+	t.Helper()
+
+	httpCustomConfigMock(test_environmentKey, 200, config)
 
 	client, err := NewClient(test_environmentKey, &Options{})
 	require.NoError(t, err)
 
-	provider := DevCycleProvider{Client: client}
+	return DevCycleProvider{Client: client}
+}
+
+func Test_BooleanEvaluation_Default(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
 	}
 	resolutionDetail := provider.BooleanEvaluation(context.Background(), "unknownFlag", false, evalCtx)
 
-	require.False(t, resolutionDetail.Value, "Expected value to be false")
-	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason, "Expected reason to be 'DefaultReason'")
+	require.False(t, resolutionDetail.Value)
+	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
 }
 
 func Test_BooleanEvaluation_BadUserData(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpCustomConfigMock(test_environmentKey, 200, test_config)
-
-	client, err := NewClient(test_environmentKey, &Options{})
-	require.NoError(t, err)
-
-	provider := DevCycleProvider{Client: client}
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"badUserIDKey": "1234",
 	}
 	resolutionDetail := provider.BooleanEvaluation(context.Background(), "test", false, evalCtx)
 
-	require.False(t, resolutionDetail.Value, "Expected value to be false")
-	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason, "Expected reason to be 'ErrorReason'")
+	require.False(t, resolutionDetail.Value)
+	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("userId or targetingKey must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
 }
 
 func Test_BooleanEvaluation_TargetMatch(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpCustomConfigMock(test_environmentKey, 200, test_config)
-
-	client, err := NewClient(test_environmentKey, &Options{})
-	fatalErr(t, err)
-
-	provider := DevCycleProvider{Client: client}
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
 	}
 	resolutionDetail := provider.BooleanEvaluation(context.Background(), "test", false, evalCtx)
 
-	require.True(t, resolutionDetail.Value, "Expected value to be true")
-	require.Equal(t, openfeature.TargetingMatchReason, resolutionDetail.ProviderResolutionDetail.Reason, "Expected reason to be 'TargetingMatchReason'")
+	require.True(t, resolutionDetail.Value)
+	require.Equal(t, openfeature.TargetingMatchReason, resolutionDetail.ProviderResolutionDetail.Reason)
+}
+
+func Test_BooleanEvaluation_TargetMatchInvalidType(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	resolutionDetail := provider.BooleanEvaluation(context.Background(), "v-key-3", false, evalCtx)
+
+	require.False(t, resolutionDetail.Value)
+	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
+}
+
+func Test_StringEvaluation_Default(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	resolutionDetail := provider.StringEvaluation(context.Background(), "unknownFlag", "default", evalCtx)
+
+	require.Equal(t, "default", resolutionDetail.Value)
+	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
+}
+
+func Test_StringEvaluation_BadUserData(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"badUserIDKey": "1234",
+	}
+	resolutionDetail := provider.StringEvaluation(context.Background(), "test", "default", evalCtx)
+
+	require.Equal(t, "default", resolutionDetail.Value)
+	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("userId or targetingKey must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+}
+
+func Test_StringEvaluation_TargetMatch(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	resolutionDetail := provider.StringEvaluation(context.Background(), "v-key-3", "default", evalCtx)
+
+	require.Equal(t, "user_3543a452-296d-40a0-ae93-008583048f32", resolutionDetail.Value)
+	require.Equal(t, openfeature.TargetingMatchReason, resolutionDetail.ProviderResolutionDetail.Reason)
+}
+
+func Test_StringEvaluation_TargetMatchInvalidType(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	resolutionDetail := provider.StringEvaluation(context.Background(), "v-key-4", "default", evalCtx)
+
+	require.Equal(t, "default", resolutionDetail.Value)
+	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
+}
+
+func Test_FloatEvaluation_Default(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	resolutionDetail := provider.FloatEvaluation(context.Background(), "unknownFlag", 1.23, evalCtx)
+
+	require.Equal(t, 1.23, resolutionDetail.Value)
+	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
+}
+
+func Test_FloatEvaluation_BadUserData(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"badUserIDKey": "1234",
+	}
+	resolutionDetail := provider.FloatEvaluation(context.Background(), "test", 1.23, evalCtx)
+
+	require.Equal(t, 1.23, resolutionDetail.Value)
+	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("userId or targetingKey must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+}
+
+func Test_FloatEvaluation_TargetMatch(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	resolutionDetail := provider.FloatEvaluation(context.Background(), "v-key-4", 1.23, evalCtx)
+
+	require.Equal(t, float64(50), resolutionDetail.Value)
+	require.Equal(t, openfeature.TargetingMatchReason, resolutionDetail.ProviderResolutionDetail.Reason)
+}
+
+func Test_FloatEvaluation_TargetMatchInvalidType(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	resolutionDetail := provider.FloatEvaluation(context.Background(), "v-key-3", float64(1.23), evalCtx)
+
+	require.Equal(t, float64(1.23), resolutionDetail.Value)
+	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
+}
+
+func Test_IntEvaluation_Default(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	resolutionDetail := provider.IntEvaluation(context.Background(), "unknownFlag", int64(123), evalCtx)
+
+	require.Equal(t, int64(123), resolutionDetail.Value)
+	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
+}
+
+func Test_IntEvaluation_BadUserData(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"badUserIDKey": "1234",
+	}
+	resolutionDetail := provider.IntEvaluation(context.Background(), "test", int64(123), evalCtx)
+
+	require.Equal(t, int64(123), resolutionDetail.Value)
+	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("userId or targetingKey must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+}
+
+func Test_IntEvaluation_TargetMatch(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	resolutionDetail := provider.IntEvaluation(context.Background(), "v-key-4", 123, evalCtx)
+
+	require.Equal(t, int64(50), resolutionDetail.Value)
+	require.Equal(t, openfeature.TargetingMatchReason, resolutionDetail.ProviderResolutionDetail.Reason)
+}
+
+func Test_IntEvaluation_TargetMatchInvalidType(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	resolutionDetail := provider.IntEvaluation(context.Background(), "v-key-3", int64(123), evalCtx)
+
+	require.Equal(t, int64(123), resolutionDetail.Value)
+	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
+}
+
+func Test_ObjectEvaluation_Default(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	defaultValue := map[string]any{
+		"default": "value",
+	}
+	resolutionDetail := provider.ObjectEvaluation(context.Background(), "unknownFlag", defaultValue, evalCtx)
+
+	require.Equal(t, defaultValue, resolutionDetail.Value)
+	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
+}
+
+func Test_ObjectEvaluation_BadUserData(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"badUserIDKey": "1234",
+	}
+	defaultValue := map[string]any{
+		"default": "value",
+	}
+	resolutionDetail := provider.ObjectEvaluation(context.Background(), "test", defaultValue, evalCtx)
+
+	require.Equal(t, defaultValue, resolutionDetail.Value)
+	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("userId or targetingKey must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+}
+
+// TODO: Test_ObjectEvaluation_TargetMatch
+
+// TODO: Test_ObjectEvaluation_TargetMatchBadDefault
+
+func Test_ObjectEvaluation_TargetMatchInvalidType(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_large_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	defaultValue := map[string]any{
+		"default": "value",
+	}
+	resolutionDetail := provider.ObjectEvaluation(context.Background(), "v-key-3", defaultValue, evalCtx)
+
+	require.Equal(t, defaultValue, resolutionDetail.Value)
+	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
 }

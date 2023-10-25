@@ -3,6 +3,7 @@ package devcycle
 import (
 	"context"
 	"errors"
+
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/open-feature/go-sdk/pkg/openfeature"
 )
@@ -25,7 +26,7 @@ func (p DevCycleProvider) BooleanEvaluation(ctx context.Context, flag string, de
 		return openfeature.BoolResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-				ResolutionError: openfeature.NewGeneralResolutionError(err.Error()), Reason: openfeature.ErrorReason,
+				ResolutionError: openfeature.NewInvalidContextResolutionError(err.Error()), Reason: openfeature.ErrorReason,
 			},
 		}
 	}
@@ -55,7 +56,7 @@ func (p DevCycleProvider) StringEvaluation(ctx context.Context, flag string, def
 		return openfeature.StringResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-				ResolutionError: openfeature.NewGeneralResolutionError(err.Error()), Reason: openfeature.ErrorReason,
+				ResolutionError: openfeature.NewInvalidContextResolutionError(err.Error()), Reason: openfeature.ErrorReason,
 			},
 		}
 	}
@@ -84,7 +85,7 @@ func (p DevCycleProvider) FloatEvaluation(ctx context.Context, flag string, defa
 		return openfeature.FloatResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-				ResolutionError: openfeature.NewGeneralResolutionError(err.Error()), Reason: openfeature.ErrorReason,
+				ResolutionError: openfeature.NewInvalidContextResolutionError(err.Error()), Reason: openfeature.ErrorReason,
 			},
 		}
 	}
@@ -113,7 +114,7 @@ func (p DevCycleProvider) IntEvaluation(ctx context.Context, flag string, defaul
 		return openfeature.IntResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-				ResolutionError: openfeature.NewGeneralResolutionError(err.Error()), Reason: openfeature.ErrorReason,
+				ResolutionError: openfeature.NewInvalidContextResolutionError(err.Error()), Reason: openfeature.ErrorReason,
 			},
 		}
 	}
@@ -132,7 +133,7 @@ func (p DevCycleProvider) IntEvaluation(ctx context.Context, flag string, defaul
 		return openfeature.IntResolutionDetail{Value: defaultValue, ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason}}
 	}
 
-	return openfeature.IntResolutionDetail{Value: variable.Value.(int64), ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.TargetingMatchReason}}
+	return openfeature.IntResolutionDetail{Value: int64(variable.Value.(float64)), ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.TargetingMatchReason}}
 }
 
 // ObjectEvaluation returns an object flag
@@ -143,7 +144,7 @@ func (p DevCycleProvider) ObjectEvaluation(ctx context.Context, flag string, def
 		return openfeature.InterfaceResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-				ResolutionError: openfeature.NewGeneralResolutionError(err.Error()), Reason: openfeature.ErrorReason,
+				ResolutionError: openfeature.NewInvalidContextResolutionError(err.Error()), Reason: openfeature.ErrorReason,
 			},
 		}
 	}
