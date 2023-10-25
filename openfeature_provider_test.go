@@ -2,31 +2,26 @@ package devcycle
 
 import (
 	"context"
+	"testing"
+
 	"github.com/jarcoal/httpmock"
 	"github.com/open-feature/go-sdk/pkg/openfeature"
-	"reflect"
-	"testing"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_createUserFromEvaluationContext_NoUserID(t *testing.T) {
 	_, err := createUserFromEvaluationContext(openfeature.FlattenedContext{})
-	if err == nil {
-		t.Fatal("Expected error when userId is not provided")
-	}
+	require.Error(t, err, "Expected error when userId is not provided")
 }
 
 func Test_createUserFromEvaluationContext_SimpleUser(t *testing.T) {
 	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": "1234"})
-	fatalErr(t, err)
-	if user.UserId != "1234" {
-		t.Errorf("Expected userId to be '1234', but got '%s'", user.UserId)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "1234", user.UserId)
 
 	user, err = createUserFromEvaluationContext(openfeature.FlattenedContext{"targetingKey": "1234"})
-	fatalErr(t, err)
-	if user.UserId != "1234" {
-		t.Errorf("Expected userId to be '1234' when sourced from targetingKey, but got '%s'", user.UserId)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "1234", user.UserId)
 }
 
 func Test_createUserFromEvaluationContext_AllUserProperties(t *testing.T) {
@@ -41,73 +36,33 @@ func Test_createUserFromEvaluationContext_AllUserProperties(t *testing.T) {
 		"deviceModel": "iPhone X21",
 	}
 	user, err := createUserFromEvaluationContext(ctx)
-	fatalErr(t, err)
-	if user.UserId != ctx["userId"] {
-		t.Errorf("Expected userId to be '%s', but got '%s'", ctx["userId"], user.UserId)
-	}
-	if user.Email != ctx["email"] {
-		t.Errorf("Expected email to be '%s', but got '%s'", ctx["email"], user.Email)
-	}
-
-	if user.Name != ctx["name"] {
-		t.Errorf("Expected name to be '%s', but got '%s'", ctx["name"], user.Name)
-	}
-
-	if user.Language != ctx["language"] {
-		t.Errorf("Expected language to be '%s', but got '%s'", ctx["language"], user.Language)
-	}
-
-	if user.Country != ctx["country"] {
-		t.Errorf("Expected country to be '%s', but got '%s'", ctx["country"], user.Country)
-	}
-
-	if user.AppVersion != ctx["appVersion"] {
-		t.Errorf("Expected appVersion to be '%s', but got '%s'", ctx["appVersion"], user.AppVersion)
-	}
-
-	if user.AppBuild != ctx["appBuild"] {
-		t.Errorf("Exfpected appBuild to be '%s', but got '%s'", ctx["appBuild"], user.AppBuild)
-	}
-
-	if user.DeviceModel != ctx["deviceModel"] {
-		t.Errorf("Expected deviceModel to be '%s', but got '%s'", ctx["deviceModel"], user.DeviceModel)
-	}
-
-	if user.CustomData != nil {
-		t.Errorf("Expected customData to be nil, but got '%s'", user.CustomData)
-	}
-
-	if user.PrivateCustomData != nil {
-		t.Errorf("Expected privateCustomData to be nil, but got '%s'", user.PrivateCustomData)
-	}
-
+	require.NoError(t, err)
+	require.Equal(t, ctx["userId"], user.UserId)
+	require.Equal(t, ctx["email"], user.Email)
+	require.Equal(t, ctx["name"], user.Name)
+	require.Equal(t, ctx["language"], user.Language)
+	require.Equal(t, ctx["country"], user.Country)
+	require.Equal(t, ctx["appVersion"], user.AppVersion)
+	require.Equal(t, ctx["appBuild"], user.AppBuild)
+	require.Equal(t, ctx["deviceModel"], user.DeviceModel)
+	require.Nil(t, user.CustomData)
+	require.Nil(t, user.PrivateCustomData)
 }
 
 func Test_createUserFromEvaluationContext_InvalidDataType(t *testing.T) {
 	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": "1234", "email": 1234})
-	fatalErr(t, err)
-	if user.Email != "" {
-		t.Errorf("Expected email to be empty due to bad data, but got '%s'", user.Email)
-	}
+	require.NoError(t, err)
+	require.Empty(t, user.Email)
 }
 
 func Test_createUserFromEvaluationContext_CustomData(t *testing.T) {
 	testCustomData := map[string]interface{}{"key1": "strVal", "key2": float64(1234), "key3": true}
 	testPrivateData := map[string]interface{}{"key1": "otherVal", "key2": float64(9999), "key3": false}
 	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": "1234", "customData": testCustomData, "privateCustomData": testPrivateData})
-	fatalErr(t, err)
-	if user.CustomData == nil {
-		t.Errorf("Expected email to be empty due to bad data, but got '%s'", user.Email)
-	}
-	if !reflect.DeepEqual(user.CustomData, testCustomData) {
-		t.Errorf("Expected user custom data to be '%s', but got '%s'", testCustomData, user.CustomData)
-	}
-	if user.PrivateCustomData == nil {
-		t.Errorf("Expected customData to be set properly but it was nil")
-	}
-	if !reflect.DeepEqual(user.PrivateCustomData, testPrivateData) {
-		t.Errorf("Expected user private custom data to be '%s', but got '%s'", testPrivateData, user.PrivateCustomData)
-	}
+	require.NoError(t, err)
+	require.Equal(t, testCustomData, user.CustomData)
+	require.NotNil(t, user.PrivateCustomData, "Expected customData to be set properly but it was nil")
+	require.Equal(t, testPrivateData, user.PrivateCustomData)
 }
 
 func Test_setCustomDataValue(t *testing.T) {
@@ -129,17 +84,13 @@ func Test_setCustomDataValue(t *testing.T) {
 	for _, testCase := range testCases {
 		customData := make(map[string]interface{})
 		setCustomDataValue(customData, "key", testCase.val)
-		if !reflect.DeepEqual(customData["key"], testCase.expectedVal) {
-			t.Errorf("%s Test: Expected '%v', but got '%v'", testCase.testName, testCase.expectedVal, customData["key"])
-		}
+		require.Equal(t, testCase.expectedVal, customData["key"])
 	}
 
 	// Test 8 - Nil value
 	customData := make(map[string]interface{})
 	setCustomDataValue(customData, "nilTest", nil)
-	if len(customData) != 0 {
-		t.Errorf("Nil value should not be set into custom data, but got '%v'", customData)
-	}
+	require.Len(t, customData, 0, "Nil value should not be set into custom data")
 }
 
 func Test_BooleanEvaluation_Default(t *testing.T) {
@@ -148,7 +99,7 @@ func Test_BooleanEvaluation_Default(t *testing.T) {
 	httpCustomConfigMock(test_environmentKey, 200, test_config)
 
 	client, err := NewClient(test_environmentKey, &Options{})
-	fatalErr(t, err)
+	require.NoError(t, err)
 
 	provider := DevCycleProvider{Client: client}
 
@@ -157,13 +108,8 @@ func Test_BooleanEvaluation_Default(t *testing.T) {
 	}
 	resolutionDetail := provider.BooleanEvaluation(context.Background(), "unknownFlag", false, evalCtx)
 
-	if resolutionDetail.Value != false {
-		t.Errorf("Expected value to be false, but got '%v'", resolutionDetail.Value)
-	}
-
-	if resolutionDetail.ProviderResolutionDetail.Reason != openfeature.DefaultReason {
-		t.Errorf("Expected reason to be 'DefaultReason', but got '%s'", resolutionDetail.ProviderResolutionDetail.Reason)
-	}
+	require.False(t, resolutionDetail.Value, "Expected value to be false")
+	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason, "Expected reason to be 'DefaultReason'")
 }
 
 func Test_BooleanEvaluation_BadUserData(t *testing.T) {
@@ -172,7 +118,7 @@ func Test_BooleanEvaluation_BadUserData(t *testing.T) {
 	httpCustomConfigMock(test_environmentKey, 200, test_config)
 
 	client, err := NewClient(test_environmentKey, &Options{})
-	fatalErr(t, err)
+	require.NoError(t, err)
 
 	provider := DevCycleProvider{Client: client}
 
@@ -181,13 +127,8 @@ func Test_BooleanEvaluation_BadUserData(t *testing.T) {
 	}
 	resolutionDetail := provider.BooleanEvaluation(context.Background(), "test", false, evalCtx)
 
-	if resolutionDetail.Value != false {
-		t.Errorf("Expected value to be false, but got '%v'", resolutionDetail.Value)
-	}
-
-	if resolutionDetail.ProviderResolutionDetail.Reason != openfeature.ErrorReason {
-		t.Errorf("Expected reason to be 'ErrorReason', but got '%s'", resolutionDetail.ProviderResolutionDetail.Reason)
-	}
+	require.False(t, resolutionDetail.Value, "Expected value to be false")
+	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason, "Expected reason to be 'ErrorReason'")
 }
 
 func Test_BooleanEvaluation_TargetMatch(t *testing.T) {
@@ -205,11 +146,6 @@ func Test_BooleanEvaluation_TargetMatch(t *testing.T) {
 	}
 	resolutionDetail := provider.BooleanEvaluation(context.Background(), "test", false, evalCtx)
 
-	if resolutionDetail.Value != true {
-		t.Errorf("Expected value to be true, but got '%v'", resolutionDetail.Value)
-	}
-
-	if resolutionDetail.ProviderResolutionDetail.Reason != openfeature.TargetingMatchReason {
-		t.Errorf("Expected reason to be 'TargetingMatchReason', but got '%s'", resolutionDetail.ProviderResolutionDetail.Reason)
-	}
+	require.True(t, resolutionDetail.Value, "Expected value to be true")
+	require.Equal(t, openfeature.TargetingMatchReason, resolutionDetail.ProviderResolutionDetail.Reason, "Expected reason to be 'TargetingMatchReason'")
 }
