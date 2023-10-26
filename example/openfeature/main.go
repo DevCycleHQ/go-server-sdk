@@ -27,14 +27,14 @@ func main() {
 	}
 	dvcClient, _ := devcycle.NewClient(sdkKey, &dvcOptions)
 
-	if err := openfeature.SetProvider(devcycle.DevCycleProvider{Client: dvcClient}); err != nil {
+	if err := openfeature.SetProvider(dvcClient.OpenFeatureProvider()); err != nil {
 		log.Fatalf("Failed to set DevCycle provider: %v", err)
 	}
-	client := openfeature.NewClient("hello")
+	client := openfeature.NewClient("devcycle")
 
-	evalCtx := openfeature.NewEvaluationContext("n/a", map[string]interface{}{
-		"email":             "chris.hoefgen@taplytics.com",
-		"name":              "Chris Hoefgen",
+	evalCtx := openfeature.NewEvaluationContext("test-1234", map[string]interface{}{
+		"email":             "test-user@domain.com",
+		"name":              "Test User",
 		"language":          "en",
 		"country":           "CA",
 		"appVersion":        "1.0.0",
@@ -44,18 +44,30 @@ func main() {
 		"deviceModel":       "Macbook",
 	})
 
-	value, err := client.ObjectValue(context.Background(), "json-testing", map[string]interface{}{"default": "value"}, evalCtx)
+	// Retrieving an object variable with a default value
+	value, err := client.ObjectValue(context.Background(), "test-json-variable", map[string]interface{}{"value": "default"}, evalCtx)
 
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Variable results: %#v | %T \n", value, value)
+	log.Printf("Variable results: %#v", value)
 
-	details, err := client.BooleanValueDetails(context.Background(), "doesnt-exist", false, evalCtx)
+	// Checking a boolean variable flag
+	booleanVariable := "test-boolean-variable"
+	if featureEnabled, err := client.BooleanValue(context.Background(), booleanVariable, false, evalCtx); err != nil {
+		log.Printf("Error retrieving feature flag: %v", err)
+	} else if featureEnabled {
+		log.Printf("%v = true, feature is enabled", booleanVariable)
+	} else {
+		log.Printf("%v = false, feature is disabled", booleanVariable)
+	}
+
+	// Retrieving a string variable along with the resolution details
+	details, err := client.StringValueDetails(context.Background(), "doesnt-exist", "default", evalCtx)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Printf("Variable results: %#v\n", details)
+	log.Printf("Variable results for unknown variable: %#v", details)
 }
