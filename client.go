@@ -707,6 +707,8 @@ func convertDefaultValueType(value interface{}) interface{} {
 	}
 }
 
+var ErrInvalidDefaultValue = errors.New("the default value for variable is not of type Boolean, Number, String, or JSON")
+
 func variableTypeFromValue(key string, value interface{}, allowNil bool) (varType string, err error) {
 	switch value.(type) {
 	case float64:
@@ -723,7 +725,7 @@ func variableTypeFromValue(key string, value interface{}, allowNil bool) (varTyp
 		}
 	}
 
-	return "", fmt.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
+	return "", fmt.Errorf("%w: %s", ErrInvalidDefaultValue, key)
 }
 
 // callAPI do the request.

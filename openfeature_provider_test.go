@@ -409,7 +409,7 @@ func Test_ObjectEvaluation_TargetMatchBadDefault(t *testing.T) {
 
 	require.Equal(t, defaultValue, resolutionDetail.Value)
 	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
-	require.Equal(t, openfeature.NewGeneralResolutionError("the default value for variable test-json-variable is not of type Boolean, Number, String, or JSON"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+	require.Equal(t, openfeature.NewTypeMismatchResolutionError("the default value for variable is not of type Boolean, Number, String, or JSON: test-json-variable"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
 }
 
 func Test_ObjectEvaluation_TargetMatchInvalidType(t *testing.T) {

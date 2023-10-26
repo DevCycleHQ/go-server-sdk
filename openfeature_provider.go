@@ -20,7 +20,6 @@ func (p DevCycleProvider) Metadata() openfeature.Metadata {
 
 // BooleanEvaluation returns a boolean flag
 func (p DevCycleProvider) BooleanEvaluation(ctx context.Context, flag string, defaultValue bool, evalCtx openfeature.FlattenedContext) openfeature.BoolResolutionDetail {
-
 	user, err := createUserFromEvaluationContext(evalCtx)
 	if err != nil {
 		return openfeature.BoolResolutionDetail{
@@ -37,7 +36,7 @@ func (p DevCycleProvider) BooleanEvaluation(ctx context.Context, flag string, de
 		return openfeature.BoolResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-				ResolutionError: openfeature.NewGeneralResolutionError(err.Error()), Reason: openfeature.ErrorReason,
+				ResolutionError: toOpenFeatureError(err), Reason: openfeature.ErrorReason,
 			},
 		}
 	}
@@ -66,7 +65,7 @@ func (p DevCycleProvider) StringEvaluation(ctx context.Context, flag string, def
 		return openfeature.StringResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-				ResolutionError: openfeature.NewGeneralResolutionError(err.Error()), Reason: openfeature.ErrorReason,
+				ResolutionError: toOpenFeatureError(err), Reason: openfeature.ErrorReason,
 			},
 		}
 	}
@@ -95,7 +94,7 @@ func (p DevCycleProvider) FloatEvaluation(ctx context.Context, flag string, defa
 		return openfeature.FloatResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-				ResolutionError: openfeature.NewGeneralResolutionError(err.Error()), Reason: openfeature.ErrorReason,
+				ResolutionError: toOpenFeatureError(err), Reason: openfeature.ErrorReason,
 			},
 		}
 	}
@@ -124,7 +123,7 @@ func (p DevCycleProvider) IntEvaluation(ctx context.Context, flag string, defaul
 		return openfeature.IntResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-				ResolutionError: openfeature.NewGeneralResolutionError(err.Error()), Reason: openfeature.ErrorReason,
+				ResolutionError: toOpenFeatureError(err), Reason: openfeature.ErrorReason,
 			},
 		}
 	}
@@ -154,7 +153,7 @@ func (p DevCycleProvider) ObjectEvaluation(ctx context.Context, flag string, def
 		return openfeature.InterfaceResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-				ResolutionError: openfeature.NewGeneralResolutionError(err.Error()), Reason: openfeature.ErrorReason,
+				ResolutionError: toOpenFeatureError(err), Reason: openfeature.ErrorReason,
 			},
 		}
 	}
@@ -169,6 +168,13 @@ func (p DevCycleProvider) ObjectEvaluation(ctx context.Context, flag string, def
 // Hooks returns hooks
 func (p DevCycleProvider) Hooks() []openfeature.Hook {
 	return []openfeature.Hook{}
+}
+
+func toOpenFeatureError(err error) openfeature.ResolutionError {
+	if errors.Is(err, ErrInvalidDefaultValue) {
+		return openfeature.NewTypeMismatchResolutionError(err.Error())
+	}
+	return openfeature.NewGeneralResolutionError(err.Error())
 }
 
 func createUserFromEvaluationContext(evalCtx openfeature.FlattenedContext) (User, error) {
