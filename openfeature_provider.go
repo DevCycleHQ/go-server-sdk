@@ -18,6 +18,11 @@ func (p DevCycleProvider) Metadata() openfeature.Metadata {
 	return openfeature.Metadata{Name: "devcycle-go-provider"}
 }
 
+// Convenience method for creating a DevCycleProvider from a Client
+func (c *Client) OpenFeatureProvider() DevCycleProvider {
+	return DevCycleProvider{Client: c}
+}
+
 // BooleanEvaluation returns a boolean flag
 func (p DevCycleProvider) BooleanEvaluation(ctx context.Context, flag string, defaultValue bool, evalCtx openfeature.FlattenedContext) openfeature.BoolResolutionDetail {
 	user, err := createUserFromEvaluationContext(evalCtx)
