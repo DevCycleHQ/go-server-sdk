@@ -162,12 +162,12 @@ func Test_BooleanEvaluation_TargetMatch(t *testing.T) {
 func Test_BooleanEvaluation_TargetMatchInvalidType(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
 	}
-	resolutionDetail := provider.BooleanEvaluation(context.Background(), "v-key-3", false, evalCtx)
+	resolutionDetail := provider.BooleanEvaluation(context.Background(), "test-string-variable", false, evalCtx)
 
 	require.False(t, resolutionDetail.Value)
 	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
@@ -176,7 +176,7 @@ func Test_BooleanEvaluation_TargetMatchInvalidType(t *testing.T) {
 func Test_StringEvaluation_Default(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -190,12 +190,12 @@ func Test_StringEvaluation_Default(t *testing.T) {
 func Test_StringEvaluation_BadUserData(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"badUserIDKey": "1234",
 	}
-	resolutionDetail := provider.StringEvaluation(context.Background(), "test", "default", evalCtx)
+	resolutionDetail := provider.StringEvaluation(context.Background(), "test-string-variable", "default", evalCtx)
 
 	require.Equal(t, "default", resolutionDetail.Value)
 	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
@@ -205,26 +205,26 @@ func Test_StringEvaluation_BadUserData(t *testing.T) {
 func Test_StringEvaluation_TargetMatch(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
 	}
-	resolutionDetail := provider.StringEvaluation(context.Background(), "v-key-3", "default", evalCtx)
+	resolutionDetail := provider.StringEvaluation(context.Background(), "test-string-variable", "default", evalCtx)
 
-	require.Equal(t, "user_3543a452-296d-40a0-ae93-008583048f32", resolutionDetail.Value)
+	require.Equal(t, "on", resolutionDetail.Value)
 	require.Equal(t, openfeature.TargetingMatchReason, resolutionDetail.ProviderResolutionDetail.Reason)
 }
 
 func Test_StringEvaluation_TargetMatchInvalidType(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
 	}
-	resolutionDetail := provider.StringEvaluation(context.Background(), "v-key-4", "default", evalCtx)
+	resolutionDetail := provider.StringEvaluation(context.Background(), "test-number-variable", "default", evalCtx)
 
 	require.Equal(t, "default", resolutionDetail.Value)
 	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
@@ -233,7 +233,7 @@ func Test_StringEvaluation_TargetMatchInvalidType(t *testing.T) {
 func Test_FloatEvaluation_Default(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -247,7 +247,7 @@ func Test_FloatEvaluation_Default(t *testing.T) {
 func Test_FloatEvaluation_BadUserData(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"badUserIDKey": "1234",
@@ -262,26 +262,26 @@ func Test_FloatEvaluation_BadUserData(t *testing.T) {
 func Test_FloatEvaluation_TargetMatch(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
 	}
-	resolutionDetail := provider.FloatEvaluation(context.Background(), "v-key-4", 1.23, evalCtx)
+	resolutionDetail := provider.FloatEvaluation(context.Background(), "test-number-variable", 1.23, evalCtx)
 
-	require.Equal(t, float64(50), resolutionDetail.Value)
+	require.Equal(t, float64(1), resolutionDetail.Value)
 	require.Equal(t, openfeature.TargetingMatchReason, resolutionDetail.ProviderResolutionDetail.Reason)
 }
 
 func Test_FloatEvaluation_TargetMatchInvalidType(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
 	}
-	resolutionDetail := provider.FloatEvaluation(context.Background(), "v-key-3", float64(1.23), evalCtx)
+	resolutionDetail := provider.FloatEvaluation(context.Background(), "test-string-variable", float64(1.23), evalCtx)
 
 	require.Equal(t, float64(1.23), resolutionDetail.Value)
 	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
@@ -290,7 +290,7 @@ func Test_FloatEvaluation_TargetMatchInvalidType(t *testing.T) {
 func Test_IntEvaluation_Default(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -304,7 +304,7 @@ func Test_IntEvaluation_Default(t *testing.T) {
 func Test_IntEvaluation_BadUserData(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"badUserIDKey": "1234",
@@ -319,26 +319,26 @@ func Test_IntEvaluation_BadUserData(t *testing.T) {
 func Test_IntEvaluation_TargetMatch(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
 	}
-	resolutionDetail := provider.IntEvaluation(context.Background(), "v-key-4", 123, evalCtx)
+	resolutionDetail := provider.IntEvaluation(context.Background(), "test-number-variable", 123, evalCtx)
 
-	require.Equal(t, int64(50), resolutionDetail.Value)
+	require.Equal(t, int64(1), resolutionDetail.Value)
 	require.Equal(t, openfeature.TargetingMatchReason, resolutionDetail.ProviderResolutionDetail.Reason)
 }
 
 func Test_IntEvaluation_TargetMatchInvalidType(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
 	}
-	resolutionDetail := provider.IntEvaluation(context.Background(), "v-key-3", int64(123), evalCtx)
+	resolutionDetail := provider.IntEvaluation(context.Background(), "test-string-variable", int64(123), evalCtx)
 
 	require.Equal(t, int64(123), resolutionDetail.Value)
 	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
@@ -347,7 +347,7 @@ func Test_IntEvaluation_TargetMatchInvalidType(t *testing.T) {
 func Test_ObjectEvaluation_Default(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -364,7 +364,7 @@ func Test_ObjectEvaluation_Default(t *testing.T) {
 func Test_ObjectEvaluation_BadUserData(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"badUserIDKey": "1234",
@@ -379,14 +379,10 @@ func Test_ObjectEvaluation_BadUserData(t *testing.T) {
 	require.Equal(t, openfeature.NewInvalidContextResolutionError("userId or targetingKey must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
 }
 
-// TODO: Test_ObjectEvaluation_TargetMatch
-
-// TODO: Test_ObjectEvaluation_TargetMatchBadDefault
-
-func Test_ObjectEvaluation_TargetMatchInvalidType(t *testing.T) {
+func Test_ObjectEvaluation_TargetMatch(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_large_config)
+	provider := getProviderForConfig(t, test_config)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -394,7 +390,40 @@ func Test_ObjectEvaluation_TargetMatchInvalidType(t *testing.T) {
 	defaultValue := map[string]any{
 		"default": "value",
 	}
-	resolutionDetail := provider.ObjectEvaluation(context.Background(), "v-key-3", defaultValue, evalCtx)
+	resolutionDetail := provider.ObjectEvaluation(context.Background(), "test-json-variable", defaultValue, evalCtx)
+
+	require.Equal(t, map[string]interface{}{"message": "a"}, resolutionDetail.Value)
+	require.Equal(t, openfeature.TargetingMatchReason, resolutionDetail.ProviderResolutionDetail.Reason)
+}
+
+func Test_ObjectEvaluation_TargetMatchBadDefault(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	defaultValue := []string{"default"}
+	resolutionDetail := provider.ObjectEvaluation(context.Background(), "test-json-variable", defaultValue, evalCtx)
+
+	require.Equal(t, defaultValue, resolutionDetail.Value)
+	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
+	require.Equal(t, openfeature.NewGeneralResolutionError("the default value for variable test-json-variable is not of type Boolean, Number, String, or JSON"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+}
+
+func Test_ObjectEvaluation_TargetMatchInvalidType(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_config)
+
+	evalCtx := openfeature.FlattenedContext{
+		"userId": "1234",
+	}
+	defaultValue := map[string]any{
+		"default": "value",
+	}
+	resolutionDetail := provider.ObjectEvaluation(context.Background(), "test-string-variable", defaultValue, evalCtx)
 
 	require.Equal(t, defaultValue, resolutionDetail.Value)
 	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
