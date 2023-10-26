@@ -10,7 +10,11 @@ import (
 
 // DevCycleProvider implements the FeatureProvider interface and provides functions for evaluating flags
 type DevCycleProvider struct {
-	Client *Client
+	Client ClientImpl
+}
+
+type ClientImpl interface {
+	Variable(userdata User, key string, defaultValue interface{}) (Variable, error)
 }
 
 // Metadata returns the metadata of the provider
@@ -47,10 +51,32 @@ func (p DevCycleProvider) BooleanEvaluation(ctx context.Context, flag string, de
 	}
 
 	if variable.IsDefaulted {
-		return openfeature.BoolResolutionDetail{Value: defaultValue, ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason}}
+		return openfeature.BoolResolutionDetail{
+			Value:                    defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason},
+		}
 	}
 
-	return openfeature.BoolResolutionDetail{Value: variable.Value.(bool), ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.TargetingMatchReason}}
+	switch variable.Value.(type) {
+	case bool:
+		return openfeature.BoolResolutionDetail{
+			Value:                    variable.Value.(bool),
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.TargetingMatchReason},
+		}
+	case nil:
+		return openfeature.BoolResolutionDetail{
+			Value:                    defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason},
+		}
+	default:
+		return openfeature.BoolResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+				Reason:          openfeature.ErrorReason,
+				ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+			},
+		}
+	}
 }
 
 // StringEvaluation returns a string flag
@@ -76,10 +102,32 @@ func (p DevCycleProvider) StringEvaluation(ctx context.Context, flag string, def
 	}
 
 	if variable.IsDefaulted {
-		return openfeature.StringResolutionDetail{Value: defaultValue, ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason}}
+		return openfeature.StringResolutionDetail{
+			Value:                    defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason},
+		}
 	}
 
-	return openfeature.StringResolutionDetail{Value: variable.Value.(string), ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.TargetingMatchReason}}
+	switch variable.Value.(type) {
+	case string:
+		return openfeature.StringResolutionDetail{
+			Value:                    variable.Value.(string),
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.TargetingMatchReason},
+		}
+	case nil:
+		return openfeature.StringResolutionDetail{
+			Value:                    defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason},
+		}
+	default:
+		return openfeature.StringResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+				Reason:          openfeature.ErrorReason,
+				ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+			},
+		}
+	}
 }
 
 // FloatEvaluation returns a float flag
@@ -105,10 +153,32 @@ func (p DevCycleProvider) FloatEvaluation(ctx context.Context, flag string, defa
 	}
 
 	if variable.IsDefaulted {
-		return openfeature.FloatResolutionDetail{Value: defaultValue, ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason}}
+		return openfeature.FloatResolutionDetail{
+			Value:                    defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason},
+		}
 	}
 
-	return openfeature.FloatResolutionDetail{Value: variable.Value.(float64), ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.TargetingMatchReason}}
+	switch castValue := variable.Value.(type) {
+	case float64:
+		return openfeature.FloatResolutionDetail{
+			Value:                    castValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.TargetingMatchReason},
+		}
+	case nil:
+		return openfeature.FloatResolutionDetail{
+			Value:                    defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason},
+		}
+	default:
+		return openfeature.FloatResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+				Reason:          openfeature.ErrorReason,
+				ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+			},
+		}
+	}
 }
 
 // IntEvaluation returns an int flag
@@ -134,10 +204,32 @@ func (p DevCycleProvider) IntEvaluation(ctx context.Context, flag string, defaul
 	}
 
 	if variable.IsDefaulted {
-		return openfeature.IntResolutionDetail{Value: defaultValue, ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason}}
+		return openfeature.IntResolutionDetail{
+			Value:                    defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason},
+		}
 	}
 
-	return openfeature.IntResolutionDetail{Value: int64(variable.Value.(float64)), ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.TargetingMatchReason}}
+	switch castValue := variable.Value.(type) {
+	case float64:
+		return openfeature.IntResolutionDetail{
+			Value:                    int64(castValue),
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.TargetingMatchReason},
+		}
+	case nil:
+		return openfeature.IntResolutionDetail{
+			Value:                    defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason},
+		}
+	default:
+		return openfeature.IntResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+				Reason:          openfeature.ErrorReason,
+				ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+			},
+		}
+	}
 }
 
 // ObjectEvaluation returns an object flag
@@ -163,11 +255,17 @@ func (p DevCycleProvider) ObjectEvaluation(ctx context.Context, flag string, def
 		}
 	}
 
-	if variable.IsDefaulted {
-		return openfeature.InterfaceResolutionDetail{Value: defaultValue, ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason}}
+	if variable.IsDefaulted || variable.Value == nil {
+		return openfeature.InterfaceResolutionDetail{
+			Value:                    defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason},
+		}
 	}
 
-	return openfeature.InterfaceResolutionDetail{Value: variable.Value, ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.TargetingMatchReason}}
+	return openfeature.InterfaceResolutionDetail{
+		Value:                    variable.Value,
+		ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.TargetingMatchReason},
+	}
 }
 
 // Hooks returns hooks

@@ -428,3 +428,212 @@ func Test_ObjectEvaluation_TargetMatchInvalidType(t *testing.T) {
 	require.Equal(t, defaultValue, resolutionDetail.Value)
 	require.Equal(t, openfeature.DefaultReason, resolutionDetail.ProviderResolutionDetail.Reason)
 }
+
+type StubClient struct {
+	variable Variable
+	err      error
+}
+
+func (c StubClient) Variable(userdata User, key string, defaultValue interface{}) (Variable, error) {
+	return c.variable, c.err
+}
+
+func TestEvaluationValueHandling(t *testing.T) {
+	evalCtx := openfeature.FlattenedContext{"userId": "1234"}
+	testCases := []struct {
+		name        string
+		method      string
+		variable    Variable
+		errorResult error
+		expected    any
+	}{
+		{
+			name:     "BooleanEvaluation default",
+			method:   "BooleanEvaluation",
+			variable: Variable{IsDefaulted: true},
+			expected: openfeature.BoolResolutionDetail{
+				Value: false,
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason: openfeature.DefaultReason,
+				},
+			},
+		},
+		{
+			name:     "BooleanEvaluation nil",
+			method:   "BooleanEvaluation",
+			variable: Variable{},
+			expected: openfeature.BoolResolutionDetail{
+				Value: false,
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason: openfeature.DefaultReason,
+				},
+			},
+		},
+		{
+			name:     "BooleanEvaluation unexpected type",
+			method:   "BooleanEvaluation",
+			variable: Variable{BaseVariable: BaseVariable{Value: "not a bool"}},
+			expected: openfeature.BoolResolutionDetail{
+				Value: false,
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason:          openfeature.ErrorReason,
+					ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+				},
+			},
+		},
+		{
+			name:     "StringEvaluation default",
+			method:   "StringEvaluation",
+			variable: Variable{IsDefaulted: true},
+			expected: openfeature.StringResolutionDetail{
+				Value: "default",
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason: openfeature.DefaultReason,
+				},
+			},
+		},
+		{
+			name:     "StringEvaluation nil",
+			method:   "StringEvaluation",
+			variable: Variable{},
+			expected: openfeature.StringResolutionDetail{
+				Value: "default",
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason: openfeature.DefaultReason,
+				},
+			},
+		},
+		{
+			name:     "StringEvaluation unexpected type",
+			method:   "StringEvaluation",
+			variable: Variable{BaseVariable: BaseVariable{Value: 1234}},
+			expected: openfeature.StringResolutionDetail{
+				Value: "default",
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason:          openfeature.ErrorReason,
+					ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+				},
+			},
+		},
+		{
+			name:     "FloatEvaluation default",
+			method:   "FloatEvaluation",
+			variable: Variable{IsDefaulted: true},
+			expected: openfeature.FloatResolutionDetail{
+				Value: 1.23,
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason: openfeature.DefaultReason,
+				},
+			},
+		},
+		{
+			name:     "FloatEvaluation nil",
+			method:   "FloatEvaluation",
+			variable: Variable{},
+			expected: openfeature.FloatResolutionDetail{
+				Value: 1.23,
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason: openfeature.DefaultReason,
+				},
+			},
+		},
+		{
+			name:     "FloatEvaluation unexpected type",
+			method:   "FloatEvaluation",
+			variable: Variable{BaseVariable: BaseVariable{Value: "not a float64"}},
+			expected: openfeature.FloatResolutionDetail{
+				Value: 1.23,
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason:          openfeature.ErrorReason,
+					ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+				},
+			},
+		},
+		{
+			name:     "IntEvaluation default",
+			method:   "IntEvaluation",
+			variable: Variable{IsDefaulted: true},
+			expected: openfeature.IntResolutionDetail{
+				Value: 123,
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason: openfeature.DefaultReason,
+				},
+			},
+		},
+		{
+			name:     "IntEvaluation nil",
+			method:   "IntEvaluation",
+			variable: Variable{},
+			expected: openfeature.IntResolutionDetail{
+				Value: 123,
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason: openfeature.DefaultReason,
+				},
+			},
+		},
+		{
+			name:     "IntEvaluation unexpected type",
+			method:   "IntEvaluation",
+			variable: Variable{BaseVariable: BaseVariable{Value: "not a int64"}},
+			expected: openfeature.IntResolutionDetail{
+				Value: 123,
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason:          openfeature.ErrorReason,
+					ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+				},
+			},
+		},
+		{
+			name:     "ObjectEvaluation default",
+			method:   "ObjectEvaluation",
+			variable: Variable{IsDefaulted: true},
+			expected: openfeature.InterfaceResolutionDetail{
+				Value: map[string]bool{"default": true},
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason: openfeature.DefaultReason,
+				},
+			},
+		},
+		{
+			name:     "ObjectEvaluation nil",
+			method:   "ObjectEvaluation",
+			variable: Variable{},
+			expected: openfeature.InterfaceResolutionDetail{
+				Value: map[string]bool{"default": true},
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason: openfeature.DefaultReason,
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a DevCycleProvider with the mock client
+			provider := DevCycleProvider{
+				Client: StubClient{
+					variable: tc.variable,
+					err:      tc.errorResult,
+				},
+			}
+
+			// Call BooleanEvaluation with the test case inputs
+
+			var result any
+			switch tc.method {
+			case "BooleanEvaluation":
+				result = provider.BooleanEvaluation(context.Background(), "example", false, evalCtx)
+			case "StringEvaluation":
+				result = provider.StringEvaluation(context.Background(), "example", "default", evalCtx)
+			case "FloatEvaluation":
+				result = provider.FloatEvaluation(context.Background(), "example", float64(1.23), evalCtx)
+			case "IntEvaluation":
+				result = provider.IntEvaluation(context.Background(), "example", int64(123), evalCtx)
+			case "ObjectEvaluation":
+				result = provider.ObjectEvaluation(context.Background(), "example", map[string]bool{"default": true}, evalCtx)
+			}
+
+			require.Equalf(t, tc.expected, result, tc.name)
+		})
+	}
+}
