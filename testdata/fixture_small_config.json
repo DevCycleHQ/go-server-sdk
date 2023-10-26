@@ -34,6 +34,20 @@
             {
               "_var": "6216422850294da359385e8d",
               "value": true
+            },
+            {
+              "_var": "64de2b2486d4b575121589db",
+              "value": 1
+            },
+            {
+              "_var": "64de2b2486d4b575121589dc",
+              "value": "on"
+            },
+            {
+              "_var": "64de88bcc99ba02630f3df80",
+              "value": {
+                "message": "a"
+              }
             }
           ],
           "name": "Variation On",
@@ -45,6 +59,20 @@
             {
               "_var": "6216422850294da359385e8d",
               "value": false
+            },
+            {
+              "_var": "64de2b2486d4b575121589db",
+              "value": 0
+            },
+            {
+              "_var": "64de2b2486d4b575121589dc",
+              "value": "off"
+            },
+            {
+              "_var": "64de88bcc99ba02630f3df80",
+              "value": {
+                "message": "b"
+              }
             }
           ],
           "name": "Variation Off",
@@ -91,9 +119,27 @@
       "_id": "6216422850294da359385e8d",
       "key": "test",
       "type": "Boolean"
+    },
+    {
+      "_id": "64de2b2486d4b575121589db",
+      "key": "test-number-variable",
+      "type": "Number"
+    },
+    {
+      "_id": "64de2b2486d4b575121589dc",
+      "key": "test-string-variable",
+      "type": "String"
+    },
+    {
+      "_id": "64de88bcc99ba02630f3df80",
+      "key": "test-json-variable",
+      "type": "JSON"
     }
   ],
   "variableHashes": {
-    "test": 2447239932
+    "test": 2447239932,
+    "test-number-variable": 3332991395,
+    "test-string-variable": 957171234,
+    "test-json-variable": 2814889459
   }
 }

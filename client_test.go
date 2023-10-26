@@ -35,7 +35,6 @@ func TestClient_AllFeatures_Local(t *testing.T) {
 }
 
 func TestClient_AllVariablesLocal(t *testing.T) {
-
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
@@ -47,7 +46,7 @@ func TestClient_AllVariablesLocal(t *testing.T) {
 	fatalErr(t, err)
 
 	fmt.Println(variables)
-	if len(variables) != 1 {
+	if len(variables) != 4 {
 		t.Error("Expected 1 variable, got", len(variables))
 	}
 }
