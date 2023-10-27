@@ -354,12 +354,11 @@ func createUserFromEvaluationContext(evalCtx openfeature.FlattenedContext) (User
 }
 
 func setCustomDataValue(customData map[string]interface{}, key string, val interface{}) {
-	if val == nil {
-		return
-	}
 	// Custom Data only supports specific types, load the ones we can and
 	// ignore the rest with warnings
 	switch v := val.(type) {
+	case nil:
+		customData[key] = nil
 	case string:
 		customData[key] = v
 	case float64:

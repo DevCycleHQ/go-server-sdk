@@ -71,8 +71,8 @@ func Test_createUserFromEvaluationContext_InvalidDataType(t *testing.T) {
 }
 
 func Test_createUserFromEvaluationContext_CustomData(t *testing.T) {
-	testCustomData := map[string]interface{}{"key1": "strVal", "key2": float64(1234), "key3": true}
-	testPrivateData := map[string]interface{}{"key1": "otherVal", "key2": float64(9999), "key3": false}
+	testCustomData := map[string]interface{}{"key1": "strVal", "key2": float64(1234), "key3": true, "key4": nil}
+	testPrivateData := map[string]interface{}{"key1": "otherVal", "key2": float64(9999), "key3": false, "key4": nil}
 	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": "1234", "customData": testCustomData, "privateCustomData": testPrivateData})
 	require.NoError(t, err)
 	require.Equal(t, testCustomData, user.CustomData)
@@ -100,6 +100,7 @@ func Test_setCustomDataValue(t *testing.T) {
 	}
 
 	testCases := []DataTestCase{
+		{"nil", nil, nil},
 		{"string", "optimus prime", "optimus prime"},
 		{"number", 3.14, 3.14},
 		{"int64", int64(42), float64(42)},
@@ -113,11 +114,6 @@ func Test_setCustomDataValue(t *testing.T) {
 		setCustomDataValue(customData, "key", testCase.val)
 		require.Equal(t, testCase.expectedVal, customData["key"])
 	}
-
-	// Test 8 - Nil value
-	customData := make(map[string]interface{})
-	setCustomDataValue(customData, "nilTest", nil)
-	require.Len(t, customData, 0, "Nil value should not be set into custom data")
 }
 
 func getProviderForConfig(t *testing.T, config string, cloudBucketing bool) openfeature.FeatureProvider {
