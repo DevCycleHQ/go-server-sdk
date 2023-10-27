@@ -37,7 +37,11 @@
             },
             {
               "_var": "64de2b2486d4b575121589db",
-              "value": 1
+              "value": 123
+            },
+            {
+              "_var": "64de2b9486d4b275121589d1",
+              "value": 4.56
             },
             {
               "_var": "64de2b2486d4b575121589dc",
@@ -63,6 +67,10 @@
             {
               "_var": "64de2b2486d4b575121589db",
               "value": 0
+            },
+            {
+              "_var": "64de2b9486d4b275121589d1",
+              "value": 7.89
             },
             {
               "_var": "64de2b2486d4b575121589dc",
@@ -123,6 +131,11 @@
     {
       "_id": "64de2b2486d4b575121589db",
       "key": "test-number-variable",
+      "type": "Number"
+    },
+    {
+      "_id": "64de2b9486d4b275121589d1",
+      "key": "test-float-variable",
       "type": "Number"
     },
     {

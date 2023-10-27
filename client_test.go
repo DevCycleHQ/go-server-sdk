@@ -39,16 +39,13 @@ func TestClient_AllVariablesLocal(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 	c, err := NewClient(test_environmentKey, &Options{})
-	fatalErr(t, err)
+	require.NoError(t, err)
 
 	variables, err := c.AllVariables(
 		User{UserId: "j_test", DeviceModel: "testing"})
-	fatalErr(t, err)
+	require.NoError(t, err)
 
-	fmt.Println(variables)
-	if len(variables) != 4 {
-		t.Error("Expected 1 variable, got", len(variables))
-	}
+	require.Len(t, variables, 5)
 }
 
 func TestClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {

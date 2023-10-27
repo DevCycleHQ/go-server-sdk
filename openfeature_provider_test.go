@@ -282,7 +282,12 @@ func Test_FloatEvaluation_TargetMatch(t *testing.T) {
 	}
 	resolutionDetail := provider.FloatEvaluation(context.Background(), "test-number-variable", 1.23, evalCtx)
 
-	require.Equal(t, float64(1), resolutionDetail.Value)
+	require.Equal(t, float64(123), resolutionDetail.Value)
+	require.Equal(t, openfeature.TargetingMatchReason, resolutionDetail.ProviderResolutionDetail.Reason)
+
+	resolutionDetail = provider.FloatEvaluation(context.Background(), "test-float-variable", 1.23, evalCtx)
+
+	require.Equal(t, float64(4.56), resolutionDetail.Value)
 	require.Equal(t, openfeature.TargetingMatchReason, resolutionDetail.ProviderResolutionDetail.Reason)
 }
 
@@ -337,9 +342,15 @@ func Test_IntEvaluation_TargetMatch(t *testing.T) {
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
 	}
-	resolutionDetail := provider.IntEvaluation(context.Background(), "test-number-variable", 123, evalCtx)
+	resolutionDetail := provider.IntEvaluation(context.Background(), "test-number-variable", 1, evalCtx)
 
-	require.Equal(t, int64(1), resolutionDetail.Value)
+	require.Equal(t, int64(123), resolutionDetail.Value)
+	require.Equal(t, openfeature.TargetingMatchReason, resolutionDetail.ProviderResolutionDetail.Reason)
+
+	resolutionDetail = provider.IntEvaluation(context.Background(), "test-float-variable", 1, evalCtx)
+
+	// 4.56 is rounded down to 4
+	require.Equal(t, int64(4), resolutionDetail.Value)
 	require.Equal(t, openfeature.TargetingMatchReason, resolutionDetail.ProviderResolutionDetail.Reason)
 }
 
