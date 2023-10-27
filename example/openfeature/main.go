@@ -18,7 +18,7 @@ func main() {
 
 	dvcOptions := devcycle.Options{
 		EnableEdgeDB:                 false,
-		EnableCloudBucketing:         true,
+		EnableCloudBucketing:         false,
 		EventFlushIntervalMS:         time.Second * 10,
 		ConfigPollingIntervalMS:      time.Second * 10,
 		RequestTimeout:               time.Second * 10,
