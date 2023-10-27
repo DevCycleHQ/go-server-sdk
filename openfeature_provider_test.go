@@ -5,10 +5,20 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/go-playground/assert/v2"
 	"github.com/jarcoal/httpmock"
 	"github.com/open-feature/go-sdk/pkg/openfeature"
 	"github.com/stretchr/testify/require"
 )
+
+func Test_DevCycleProvider_Metadata(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	provider := getProviderForConfig(t, test_config, false)
+	assert.Equal(t, "DevCycleProvider Local", provider.Metadata().Name)
+	provider = getProviderForConfig(t, test_config, true)
+	assert.Equal(t, "DevCycleProvider Cloud", provider.Metadata().Name)
+}
 
 func Test_createUserFromEvaluationContext_NoUserID(t *testing.T) {
 	_, err := createUserFromEvaluationContext(openfeature.FlattenedContext{})
@@ -106,21 +116,23 @@ func Test_setCustomDataValue(t *testing.T) {
 	require.Len(t, customData, 0, "Nil value should not be set into custom data")
 }
 
-func getProviderForConfig(t *testing.T, config string) openfeature.FeatureProvider {
+func getProviderForConfig(t *testing.T, config string, cloudBucketing bool) openfeature.FeatureProvider {
 	t.Helper()
 
 	httpCustomConfigMock(test_environmentKey, 200, config)
 
-	client, err := NewClient(test_environmentKey, &Options{})
+	client, err := NewClient(test_environmentKey, &Options{
+		EnableCloudBucketing: cloudBucketing,
+	})
 	require.NoError(t, err)
 
-	return DevCycleProvider{Client: client}
+	return client.OpenFeatureProvider()
 }
 
 func Test_BooleanEvaluation_Default(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -134,7 +146,7 @@ func Test_BooleanEvaluation_Default(t *testing.T) {
 func Test_BooleanEvaluation_BadUserData(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"badUserIDKey": "1234",
@@ -149,7 +161,7 @@ func Test_BooleanEvaluation_BadUserData(t *testing.T) {
 func Test_BooleanEvaluation_TargetMatch(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -163,7 +175,7 @@ func Test_BooleanEvaluation_TargetMatch(t *testing.T) {
 func Test_BooleanEvaluation_TargetMatchInvalidType(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -177,7 +189,7 @@ func Test_BooleanEvaluation_TargetMatchInvalidType(t *testing.T) {
 func Test_StringEvaluation_Default(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -191,7 +203,7 @@ func Test_StringEvaluation_Default(t *testing.T) {
 func Test_StringEvaluation_BadUserData(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"badUserIDKey": "1234",
@@ -206,7 +218,7 @@ func Test_StringEvaluation_BadUserData(t *testing.T) {
 func Test_StringEvaluation_TargetMatch(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -220,7 +232,7 @@ func Test_StringEvaluation_TargetMatch(t *testing.T) {
 func Test_StringEvaluation_TargetMatchInvalidType(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -234,7 +246,7 @@ func Test_StringEvaluation_TargetMatchInvalidType(t *testing.T) {
 func Test_FloatEvaluation_Default(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -248,7 +260,7 @@ func Test_FloatEvaluation_Default(t *testing.T) {
 func Test_FloatEvaluation_BadUserData(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"badUserIDKey": "1234",
@@ -263,7 +275,7 @@ func Test_FloatEvaluation_BadUserData(t *testing.T) {
 func Test_FloatEvaluation_TargetMatch(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -277,7 +289,7 @@ func Test_FloatEvaluation_TargetMatch(t *testing.T) {
 func Test_FloatEvaluation_TargetMatchInvalidType(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -291,7 +303,7 @@ func Test_FloatEvaluation_TargetMatchInvalidType(t *testing.T) {
 func Test_IntEvaluation_Default(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -305,7 +317,7 @@ func Test_IntEvaluation_Default(t *testing.T) {
 func Test_IntEvaluation_BadUserData(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"badUserIDKey": "1234",
@@ -320,7 +332,7 @@ func Test_IntEvaluation_BadUserData(t *testing.T) {
 func Test_IntEvaluation_TargetMatch(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -334,7 +346,7 @@ func Test_IntEvaluation_TargetMatch(t *testing.T) {
 func Test_IntEvaluation_TargetMatchInvalidType(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -348,7 +360,7 @@ func Test_IntEvaluation_TargetMatchInvalidType(t *testing.T) {
 func Test_ObjectEvaluation_Default(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -365,7 +377,7 @@ func Test_ObjectEvaluation_Default(t *testing.T) {
 func Test_ObjectEvaluation_BadUserData(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"badUserIDKey": "1234",
@@ -383,7 +395,7 @@ func Test_ObjectEvaluation_BadUserData(t *testing.T) {
 func Test_ObjectEvaluation_TargetMatch(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -400,7 +412,7 @@ func Test_ObjectEvaluation_TargetMatch(t *testing.T) {
 func Test_ObjectEvaluation_TargetMatchBadDefault(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -416,7 +428,7 @@ func Test_ObjectEvaluation_TargetMatchBadDefault(t *testing.T) {
 func Test_ObjectEvaluation_TargetMatchInvalidType(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	provider := getProviderForConfig(t, test_config)
+	provider := getProviderForConfig(t, test_config, false)
 
 	evalCtx := openfeature.FlattenedContext{
 		"userId": "1234",
@@ -438,6 +450,8 @@ type StubClient struct {
 func (c StubClient) Variable(userdata User, key string, defaultValue interface{}) (Variable, error) {
 	return c.variable, c.err
 }
+
+func (c StubClient) IsLocalBucketing() bool { return true }
 
 func TestEvaluationValueHandling(t *testing.T) {
 	evalCtx := openfeature.FlattenedContext{"userId": "1234"}

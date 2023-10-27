@@ -15,11 +15,16 @@ type DevCycleProvider struct {
 
 type ClientImpl interface {
 	Variable(userdata User, key string, defaultValue interface{}) (Variable, error)
+	IsLocalBucketing() bool
 }
 
 // Metadata returns the metadata of the provider
 func (p DevCycleProvider) Metadata() openfeature.Metadata {
-	return openfeature.Metadata{Name: "devcycle-go-provider"}
+	if p.Client.IsLocalBucketing() {
+		return openfeature.Metadata{Name: "DevCycleProvider Local"}
+	} else {
+		return openfeature.Metadata{Name: "DevCycleProvider Cloud"}
+	}
 }
 
 // Convenience method for creating a DevCycleProvider from a Client
