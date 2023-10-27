@@ -2,6 +2,7 @@ package devcycle
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/jarcoal/httpmock"
@@ -482,6 +483,18 @@ func TestEvaluationValueHandling(t *testing.T) {
 			},
 		},
 		{
+			name:        "BooleanEvaluation error",
+			method:      "BooleanEvaluation",
+			errorResult: fmt.Errorf("an unexpected error!"),
+			expected: openfeature.BoolResolutionDetail{
+				Value: false,
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason:          openfeature.ErrorReason,
+					ResolutionError: openfeature.NewGeneralResolutionError("an unexpected error!"),
+				},
+			},
+		},
+		{
 			name:     "StringEvaluation default",
 			method:   "StringEvaluation",
 			variable: Variable{IsDefaulted: true},
@@ -512,6 +525,18 @@ func TestEvaluationValueHandling(t *testing.T) {
 				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
 					Reason:          openfeature.ErrorReason,
 					ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+				},
+			},
+		},
+		{
+			name:        "StringEvaluation error",
+			method:      "StringEvaluation",
+			errorResult: fmt.Errorf("an unexpected error!"),
+			expected: openfeature.StringResolutionDetail{
+				Value: "default",
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason:          openfeature.ErrorReason,
+					ResolutionError: openfeature.NewGeneralResolutionError("an unexpected error!"),
 				},
 			},
 		},
@@ -550,6 +575,18 @@ func TestEvaluationValueHandling(t *testing.T) {
 			},
 		},
 		{
+			name:        "FloatEvaluation error",
+			method:      "FloatEvaluation",
+			errorResult: fmt.Errorf("an unexpected error!"),
+			expected: openfeature.FloatResolutionDetail{
+				Value: 1.23,
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason:          openfeature.ErrorReason,
+					ResolutionError: openfeature.NewGeneralResolutionError("an unexpected error!"),
+				},
+			},
+		},
+		{
 			name:     "IntEvaluation default",
 			method:   "IntEvaluation",
 			variable: Variable{IsDefaulted: true},
@@ -584,6 +621,18 @@ func TestEvaluationValueHandling(t *testing.T) {
 			},
 		},
 		{
+			name:        "IntEvaluation error",
+			method:      "IntEvaluation",
+			errorResult: fmt.Errorf("an unexpected error!"),
+			expected: openfeature.IntResolutionDetail{
+				Value: 123,
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason:          openfeature.ErrorReason,
+					ResolutionError: openfeature.NewGeneralResolutionError("an unexpected error!"),
+				},
+			},
+		},
+		{
 			name:     "ObjectEvaluation default",
 			method:   "ObjectEvaluation",
 			variable: Variable{IsDefaulted: true},
@@ -602,6 +651,18 @@ func TestEvaluationValueHandling(t *testing.T) {
 				Value: map[string]bool{"default": true},
 				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
 					Reason: openfeature.DefaultReason,
+				},
+			},
+		},
+		{
+			name:        "ObjectEvaluation error",
+			method:      "ObjectEvaluation",
+			errorResult: fmt.Errorf("an unexpected error!"),
+			expected: openfeature.InterfaceResolutionDetail{
+				Value: map[string]bool{"default": true},
+				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+					Reason:          openfeature.ErrorReason,
+					ResolutionError: openfeature.NewGeneralResolutionError("an unexpected error!"),
 				},
 			},
 		},
