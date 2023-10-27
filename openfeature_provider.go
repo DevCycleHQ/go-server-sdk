@@ -287,18 +287,18 @@ func toOpenFeatureError(err error) openfeature.ResolutionError {
 
 func createUserFromEvaluationContext(evalCtx openfeature.FlattenedContext) (User, error) {
 	userId := ""
-	_, exists := evalCtx["userId"]
+	_, exists := evalCtx[openfeature.TargetingKey]
 	if exists {
-		userId = evalCtx["userId"].(string)
+		userId = evalCtx[openfeature.TargetingKey].(string)
 	} else {
-		_, exists = evalCtx["targetingKey"]
+		_, exists = evalCtx["userId"]
 		if exists {
-			userId = evalCtx["targetingKey"].(string)
+			userId = evalCtx["userId"].(string)
 		}
 	}
 
 	if userId == "" {
-		return DVCUser{}, errors.New("userId or targetingKey must be provided")
+		return DVCUser{}, errors.New("targetingKey or userId must be provided")
 	}
 	user := User{
 		UserId: userId,

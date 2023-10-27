@@ -33,6 +33,10 @@ func Test_createUserFromEvaluationContext_SimpleUser(t *testing.T) {
 	user, err = createUserFromEvaluationContext(openfeature.FlattenedContext{"targetingKey": "1234"})
 	require.NoError(t, err)
 	require.Equal(t, "1234", user.UserId)
+
+	user, err = createUserFromEvaluationContext(openfeature.FlattenedContext{"targetingKey": "1234", "userId": "5678"})
+	require.NoError(t, err)
+	require.Equal(t, "1234", user.UserId)
 }
 
 func Test_createUserFromEvaluationContext_AllUserProperties(t *testing.T) {
@@ -155,7 +159,7 @@ func Test_BooleanEvaluation_BadUserData(t *testing.T) {
 
 	require.False(t, resolutionDetail.Value)
 	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
-	require.Equal(t, openfeature.NewInvalidContextResolutionError("userId or targetingKey must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
 }
 
 func Test_BooleanEvaluation_TargetMatch(t *testing.T) {
@@ -212,7 +216,7 @@ func Test_StringEvaluation_BadUserData(t *testing.T) {
 
 	require.Equal(t, "default", resolutionDetail.Value)
 	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
-	require.Equal(t, openfeature.NewInvalidContextResolutionError("userId or targetingKey must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
 }
 
 func Test_StringEvaluation_TargetMatch(t *testing.T) {
@@ -269,7 +273,7 @@ func Test_FloatEvaluation_BadUserData(t *testing.T) {
 
 	require.Equal(t, 1.23, resolutionDetail.Value)
 	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
-	require.Equal(t, openfeature.NewInvalidContextResolutionError("userId or targetingKey must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
 }
 
 func Test_FloatEvaluation_TargetMatch(t *testing.T) {
@@ -326,7 +330,7 @@ func Test_IntEvaluation_BadUserData(t *testing.T) {
 
 	require.Equal(t, int64(123), resolutionDetail.Value)
 	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
-	require.Equal(t, openfeature.NewInvalidContextResolutionError("userId or targetingKey must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
 }
 
 func Test_IntEvaluation_TargetMatch(t *testing.T) {
@@ -389,7 +393,7 @@ func Test_ObjectEvaluation_BadUserData(t *testing.T) {
 
 	require.Equal(t, defaultValue, resolutionDetail.Value)
 	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
-	require.Equal(t, openfeature.NewInvalidContextResolutionError("userId or targetingKey must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
 }
 
 func Test_ObjectEvaluation_TargetMatch(t *testing.T) {
