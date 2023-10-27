@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/go-playground/assert/v2"
 	"github.com/jarcoal/httpmock"
 	"github.com/open-feature/go-sdk/pkg/openfeature"
 	"github.com/stretchr/testify/require"
@@ -15,9 +14,9 @@ func Test_DevCycleProvider_Metadata(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	provider := getProviderForConfig(t, test_config, false)
-	assert.Equal(t, "DevCycleProvider Local", provider.Metadata().Name)
+	require.Equal(t, "DevCycleProvider Local", provider.Metadata().Name)
 	provider = getProviderForConfig(t, test_config, true)
-	assert.Equal(t, "DevCycleProvider Cloud", provider.Metadata().Name)
+	require.Equal(t, "DevCycleProvider Cloud", provider.Metadata().Name)
 }
 
 func Test_createUserFromEvaluationContext_NoUserID(t *testing.T) {
