@@ -87,7 +87,7 @@ The following options are available when you are using the SDK in Local Bucketin
 
 # OpenFeature Support
 
-This SDK provides an implementation of the [OpenFeature](https://openfeature.dev/) Provider interface. Use the `getOpenFeatureProvider()` method on the DevCycle SDK client to obtain a provider for OpenFeature.
+This SDK provides an implementation of the [OpenFeature](https://openfeature.dev/) Provider interface. Use the `OpenFeatureProvider()` method on the DevCycle SDK client to obtain a provider for OpenFeature.
 
 ```go
 devcycleClient, err := devcycle.NewClient("DEVCYCLE_SERVER_SDK_KEY", &options)
