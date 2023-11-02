@@ -3,6 +3,7 @@ package devcycle
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/open-feature/go-sdk/pkg/openfeature"
@@ -70,15 +71,18 @@ func (p DevCycleProvider) BooleanEvaluation(ctx context.Context, flag string, de
 		}
 	case nil:
 		return openfeature.BoolResolutionDetail{
-			Value:                    defaultValue,
-			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason},
+			Value: defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+				Reason:          openfeature.ErrorReason,
+				ResolutionError: openfeature.NewGeneralResolutionError("Variable result is nil, but not defaulted"),
+			},
 		}
 	default:
 		return openfeature.BoolResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
 				Reason:          openfeature.ErrorReason,
-				ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+				ResolutionError: openfeature.NewTypeMismatchResolutionError(fmt.Sprintf("Unexpected type in boolean variable result: %T", variable.Value)),
 			},
 		}
 	}
@@ -121,15 +125,19 @@ func (p DevCycleProvider) StringEvaluation(ctx context.Context, flag string, def
 		}
 	case nil:
 		return openfeature.StringResolutionDetail{
-			Value:                    defaultValue,
-			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason},
+			Value: defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+				Reason:          openfeature.ErrorReason,
+				ResolutionError: openfeature.NewGeneralResolutionError("Variable result is nil, but not defaulted"),
+			},
 		}
 	default:
+		// TODO: This should be a type mismatch error about the actual type in use
 		return openfeature.StringResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
 				Reason:          openfeature.ErrorReason,
-				ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+				ResolutionError: openfeature.NewTypeMismatchResolutionError(fmt.Sprintf("Unexpected type in string variable result: %T", variable.Value)),
 			},
 		}
 	}
@@ -172,15 +180,19 @@ func (p DevCycleProvider) FloatEvaluation(ctx context.Context, flag string, defa
 		}
 	case nil:
 		return openfeature.FloatResolutionDetail{
-			Value:                    defaultValue,
-			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason},
+			Value: defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+				Reason:          openfeature.ErrorReason,
+				ResolutionError: openfeature.NewGeneralResolutionError("Variable result is nil, but not defaulted"),
+			},
 		}
 	default:
+		// TODO: This should be a type mismatch error about the actual type in use
 		return openfeature.FloatResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
 				Reason:          openfeature.ErrorReason,
-				ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+				ResolutionError: openfeature.NewTypeMismatchResolutionError(fmt.Sprintf("Unexpected type in float variable result: %T", variable.Value)),
 			},
 		}
 	}
@@ -223,15 +235,19 @@ func (p DevCycleProvider) IntEvaluation(ctx context.Context, flag string, defaul
 		}
 	case nil:
 		return openfeature.IntResolutionDetail{
-			Value:                    defaultValue,
-			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason},
+			Value: defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+				Reason:          openfeature.ErrorReason,
+				ResolutionError: openfeature.NewGeneralResolutionError("Variable result is nil, but not defaulted"),
+			},
 		}
 	default:
+		// TODO: This should be a type mismatch error about the actual type in use
 		return openfeature.IntResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
 				Reason:          openfeature.ErrorReason,
-				ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+				ResolutionError: openfeature.NewTypeMismatchResolutionError(fmt.Sprintf("Unexpected type in integer variable result: %T", variable.Value)),
 			},
 		}
 	}
@@ -260,10 +276,20 @@ func (p DevCycleProvider) ObjectEvaluation(ctx context.Context, flag string, def
 		}
 	}
 
-	if variable.IsDefaulted || variable.Value == nil {
+	if variable.IsDefaulted {
 		return openfeature.InterfaceResolutionDetail{
 			Value:                    defaultValue,
 			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{Reason: openfeature.DefaultReason},
+		}
+	}
+
+	if variable.Value == nil {
+		return openfeature.InterfaceResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
+				Reason:          openfeature.ErrorReason,
+				ResolutionError: openfeature.NewGeneralResolutionError("Variable result is nil, but not defaulted"),
+			},
 		}
 	}
 

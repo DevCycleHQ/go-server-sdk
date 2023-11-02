@@ -484,13 +484,14 @@ func TestEvaluationValueHandling(t *testing.T) {
 			},
 		},
 		{
-			name:     "BooleanEvaluation nil",
+			name:     "BooleanEvaluation nil without default",
 			method:   "BooleanEvaluation",
 			variable: Variable{},
 			expected: openfeature.BoolResolutionDetail{
 				Value: false,
 				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-					Reason: openfeature.DefaultReason,
+					Reason:          openfeature.ErrorReason,
+					ResolutionError: openfeature.NewGeneralResolutionError("Variable result is nil, but not defaulted"),
 				},
 			},
 		},
@@ -502,7 +503,7 @@ func TestEvaluationValueHandling(t *testing.T) {
 				Value: false,
 				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
 					Reason:          openfeature.ErrorReason,
-					ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+					ResolutionError: openfeature.NewTypeMismatchResolutionError("Unexpected type in boolean variable result: string"),
 				},
 			},
 		},
@@ -530,13 +531,14 @@ func TestEvaluationValueHandling(t *testing.T) {
 			},
 		},
 		{
-			name:     "StringEvaluation nil",
+			name:     "StringEvaluation nil without default",
 			method:   "StringEvaluation",
 			variable: Variable{},
 			expected: openfeature.StringResolutionDetail{
 				Value: "default",
 				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-					Reason: openfeature.DefaultReason,
+					Reason:          openfeature.ErrorReason,
+					ResolutionError: openfeature.NewGeneralResolutionError("Variable result is nil, but not defaulted"),
 				},
 			},
 		},
@@ -548,7 +550,7 @@ func TestEvaluationValueHandling(t *testing.T) {
 				Value: "default",
 				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
 					Reason:          openfeature.ErrorReason,
-					ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+					ResolutionError: openfeature.NewTypeMismatchResolutionError("Unexpected type in string variable result: int"),
 				},
 			},
 		},
@@ -576,13 +578,14 @@ func TestEvaluationValueHandling(t *testing.T) {
 			},
 		},
 		{
-			name:     "FloatEvaluation nil",
+			name:     "FloatEvaluation nil without default",
 			method:   "FloatEvaluation",
 			variable: Variable{},
 			expected: openfeature.FloatResolutionDetail{
 				Value: 1.23,
 				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-					Reason: openfeature.DefaultReason,
+					Reason:          openfeature.ErrorReason,
+					ResolutionError: openfeature.NewGeneralResolutionError("Variable result is nil, but not defaulted"),
 				},
 			},
 		},
@@ -594,7 +597,7 @@ func TestEvaluationValueHandling(t *testing.T) {
 				Value: 1.23,
 				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
 					Reason:          openfeature.ErrorReason,
-					ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+					ResolutionError: openfeature.NewTypeMismatchResolutionError("Unexpected type in float variable result: string"),
 				},
 			},
 		},
@@ -622,13 +625,14 @@ func TestEvaluationValueHandling(t *testing.T) {
 			},
 		},
 		{
-			name:     "IntEvaluation nil",
+			name:     "IntEvaluation nil without default",
 			method:   "IntEvaluation",
 			variable: Variable{},
 			expected: openfeature.IntResolutionDetail{
 				Value: 123,
 				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-					Reason: openfeature.DefaultReason,
+					Reason:          openfeature.ErrorReason,
+					ResolutionError: openfeature.NewGeneralResolutionError("Variable result is nil, but not defaulted"),
 				},
 			},
 		},
@@ -640,7 +644,7 @@ func TestEvaluationValueHandling(t *testing.T) {
 				Value: 123,
 				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
 					Reason:          openfeature.ErrorReason,
-					ResolutionError: openfeature.NewTypeMismatchResolutionError("Variable result is nil"),
+					ResolutionError: openfeature.NewTypeMismatchResolutionError("Unexpected type in integer variable result: string"),
 				},
 			},
 		},
@@ -668,13 +672,14 @@ func TestEvaluationValueHandling(t *testing.T) {
 			},
 		},
 		{
-			name:     "ObjectEvaluation nil",
+			name:     "ObjectEvaluation nil without default",
 			method:   "ObjectEvaluation",
 			variable: Variable{},
 			expected: openfeature.InterfaceResolutionDetail{
 				Value: map[string]bool{"default": true},
 				ProviderResolutionDetail: openfeature.ProviderResolutionDetail{
-					Reason: openfeature.DefaultReason,
+					Reason:          openfeature.ErrorReason,
+					ResolutionError: openfeature.NewGeneralResolutionError("Variable result is nil, but not defaulted"),
 				},
 			},
 		},
@@ -701,8 +706,6 @@ func TestEvaluationValueHandling(t *testing.T) {
 					err:      tc.errorResult,
 				},
 			}
-
-			// Call BooleanEvaluation with the test case inputs
 
 			var result any
 			switch tc.method {
