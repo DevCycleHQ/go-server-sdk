@@ -10,8 +10,6 @@ package api
 
 import (
 	"time"
-
-	"golang.org/x/exp/maps"
 )
 
 type User struct {
@@ -81,7 +79,11 @@ func (p *PopulatedUser) MergeClientCustomData(ccd map[string]interface{}) {
 
 func (p *PopulatedUser) CombinedCustomData() map[string]interface{} {
 	ret := make(map[string]interface{}, len(p.CustomData)+len(p.PrivateCustomData))
-	maps.Copy(ret, p.CustomData)
-	maps.Copy(ret, p.PrivateCustomData)
+	for k, v := range p.CustomData {
+		ret[k] = v
+	}
+	for k, v := range p.PrivateCustomData {
+		ret[k] = v
+	}
 	return ret
 }
