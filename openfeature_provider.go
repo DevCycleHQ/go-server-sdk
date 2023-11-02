@@ -9,6 +9,8 @@ import (
 	"github.com/open-feature/go-sdk/pkg/openfeature"
 )
 
+const DEVCYCLE_USER_ID_KEY = "userId"
+
 // DevCycleProvider implements the FeatureProvider interface and provides functions for evaluating flags
 type DevCycleProvider struct {
 	Client ClientImpl
@@ -315,11 +317,20 @@ func createUserFromEvaluationContext(evalCtx openfeature.FlattenedContext) (User
 	userId := ""
 	_, exists := evalCtx[openfeature.TargetingKey]
 	if exists {
-		userId = evalCtx[openfeature.TargetingKey].(string)
-	} else {
-		_, exists = evalCtx["userId"]
+		if targetingKey, ok := evalCtx[openfeature.TargetingKey].(string); ok {
+			userId = targetingKey
+		} else {
+			return DVCUser{}, errors.New("targetingKey must be a string")
+		}
+	}
+	if userId == "" {
+		_, exists = evalCtx[DEVCYCLE_USER_ID_KEY]
 		if exists {
-			userId = evalCtx["userId"].(string)
+			if userIdValue, ok := evalCtx[DEVCYCLE_USER_ID_KEY].(string); ok {
+				userId = userIdValue
+			} else {
+				return DVCUser{}, errors.New("userId must be a string")
+			}
 		}
 	}
 
@@ -334,36 +345,43 @@ func createUserFromEvaluationContext(evalCtx openfeature.FlattenedContext) (User
 	privateCustomData := make(map[string]interface{})
 
 	for key, value := range evalCtx {
-		if value == nil {
-			continue
-		}
-		if str, ok := value.(string); ok {
+		switch value := value.(type) {
+		case string:
+			// Store these known keys in dedicated User fields
 			if key == "email" {
-				user.Email = str
+				user.Email = value
 			} else if key == "name" {
-				user.Name = str
+				user.Name = value
 			} else if key == "language" {
-				user.Language = str
+				user.Language = value
 			} else if key == "country" {
-				user.Country = str
+				user.Country = value
 			} else if key == "appVersion" {
-				user.AppVersion = str
+				user.AppVersion = value
 			} else if key == "appBuild" {
-				user.AppBuild = str
+				user.AppBuild = value
 			} else if key == "deviceModel" {
-				user.DeviceModel = str
+				user.DeviceModel = value
+			} else if key == openfeature.TargetingKey || key == DEVCYCLE_USER_ID_KEY {
+				// Ignore, already handled
+			} else {
+				// Store all other string keys in custom data
+				setCustomDataValue(customData, key, value)
 			}
-		} else if kvp, ok := value.(map[string]interface{}); ok {
+		case map[string]interface{}:
+			// customData and privateCustomData are special cases that allow one level of nested keys
 			if key == "customData" {
-				for k, v := range kvp {
+				for k, v := range value {
 					setCustomDataValue(customData, k, v)
 				}
 			} else if key == "privateCustomData" {
-				for k, v := range kvp {
+				for k, v := range value {
 					setCustomDataValue(privateCustomData, k, v)
 				}
 			}
-		} else {
+		default:
+			// Store unknown non-string keys if they are an acceptable type
+			// setCustomDataValue enforces the supported types
 			setCustomDataValue(customData, key, value)
 		}
 	}

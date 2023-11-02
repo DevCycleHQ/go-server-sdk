@@ -3,12 +3,17 @@ package devcycle
 import (
 	"context"
 	"fmt"
+	"log"
 	"testing"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/open-feature/go-sdk/pkg/openfeature"
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+}
 
 func Test_DevCycleProvider_Metadata(t *testing.T) {
 	httpmock.Activate()
@@ -64,9 +69,16 @@ func Test_createUserFromEvaluationContext_AllUserProperties(t *testing.T) {
 }
 
 func Test_createUserFromEvaluationContext_InvalidDataType(t *testing.T) {
+	// Bad email type
 	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": "1234", "email": 1234})
 	require.NoError(t, err)
 	require.Empty(t, user.Email)
+
+	user, err = createUserFromEvaluationContext(openfeature.FlattenedContext{"targetingKey": 1234, "userId": "5678"})
+	require.EqualError(t, err, "targetingKey must be a string")
+
+	user, err = createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": 5678})
+	require.EqualError(t, err, "userId must be a string")
 }
 
 func Test_createUserFromEvaluationContext_CustomData(t *testing.T) {
@@ -76,6 +88,15 @@ func Test_createUserFromEvaluationContext_CustomData(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, testCustomData, user.CustomData)
 	require.Equal(t, testPrivateData, user.PrivateCustomData)
+}
+
+func Test_createUserFromEvaluationContext_CustomDataUnknownProperties(t *testing.T) {
+	testCustomData := map[string]interface{}{"targetingKey": "1234", "key1": "strVal", "key2": float64(1234), "key3": true, "key4": nil}
+	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext(testCustomData))
+	require.NoError(t, err)
+	delete(testCustomData, openfeature.TargetingKey)
+	delete(testCustomData, "user_id")
+	require.Equal(t, testCustomData, user.CustomData)
 }
 
 func Test_createUserFromEvaluationContext_NestedProperties(t *testing.T) {
