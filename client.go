@@ -104,7 +104,7 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 	if c.DevCycleOptions.Logger != nil {
 		util.SetLogger(c.DevCycleOptions.Logger)
 	}
-	if !c.DevCycleOptions.EnableCloudBucketing {
+	if c.IsLocalBucketing() {
 		if NATIVE_SDK {
 			util.Infof("Using Native Bucketing")
 		} else {
@@ -147,6 +147,10 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		}
 	}
 	return c, nil
+}
+
+func (c *Client) IsLocalBucketing() bool {
+	return !c.DevCycleOptions.EnableCloudBucketing
 }
 
 func (c *Client) handleInitialization() {
@@ -237,7 +241,7 @@ Get all features by key for user data
 @return map[string]Feature
 */
 func (c *Client) AllFeatures(user User) (map[string]Feature, error) {
-	if !c.DevCycleOptions.EnableCloudBucketing {
+	if c.IsLocalBucketing() {
 		if c.hasConfig() {
 			user, err := c.generateBucketedConfig(user)
 			if err != nil {
@@ -316,7 +320,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 	}
 
 	convertedDefaultValue := convertDefaultValueType(defaultValue)
-	variableType, err := variableTypeFromValue(key, convertedDefaultValue, !c.DevCycleOptions.EnableCloudBucketing)
+	variableType, err := variableTypeFromValue(key, convertedDefaultValue, c.IsLocalBucketing())
 
 	if err != nil {
 		return Variable{}, err
@@ -334,7 +338,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 		}
 	}()
 
-	if !c.DevCycleOptions.EnableCloudBucketing {
+	if c.IsLocalBucketing() {
 		if !c.hasConfig() {
 			util.Warnf("Variable called before client initialized, returning default value")
 
@@ -423,7 +427,7 @@ func (c *Client) AllVariables(user User) (map[string]ReadOnlyVariable, error) {
 		postBody            interface{}
 		localVarReturnValue map[string]ReadOnlyVariable
 	)
-	if !c.DevCycleOptions.EnableCloudBucketing {
+	if c.IsLocalBucketing() {
 		if c.hasConfig() {
 			user, err := c.generateBucketedConfig(user)
 			if err != nil {
@@ -477,7 +481,7 @@ func (c *Client) Track(user User, event Event) (bool, error) {
 		return false, errors.New("event type is required")
 	}
 
-	if !c.DevCycleOptions.EnableCloudBucketing {
+	if c.IsLocalBucketing() {
 		if c.hasConfig() {
 			err := c.eventQueue.QueueEvent(user, event)
 			if err != nil {
@@ -527,7 +531,7 @@ func (c *Client) Track(user User, event Event) (bool, error) {
 }
 
 func (c *Client) FlushEvents() error {
-	if c.DevCycleOptions.EnableCloudBucketing || !c.isInitialized {
+	if !c.IsLocalBucketing() || !c.isInitialized {
 		return nil
 	}
 
@@ -543,7 +547,7 @@ func (c *Client) FlushEvents() error {
 }
 
 func (c *Client) SetClientCustomData(customData map[string]interface{}) error {
-	if !c.DevCycleOptions.EnableCloudBucketing {
+	if c.IsLocalBucketing() {
 		if c.isInitialized {
 			return c.localBucketing.SetClientCustomData(customData)
 		} else {
@@ -559,7 +563,7 @@ func (c *Client) SetClientCustomData(customData map[string]interface{}) error {
 Close the client and flush any pending events. Stop any ongoing tickers
 */
 func (c *Client) Close() (err error) {
-	if c.DevCycleOptions.EnableCloudBucketing {
+	if !c.IsLocalBucketing() {
 		return
 	}
 
@@ -707,6 +711,8 @@ func convertDefaultValueType(value interface{}) interface{} {
 	}
 }
 
+var ErrInvalidDefaultValue = errors.New("the default value for variable is not of type Boolean, Number, String, or JSON")
+
 func variableTypeFromValue(key string, value interface{}, allowNil bool) (varType string, err error) {
 	switch value.(type) {
 	case float64:
@@ -723,7 +729,7 @@ func variableTypeFromValue(key string, value interface{}, allowNil bool) (varTyp
 		}
 	}
 
-	return "", fmt.Errorf("the default value for variable %s is not of type Boolean, Number, String, or JSON", key)
+	return "", fmt.Errorf("%w: %s", ErrInvalidDefaultValue, key)
 }
 
 // callAPI do the request.

@@ -1,0 +1,32 @@
+name: Test Examples
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test_examples:
+    name: Test Examples
+    runs-on: ubuntu-latest
+    env:
+      DEVCYCLE_SERVER_SDK_KEY: ${{ secrets.DEVCYCLE_SERVER_SDK_KEY }}
+      DEVCYCLE_VARIABLE_KEY: test-boolean-variable
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.19
+
+    - name: Run local bucketing example
+      run: |
+        go run ./example/local
+
+    - name: Run cloud bucketing example
+      run: |
+        go run ./example/cloud
+
+    - name: Run openfeature example
+      run: |
+        go run ./example/openfeature
