@@ -1025,7 +1025,7 @@ func TestEvaluateOperator_MultiNotEqualCustomDataFilters(t *testing.T) {
 				SubType:    "customData",
 				Comparator: ComparatorNotEqual,
 			},
-			Values: []interface{}{float64(0)},
+			Values: []interface{}{float64(0), float64(1)},
 		},
 		DataKey:     "numKey",
 		DataKeyType: "Number",
@@ -1416,7 +1416,8 @@ func Test_CheckNumberFilter(t *testing.T) {
 		{num: 10, filterNums: []float64{15}, operator: "<=", want: true},
 
 		{num: 10, filterNums: []float64{5, 15}, operator: "!=", want: true},
-		{num: 10, filterNums: []float64{}, operator: "!=", want: false},
+		{num: 15, filterNums: []float64{5, 15}, operator: "!=", want: false},
+		{num: 10, filterNums: []float64{}, operator: "!=", want: true},
 		{num: 10, filterNums: []float64{math.NaN()}, operator: "!=", want: false},
 
 		{num: 10, filterNums: []float64{}, operator: "fakeop", want: false},
