@@ -262,6 +262,16 @@ func _checkNumberFilter(num float64, filterNums []float64, operator string) bool
 		return false
 	}
 
+	if operator == "!=" {
+		passesFilter := true
+		for _, filterNum := range filterNums {
+			if math.IsNaN(filterNum) || num == filterNum {
+				passesFilter = false
+			}
+		}
+		return passesFilter
+	}
+	
 	// replace filterNums.some() logic
 	someValue := false
 	for _, filterNum := range filterNums {
@@ -271,8 +281,6 @@ func _checkNumberFilter(num float64, filterNums []float64, operator string) bool
 
 		if operator == "=" {
 			someValue = num == filterNum
-		} else if operator == "!=" {
-			someValue = num != filterNum
 		} else if operator == ">" {
 			someValue = num > filterNum
 		} else if operator == ">=" {
