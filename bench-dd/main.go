@@ -43,7 +43,6 @@ func main() {
 	var flushEventQueueSize int
 	var maxEventQueueSize int
 	var maxMemoryBuckets int
-	var maxWASMWorkers int
 	var listenAddr string
 	var numUniqueVariables int
 	var configFailureChance int
@@ -58,7 +57,6 @@ func main() {
 	flag.DurationVar(&configInterval, "config-interval", time.Minute, "interval between checks for config updates")
 	flag.DurationVar(&eventFlushInterval, "event-interval", time.Minute, "interval between flushing events")
 	flag.IntVar(&maxMemoryBuckets, "max-memory-buckets", 0, "set max memory allocation buckets")
-	flag.IntVar(&maxWASMWorkers, "max-wasm-workers", 0, "set number of WASM workers (zero defaults to GOMAXPROCS)")
 	flag.StringVar(&listenAddr, "listen", ":8080", "[host]:port to listen on")
 	flag.IntVar(&numUniqueVariables, "num-variables", 27, "Unique variables to use in multipleVariables endpoint")
 	flag.IntVar(&configFailureChance, "config-failure-chance", 0, "Chance of config server returning 500")
@@ -79,7 +77,6 @@ func main() {
 			tracer.WithEnv(datadogEnv),
 			tracer.WithRuntimeMetrics(),
 			tracer.WithGlobalTag("num-variables", strconv.Itoa(numUniqueVariables)),
-			tracer.WithGlobalTag("max-wasm-workers", strconv.Itoa(maxWASMWorkers)),
 			tracer.WithGlobalTag("max-memory-buckets", strconv.Itoa(maxMemoryBuckets)),
 			tracer.WithGlobalTag("enable-events", strconv.FormatBool(enableEvents)),
 			tracer.WithServiceVersion(devcycle.VERSION),
@@ -146,10 +143,6 @@ func main() {
 		EventsAPIURI:                 eventServer.URL,
 		FlushEventQueueSize:          flushEventQueueSize,
 		MaxEventQueueSize:            maxEventQueueSize,
-		AdvancedOptions: devcycle.AdvancedOptions{
-			MaxMemoryAllocationBuckets: maxMemoryBuckets,
-			MaxWasmWorkers:             maxWASMWorkers,
-		},
 	})
 
 	if err != nil {

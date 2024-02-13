@@ -10,9 +10,8 @@ ${BINDIR}/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ${BINDIR} ${GOLANGCI_VERSION}
 
 lint: ${BINDIR} ${BINDIR}/golangci-lint
-	golangci-lint run --sort-results --skip-files proto --disable unused && \
-	golangci-lint run --sort-results --skip-files proto --build-tags devcycle_wasm_bucketing --disable unused
-	
+	golangci-lint run --sort-results --skip-files proto --disable unused
+
 test:
 	go test -v ${RACE_PARAM} ${TAGS_PARAM} ./...
 

@@ -15,10 +15,6 @@ Usage of bench:
         disables all logging for the server (default false)
   -listen string
         [host]:port to listen on (default ":8080")
-  -max-memory-buckets int
-        set max memory allocation buckets
-  -max-wasm-workers int
-        set number of WASM workers (zero defaults to GOMAXPROCS)
   -num-variable int
         Unique variables to use in multipleVariables endpoint (default 85)
   -config-failure-chance float

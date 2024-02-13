@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -29,8 +30,10 @@ func main() {
 		DisableCustomEventLogging:    false,
 	}
 
-	client, _ := devcycle.NewClient(sdkKey, &dvcOptions)
-
+	client, err := devcycle.NewClient(sdkKey, &dvcOptions)
+	time.Sleep(10 * time.Second)
+	fmt.Println("Error? ", err)
+	fmt.Println(client.GetRawConfig())
 	log.Printf("client initialized")
 
 	features, _ := client.AllFeatures(user)
