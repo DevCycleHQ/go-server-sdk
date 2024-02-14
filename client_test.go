@@ -3,19 +3,16 @@ package devcycle
 import (
 	"flag"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"github.com/stretchr/testify/require"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"reflect"
-	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
-	"unicode/utf8"
-
-	"github.com/devcyclehq/go-server-sdk/v2/util"
-	"github.com/stretchr/testify/require"
 
 	"github.com/jarcoal/httpmock"
 )
@@ -325,52 +322,6 @@ func TestClient_VariableLocal_403(t *testing.T) {
 	}
 }
 
-func TestClient_VariableLocalProtobuf_StringEncoding(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpCustomConfigMock(test_environmentKey, 200, test_config_special_characters_var)
-
-	options := &Options{
-		UseDebugWASM: true,
-	}
-
-	c, err := NewClient(test_environmentKey, options)
-	fatalErr(t, err)
-
-	user := User{UserId: "someuser"}
-	variable, err := c.Variable(user, "test", "default_value")
-	fatalErr(t, err)
-
-	fmt.Printf("Value: %v | bytes %v\n", variable.Value, []byte(variable.Value.(string)))
-	fmt.Printf("Is Valid UTF-8 String: %v\n", utf8.ValidString(variable.Value.(string)))
-
-	fmt.Println(variable)
-	if variable.IsDefaulted {
-		t.Fatal("Expected variable to return a value")
-	}
-
-	expected := Variable{
-		BaseVariable: BaseVariable{
-			Key:   "test",
-			Type_: "String",
-			Value: "öé 🐍 ¥",
-		},
-		DefaultValue: "default_value",
-		IsDefaulted:  false,
-	}
-	if !reflect.DeepEqual(expected, variable) {
-		fmt.Println("got", variable)
-		fmt.Println("expected", expected)
-		t.Fatal("Expected variable to be equal to expected variable")
-	}
-
-	variableValue, err := c.VariableValue(user, "test", "default_value")
-	fatalErr(t, err)
-	if variableValue != "öé 🐍 ¥" {
-		t.Fatal("Expected variableValue to be öé 🐍 ¥")
-	}
-}
-
 func TestClient_TrackLocal_QueueEvent(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -512,14 +463,12 @@ func fatalErr(t *testing.T, err error) {
 var (
 	benchmarkEnableEvents        bool
 	benchmarkEnableConfigUpdates bool
-	benchmarkNumWorkers          int
 	benchmarkDisableLogs         bool
 )
 
 func init() {
 	flag.BoolVar(&benchmarkEnableEvents, "benchEnableEvents", false, "Custom test flag that enables event logging in benchmarks")
 	flag.BoolVar(&benchmarkEnableConfigUpdates, "benchEnableConfigUpdates", false, "Custom test flag that enables config updates in benchmarks")
-	flag.IntVar(&benchmarkNumWorkers, "benchNumWorkers", runtime.NumCPU(), "Custom test flag that sets the number of WASM workers in benchmarks")
 	flag.BoolVar(&benchmarkDisableLogs, "benchDisableLogs", false, "Custom test flag that disables logging in benchmarks")
 }
 
@@ -540,9 +489,6 @@ func BenchmarkClient_VariableSerial(b *testing.B) {
 		DisableCustomEventLogging:    true,
 		ConfigPollingIntervalMS:      time.Minute,
 		EventFlushIntervalMS:         time.Minute,
-		AdvancedOptions: AdvancedOptions{
-			MaxWasmWorkers: benchmarkNumWorkers,
-		},
 	}
 
 	if benchmarkEnableEvents {
@@ -589,9 +535,6 @@ func BenchmarkClient_VariableParallel(b *testing.B) {
 		DisableCustomEventLogging:    true,
 		ConfigPollingIntervalMS:      time.Minute,
 		EventFlushIntervalMS:         time.Minute,
-		AdvancedOptions: AdvancedOptions{
-			MaxWasmWorkers: benchmarkNumWorkers,
-		},
 	}
 	if benchmarkEnableEvents {
 		util.Infof("Enabling event logging")
@@ -644,8 +587,6 @@ func BenchmarkClient_VariableParallel(b *testing.B) {
 		b.Error(err)
 	default:
 	}
-
-	b.ReportMetric(float64(benchmarkNumWorkers), "workers")
 	b.ReportMetric(float64(setConfigCount.Load()), "reconfigs")
 	b.ReportMetric(float64(opNanos.Load())/float64(b.N), "ns")
 	eventsFlushed, eventsReported, eventsDropped := client.eventQueue.Metrics()

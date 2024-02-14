@@ -105,11 +105,7 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		util.SetLogger(c.DevCycleOptions.Logger)
 	}
 	if c.IsLocalBucketing() {
-		if NATIVE_SDK {
-			util.Infof("Using Native Bucketing")
-		} else {
-			util.Infof("Using WASM Bucketing")
-		}
+		util.Infof("Using Native Bucketing")
 
 		c.internalOnInitializedChannel = make(chan bool, 1)
 

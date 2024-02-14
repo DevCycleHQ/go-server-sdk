@@ -81,10 +81,6 @@ The following options are available when you are using the SDK in Local Bucketin
 | ConfigCDNURI                 | string         | The base URI for retrieving your project configuration from DevCycle. Can be set if you need to proxy traffic through your own server                                                                                           | https://config-cdn.devcycle.com           |
 | EventsAPIURI                 | string         | The base URI for sending events to DevCycle for analytics tracking. Can be set if you need to proxy traffic through your own server                                                                                             | https://events.devcycle.com           |
 | Logger                       | util.Logger    | Allows you to set a custom logger to manage output from the SDK. The default logger will write to stdout and stderr                                                                                                             | nil        |
-| MaxMemoryAllocationBuckets   | int            | Controls the maximum number of pre-allocated memory blocks used for WASM execution to optimize performance. Can be set to -1 to disable pre-allocated memory blocks entirely.<br>*Not applicable for Native Bucketing Library.* | 12         |
-| MaxWasmWorkers               | int           | The number of WASM worker objects in the object pool to support high-concurrency. <br>*Not applicable for Native Bucketing Library.*                                                                                            | GOMAXPROCS | 
-| UseDebugWASM                 | bool           | Configures the SDK to use a debug WASM binary to generate more detailed error reporting. Use caution when enabling this setting in production environments.<br>*Not applicable for Native Bucketing Library.*                   | false      |
-
 # OpenFeature Support
 
 This SDK provides an implementation of the [OpenFeature](https://openfeature.dev/) Provider interface. Use the `OpenFeatureProvider()` method on the DevCycle SDK client to obtain a provider for OpenFeature.
@@ -96,18 +92,6 @@ err = openfeature.SetProvider(devcycleClient.OpenFeatureProvider())
 
 - [The DevCycle Go OpenFeature Provider](https://docs.devcycle.com/sdk/server-side-sdks/go/go-openfeature)
 - [The OpenFeature documentation](https://openfeature.dev/docs/reference/intro)
-
-## Native Bucketing Library
-
-This SDK also supports a version of the DevCycle bucketing and segmentation logic built using WASM.
-
-To activate the WASM bucketing library, include the following build tag for your application:
-
-```bash
--tags devcycle_wasm_bucketing
-```
-
-This implementation is still under-going active development. Take care when utilizing it in production environments.
 
 ## Linting
 

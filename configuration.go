@@ -2,7 +2,6 @@ package devcycle
 
 import (
 	"net/http"
-	"runtime"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
@@ -48,13 +47,7 @@ type APIKey struct {
 }
 
 type AdvancedOptions struct {
-	// controls the maximum number of pre-allocated memory blocks used for WASM execution. This influences the maximum
-	// string length that can be fit inside of preallocated memory
-	// Can be set to -1 to disable pre-allocated memory blocks entirely.
-	// This takes \sum_{k=5}^{n+5} 2^k memory usage
-	MaxMemoryAllocationBuckets int
-	MaxWasmWorkers             int
-	OverridePlatformData       *api.PlatformData
+	OverridePlatformData *api.PlatformData
 }
 
 type Options struct {
@@ -72,7 +65,6 @@ type Options struct {
 	OnInitializedChannel         chan bool
 	BucketingAPIURI              string
 	Logger                       util.Logger
-	UseDebugWASM                 bool
 	AdvancedOptions
 }
 
@@ -120,16 +112,6 @@ func (o *Options) CheckDefaults() {
 		o.FlushEventQueueSize = 1000
 	} else if o.FlushEventQueueSize > 50000 {
 		o.FlushEventQueueSize = 50000
-	}
-
-	if o.MaxMemoryAllocationBuckets == 0 {
-		o.MaxMemoryAllocationBuckets = 12
-	} else if o.MaxMemoryAllocationBuckets <= -1 {
-		o.MaxMemoryAllocationBuckets = 0
-	}
-
-	if o.MaxWasmWorkers <= 0 {
-		o.MaxWasmWorkers = runtime.GOMAXPROCS(0)
 	}
 }
 
