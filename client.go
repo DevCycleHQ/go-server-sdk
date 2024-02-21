@@ -52,6 +52,7 @@ type Client struct {
 	eventQueue      *EventManager
 	localBucketing  LocalBucketing
 	platformData    *PlatformData
+	sseManager      *SSEManager
 	// Set to true when the client has been initialized, regardless of whether the config has loaded successfully.
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
@@ -141,6 +142,11 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 				c.DevCycleOptions.OnInitializedChannel <- true
 			}()
 		}
+	}
+
+	c.sseManager = &SSEManager{
+		Options: options,
+		Stream:  nil,
 	}
 	return c, nil
 }

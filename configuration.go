@@ -47,7 +47,9 @@ type APIKey struct {
 }
 
 type AdvancedOptions struct {
-	OverridePlatformData *api.PlatformData
+	OverridePlatformData    *api.PlatformData
+	ServerSentEventsURI     string
+	ServerSentEventsTimeout time.Duration
 }
 
 type Options struct {

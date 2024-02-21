@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 
@@ -24,13 +25,19 @@ type Variable struct {
 	Key  string `json:"key" validate:"required"`
 }
 
+type SSEHost struct {
+	Url     string        `json:"url"`
+	Timeout time.Duration `json:"timeout"`
+}
+
 type configBody struct {
-	Project                api.Project             `json:"project" validate:"required"`
-	Audiences              map[string]NoIdAudience `json:"audiences"`
-	Environment            api.Environment         `json:"environment" validate:"required"`
-	Features               []*ConfigFeature        `json:"features" validate:"required"`
-	Variables              []*Variable             `json:"variables" validate:"required,dive"`
-	etag                   string                  // TODO: remove etag
+	Project     api.Project             `json:"project" validate:"required"`
+	Audiences   map[string]NoIdAudience `json:"audiences"`
+	Environment api.Environment         `json:"environment" validate:"required"`
+	Features    []*ConfigFeature        `json:"features" validate:"required"`
+	Variables   []*Variable             `json:"variables" validate:"required,dive"`
+
+	etag                   string // TODO: remove etag
 	variableIdMap          map[string]*Variable
 	variableKeyMap         map[string]*Variable
 	variableIdToFeatureMap map[string]*ConfigFeature
