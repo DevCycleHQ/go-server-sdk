@@ -120,11 +120,12 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, expected
 	defer resp.Body.Close()
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
-		if expectedEtag != nil && len(expectedEtag) > 0 && resp.Header.Get("ETag") != expectedEtag[0] {
-			util.Warnf("ETag mismatch. Expected: %s, Actual: %s", expectedEtag[0], resp.Header.Get("ETag"))
+		etag := resp.Header.Get("ETag")
+		if expectedEtag != nil && len(expectedEtag) > 0 && expectedEtag[0] != "" && etag != expectedEtag[0] {
+			util.Warnf("ETag mismatch. Expected: %s, Actual: %s", expectedEtag[0], etag)
 			return e.fetchConfig(numRetriesRemaining-1, expectedEtag...)
 		}
-		return e.setConfigFromResponse(resp, expectedEtag...)
+		return e.setConfigFromResponse(resp)
 	case statusCode == http.StatusNotModified:
 		return nil
 	case statusCode == http.StatusForbidden:
@@ -150,7 +151,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, expected
 	return err
 }
 
-func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response, expectedEtag ...string) error {
+func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response) error {
 	config, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err

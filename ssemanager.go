@@ -4,7 +4,6 @@ import "C"
 import (
 	"encoding/json"
 	"github.com/launchdarkly/eventsource"
-	"time"
 )
 
 type SSEManager struct {
@@ -15,9 +14,9 @@ type SSEManager struct {
 }
 
 type sseMessage struct {
-	Etag         string        `json:"etag,omitempty"`
-	LastModified time.Duration `json:"lastModified,omitempty"`
-	Type_        string        `json:"type,omitempty"`
+	Etag         string  `json:"etag,omitempty"`
+	LastModified float64 `json:"lastModified,omitempty"`
+	Type_        string  `json:"type,omitempty"`
 }
 
 func newSSEManager(configManager *EnvironmentConfigManager, options *Options) *SSEManager {
@@ -47,29 +46,13 @@ func (m *SSEManager) receiveSSEMessages() {
 			var message sseMessage
 			err := json.Unmarshal([]byte(event.Data()), &message)
 			if err != nil {
-				m.Options.Logger.Warnf("Error unmarshalling sse message: %v", err)
+				m.Options.Logger.Warnf("SSE - Error unmarshalling message: %v\n", err)
 				continue
 			}
-			/*
-			 val innerData = JSONObject(data.get("data") as String)
-			            val lastModified = if (innerData.has("lastModified")) {
-			                (innerData.get("lastModified") as Long)
-			            } else null
-			            val type = if (innerData.has("type")) {
-			                (innerData.get("type") as String).toLong()
-			            } else ""
-			            val etag = if (innerData.has("etag")) {
-			                (innerData.get("etag") as String)
-			            } else null
-
-			            if (type == "refetchConfig" || type == "") { // Refetch the config if theres no type
-			                refetchConfig(true, lastModified, etag)
-			            }
-			*/
 			if message.Type_ == "refetchConfig" || message.Type_ == "" {
 				err = m.ConfigManager.fetchConfig(CONFIG_RETRIES)
 				if err != nil {
-					m.Options.Logger.Warnf("Error fetching config: %s\n", err)
+					m.Options.Logger.Warnf("SSE - Error fetching config: %v\n", err)
 				}
 			}
 		}
@@ -82,4 +65,5 @@ func (m *SSEManager) StartSSE() error {
 		return err
 	}
 	m.receiveSSEMessages()
+	return nil
 }
