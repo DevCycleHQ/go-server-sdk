@@ -122,7 +122,15 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		}
 
 		c.configManager = NewEnvironmentConfigManager(sdkKey, c.localBucketing, options, c.cfg)
-		c.configManager.StartPolling(options.ConfigPollingIntervalMS)
+		if c.DevCycleOptions.DisableServerSentEvents {
+			c.configManager.StartPolling(options.ConfigPollingIntervalMS)
+		} else {
+			err = c.configManager.StartSSE()
+			if err != nil {
+				util.Warnf("Error initializing SSE, defaulting to polling: %v", err)
+				c.configManager.StartPolling(options.ConfigPollingIntervalMS)
+			}
+		}
 
 		if c.DevCycleOptions.OnInitializedChannel != nil {
 			// TODO: Pass this error back via a channel internally

@@ -30,6 +30,7 @@ type EnvironmentConfigManager struct {
 	cfg            *HTTPConfiguration
 	hasConfig      atomic.Bool
 	ticker         *time.Ticker
+	sseManager     *SSEManager
 }
 
 func NewEnvironmentConfigManager(
@@ -51,9 +52,19 @@ func NewEnvironmentConfigManager(
 		firstLoad: true,
 	}
 
+	configManager.sseManager = newSSEManager(configManager, options)
+
 	configManager.context, configManager.stopPolling = context.WithCancel(context.Background())
 
 	return configManager
+}
+
+func (e *EnvironmentConfigManager) StartSSE() error {
+	err := e.initialFetch()
+	if err != nil {
+		return err
+	}
+	return e.sseManager.StartSSE()
 }
 
 func (e *EnvironmentConfigManager) StartPolling(
@@ -82,7 +93,7 @@ func (e *EnvironmentConfigManager) initialFetch() error {
 	return e.fetchConfig(CONFIG_RETRIES)
 }
 
-func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err error) {
+func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, expectedEtag ...string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			// get the stack trace and potentially log it here
@@ -102,14 +113,18 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 	if err != nil {
 		if numRetriesRemaining > 0 {
 			util.Warnf("Retrying config fetch %d more times. Error: %s", numRetriesRemaining, err)
-			return e.fetchConfig(numRetriesRemaining - 1)
+			return e.fetchConfig(numRetriesRemaining-1, expectedEtag...)
 		}
 		return err
 	}
 	defer resp.Body.Close()
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
-		return e.setConfigFromResponse(resp)
+		if expectedEtag != nil && len(expectedEtag) > 0 && resp.Header.Get("ETag") != expectedEtag[0] {
+			util.Warnf("ETag mismatch. Expected: %s, Actual: %s", expectedEtag[0], resp.Header.Get("ETag"))
+			return e.fetchConfig(numRetriesRemaining-1, expectedEtag...)
+		}
+		return e.setConfigFromResponse(resp, expectedEtag...)
 	case statusCode == http.StatusNotModified:
 		return nil
 	case statusCode == http.StatusForbidden:
@@ -135,7 +150,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 	return err
 }
 
-func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response) error {
+func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response, expectedEtag ...string) error {
 	config, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
@@ -145,9 +160,7 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 	if !valid {
 		return fmt.Errorf("invalid JSON data received for config")
 	}
-
 	e.configETag = response.Header.Get("Etag")
-
 	err = e.setConfig(config, e.configETag)
 
 	if err != nil {
