@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"io"
 	"net/http"
 	"sync/atomic"
@@ -21,6 +22,7 @@ type ConfigReceiver interface {
 type EnvironmentConfigManager struct {
 	sdkKey         string
 	rawConfig      []byte
+	minimalConfig  *api.MinimalConfig
 	configETag     string
 	localBucketing ConfigReceiver
 	firstLoad      bool
@@ -30,6 +32,8 @@ type EnvironmentConfigManager struct {
 	cfg            *HTTPConfiguration
 	hasConfig      atomic.Bool
 	ticker         *time.Ticker
+	sseManager     *SSEManager
+	options        *Options
 }
 
 func NewEnvironmentConfigManager(
@@ -39,6 +43,7 @@ func NewEnvironmentConfigManager(
 	cfg *HTTPConfiguration,
 ) (e *EnvironmentConfigManager) {
 	configManager := &EnvironmentConfigManager{
+		options:        options,
 		sdkKey:         sdkKey,
 		localBucketing: localBucketing,
 		cfg:            cfg,
@@ -50,10 +55,24 @@ func NewEnvironmentConfigManager(
 		hasConfig: atomic.Bool{},
 		firstLoad: true,
 	}
+	configManager.sseManager = newSSEManager(configManager, options)
 
 	configManager.context, configManager.stopPolling = context.WithCancel(context.Background())
 
 	return configManager
+}
+
+func (e *EnvironmentConfigManager) StartSSE() error {
+	err := e.initialFetch()
+	if err != nil {
+		return err
+	}
+	if e.options.AdvancedOptions.ServerSentEventsURI == "" {
+		util.Warnf("Server Sent Events URI not set. Aborting SSE connection. Falling back to polling")
+		e.StartPolling(e.options.ConfigPollingIntervalMS)
+		return fmt.Errorf("server Sent Events URI not set. Aborting SSE connection. Falling back to polling")
+	}
+	return e.sseManager.StartSSE()
 }
 
 func (e *EnvironmentConfigManager) StartPolling(
@@ -82,7 +101,7 @@ func (e *EnvironmentConfigManager) initialFetch() error {
 	return e.fetchConfig(CONFIG_RETRIES)
 }
 
-func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err error) {
+func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, expectedEtag ...string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			// get the stack trace and potentially log it here
@@ -102,13 +121,18 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 	if err != nil {
 		if numRetriesRemaining > 0 {
 			util.Warnf("Retrying config fetch %d more times. Error: %s", numRetriesRemaining, err)
-			return e.fetchConfig(numRetriesRemaining - 1)
+			return e.fetchConfig(numRetriesRemaining-1, expectedEtag...)
 		}
 		return err
 	}
 	defer resp.Body.Close()
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
+		etag := resp.Header.Get("ETag")
+		if expectedEtag != nil && len(expectedEtag) > 0 && expectedEtag[0] != "" && etag != expectedEtag[0] {
+			util.Warnf("ETag mismatch. Expected: %s, Actual: %s", expectedEtag[0], etag)
+			return e.fetchConfig(numRetriesRemaining-1, expectedEtag...)
+		}
 		return e.setConfigFromResponse(resp)
 	case statusCode == http.StatusNotModified:
 		return nil
@@ -145,9 +169,7 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 	if !valid {
 		return fmt.Errorf("invalid JSON data received for config")
 	}
-
 	e.configETag = response.Header.Get("Etag")
-
 	err = e.setConfig(config, e.configETag)
 
 	if err != nil {
@@ -170,6 +192,14 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag string) error {
 	e.rawConfig = config
 	e.hasConfig.Store(true)
 
+	err = json.Unmarshal(e.rawConfig, &e.minimalConfig)
+	if err != nil {
+		return err
+	}
+	if e.minimalConfig != nil && e.minimalConfig.SSE != nil {
+		e.options.AdvancedOptions.ServerSentEventsURI = e.minimalConfig.SSE.Hostname + e.minimalConfig.SSE.Path
+		e.options.AdvancedOptions.ServerSentEventsTimeout = e.minimalConfig.SSE.Timeout * time.Millisecond
+	}
 	return nil
 }
 

@@ -47,7 +47,11 @@ type APIKey struct {
 }
 
 type AdvancedOptions struct {
-	OverridePlatformData *api.PlatformData
+	OverridePlatformData      *api.PlatformData
+	ServerSentEventsURI       string
+	ServerSentEventsTimeout   time.Duration
+	ServerSentEventsQueueSize int
+	ServerSentEventsBackoff   time.Duration
 }
 
 type Options struct {
@@ -58,6 +62,7 @@ type Options struct {
 	RequestTimeout               time.Duration `json:"requestTimeout,omitempty"`
 	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging,omitempty"`
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging,omitempty"`
+	DisableServerSentEvents      bool          `json:"disableServerSentEvents,omitempty"`
 	MaxEventQueueSize            int           `json:"maxEventsPerFlush,omitempty"`
 	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
 	ConfigCDNURI                 string
@@ -112,6 +117,15 @@ func (o *Options) CheckDefaults() {
 		o.FlushEventQueueSize = 1000
 	} else if o.FlushEventQueueSize > 50000 {
 		o.FlushEventQueueSize = 50000
+	}
+	if o.AdvancedOptions.ServerSentEventsQueueSize <= 0 {
+		o.AdvancedOptions.ServerSentEventsQueueSize = 100
+	}
+	if o.AdvancedOptions.ServerSentEventsTimeout <= time.Second*5 {
+		o.AdvancedOptions.ServerSentEventsTimeout = time.Second * 5
+	}
+	if o.AdvancedOptions.ServerSentEventsBackoff <= time.Minute*1 {
+		o.AdvancedOptions.ServerSentEventsBackoff = time.Minute * 1
 	}
 }
 
