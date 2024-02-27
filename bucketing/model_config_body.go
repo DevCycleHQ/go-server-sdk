@@ -3,11 +3,9 @@ package bucketing
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-playground/validator/v10"
 	"reflect"
 	"sort"
-	"time"
-
-	"github.com/go-playground/validator/v10"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 )
@@ -25,17 +23,13 @@ type Variable struct {
 	Key  string `json:"key" validate:"required"`
 }
 
-type SSEHost struct {
-	Url     string        `json:"url"`
-	Timeout time.Duration `json:"timeout"`
-}
-
 type configBody struct {
 	Project     api.Project             `json:"project" validate:"required"`
 	Audiences   map[string]NoIdAudience `json:"audiences"`
 	Environment api.Environment         `json:"environment" validate:"required"`
 	Features    []*ConfigFeature        `json:"features" validate:"required"`
 	Variables   []*Variable             `json:"variables" validate:"required,dive"`
+	SSE         api.SSEHost             `json:"sse,omitempty"`
 
 	etag                   string // TODO: remove etag
 	variableIdMap          map[string]*Variable

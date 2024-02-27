@@ -51,6 +51,7 @@ type AdvancedOptions struct {
 	ServerSentEventsURI       string
 	ServerSentEventsTimeout   time.Duration
 	ServerSentEventsQueueSize int
+	ServerSentEventsBackoff   time.Duration
 }
 
 type Options struct {
@@ -122,6 +123,9 @@ func (o *Options) CheckDefaults() {
 	}
 	if o.AdvancedOptions.ServerSentEventsTimeout <= time.Second*5 {
 		o.AdvancedOptions.ServerSentEventsTimeout = time.Second * 5
+	}
+	if o.AdvancedOptions.ServerSentEventsBackoff <= time.Minute*1 {
+		o.AdvancedOptions.ServerSentEventsBackoff = time.Minute * 1
 	}
 }
 

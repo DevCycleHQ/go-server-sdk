@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"io"
 	"net/http"
 	"sync/atomic"
@@ -21,6 +22,7 @@ type ConfigReceiver interface {
 type EnvironmentConfigManager struct {
 	sdkKey         string
 	rawConfig      []byte
+	minimalConfig  *api.MinimalConfig
 	configETag     string
 	localBucketing ConfigReceiver
 	firstLoad      bool
@@ -31,6 +33,7 @@ type EnvironmentConfigManager struct {
 	hasConfig      atomic.Bool
 	ticker         *time.Ticker
 	sseManager     *SSEManager
+	options        *Options
 }
 
 func NewEnvironmentConfigManager(
@@ -40,6 +43,7 @@ func NewEnvironmentConfigManager(
 	cfg *HTTPConfiguration,
 ) (e *EnvironmentConfigManager) {
 	configManager := &EnvironmentConfigManager{
+		options:        options,
 		sdkKey:         sdkKey,
 		localBucketing: localBucketing,
 		cfg:            cfg,
@@ -51,7 +55,6 @@ func NewEnvironmentConfigManager(
 		hasConfig: atomic.Bool{},
 		firstLoad: true,
 	}
-
 	configManager.sseManager = newSSEManager(configManager, options)
 
 	configManager.context, configManager.stopPolling = context.WithCancel(context.Background())
@@ -63,6 +66,11 @@ func (e *EnvironmentConfigManager) StartSSE() error {
 	err := e.initialFetch()
 	if err != nil {
 		return err
+	}
+	if e.options.AdvancedOptions.ServerSentEventsURI == "" {
+		util.Warnf("Server Sent Events URI not set. Aborting SSE connection. Falling back to polling")
+		e.StartPolling(e.options.ConfigPollingIntervalMS)
+		return fmt.Errorf("server Sent Events URI not set. Aborting SSE connection. Falling back to polling")
 	}
 	return e.sseManager.StartSSE()
 }
@@ -184,6 +192,14 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag string) error {
 	e.rawConfig = config
 	e.hasConfig.Store(true)
 
+	err = json.Unmarshal(e.rawConfig, &e.minimalConfig)
+	if err != nil {
+		return err
+	}
+	if e.minimalConfig != nil && e.minimalConfig.SSE != nil {
+		e.options.AdvancedOptions.ServerSentEventsURI = e.minimalConfig.SSE.Hostname + e.minimalConfig.SSE.Path
+		e.options.AdvancedOptions.ServerSentEventsTimeout = e.minimalConfig.SSE.Timeout * time.Millisecond
+	}
 	return nil
 }
 
