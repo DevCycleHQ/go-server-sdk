@@ -10,7 +10,7 @@ require (
 	github.com/open-feature/go-sdk v1.8.0
 	github.com/stretchr/testify v1.8.4
 	github.com/twmb/murmur3 v1.1.7
-	google.golang.org/protobuf v1.29.1
+	google.golang.org/protobuf v1.33.0
 )
 
 require (
