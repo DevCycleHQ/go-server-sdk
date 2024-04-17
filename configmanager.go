@@ -146,13 +146,13 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 		return fmt.Errorf("invalid JSON data received for config")
 	}
 
-	e.configETag = response.Header.Get("Etag")
-
 	err = e.setConfig(config, e.configETag)
 
 	if err != nil {
 		return err
 	}
+
+	e.configETag = response.Header.Get("Etag")
 
 	util.Infof("Config set. ETag: %s\n", e.configETag)
 	if e.firstLoad {
