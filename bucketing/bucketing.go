@@ -20,6 +20,7 @@ var ErrFailedToDecideVariation = errors.New("Failed to decide target variation")
 var ErrUserRollout = errors.New("User does not qualify for feature rollout")
 var ErrUserDoesNotQualifyForTargets = errors.New("User does not qualify for any targets for feature")
 var ErrInvalidVariableType = errors.New("Invalid variable type")
+var ErrConfigMissing = errors.New("No config available")
 
 type boundedHash struct {
 	RolloutHash   float64 `json:"rolloutHash"`
@@ -214,24 +215,25 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, expectedVariableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (variableType string, variableValue any, err error) {
 	variableType, variableValue, featureId, variationId, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
-		eventErr := eventQueue.QueueVariableEvaluatedEvent(variableKey, "", "", true)
+		eventErr := eventQueue.QueueVariableDefaultedEvent(variableKey, "", "", BucketResultErrorToDefaultReason(err))
 		if eventErr != nil {
 			util.Warnf("Failed to queue variable defaulted event: %s", eventErr)
 		}
 		return "", nil, err
 	}
 
-	var variableDefaulted bool
 	if !isVariableTypeValid(variableType, expectedVariableType) && expectedVariableType != "" {
 		err = ErrInvalidVariableType
-		variableDefaulted = true
+		eventErr := eventQueue.QueueVariableDefaultedEvent(variableKey, featureId, variationId, BucketResultErrorToDefaultReason(err))
+		if eventErr != nil {
+			util.Warnf("Failed to queue variable defaulted event: %s", eventErr)
+		}
+		return "", nil, err
 	}
 
-	if !eventQueue.options.DisableAutomaticEventLogging {
-		eventErr := eventQueue.QueueVariableEvaluatedEvent(variableKey, featureId, variationId, variableDefaulted)
-		if eventErr != nil {
-			util.Warnf("Failed to queue variable evaluated event: %s", eventErr)
-		}
+	eventErr := eventQueue.QueueVariableEvaluatedEvent(variableKey, featureId, variationId)
+	if eventErr != nil {
+		util.Warnf("Failed to queue variable evaluated event: %s", eventErr)
 	}
 
 	return
@@ -253,7 +255,7 @@ func isVariableTypeValid(variableType string, expectedVariableType string) bool 
 func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key string, clientCustomData map[string]interface{}) (variableType string, variableValue any, featureId string, variationId string, err error) {
 	config, err := getConfig(sdkKey)
 	if err != nil {
-		return "", nil, "", "", err
+		return "", nil, "", "", ErrConfigMissing
 	}
 	variable := config.GetVariableForKey(key)
 	if variable == nil {
@@ -280,4 +282,27 @@ func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key 
 		return "", nil, "", "", err
 	}
 	return variable.Type, variationVariable.Value, featForVariable.Id, variation.Id, nil
+}
+
+func BucketResultErrorToDefaultReason(err error) (defaultReason string) {
+	switch err {
+	case ErrConfigMissing:
+		return "CONFIG_MISSING"
+	case ErrMissingVariable:
+		return "MISSING_VARIABLE"
+	case ErrMissingFeature:
+		return "MISSING_FEATURE"
+	case ErrMissingVariation:
+		return "MISSING_VARIATION"
+	case ErrMissingVariableForVariation:
+		return "MISSING_VARIABLE_FOR_VARIATION"
+	case ErrUserRollout:
+		return "USER_NOT_IN_ROLLOUT"
+	case ErrUserDoesNotQualifyForTargets:
+		return "USER_NOT_TARGETED"
+	case ErrInvalidVariableType:
+		return "INVALID_VARIABLE_TYPE"
+	default:
+		return "Unknown"
+	}
 }

@@ -338,7 +338,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 		if !c.hasConfig() {
 			util.Warnf("Variable called before client initialized, returning default value")
 
-			err = c.eventQueue.QueueVariableDefaultedEvent(key)
+			err = c.eventQueue.QueueVariableDefaultedEvent(key, "CONFIG_MISSING")
 			if err != nil {
 				util.Warnf("Error queuing aggregate event: ", err)
 			}

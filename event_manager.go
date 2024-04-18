@@ -110,7 +110,7 @@ func (e *EventManager) QueueEvent(user User, event Event) error {
 	return err
 }
 
-func (e *EventManager) QueueVariableDefaultedEvent(variableKey string) error {
+func (e *EventManager) QueueVariableDefaultedEvent(variableKey string, defaultReason string) error {
 	return e.internalQueue.QueueAggregateEvent(BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, Event{
 		Type_:  api.EventType_AggVariableDefaulted,
 		Target: variableKey,
