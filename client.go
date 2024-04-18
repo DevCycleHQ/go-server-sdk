@@ -62,6 +62,7 @@ type LocalBucketing interface {
 	InternalEventQueue
 	GenerateBucketedConfigForUser(user User) (ret *BucketedUserConfig, err error)
 	SetClientCustomData(map[string]interface{}) error
+	GetClientUUID() string
 	Variable(user User, key string, variableType string) (variable Variable, err error)
 	Close()
 }
@@ -151,6 +152,10 @@ func (c *Client) IsLocalBucketing() bool {
 
 func (c *Client) handleInitialization() {
 	c.isInitialized = true
+
+	if(c.IsLocalBucketing()){
+		util.Infof("Client initialized with local bucketing %v", c.localBucketing.GetClientUUID())
+	}
 	if c.DevCycleOptions.OnInitializedChannel != nil {
 		go func() {
 			c.DevCycleOptions.OnInitializedChannel <- true

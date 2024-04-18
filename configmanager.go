@@ -137,6 +137,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 
 func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response) error {
 	config, err := io.ReadAll(response.Body)
+
 	if err != nil {
 		return err
 	}
@@ -146,7 +147,7 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 		return fmt.Errorf("invalid JSON data received for config")
 	}
 
-	err = e.setConfig(config, response.Header.Get("ETag"))
+	err = e.setConfig(config, response.Header.Get("Etag"))
 
 	if err != nil {
 		return err

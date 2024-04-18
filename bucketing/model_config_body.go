@@ -30,7 +30,7 @@ type configBody struct {
 	Environment            api.Environment         `json:"environment" validate:"required"`
 	Features               []*ConfigFeature        `json:"features" validate:"required"`
 	Variables              []*Variable             `json:"variables" validate:"required,dive"`
-	etag                   string                  // TODO: remove etag
+	etag                   string                  
 	variableIdMap          map[string]*Variable
 	variableKeyMap         map[string]*Variable
 	variableIdToFeatureMap map[string]*ConfigFeature

@@ -32,18 +32,20 @@ func main() {
 
 	client, err := devcycle.NewClient(sdkKey, &dvcOptions)
 	time.Sleep(10 * time.Second)
-	fmt.Println("Error? ", err)
+	if(err != nil) {
+		log.Fatalf("Error initializing client: %v", err)
+	}
 	fmt.Println(client.GetRawConfig())
 	log.Printf("client initialized")
 
 	features, _ := client.AllFeatures(user)
 	for key, feature := range features {
-		log.Printf("Key:%s, feature:%#v", key, feature)
+		log.Printf("features Key:%s, feature:%#v", key, feature)
 	}
 
 	variables, _ := client.AllVariables(user)
 	for key, variable := range variables {
-		log.Printf("Key:%s, variable:%#v", key, variable)
+		log.Printf("variables Key:%s, variable:%#v", key, variable)
 	}
 
 	existingVariable, err := client.Variable(user, variableKey, "DEFAULT")
@@ -78,4 +80,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error tracking event: %v", err)
 	}
+
+	err = client.FlushEvents()
+	if(err != nil) {
+		log.Fatalf("Error flushing events: %v", err)
+	}
+
+	time.Sleep(2 * time.Second)
+
+	client.Close()
+
 }

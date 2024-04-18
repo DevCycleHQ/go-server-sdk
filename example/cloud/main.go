@@ -17,7 +17,7 @@ func main() {
 	if variableKey == "" {
 		log.Fatal("DEVCYCLE_VARIABLE_KEY env var not set: set it to a variable key")
 	}
-	user := devcycle.User{UserId: "test"}
+	user := devcycle.User{UserId: "test-user"}
 	dvcOptions := devcycle.Options{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         true,

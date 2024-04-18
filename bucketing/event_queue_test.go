@@ -197,7 +197,7 @@ func TestEventQueue_QueueAndFlush(t *testing.T) {
 	require.Equal(t, 2, len(eq.userEventQueue))
 	require.Equal(t, 0, len(eq.userEventQueueRaw))
 
-	payloads, err := eq.FlushEventQueue()
+	payloads, err := eq.FlushEventQueue("","" )
 	require.NoError(t, err)
 	require.Equal(t, 2, len(payloads))
 	require.Equal(t, 0, len(eq.userEventQueue))
