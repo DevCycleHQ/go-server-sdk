@@ -255,6 +255,7 @@ func isVariableTypeValid(variableType string, expectedVariableType string) bool 
 func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key string, clientCustomData map[string]interface{}) (variableType string, variableValue any, featureId string, variationId string, err error) {
 	config, err := getConfig(sdkKey)
 	if err != nil {
+		util.Warnf("Variable called before client initialized, returning default value")
 		return "", nil, "", "", ErrConfigMissing
 	}
 	variable := config.GetVariableForKey(key)
