@@ -468,7 +468,7 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 			defaultReasonAggMap = existingVariationAggMap
 		}
 		defaultReasonAggMap[event.defaultReason]++
-		featureVariationAggregationMap[event.featureId] = defaultReasonAggMap
+		featureVariationAggregationMap["defaulted"] = defaultReasonAggMap
 	}
 	variableFeatureVariationAggregationMap[eTarget] = featureVariationAggregationMap
 	eq.aggEventQueue[eType] = variableFeatureVariationAggregationMap
