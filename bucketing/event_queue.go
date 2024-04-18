@@ -173,9 +173,9 @@ func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
 }
 
 // QueueAggregateEvent queues an aggregate event to be sent to the server - but offloads aggregation of the event to a different goroutine.
-func (eq *EventQueue) QueueAggregateEvent(config api.BucketedUserConfig, event api.Event) error {
+func (eq *EventQueue) QueueAggregateEvent(config api.BucketedUserConfig, event api.Event, defaultReason string) error {
 	// FIXME: This flow is only used by variable defaulted events triggered by the client, so rename and simplify it
-	return eq.queueAggregateEventInternal(event.Target, "", "", event.Type_, "")
+	return eq.queueAggregateEventInternal(event.Target, "", "", event.Type_, defaultReason)
 }
 
 func (eq *EventQueue) queueAggregateEventInternal(variableKey, featureId, variationId, eventType string, defaultReason string) error {

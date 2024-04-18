@@ -107,8 +107,8 @@ func (n *NativeLocalBucketing) QueueEvent(user User, event Event) error {
 	return n.eventQueue.QueueEvent(user, event)
 }
 
-func (n *NativeLocalBucketing) QueueAggregateEvent(config BucketedUserConfig, event Event) error {
-	return n.eventQueue.QueueAggregateEvent(config, event)
+func (n *NativeLocalBucketing) QueueAggregateEvent(config BucketedUserConfig, event Event, defaultReason string) error {
+	return n.eventQueue.QueueAggregateEvent(config, event, defaultReason)
 }
 
 func (n *NativeLocalBucketing) UserQueueLength() (int, error) {

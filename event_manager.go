@@ -18,7 +18,7 @@ type EventFlushCallback func(payloads map[string]FlushPayload) (*FlushResult, er
 
 type InternalEventQueue interface {
 	QueueEvent(user User, event Event) error
-	QueueAggregateEvent(config BucketedUserConfig, event Event) error
+	QueueAggregateEvent(config BucketedUserConfig, event Event, defaultReason string) error
 	FlushEventQueue(EventFlushCallback) error
 	UserQueueLength() (int, error)
 	Metrics() (int32, int32, int32)
@@ -114,7 +114,7 @@ func (e *EventManager) QueueVariableDefaultedEvent(variableKey string, defaultRe
 	return e.internalQueue.QueueAggregateEvent(BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, Event{
 		Type_:  api.EventType_AggVariableDefaulted,
 		Target: variableKey,
-	})
+	}, defaultReason)
 }
 
 func (e *EventManager) FlushEvents() (err error) {
