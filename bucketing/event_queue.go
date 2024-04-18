@@ -30,6 +30,15 @@ type userEventData struct {
 	user  *api.User
 }
 
+// Structure of the aggregation maps
+// map event type -> event target
+// map event target -> feature id
+// map feature id -> variation id
+// For Evaluation Events:
+// ["aggVariableEvaluated"]["somevariablekey"]["feature_id"]["variation_id"] = 1
+// For Defaulted Events:
+// ["aggVariableDefaulted"]["somevariablekey"]["defaulted"][DEFAULT_REASON] = 1
+
 type VariationAggMap map[string]int64
 type FeatureAggMap map[string]VariationAggMap
 type VariableAggMap map[string]FeatureAggMap
@@ -52,9 +61,12 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 	}
 	emptyFeatureVars := make(map[string]string)
 
+	// tp
 	for _type, variableAggMap := range *agg {
 		for variableKey, featureAggMap := range variableAggMap {
+			// feature is feature id for evaluation events, or the string "defaulted" for default events
 			for feature, _variationAggMap := range featureAggMap {
+				// variation is variation id for evaluation events, or the "default reason" for default events
 				for variation, count := range _variationAggMap {
 					if count == 0 {
 						continue
@@ -172,12 +184,6 @@ func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
 	}
 }
 
-// QueueAggregateEvent queues an aggregate event to be sent to the server - but offloads aggregation of the event to a different goroutine.
-func (eq *EventQueue) QueueAggregateEvent(config api.BucketedUserConfig, event api.Event, defaultReason string) error {
-	// FIXME: This flow is only used by variable defaulted events triggered by the client, so rename and simplify it
-	return eq.queueAggregateEventInternal(event.Target, "", "", event.Type_, defaultReason)
-}
-
 func (eq *EventQueue) queueAggregateEventInternal(variableKey, featureId, variationId, eventType string, defaultReason string) error {
 	if eq.options != nil && eq.options.IsEventLoggingDisabled(eventType) {
 		return nil
@@ -226,12 +232,12 @@ func (eq *EventQueue) QueueVariableEvaluatedEvent(variableKey, featureId, variat
 	return eq.queueAggregateEventInternal(variableKey, featureId, variationId, api.EventType_AggVariableEvaluated, "")
 }
 
-func (eq *EventQueue) QueueVariableDefaultedEvent(variableKey, featureId, variationId string, defaultReason string) error {
+func (eq *EventQueue) QueueVariableDefaultedEvent(variableKey, defaultReason string) error {
 	if eq.options.DisableAutomaticEventLogging {
 		return nil
 	}
 
-	return eq.queueAggregateEventInternal(variableKey, featureId, variationId, api.EventType_AggVariableDefaulted, defaultReason)
+	return eq.queueAggregateEventInternal(variableKey, "", "", api.EventType_AggVariableDefaulted, defaultReason)
 }
 
 func (eq *EventQueue) FlushEventQueue() (map[string]api.FlushPayload, error) {
