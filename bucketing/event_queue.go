@@ -62,6 +62,7 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 						Value:       value,
 						UserId:      userId,
 						FeatureVars: emptyFeatureVars,
+						ClientDate:  time.Now(),
 					}
 					aggregateEvents = append(aggregateEvents, event)
 				}
@@ -88,6 +89,7 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 							UserId:      userId,
 							MetaData:    metaData,
 							FeatureVars: emptyFeatureVars,
+							ClientDate:  time.Now(),
 						}
 						aggregateEvents = append(aggregateEvents, event)
 					}
