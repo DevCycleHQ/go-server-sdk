@@ -288,7 +288,7 @@ func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key 
 func BucketResultErrorToDefaultReason(err error) (defaultReason string) {
 	switch err {
 	case ErrConfigMissing:
-		return "CONFIG_MISSING"
+		return "MISSING_CONFIG"
 	case ErrMissingVariable:
 		return "MISSING_VARIABLE"
 	case ErrMissingFeature:
