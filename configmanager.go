@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sync/atomic"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/util"
@@ -16,19 +15,19 @@ const CONFIG_RETRIES = 1
 
 type ConfigReceiver interface {
 	StoreConfig([]byte, string) error
+	GetRawConfig() []byte
+	GetETag() string
+	HasConfig() bool
 }
 
 type EnvironmentConfigManager struct {
 	sdkKey         string
-	rawConfig      []byte
-	configETag     string
 	localBucketing ConfigReceiver
 	firstLoad      bool
 	context        context.Context
 	stopPolling    context.CancelFunc
 	httpClient     *http.Client
 	cfg            *HTTPConfiguration
-	hasConfig      atomic.Bool
 	ticker         *time.Ticker
 }
 
@@ -47,7 +46,6 @@ func NewEnvironmentConfigManager(
 			// Use the configurable timeout because fetching the first config can block SDK initialization.
 			Timeout: options.RequestTimeout,
 		},
-		hasConfig: atomic.Bool{},
 		firstLoad: true,
 	}
 
@@ -95,8 +93,10 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 		return err
 	}
 
-	if e.configETag != "" {
-		req.Header.Set("If-None-Match", e.configETag)
+	etag := e.localBucketing.GetETag()
+
+	if etag != "" {
+		req.Header.Set("If-None-Match", etag)
 	}
 	resp, err := e.httpClient.Do(req)
 	if err != nil {
@@ -146,17 +146,14 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 		return fmt.Errorf("invalid JSON data received for config")
 	}
 
-	etag := response.Header.Get("Etag")
-
-	err = e.setConfig(config, etag)
+	err = e.setConfig(config, response.Header.Get("ETag"))
 
 	if err != nil {
 		return err
 	}
 
-	e.configETag = etag
+	util.Infof("Config set. ETag: %s\n", e.localBucketing.GetETag())
 
-	util.Infof("Config set. ETag: %s\n", e.configETag)
 	if e.firstLoad {
 		e.firstLoad = false
 		util.Infof("DevCycle SDK Initialized.")
@@ -169,8 +166,6 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag string) error {
 	if err != nil {
 		return err
 	}
-	e.rawConfig = config
-	e.hasConfig.Store(true)
 
 	return nil
 }
@@ -182,7 +177,15 @@ func (e *EnvironmentConfigManager) getConfigURL() string {
 }
 
 func (e *EnvironmentConfigManager) HasConfig() bool {
-	return e.hasConfig.Load()
+	return e.localBucketing.HasConfig()
+}
+
+func (e *EnvironmentConfigManager) GetRawConfig() []byte {
+	return e.localBucketing.GetRawConfig()
+}
+
+func (e *EnvironmentConfigManager) GetETag() string {
+	return e.localBucketing.GetETag()
 }
 
 func (e *EnvironmentConfigManager) Close() {

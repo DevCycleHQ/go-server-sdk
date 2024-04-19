@@ -10,10 +10,24 @@ import (
 
 type recordingConfigReceiver struct {
 	configureCount int
+	etag           string
 }
 
-func (r *recordingConfigReceiver) StoreConfig([]byte, string) error {
+func (r *recordingConfigReceiver) StoreConfig(_ []byte, etag string) error {
 	r.configureCount++
+	r.etag = etag
+	return nil
+}
+
+func (r *recordingConfigReceiver) HasConfig() bool {
+	return r.configureCount > 0
+}
+
+func (r *recordingConfigReceiver) GetETag() string {
+	return r.etag
+}
+
+func (r *recordingConfigReceiver) GetRawConfig() []byte {
 	return nil
 }
 
@@ -34,10 +48,10 @@ func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
 	if localBucketing.configureCount != 1 {
 		t.Fatal("localBucketing.configureCount != 1")
 	}
-	if !manager.hasConfig.Load() {
+	if !manager.HasConfig() {
 		t.Fatal("cm.hasConfig != true")
 	}
-	if manager.configETag != "TESTING" {
+	if manager.GetETag() != "TESTING" {
 		t.Fatal("cm.configEtag != TESTING")
 	}
 }
@@ -59,7 +73,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !manager.hasConfig.Load() {
+	if !manager.HasConfig() {
 		t.Fatal("cm.hasConfig != true")
 	}
 }
@@ -81,7 +95,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !manager.hasConfig.Load() {
+	if !manager.HasConfig() {
 		t.Fatal("cm.hasConfig != true")
 	}
 }
