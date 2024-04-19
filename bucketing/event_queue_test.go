@@ -125,20 +125,11 @@ func TestEventQueue_AddToUserQueue(t *testing.T) {
 }
 
 func TestEventQueue_AddToAggQueue(t *testing.T) {
-	event := api.Event{
-		Type_:      api.EventType_VariableEvaluated,
-		Target:     "somevariablekey",
-		CustomType: "testingtype",
-		UserId:     "testing",
-	}
-	popu := api.User{UserId: "testing"}.GetPopulatedUser(api.PlatformData{}.Default())
 	err := SetConfig(test_config, "dvc_server_token_hash", "")
 	require.NoError(t, err)
 	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{FlushEventsInterval: time.Hour}, (&api.PlatformData{}).Default())
 	require.NoError(t, err)
-	bucketedConfig, err := GenerateBucketedConfig("dvc_server_token_hash", popu, nil)
-	require.NoError(t, err)
-	err = eq.QueueAggregateEvent(*bucketedConfig, event)
+	err = eq.QueueVariableEvaluatedEvent("somevariablekey", "featureId", "variationId")
 	require.NoError(t, err)
 	require.Eventually(t, func() bool { return eq.aggQueueLength() == 1 }, 10*time.Second, time.Millisecond)
 }

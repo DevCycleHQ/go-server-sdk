@@ -335,16 +335,6 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 	}()
 
 	if c.IsLocalBucketing() {
-		if !c.hasConfig() {
-			util.Warnf("Variable called before client initialized, returning default value")
-
-			err = c.eventQueue.QueueVariableDefaultedEvent(key)
-			if err != nil {
-				util.Warnf("Error queuing aggregate event: ", err)
-			}
-
-			return variable, nil
-		}
 		bucketedVariable, err := c.localBucketing.Variable(userdata, key, variableType)
 
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)

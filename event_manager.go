@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
@@ -18,7 +17,7 @@ type EventFlushCallback func(payloads map[string]FlushPayload) (*FlushResult, er
 
 type InternalEventQueue interface {
 	QueueEvent(user User, event Event) error
-	QueueAggregateEvent(config BucketedUserConfig, event Event) error
+	QueueVariableDefaulted(variableKey, defaultReason string) error
 	FlushEventQueue(EventFlushCallback) error
 	UserQueueLength() (int, error)
 	Metrics() (int32, int32, int32)
@@ -110,11 +109,8 @@ func (e *EventManager) QueueEvent(user User, event Event) error {
 	return err
 }
 
-func (e *EventManager) QueueVariableDefaultedEvent(variableKey string) error {
-	return e.internalQueue.QueueAggregateEvent(BucketedUserConfig{VariableVariationMap: map[string]FeatureVariation{}}, Event{
-		Type_:  api.EventType_AggVariableDefaulted,
-		Target: variableKey,
-	})
+func (e *EventManager) QueueVariableDefaultedEvent(variableKey string, defaultReason string) error {
+	return e.internalQueue.QueueVariableDefaulted(variableKey, defaultReason)
 }
 
 func (e *EventManager) FlushEvents() (err error) {
