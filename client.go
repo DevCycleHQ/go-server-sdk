@@ -174,7 +174,7 @@ func (c *Client) GetRawConfig() (config []byte, etag string, err error) {
 		return nil, "", errors.New("cannot read raw config; config manager is nil")
 	}
 	if c.configManager.HasConfig() {
-		return c.configManager.rawConfig, c.configManager.configETag, nil
+		return c.configManager.GetRawConfig(), c.configManager.GetETag(), nil
 	}
 	return nil, "", errors.New("cannot read raw config; config manager has no config")
 }

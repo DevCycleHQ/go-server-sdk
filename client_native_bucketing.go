@@ -56,6 +56,18 @@ func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string) error
 	return nil
 }
 
+func (n *NativeLocalBucketing) GetETag() string {
+	return bucketing.GetEtag(n.sdkKey)
+}
+
+func (n *NativeLocalBucketing) GetRawConfig() []byte {
+	return bucketing.GetRawConfig(n.sdkKey)
+}
+
+func (n *NativeLocalBucketing) HasConfig() bool {
+	return bucketing.HasConfig(n.sdkKey)
+}
+
 func (n *NativeLocalBucketing) GenerateBucketedConfigForUser(user User) (ret *BucketedUserConfig, err error) {
 	populatedUser := user.GetPopulatedUserWithTime(n.platformData, DEFAULT_USER_TIME)
 	clientCustomData := bucketing.GetClientCustomData(n.sdkKey)
