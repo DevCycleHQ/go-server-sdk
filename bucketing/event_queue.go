@@ -61,7 +61,7 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 	}
 	emptyFeatureVars := make(map[string]string)
 
-	// tp
+	// type is either aggVariableEvaluated or aggVariableDefaulted
 	for _type, variableAggMap := range *agg {
 		for variableKey, featureAggMap := range variableAggMap {
 			// feature is feature id for evaluation events, or the string "defaulted" for default events
