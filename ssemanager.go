@@ -71,6 +71,9 @@ func (m *SSEManager) connectSSE(url string) (err error) {
 func (m *SSEManager) parseMessage(rawMessage []byte) (message sseMessage, err error) {
 	event := sseEvent{}
 	err = json.Unmarshal(rawMessage, &event)
+	if err != nil {
+		return
+	}
 	err = json.Unmarshal([]byte(event.Data), &message)
 	return
 }
@@ -78,10 +81,13 @@ func (m *SSEManager) parseMessage(rawMessage []byte) (message sseMessage, err er
 func (m *SSEManager) receiveSSEMessages() {
 	for {
 		select {
-		case event := <-m.Stream.Events:
+		case event, ok := <-m.Stream.Events:
+			if !ok {
+				break
+			}
 			message, err := m.parseMessage([]byte(event.Data()))
 			if err != nil {
-				util.Warnf("SSE - Error unmarshalling message: %v\n", err)
+				util.Debugf("SSE - Error unmarshalling message: %v\n", err)
 				continue
 			}
 			if message.Type_ == "refetchConfig" || message.Type_ == "" {
