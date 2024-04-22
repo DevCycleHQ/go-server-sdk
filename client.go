@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"github.com/devcyclehq/go-server-sdk/v2/variable-utils"
 	"os"
-	"reflect"
 	"regexp"
 	"runtime"
 	"strings"
@@ -232,8 +232,8 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 		return Variable{}, errors.New("invalid key provided for call to Variable")
 	}
 
-	convertedDefaultValue := convertDefaultValueType(defaultValue)
-	variableType, err := variableTypeFromValue(key, convertedDefaultValue, c.IsLocalBucketing())
+	convertedDefaultValue := variable_utils.ConvertDefaultValueType(defaultValue)
+	variableType, err := variable_utils.VariableTypeFromValue(key, convertedDefaultValue, c.IsLocalBucketing())
 
 	if err != nil {
 		return Variable{}, err
@@ -255,23 +255,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 		return c.cloudClient.Variable(userdata, key, defaultValue)
 	}
 
-	bucketedVariable, err := c.localBucketing.Variable(userdata, key, variableType)
-
-	sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
-	if bucketedVariable.Value != nil && (sameTypeAsDefault || defaultValue == nil) {
-		variable.Type_ = bucketedVariable.Type_
-		variable.Value = bucketedVariable.Value
-		variable.IsDefaulted = false
-	} else {
-		if !sameTypeAsDefault && bucketedVariable.Value != nil {
-			util.Warnf("Type mismatch for variable %s. Expected type %s, got %s",
-				key,
-				reflect.TypeOf(defaultValue).String(),
-				reflect.TypeOf(bucketedVariable.Value).String(),
-			)
-		}
-	}
-	return variable, err
+	return c.localBucketing.Variable(userdata, key, convertedDefaultValue)
 }
 
 func (c *Client) AllVariables(user User) (map[string]ReadOnlyVariable, error) {
@@ -391,60 +375,6 @@ func (c *Client) EventQueueMetrics() (int32, int32, int32) {
 
 func (c *Client) hasConfig() bool {
 	return c.configManager.HasConfig()
-}
-
-func compareTypes(value1 interface{}, value2 interface{}) bool {
-	return reflect.TypeOf(value1) == reflect.TypeOf(value2)
-}
-
-func convertDefaultValueType(value interface{}) interface{} {
-	switch value := value.(type) {
-	case int:
-		return float64(value)
-	case int8:
-		return float64(value)
-	case int16:
-		return float64(value)
-	case int32:
-		return float64(value)
-	case int64:
-		return float64(value)
-	case uint:
-		return float64(value)
-	case uint8:
-		return float64(value)
-	case uint16:
-		return float64(value)
-	case uint32:
-		return float64(value)
-	case uint64:
-		return float64(value)
-	case float32:
-		return float64(value)
-	default:
-		return value
-	}
-}
-
-var ErrInvalidDefaultValue = errors.New("the default value for variable is not of type Boolean, Number, String, or JSON")
-
-func variableTypeFromValue(key string, value interface{}, allowNil bool) (varType string, err error) {
-	switch value.(type) {
-	case float64:
-		return "Number", nil
-	case string:
-		return "String", nil
-	case bool:
-		return "Boolean", nil
-	case map[string]any:
-		return "JSON", nil
-	case nil:
-		if allowNil {
-			return "", nil
-		}
-	}
-
-	return "", fmt.Errorf("%w: %s", ErrInvalidDefaultValue, key)
 }
 
 // Change base path to allow switching to mocks

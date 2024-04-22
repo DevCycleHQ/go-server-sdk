@@ -2,10 +2,12 @@ package bucketing
 
 import (
 	"errors"
+	"reflect"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"github.com/devcyclehq/go-server-sdk/v2/variable-utils"
 )
 
 // Max value of an unsigned 32-bit integer, which is what murmurhash returns
@@ -212,7 +214,9 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 	}, nil
 }
 
-func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, expectedVariableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (variableType string, variableValue any, err error) {
+func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, defaultValue interface{}, eventQueue *EventQueue, clientCustomData map[string]interface{}) (variableType string, variableValue any, err error) {
+	expectedVariableType, err := variable_utils.VariableTypeFromValue(variableKey, defaultValue, true)
+
 	variableType, variableValue, featureId, variationId, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
 		eventErr := eventQueue.QueueVariableDefaultedEvent(variableKey, BucketResultErrorToDefaultReason(err))
@@ -222,9 +226,17 @@ func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, 
 		return "", nil, err
 	}
 
-	if !isVariableTypeValid(variableType, expectedVariableType) && expectedVariableType != "" {
+	typeFieldMismatch := !isVariableTypeValid(variableType, expectedVariableType) && expectedVariableType != ""
+	valueFieldMismatch := defaultValue != nil && !variable_utils.CompareTypes(variableValue, defaultValue)
+
+	if typeFieldMismatch || valueFieldMismatch {
 		err = ErrInvalidVariableType
 		eventErr := eventQueue.QueueVariableDefaultedEvent(variableKey, BucketResultErrorToDefaultReason(err))
+		util.Warnf("Type mismatch for variable %s. Expected type %s, got %s",
+			variableKey,
+			reflect.TypeOf(defaultValue).String(),
+			reflect.TypeOf(variableValue).String(),
+		)
 		if eventErr != nil {
 			util.Warnf("Failed to queue variable defaulted event: %s", eventErr)
 		}
@@ -303,6 +315,8 @@ func BucketResultErrorToDefaultReason(err error) (defaultReason string) {
 		return "USER_NOT_TARGETED"
 	case ErrInvalidVariableType:
 		return "INVALID_VARIABLE_TYPE"
+	case variable_utils.ErrInvalidDefaultValue:
+		return "INVALID_DEFAULT_VALUE"
 	default:
 		return "Unknown"
 	}
