@@ -1,27 +1,16 @@
 package devcycle
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"math"
-	"math/rand"
-	"net/http"
-	"net/url"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"os"
 	"reflect"
 	"regexp"
 	"runtime"
 	"strings"
-	"time"
-
-	"github.com/devcyclehq/go-server-sdk/v2/util"
-
-	"github.com/devcyclehq/go-server-sdk/v2/api"
-	"github.com/devcyclehq/go-server-sdk/v2/proto"
-	"github.com/matryer/try"
 )
 
 var (
@@ -48,6 +37,7 @@ type Client struct {
 	common          service // Reuse a single struct instead of allocating one for each service on the heap.
 	DevCycleOptions *Options
 	sdkKey          string
+	cloudClient     *cloudClient
 	configManager   *EnvironmentConfigManager
 	eventQueue      *EventManager
 	localBucketing  LocalBucketing
@@ -96,11 +86,14 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 	c.ctx = context.Background()
 	c.common.client = c
 	c.DevCycleOptions = options
+
 	if options.AdvancedOptions.OverridePlatformData != nil {
 		c.platformData = options.AdvancedOptions.OverridePlatformData
 	} else {
 		c.platformData = GeneratePlatformData()
 	}
+
+	c.cloudClient = newCloudClient(sdkKey, options, c.platformData)
 
 	if c.DevCycleOptions.Logger != nil {
 		util.SetLogger(c.DevCycleOptions.Logger)
@@ -153,7 +146,7 @@ func (c *Client) IsLocalBucketing() bool {
 func (c *Client) handleInitialization() {
 	c.isInitialized = true
 
-	if(c.IsLocalBucketing()){
+	if c.IsLocalBucketing() {
 		util.Infof("Client initialized with local bucketing %v", c.localBucketing.GetClientUUID())
 	}
 	if c.DevCycleOptions.OnInitializedChannel != nil {
@@ -184,57 +177,6 @@ func (c *Client) GetRawConfig() (config []byte, etag string, err error) {
 	return nil, "", errors.New("cannot read raw config; config manager has no config")
 }
 
-func createNullableString(val string) *proto.NullableString {
-	if val == "" {
-		return &proto.NullableString{Value: "", IsNull: true}
-	} else {
-		return &proto.NullableString{Value: val, IsNull: false}
-	}
-}
-
-func createNullableDouble(val float64) *proto.NullableDouble {
-	if math.IsNaN(val) {
-		return &proto.NullableDouble{Value: 0, IsNull: true}
-	} else {
-		return &proto.NullableDouble{Value: val, IsNull: false}
-	}
-}
-
-func createNullableCustomData(data map[string]interface{}) *proto.NullableCustomData {
-	dataMap := map[string]*proto.CustomDataValue{}
-
-	if len(data) == 0 {
-		return &proto.NullableCustomData{
-			Value:  dataMap,
-			IsNull: true,
-		}
-	}
-	// pull the values from the map and convert to the nullable data objects for protobuf
-	for key, val := range data {
-		if val == nil {
-			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Null}
-			continue
-		}
-
-		switch val := val.(type) {
-		case string:
-			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Str, StringValue: val}
-		case float64:
-			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Num, DoubleValue: val}
-		case bool:
-			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Bool, BoolValue: val}
-		default:
-			// if we don't know what it is, just set it to null
-			dataMap[key] = &proto.CustomDataValue{Type: proto.CustomDataType_Null}
-		}
-	}
-
-	return &proto.NullableCustomData{
-		Value:  dataMap,
-		IsNull: false,
-	}
-}
-
 /*
 Get all features by key for user data
   - @param body
@@ -242,50 +184,20 @@ Get all features by key for user data
 @return map[string]Feature
 */
 func (c *Client) AllFeatures(user User) (map[string]Feature, error) {
-	if c.IsLocalBucketing() {
-		if c.hasConfig() {
-			user, err := c.generateBucketedConfig(user)
-			if err != nil {
-				return nil, fmt.Errorf("error generating bucketed config: %w", err)
-			}
-			return user.Features, err
-		} else {
-			util.Warnf("AllFeatures called before client initialized")
-			return map[string]Feature{}, nil
+	if !c.IsLocalBucketing() {
+		return c.cloudClient.AllFeatures(user)
+	}
+
+	if c.hasConfig() {
+		user, err := c.generateBucketedConfig(user)
+		if err != nil {
+			return nil, fmt.Errorf("error generating bucketed config: %w", err)
 		}
-
+		return user.Features, err
+	} else {
+		util.Warnf("AllFeatures called before client initialized")
+		return map[string]Feature{}, nil
 	}
-
-	populatedUser := user.GetPopulatedUser(c.platformData)
-
-	var (
-		httpMethod          = strings.ToUpper("Post")
-		postBody            interface{}
-		localVarReturnValue map[string]Feature
-	)
-
-	// create path and map variables
-	path := c.cfg.BasePath + "/v1/features"
-
-	headers := make(map[string]string)
-	queryParams := url.Values{}
-
-	// body params
-	postBody = &populatedUser
-
-	r, rBody, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if r.StatusCode < 300 {
-		// If we succeed, return the data, otherwise pass on to decode error.
-		err = decode(&localVarReturnValue, rBody, r.Header.Get("Content-Type"))
-		return localVarReturnValue, err
-	}
-
-	return nil, c.handleError(r, rBody)
 }
 
 /*
@@ -339,121 +251,47 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 		}
 	}()
 
-	if c.IsLocalBucketing() {
-		bucketedVariable, err := c.localBucketing.Variable(userdata, key, variableType)
-
-		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
-		if bucketedVariable.Value != nil && (sameTypeAsDefault || defaultValue == nil) {
-			variable.Type_ = bucketedVariable.Type_
-			variable.Value = bucketedVariable.Value
-			variable.IsDefaulted = false
-		} else {
-			if !sameTypeAsDefault && bucketedVariable.Value != nil {
-				util.Warnf("Type mismatch for variable %s. Expected type %s, got %s",
-					key,
-					reflect.TypeOf(defaultValue).String(),
-					reflect.TypeOf(bucketedVariable.Value).String(),
-				)
-			}
-		}
-		return variable, err
+	if !c.IsLocalBucketing() {
+		return c.cloudClient.Variable(userdata, key, defaultValue)
 	}
 
-	populatedUser := userdata.GetPopulatedUser(c.platformData)
+	bucketedVariable, err := c.localBucketing.Variable(userdata, key, variableType)
 
-	var (
-		httpMethod          = strings.ToUpper("Post")
-		postBody            interface{}
-		localVarReturnValue Variable
-	)
-
-	// create path and map variables
-	path := c.cfg.BasePath + "/v1/variables/{key}"
-	path = strings.Replace(path, "{"+"key"+"}", fmt.Sprintf("%v", key), -1)
-
-	headers := make(map[string]string)
-	queryParams := url.Values{}
-
-	// userdata params
-	postBody = &populatedUser
-
-	r, body, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
-
-	if err != nil {
-		return variable, err
-	}
-
-	if r.StatusCode < 300 {
-		// If we succeed, return the data, otherwise pass on to decode error.
-		err = decode(&localVarReturnValue, body, r.Header.Get("Content-Type"))
-		if err == nil && localVarReturnValue.Value != nil {
-			if compareTypes(localVarReturnValue.Value, convertedDefaultValue) {
-				variable.Value = localVarReturnValue.Value
-				variable.IsDefaulted = false
-			} else {
-				util.Warnf("Type mismatch for variable %s. Expected type %s, got %s",
-					key,
-					reflect.TypeOf(defaultValue).String(),
-					reflect.TypeOf(localVarReturnValue.Value).String(),
-				)
-			}
-
-			return variable, err
+	sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
+	if bucketedVariable.Value != nil && (sameTypeAsDefault || defaultValue == nil) {
+		variable.Type_ = bucketedVariable.Type_
+		variable.Value = bucketedVariable.Value
+		variable.IsDefaulted = false
+	} else {
+		if !sameTypeAsDefault && bucketedVariable.Value != nil {
+			util.Warnf("Type mismatch for variable %s. Expected type %s, got %s",
+				key,
+				reflect.TypeOf(defaultValue).String(),
+				reflect.TypeOf(bucketedVariable.Value).String(),
+			)
 		}
 	}
-
-	var v ErrorResponse
-	err = decode(&v, body, r.Header.Get("Content-Type"))
-	if err != nil {
-		util.Warnf("Error decoding response body %s", err)
-		return variable, nil
-	}
-	util.Warnf(v.Message)
-	return variable, nil
+	return variable, err
 }
 
 func (c *Client) AllVariables(user User) (map[string]ReadOnlyVariable, error) {
 	var (
-		httpMethod          = strings.ToUpper("Post")
-		postBody            interface{}
 		localVarReturnValue map[string]ReadOnlyVariable
 	)
-	if c.IsLocalBucketing() {
-		if c.hasConfig() {
-			user, err := c.generateBucketedConfig(user)
-			if err != nil {
-				return localVarReturnValue, err
-			}
-			return user.Variables, err
-		} else {
-			util.Warnf("AllFeatures called before client initialized")
-			return map[string]ReadOnlyVariable{}, nil
+	if !c.IsLocalBucketing() {
+		return c.cloudClient.AllVariables(user)
+	}
+
+	if c.hasConfig() {
+		user, err := c.generateBucketedConfig(user)
+		if err != nil {
+			return localVarReturnValue, err
 		}
+		return user.Variables, err
+	} else {
+		util.Warnf("AllFeatures called before client initialized")
+		return map[string]ReadOnlyVariable{}, nil
 	}
-
-	populatedUser := user.GetPopulatedUser(c.platformData)
-
-	// create path and map variables
-	path := c.cfg.BasePath + "/v1/variables"
-
-	headers := make(map[string]string)
-	queryParams := url.Values{}
-
-	// body params
-	postBody = &populatedUser
-
-	r, rBody, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
-	if err != nil {
-		return localVarReturnValue, err
-	}
-
-	if r.StatusCode < 300 {
-		// If we succeed, return the data, otherwise pass on to decode error.
-		err = decode(&localVarReturnValue, rBody, r.Header.Get("Content-Type"))
-		return localVarReturnValue, err
-	}
-
-	return nil, c.handleError(r, rBody)
 }
 
 /*
@@ -472,53 +310,21 @@ func (c *Client) Track(user User, event Event) (bool, error) {
 		return false, errors.New("event type is required")
 	}
 
-	if c.IsLocalBucketing() {
-		if c.hasConfig() {
-			err := c.eventQueue.QueueEvent(user, event)
-			if err != nil {
-				util.Errorf("Error queuing event: %v", err)
-				return false, err
-			}
-			return true, nil
-		} else {
-			util.Warnf("Track called before client initialized")
-			return true, nil
-		}
-	}
-	var (
-		httpMethod = strings.ToUpper("Post")
-		postBody   interface{}
-	)
-
-	populatedUser := user.GetPopulatedUser(c.platformData)
-
-	events := []Event{event}
-	body := UserDataAndEventsBody{User: &populatedUser, Events: events}
-	// create path and map variables
-	path := c.cfg.BasePath + "/v1/track"
-
-	headers := make(map[string]string)
-	queryParams := url.Values{}
-
-	// body params
-	postBody = &body
-
-	r, rBody, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
-	if err != nil {
-		return false, err
+	if !c.IsLocalBucketing() {
+		return c.cloudClient.Track(user, event)
 	}
 
-	if r.StatusCode < 300 {
-		// If we succeed, return the data, otherwise pass on to decode error.
-		err = decode(nil, rBody, r.Header.Get("Content-Type"))
-		if err == nil {
+	if c.hasConfig() {
+		err := c.eventQueue.QueueEvent(user, event)
+		if err != nil {
+			util.Errorf("Error queuing event: %v", err)
 			return false, err
-		} else {
-			return true, nil
 		}
+		return true, nil
+	} else {
+		util.Warnf("Track called before client initialized")
+		return true, nil
 	}
-
-	return false, c.handleError(r, rBody)
 }
 
 func (c *Client) FlushEvents() error {
@@ -587,88 +393,6 @@ func (c *Client) hasConfig() bool {
 	return c.configManager.HasConfig()
 }
 
-func (c *Client) performRequest(
-	path string, method string,
-	postBody interface{},
-	headerParams map[string]string,
-	queryParams url.Values,
-) (response *http.Response, body []byte, err error) {
-	headerParams["Content-Type"] = "application/json"
-	headerParams["Accept"] = "application/json"
-	headerParams["Authorization"] = c.sdkKey
-
-	var httpResponse *http.Response
-	var responseBody []byte
-
-	// This retrying lib works by retrying as long as the bool is true and err is not nil
-	// the attempt param is auto-incremented
-	err = try.Do(func(attempt int) (bool, error) {
-		var err error
-		r, err := c.prepareRequest(
-			path,
-			method,
-			postBody,
-			headerParams,
-			queryParams,
-		)
-
-		// Don't retry if theres an error preparing the request
-		if err != nil {
-			return false, err
-		}
-
-		httpResponse, err = c.callAPI(r)
-		if httpResponse == nil && err == nil {
-			err = errors.New("Nil httpResponse")
-		}
-		if err != nil {
-			time.Sleep(time.Duration(exponentialBackoff(attempt)) * time.Millisecond) // wait with exponential backoff
-			return attempt <= 5, err
-		}
-		responseBody, err = io.ReadAll(httpResponse.Body)
-		httpResponse.Body.Close()
-
-		if err == nil && httpResponse.StatusCode >= 500 && attempt <= 5 {
-			err = errors.New("5xx error on request")
-		}
-
-		if err != nil {
-			time.Sleep(time.Duration(exponentialBackoff(attempt)) * time.Millisecond) // wait with exponential backoff
-		}
-
-		return attempt <= 5, err // try 5 times
-	})
-
-	if err != nil {
-		return nil, nil, err
-	}
-	return httpResponse, responseBody, err
-
-}
-
-func (c *Client) handleError(r *http.Response, body []byte) (err error) {
-	newErr := GenericError{
-		body:  body,
-		error: r.Status,
-	}
-
-	var v ErrorResponse
-	if len(body) > 0 {
-		err = decode(&v, body, r.Header.Get("Content-Type"))
-		if err != nil {
-			newErr.error = err.Error()
-			return newErr
-		}
-	}
-	newErr.model = v
-
-	if r.StatusCode >= 500 {
-		util.Warnf("Server reported a 5xx error: ", newErr)
-		return nil
-	}
-	return newErr
-}
-
 func compareTypes(value1 interface{}, value2 interface{}) bool {
 	return reflect.TypeOf(value1) == reflect.TypeOf(value2)
 }
@@ -723,128 +447,17 @@ func variableTypeFromValue(key string, value interface{}, allowNil bool) (varTyp
 	return "", fmt.Errorf("%w: %s", ErrInvalidDefaultValue, key)
 }
 
-// callAPI do the request.
-func (c *Client) callAPI(request *http.Request) (*http.Response, error) {
-	return c.cfg.HTTPClient.Do(request)
-}
-
-func exponentialBackoff(attempt int) float64 {
-	delay := math.Pow(2, float64(attempt)) * 100
-	randomSum := delay * 0.2 * rand.Float64()
-	return (delay + randomSum)
-}
-
 // Change base path to allow switching to mocks
 func (c *Client) ChangeBasePath(path string) {
 	c.cfg.BasePath = path
+	c.cloudClient.ChangeBasePath(path)
 }
 
 func (c *Client) SetOptions(dvcOptions Options) {
 	c.DevCycleOptions = &dvcOptions
-}
-
-// prepareRequest build the request
-func (c *Client) prepareRequest(
-	path string,
-	method string,
-	postBody interface{},
-	headerParams map[string]string,
-	queryParams url.Values,
-) (localVarRequest *http.Request, err error) {
-
-	var body *bytes.Buffer
-
-	// Detect postBody type and post.
-	if postBody != nil {
-		contentType := headerParams["Content-Type"]
-		if contentType == "" {
-			contentType = detectContentType(postBody)
-			headerParams["Content-Type"] = contentType
-		}
-
-		body, err = setBody(postBody, contentType)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Setup path and query parameters
-	builtURL, err := url.Parse(path)
-	if err != nil {
-		return nil, err
-	}
-
-	// Adding Query Param
-	query := builtURL.Query()
-	for k, v := range queryParams {
-		for _, iv := range v {
-			query.Add(k, iv)
-		}
-	}
-
-	if c.DevCycleOptions.EnableEdgeDB {
-		query.Add("enableEdgeDB", "true")
-	}
-
-	// Encode the parameters.
-	builtURL.RawQuery = query.Encode()
-
-	// Generate a new request
-	if body != nil {
-		localVarRequest, err = http.NewRequest(method, builtURL.String(), body)
-	} else {
-		localVarRequest, err = http.NewRequest(method, builtURL.String(), nil)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	// add header parameters, if any
-	if len(headerParams) > 0 {
-		headers := http.Header{}
-		for h, v := range headerParams {
-			headers.Set(h, v)
-		}
-		localVarRequest.Header = headers
-	}
-
-	// Override request host, if applicable
-	if c.cfg.Host != "" {
-		localVarRequest.Host = c.cfg.Host
-	}
-
-	// Add the user agent to the request.
-	localVarRequest.Header.Add("User-Agent", c.cfg.UserAgent)
-
-	for header, value := range c.cfg.DefaultHeader {
-		localVarRequest.Header.Add(header, value)
-	}
-
-	return localVarRequest, nil
+	c.cloudClient.SetOptions(dvcOptions)
 }
 
 func sdkKeyIsValid(key string) bool {
 	return strings.HasPrefix(key, "server") || strings.HasPrefix(key, "dvc_server")
-}
-
-// GenericError Provides access to the body, error and model on returned errors.
-type GenericError struct {
-	body  []byte
-	error string
-	model interface{}
-}
-
-// Error returns non-empty string if there was an error.
-func (e GenericError) Error() string {
-	return e.error
-}
-
-// Body returns the raw bytes of the response
-func (e GenericError) Body() []byte {
-	return e.body
-}
-
-// Model returns the unpacked model of the error
-func (e GenericError) Model() interface{} {
-	return e.model
 }
