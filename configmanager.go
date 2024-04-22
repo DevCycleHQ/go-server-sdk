@@ -78,7 +78,9 @@ func (e *EnvironmentConfigManager) StartSSE() error {
 func (e *EnvironmentConfigManager) StartPolling(
 	interval time.Duration,
 ) {
-	e.ticker = time.NewTicker(interval)
+	if e.ticker == nil {
+		e.ticker = time.NewTicker(interval)
+	}
 
 	go func() {
 		for {
