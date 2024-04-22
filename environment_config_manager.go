@@ -13,16 +13,9 @@ import (
 
 const CONFIG_RETRIES = 1
 
-type ConfigReceiver interface {
-	StoreConfig([]byte, string) error
-	GetRawConfig() []byte
-	GetETag() string
-	HasConfig() bool
-}
-
 type EnvironmentConfigManager struct {
 	sdkKey         string
-	localBucketing ConfigReceiver
+	localBucketing *NativeLocalBucketing
 	firstLoad      bool
 	context        context.Context
 	stopPolling    context.CancelFunc
@@ -33,7 +26,7 @@ type EnvironmentConfigManager struct {
 
 func NewEnvironmentConfigManager(
 	sdkKey string,
-	localBucketing ConfigReceiver,
+	localBucketing *NativeLocalBucketing,
 	options *Options,
 	cfg *HTTPConfiguration,
 ) (e *EnvironmentConfigManager) {

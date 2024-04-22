@@ -40,21 +40,11 @@ type Client struct {
 	cloudClient     *cloudClient
 	configManager   *EnvironmentConfigManager
 	eventQueue      *EventManager
-	localBucketing  LocalBucketing
+	localBucketing  *NativeLocalBucketing
 	platformData    *PlatformData
 	// Set to true when the client has been initialized, regardless of whether the config has loaded successfully.
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
-}
-
-type LocalBucketing interface {
-	ConfigReceiver
-	InternalEventQueue
-	GenerateBucketedConfigForUser(user User) (ret *BucketedUserConfig, err error)
-	SetClientCustomData(map[string]interface{}) error
-	GetClientUUID() string
-	Variable(user User, key string, variableType string) (variable Variable, err error)
-	Close()
 }
 
 type SDKEvent struct {
@@ -137,6 +127,16 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		}
 	}
 	return c, nil
+}
+
+func (c *Client) setLBClient(sdkKey string, options *Options) error {
+	localBucketing, err := NewNativeLocalBucketing(sdkKey, c.platformData, options)
+	if err != nil {
+		return err
+	}
+	c.localBucketing = localBucketing
+
+	return nil
 }
 
 func (c *Client) IsLocalBucketing() bool {

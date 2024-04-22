@@ -15,18 +15,10 @@ import (
 
 type EventFlushCallback func(payloads map[string]FlushPayload) (*FlushResult, error)
 
-type InternalEventQueue interface {
-	QueueEvent(user User, event Event) error
-	QueueVariableDefaulted(variableKey, defaultReason string) error
-	FlushEventQueue(EventFlushCallback) error
-	UserQueueLength() (int, error)
-	Metrics() (int32, int32, int32)
-}
-
 // EventManager is responsible for flushing the event queue and reporting events to the server.
 // It wraps an InternalEventQueue which is implemented either natively by the bucketing package or in WASM.
 type EventManager struct {
-	internalQueue InternalEventQueue
+	internalQueue *NativeLocalBucketing
 	flushMutex    *sync.Mutex
 	sdkKey        string
 	options       *Options
@@ -42,7 +34,7 @@ type FlushResult struct {
 	FailureWithRetryPayloads []string
 }
 
-func NewEventManager(options *Options, localBucketing InternalEventQueue, cfg *HTTPConfiguration, sdkKey string) (eventQueue *EventManager, err error) {
+func NewEventManager(options *Options, localBucketing *NativeLocalBucketing, cfg *HTTPConfiguration, sdkKey string) (eventQueue *EventManager, err error) {
 	e := &EventManager{
 		flushMutex: &sync.Mutex{},
 	}
@@ -118,7 +110,7 @@ func (e *EventManager) FlushEvents() (err error) {
 	defer e.flushMutex.Unlock()
 
 	util.Debugf("Started flushing events")
-	
+
 	defer func() {
 		if r := recover(); r != nil {
 			// get the stack trace and potentially log it here
