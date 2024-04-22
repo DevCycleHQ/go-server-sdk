@@ -33,6 +33,7 @@ type configBody struct {
 	etag                   string
 	rayId                  string
 	lastModified           string
+	SSE                    api.SSEHost `json:"sse,omitempty"`
 	variableIdMap          map[string]*Variable
 	variableKeyMap         map[string]*Variable
 	variableIdToFeatureMap map[string]*ConfigFeature

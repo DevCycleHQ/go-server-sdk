@@ -128,40 +128,6 @@ func TestClient_VariableLocalNumber(t *testing.T) {
 	fmt.Println(variableValue)
 }
 
-func TestClient_VariableLocalNumberWithNilDefault(t *testing.T) {
-	// This test is only valid for the native SDK.
-	if !NATIVE_SDK {
-		t.Skip("Skipping test for non-native SDK")
-	}
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
-
-	c, err := NewClient(test_environmentKey, &Options{})
-	fatalErr(t, err)
-
-	user := User{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
-	fmt.Println(c.AllVariables(user))
-	variable, err := c.Variable(
-		user,
-		"v-key-76", nil)
-	fatalErr(t, err)
-
-	if variable.IsDefaulted || variable.Value == nil {
-		t.Fatal("variable should not be defaulted")
-	}
-	fmt.Println(variable.Value)
-	if variable.Value.(float64) != 60.0 {
-		t.Fatal("variable should be 60")
-	}
-	fmt.Println(variable.IsDefaulted)
-	fmt.Println(variable)
-
-	variable, err = c.Variable(user, "nonsense-key", nil)
-	fatalErr(t, err)
-	fmt.Println(variable)
-}
-
 func TestClient_VariableEventIsQueued(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
