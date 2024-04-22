@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"io"
 	"net/http"
 	"time"
@@ -23,6 +24,7 @@ type ConfigReceiver interface {
 
 type EnvironmentConfigManager struct {
 	sdkKey         string
+	minimalConfig  *api.MinimalConfig
 	localBucketing ConfigReceiver
 	firstLoad      bool
 	context        context.Context
@@ -30,6 +32,8 @@ type EnvironmentConfigManager struct {
 	httpClient     *http.Client
 	cfg            *HTTPConfiguration
 	ticker         *time.Ticker
+	sseManager     *SSEManager
+	options        *Options
 }
 
 func NewEnvironmentConfigManager(
@@ -39,6 +43,7 @@ func NewEnvironmentConfigManager(
 	cfg *HTTPConfiguration,
 ) (e *EnvironmentConfigManager) {
 	configManager := &EnvironmentConfigManager{
+		options:        options,
 		sdkKey:         sdkKey,
 		localBucketing: localBucketing,
 		cfg:            cfg,
@@ -50,9 +55,24 @@ func NewEnvironmentConfigManager(
 		firstLoad: true,
 	}
 
+	configManager.sseManager = newSSEManager(configManager, options)
+
 	configManager.context, configManager.stopPolling = context.WithCancel(context.Background())
 
 	return configManager
+}
+
+func (e *EnvironmentConfigManager) StartSSE() error {
+	err := e.initialFetch()
+	if err != nil {
+		return err
+	}
+	if e.options.AdvancedOptions.ServerSentEventsURI == "" {
+		util.Warnf("Server Sent Events URI not set. Aborting SSE connection. Falling back to polling")
+		e.StartPolling(e.options.ConfigPollingIntervalMS)
+		return fmt.Errorf("server Sent Events URI not set. Aborting SSE connection. Falling back to polling")
+	}
+	return e.sseManager.StartSSE()
 }
 
 func (e *EnvironmentConfigManager) StartPolling(
@@ -178,6 +198,13 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 		return err
 	}
 
+	err = json.Unmarshal(e.GetRawConfig(), &e.minimalConfig)
+	if err != nil {
+		return err
+	}
+	if e.minimalConfig != nil && e.minimalConfig.SSE != nil {
+		e.options.AdvancedOptions.ServerSentEventsURI = fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path)
+	}
 	return nil
 }
 

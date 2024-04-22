@@ -51,6 +51,7 @@ type Client struct {
 	eventQueue      *EventManager
 	localBucketing  LocalBucketing
 	platformData    *PlatformData
+	sseManager      *SSEManager
 	// Set to true when the client has been initialized, regardless of whether the config has loaded successfully.
 	isInitialized                bool
 	internalOnInitializedChannel chan bool
@@ -121,7 +122,15 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		}
 
 		c.configManager = NewEnvironmentConfigManager(sdkKey, c.localBucketing, options, c.cfg)
-		c.configManager.StartPolling(options.ConfigPollingIntervalMS)
+		if c.DevCycleOptions.DisableServerSentEvents {
+			c.configManager.StartPolling(options.ConfigPollingIntervalMS)
+		} else {
+			err = c.configManager.StartSSE()
+			if err != nil {
+				util.Warnf("Error initializing SSE, defaulting to polling: %v", err)
+				c.configManager.StartPolling(options.ConfigPollingIntervalMS)
+			}
+		}
 
 		if c.DevCycleOptions.OnInitializedChannel != nil {
 			// TODO: Pass this error back via a channel internally
@@ -141,6 +150,11 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 				c.DevCycleOptions.OnInitializedChannel <- true
 			}()
 		}
+	}
+
+	c.sseManager = &SSEManager{
+		Options: options,
+		Stream:  nil,
 	}
 	return c, nil
 }
@@ -288,6 +302,16 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 	}()
 
 	if c.IsLocalBucketing() {
+		if !c.hasConfig() {
+			util.Warnf("Variable called before client initialized, returning default value")
+
+			err = c.eventQueue.QueueVariableDefaultedEvent(key, "NO CONFIG")
+			if err != nil {
+				util.Warnf("Error queuing aggregate event: ", err)
+			}
+
+			return variable, nil
+		}
 		bucketedVariable, err := c.localBucketing.Variable(userdata, key, variableType)
 
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
