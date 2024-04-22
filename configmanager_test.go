@@ -13,13 +13,15 @@ type recordingConfigReceiver struct {
 	etag           string
 	rayId          string
 	lastModified   string
+	config         []byte
 }
 
-func (r *recordingConfigReceiver) StoreConfig(_ []byte, etag, rayId, lastModified string) error {
+func (r *recordingConfigReceiver) StoreConfig(c []byte, etag, rayId, lastModified string) error {
 	r.configureCount++
 	r.etag = etag
 	r.rayId = rayId
 	r.lastModified = lastModified
+	r.config = c
 	return nil
 }
 
@@ -36,7 +38,7 @@ func (r *recordingConfigReceiver) GetRayId() string {
 }
 
 func (r *recordingConfigReceiver) GetRawConfig() []byte {
-	return nil
+	return r.config
 }
 
 func (r *recordingConfigReceiver) GetLastModified() string {
