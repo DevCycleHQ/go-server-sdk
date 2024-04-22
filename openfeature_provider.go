@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	variable_utils "github.com/devcyclehq/go-server-sdk/v2/variable-utils"
 
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/open-feature/go-sdk/pkg/openfeature"
@@ -307,7 +308,7 @@ func (p DevCycleProvider) Hooks() []openfeature.Hook {
 }
 
 func toOpenFeatureError(err error) openfeature.ResolutionError {
-	if errors.Is(err, ErrInvalidDefaultValue) {
+	if errors.Is(err, variable_utils.ErrInvalidDefaultValue) {
 		return openfeature.NewTypeMismatchResolutionError(err.Error())
 	}
 	return openfeature.NewGeneralResolutionError(err.Error())

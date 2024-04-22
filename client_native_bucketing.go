@@ -2,6 +2,7 @@ package devcycle
 
 import (
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/variable-utils"
 	"sync"
 	"time"
 
@@ -83,20 +84,27 @@ func (n *NativeLocalBucketing) SetClientCustomData(customData map[string]interfa
 	return nil
 }
 
-func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableType string) (Variable, error) {
+func (n *NativeLocalBucketing) Variable(user User, variableKey string, defaultValue interface{}) (Variable, error) {
+	variableType, err := variable_utils.VariableTypeFromValue(variableKey, defaultValue, true)
+
+	if err != nil {
+		return Variable{}, err
+	}
 
 	defaultVar := Variable{
 		BaseVariable: api.BaseVariable{
 			Key:   variableKey,
 			Type_: variableType,
-			Value: nil,
+			Value: defaultValue,
 		},
-		DefaultValue: nil,
+		DefaultValue: defaultValue,
 		IsDefaulted:  true,
 	}
+
 	clientCustomData := bucketing.GetClientCustomData(n.sdkKey)
 	populatedUser := user.GetPopulatedUserWithTime(n.platformData, DEFAULT_USER_TIME)
-	resultVariableType, resultValue, err := bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
+	resultVariableType, resultValue, err := bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, defaultValue, n.eventQueue, clientCustomData)
+
 	if err != nil {
 		return defaultVar, nil
 	}

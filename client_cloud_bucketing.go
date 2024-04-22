@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"github.com/devcyclehq/go-server-sdk/v2/variable-utils"
 	"github.com/matryer/try"
 	"io"
 	"math"
@@ -80,8 +81,8 @@ func (c *cloudClient) Variable(userdata User, key string, defaultValue interface
 		return Variable{}, errors.New("invalid key provided for call to Variable")
 	}
 
-	convertedDefaultValue := convertDefaultValueType(defaultValue)
-	variableType, err := variableTypeFromValue(key, convertedDefaultValue, false)
+	convertedDefaultValue := variable_utils.ConvertDefaultValueType(defaultValue)
+	variableType, err := variable_utils.VariableTypeFromValue(key, convertedDefaultValue, false)
 
 	if err != nil {
 		return Variable{}, err
@@ -127,7 +128,7 @@ func (c *cloudClient) Variable(userdata User, key string, defaultValue interface
 		// If we succeed, return the data, otherwise pass on to decode error.
 		err = decode(&localVarReturnValue, body, r.Header.Get("Content-Type"))
 		if err == nil && localVarReturnValue.Value != nil {
-			if compareTypes(localVarReturnValue.Value, convertedDefaultValue) {
+			if variable_utils.CompareTypes(localVarReturnValue.Value, convertedDefaultValue) {
 				variable.Value = localVarReturnValue.Value
 				variable.IsDefaulted = false
 			} else {
