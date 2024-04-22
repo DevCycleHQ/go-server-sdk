@@ -53,7 +53,7 @@ func (u *UserEventQueue) BuildBatchRecords() []api.UserEventsBatchRecord {
 	return records
 }
 
-func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData) api.UserEventsBatchRecord {
+func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData, clientUUID string, configEtag string) api.UserEventsBatchRecord {
 	var aggregateEvents []api.Event
 	userId, err := os.Hostname()
 	if err != nil {
@@ -81,6 +81,11 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 							"_variation": variation,
 							"_feature":   feature,
 						}
+					}
+					
+					metaData["clientUUID"] = clientUUID
+					if configEtag != "" {
+						metaData["configEtag"] = configEtag
 					}
 
 					event := api.Event{
@@ -240,13 +245,13 @@ func (eq *EventQueue) QueueVariableDefaultedEvent(variableKey, defaultReason str
 	return eq.queueAggregateEventInternal(variableKey, "", "", api.EventType_AggVariableDefaulted, defaultReason)
 }
 
-func (eq *EventQueue) FlushEventQueue() (map[string]api.FlushPayload, error) {
+func (eq *EventQueue) FlushEventQueue(clientUUID string, configEtag string) (map[string]api.FlushPayload, error) {
 	eq.stateMutex.Lock()
 	defer eq.stateMutex.Unlock()
 
 	var records []api.UserEventsBatchRecord
 
-	records = append(records, eq.aggEventQueue.BuildBatchRecords(eq.platformData))
+	records = append(records, eq.aggEventQueue.BuildBatchRecords(eq.platformData, clientUUID, configEtag))
 	records = append(records, eq.userEventQueue.BuildBatchRecords()...)
 	eq.aggEventQueue = make(AggregateEventQueue)
 	eq.userEventQueue = make(UserEventQueue)

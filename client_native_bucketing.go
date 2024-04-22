@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"github.com/google/uuid"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 
@@ -33,9 +34,12 @@ type NativeLocalBucketing struct {
 	configMutex  sync.RWMutex
 	platformData *api.PlatformData
 	eventQueue   *bucketing.EventQueue
+	clientUUID  string
 }
 
 func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, options *Options) (*NativeLocalBucketing, error) {
+	clientUUID := uuid.New().String()
+
 	eq, err := bucketing.NewEventQueue(sdkKey, options.eventQueueOptions(), platformData)
 	if err != nil {
 		return nil, err
@@ -45,11 +49,17 @@ func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, opti
 		options:      options,
 		platformData: platformData,
 		eventQueue:   eq,
+		clientUUID:  clientUUID,
 	}, err
 }
 
 func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string) error {
-	err := bucketing.SetConfig(configJSON, n.sdkKey, eTag, n.eventQueue)
+	oldETag := bucketing.GetEtag(n.sdkKey)
+	_,err := n.eventQueue.FlushEventQueue(n.clientUUID, oldETag)
+	if err != nil {
+		return fmt.Errorf("Error flushing events for %s: %w", oldETag, err)
+	}
+	err = bucketing.SetConfig(configJSON, n.sdkKey, eTag, n.eventQueue)
 	if err != nil {
 		return fmt.Errorf("Error parsing config: %w", err)
 	}
@@ -66,6 +76,10 @@ func (n *NativeLocalBucketing) GetRawConfig() []byte {
 
 func (n *NativeLocalBucketing) HasConfig() bool {
 	return bucketing.HasConfig(n.sdkKey)
+}
+
+func (n *NativeLocalBucketing) GetClientUUID() (string) {
+	return n.clientUUID
 }
 
 func (n *NativeLocalBucketing) GenerateBucketedConfigForUser(user User) (ret *BucketedUserConfig, err error) {
@@ -92,7 +106,6 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 	}
 	clientCustomData := bucketing.GetClientCustomData(n.sdkKey)
 	populatedUser := user.GetPopulatedUserWithTime(n.platformData, DEFAULT_USER_TIME)
-
 	resultVariableType, resultValue, err := bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
 	if err != nil {
 		return defaultVar, nil
@@ -128,7 +141,8 @@ func (n *NativeLocalBucketing) UserQueueLength() (int, error) {
 }
 
 func (n *NativeLocalBucketing) FlushEventQueue(callback EventFlushCallback) error {
-	payloads, err := n.eventQueue.FlushEventQueue()
+	configEtag := bucketing.GetEtag(n.sdkKey)
+	payloads, err := n.eventQueue.FlushEventQueue(n.clientUUID, configEtag)
 	if err != nil {
 		return fmt.Errorf("Error flushing event queue: %w", err)
 	}

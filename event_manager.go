@@ -118,7 +118,7 @@ func (e *EventManager) FlushEvents() (err error) {
 	defer e.flushMutex.Unlock()
 
 	util.Debugf("Started flushing events")
-
+	
 	defer func() {
 		if r := recover(); r != nil {
 			// get the stack trace and potentially log it here
