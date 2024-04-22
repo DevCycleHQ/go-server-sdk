@@ -18,23 +18,13 @@ const NATIVE_SDK = true
 // This value will always be set to zero as the user.CreatedDate is not actually used in native bucketing
 var DEFAULT_USER_TIME = time.Time{}
 
-func (c *Client) setLBClient(sdkKey string, options *Options) error {
-	localBucketing, err := NewNativeLocalBucketing(sdkKey, c.platformData, options)
-	if err != nil {
-		return err
-	}
-	c.localBucketing = localBucketing
-
-	return nil
-}
-
 type NativeLocalBucketing struct {
 	sdkKey       string
 	options      *Options
 	configMutex  sync.RWMutex
 	platformData *api.PlatformData
 	eventQueue   *bucketing.EventQueue
-	clientUUID  string
+	clientUUID   string
 }
 
 func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, options *Options) (*NativeLocalBucketing, error) {
@@ -49,13 +39,13 @@ func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, opti
 		options:      options,
 		platformData: platformData,
 		eventQueue:   eq,
-		clientUUID:  clientUUID,
+		clientUUID:   clientUUID,
 	}, err
 }
 
 func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string) error {
 	oldETag := bucketing.GetEtag(n.sdkKey)
-	_,err := n.eventQueue.FlushEventQueue(n.clientUUID, oldETag)
+	_, err := n.eventQueue.FlushEventQueue(n.clientUUID, oldETag)
 	if err != nil {
 		return fmt.Errorf("Error flushing events for %s: %w", oldETag, err)
 	}
@@ -78,7 +68,7 @@ func (n *NativeLocalBucketing) HasConfig() bool {
 	return bucketing.HasConfig(n.sdkKey)
 }
 
-func (n *NativeLocalBucketing) GetClientUUID() (string) {
+func (n *NativeLocalBucketing) GetClientUUID() string {
 	return n.clientUUID
 }
 
