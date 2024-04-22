@@ -189,24 +189,6 @@ func TestClient_VariableEventIsQueued(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestClient_VariableLocal(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
-
-	c, err := NewClient(test_environmentKey, &Options{})
-	fatalErr(t, err)
-
-	user := User{UserId: "j_test", DeviceModel: "testing"}
-	variable, err := c.Variable(user, "test", true)
-	fatalErr(t, err)
-	fmt.Println(variable)
-
-	variableValue, err := c.VariableValue(user, "test", true)
-	fatalErr(t, err)
-	fmt.Println(variableValue)
-}
-
 func TestClient_VariableLocalFlush(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -223,7 +205,7 @@ func TestClient_VariableLocalFlush(t *testing.T) {
 	fmt.Println(variable)
 }
 
-func TestClient_VariableLocalProtobuf(t *testing.T) {
+func TestClient_VariableLocal(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
@@ -258,7 +240,7 @@ func TestClient_VariableLocalProtobuf(t *testing.T) {
 	}
 }
 
-func TestClient_VariableLocalProtobuf_UserWithCustomData(t *testing.T) {
+func TestClient_VariableLocal_UserWithCustomData(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
