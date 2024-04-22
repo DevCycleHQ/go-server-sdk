@@ -220,7 +220,7 @@ func TestEnvironmentConfigManager_fetchConfig_returns_errors_sse(t *testing.T) {
 func errorResponseChain(errorResponse httpmock.Responder, count int, configMock ...func(respcode int) httpmock.Responder) httpmock.Responder {
 
 	var successResponse httpmock.Responder
-	if configMock != nil && len(configMock) > 0 {
+	if configMock != nil {
 		successResponse = configMock[0](200)
 	} else {
 		successResponse = httpConfigMock(200)
