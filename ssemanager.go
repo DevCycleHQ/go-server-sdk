@@ -73,6 +73,7 @@ func (m *SSEManager) parseMessage(rawMessage []byte) (message sseMessage, err er
 	if err != nil {
 		return
 	}
+
 	err = json.Unmarshal([]byte(event.Data), &message)
 	return
 }
