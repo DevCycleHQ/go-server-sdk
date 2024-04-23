@@ -26,6 +26,14 @@ func GetEtag(sdkKey string) string {
 	return config.etag
 }
 
+func GetRayId(sdkKey string) string {
+	config, err := getConfig(sdkKey)
+	if err != nil {
+		return ""
+	}
+	return config.rayId
+}
+
 func GetRawConfig(sdkKey string) []byte {
 	configMutex.RLock()
 	defer configMutex.RUnlock()
@@ -35,10 +43,10 @@ func GetRawConfig(sdkKey string) []byte {
 	return nil
 }
 
-func SetConfig(rawJSON []byte, sdkKey, etag string, eventQueue ...*EventQueue) error {
+func SetConfig(rawJSON []byte, sdkKey, etag string, rayId string, eventQueue ...*EventQueue) error {
 	configMutex.Lock()
 	defer configMutex.Unlock()
-	config, err := newConfig(rawJSON, etag)
+	config, err := newConfig(rawJSON, etag, rayId)
 	if err != nil {
 		return err
 	}
