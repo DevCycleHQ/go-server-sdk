@@ -88,7 +88,7 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 						metaData["configEtag"] = configEtag
 					}
 					if rayId != "" {
-						metaData["rayId"] = rayId
+						metaData["configRayId"] = rayId
 					}
 
 					event := api.Event{
