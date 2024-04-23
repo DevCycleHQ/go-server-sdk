@@ -78,6 +78,7 @@ func (m *SSEManager) parseMessage(rawMessage []byte) (message sseMessage, err er
 }
 
 func (m *SSEManager) receiveSSEMessages() {
+	//nolint:all
 	for {
 		select {
 		case event, ok := <-m.Stream.Events:
