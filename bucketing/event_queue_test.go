@@ -18,7 +18,7 @@ func BenchmarkEventQueue_QueueEvent(b *testing.B) {
 		CustomType: "testingtype",
 		UserId:     "testing",
 	}
-	err := SetConfig(test_config, "dvc_server_token_hash", "")
+	err := SetConfig(test_config, "dvc_server_token_hash", "", "")
 	require.NoError(b, err)
 	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{MaxEventQueueSize: b.N + 10}, (&api.PlatformData{}).Default())
 	require.NoError(b, err)
@@ -37,7 +37,7 @@ func BenchmarkEventQueue_QueueEvent_WithDrop(b *testing.B) {
 		CustomType: "testingtype",
 		UserId:     "testing",
 	}
-	err := SetConfig(test_config, "dvc_server_token_hash", "")
+	err := SetConfig(test_config, "dvc_server_token_hash", "", "")
 	require.NoError(b, err)
 	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{MaxEventQueueSize: b.N / 2}, (&api.PlatformData{}).Default())
 	require.NoError(b, err)
@@ -52,7 +52,7 @@ func TestEventQueue_MergeAggEventQueueKeys(t *testing.T) {
 	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{}, (&api.PlatformData{}).Default())
 	require.NoError(t, err)
 	// Parsing the large config should succeed without an error
-	err = SetConfig(test_config, "test", "")
+	err = SetConfig(test_config, "test", "", "")
 	require.NoError(t, err)
 	config, err := getConfig("test")
 	require.NoError(t, err)
@@ -64,7 +64,7 @@ func TestEventQueue_FlushEvents(t *testing.T) {
 	// Test flush events by ensuring that all events are flushed
 	// and that the number of events flushed is equal to the number
 	// of events reported.
-	err := SetConfig(test_config, "test", "")
+	err := SetConfig(test_config, "test", "", "")
 	require.NoError(t, err)
 	config, err := getConfig("test")
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func TestEventQueue_ProcessUserEvent(t *testing.T) {
 			UserId: "testing",
 		},
 	}
-	err := SetConfig(test_config, "dvc_server_token_hash", "")
+	err := SetConfig(test_config, "dvc_server_token_hash", "", "")
 	require.NoError(t, err)
 	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{}, (&api.PlatformData{}).Default())
 	require.NoError(t, err)
@@ -101,7 +101,7 @@ func TestEventQueue_ProcessAggregateEvent(t *testing.T) {
 		featureId:   "featurekey",
 		variationId: "somevariation",
 	}
-	err := SetConfig(test_config, "dvc_server_token_hash", "")
+	err := SetConfig(test_config, "dvc_server_token_hash", "", "")
 	require.NoError(t, err)
 	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{}, (&api.PlatformData{}).Default())
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestEventQueue_AddToUserQueue(t *testing.T) {
 		CustomType: "testingtype",
 		UserId:     "testing",
 	}
-	err := SetConfig(test_config, "dvc_server_token_hash", "")
+	err := SetConfig(test_config, "dvc_server_token_hash", "", "")
 	require.NoError(t, err)
 	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{}, (&api.PlatformData{}).Default())
 	require.NoError(t, err)
@@ -125,7 +125,7 @@ func TestEventQueue_AddToUserQueue(t *testing.T) {
 }
 
 func TestEventQueue_AddToAggQueue(t *testing.T) {
-	err := SetConfig(test_config, "dvc_server_token_hash", "")
+	err := SetConfig(test_config, "dvc_server_token_hash", "", "")
 	require.NoError(t, err)
 	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{FlushEventsInterval: time.Hour}, (&api.PlatformData{}).Default())
 	require.NoError(t, err)
@@ -142,7 +142,7 @@ func TestEventQueue_UserMaxQueueDrop(t *testing.T) {
 		CustomType: "testingtype",
 		UserId:     "testing",
 	}
-	err := SetConfig(test_config, "dvc_server_token_hash", "")
+	err := SetConfig(test_config, "dvc_server_token_hash", "", "")
 	require.NoError(t, err)
 	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{
 		DisableAutomaticEventLogging: true,
@@ -172,7 +172,7 @@ func TestEventQueue_QueueAndFlush(t *testing.T) {
 		CustomType: "testingtype",
 		UserId:     "testing",
 	}
-	err := SetConfig(test_config, "dvc_server_token_hash", "")
+	err := SetConfig(test_config, "dvc_server_token_hash", "", "")
 	require.NoError(t, err)
 	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{
 		FlushEventsInterval: time.Hour,
@@ -197,7 +197,7 @@ func TestEventQueue_QueueAndFlush(t *testing.T) {
 	require.Equal(t, 2, len(eq.userEventQueue))
 	require.Equal(t, 0, len(eq.userEventQueueRaw))
 
-	payloads, err := eq.FlushEventQueue("","" )
+	payloads, err := eq.FlushEventQueue("", "", "")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(payloads))
 	require.Equal(t, 0, len(eq.userEventQueue))
