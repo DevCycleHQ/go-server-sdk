@@ -1,6 +1,5 @@
 package devcycle
 
-import "C"
 import (
 	"encoding/json"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
