@@ -34,7 +34,7 @@ type NativeLocalBucketing struct {
 	configMutex  sync.RWMutex
 	platformData *api.PlatformData
 	eventQueue   *bucketing.EventQueue
-	clientUUID  string
+	clientUUID   string
 }
 
 func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, options *Options) (*NativeLocalBucketing, error) {
@@ -49,17 +49,17 @@ func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, opti
 		options:      options,
 		platformData: platformData,
 		eventQueue:   eq,
-		clientUUID:  clientUUID,
+		clientUUID:   clientUUID,
 	}, err
 }
 
-func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string) error {
+func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string, rayId string) error {
 	oldETag := bucketing.GetEtag(n.sdkKey)
-	_,err := n.eventQueue.FlushEventQueue(n.clientUUID, oldETag)
+	_, err := n.eventQueue.FlushEventQueue(n.clientUUID, oldETag, n.GetRayId())
 	if err != nil {
 		return fmt.Errorf("Error flushing events for %s: %w", oldETag, err)
 	}
-	err = bucketing.SetConfig(configJSON, n.sdkKey, eTag, n.eventQueue)
+	err = bucketing.SetConfig(configJSON, n.sdkKey, eTag, rayId, n.eventQueue)
 	if err != nil {
 		return fmt.Errorf("Error parsing config: %w", err)
 	}
@@ -70,6 +70,10 @@ func (n *NativeLocalBucketing) GetETag() string {
 	return bucketing.GetEtag(n.sdkKey)
 }
 
+func (n *NativeLocalBucketing) GetRayId() string {
+	return bucketing.GetRayId(n.sdkKey)
+}
+
 func (n *NativeLocalBucketing) GetRawConfig() []byte {
 	return bucketing.GetRawConfig(n.sdkKey)
 }
@@ -78,7 +82,7 @@ func (n *NativeLocalBucketing) HasConfig() bool {
 	return bucketing.HasConfig(n.sdkKey)
 }
 
-func (n *NativeLocalBucketing) GetClientUUID() (string) {
+func (n *NativeLocalBucketing) GetClientUUID() string {
 	return n.clientUUID
 }
 
@@ -142,7 +146,8 @@ func (n *NativeLocalBucketing) UserQueueLength() (int, error) {
 
 func (n *NativeLocalBucketing) FlushEventQueue(callback EventFlushCallback) error {
 	configEtag := bucketing.GetEtag(n.sdkKey)
-	payloads, err := n.eventQueue.FlushEventQueue(n.clientUUID, configEtag)
+	rayId := bucketing.GetRayId(n.sdkKey)
+	payloads, err := n.eventQueue.FlushEventQueue(n.clientUUID, configEtag, rayId)
 	if err != nil {
 		return fmt.Errorf("Error flushing event queue: %w", err)
 	}

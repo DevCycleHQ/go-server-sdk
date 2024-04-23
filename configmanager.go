@@ -14,7 +14,7 @@ import (
 const CONFIG_RETRIES = 1
 
 type ConfigReceiver interface {
-	StoreConfig([]byte, string) error
+	StoreConfig([]byte, string, string) error
 	GetRawConfig() []byte
 	GetETag() string
 	HasConfig() bool
@@ -147,7 +147,11 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 		return fmt.Errorf("invalid JSON data received for config")
 	}
 
-	err = e.setConfig(config, response.Header.Get("Etag"))
+	err = e.setConfig(
+		config,
+		response.Header.Get("Etag"),
+		response.Header.Get("Cf-Ray"),
+	)
 
 	if err != nil {
 		return err
@@ -162,8 +166,8 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 	return nil
 }
 
-func (e *EnvironmentConfigManager) setConfig(config []byte, eTag string) error {
-	err := e.localBucketing.StoreConfig(config, eTag)
+func (e *EnvironmentConfigManager) setConfig(config []byte, eTag string, rayId string) error {
+	err := e.localBucketing.StoreConfig(config, eTag, rayId)
 	if err != nil {
 		return err
 	}
