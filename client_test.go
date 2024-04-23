@@ -554,7 +554,7 @@ func BenchmarkClient_VariableParallel(b *testing.B) {
 			}
 			if benchmarkEnableConfigUpdates && configCounter.Add(1)%10000 == 0 {
 				go func() {
-					err = client.configManager.setConfig([]byte(test_large_config), "")
+					err = client.configManager.setConfig([]byte(test_large_config), "", "")
 					setConfigCount.Add(1)
 				}()
 			}

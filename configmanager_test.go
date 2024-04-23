@@ -11,11 +11,13 @@ import (
 type recordingConfigReceiver struct {
 	configureCount int
 	etag           string
+	rayId          string
 }
 
-func (r *recordingConfigReceiver) StoreConfig(_ []byte, etag string) error {
+func (r *recordingConfigReceiver) StoreConfig(_ []byte, etag string, rayId string) error {
 	r.configureCount++
 	r.etag = etag
+	r.rayId = rayId
 	return nil
 }
 
@@ -25,6 +27,10 @@ func (r *recordingConfigReceiver) HasConfig() bool {
 
 func (r *recordingConfigReceiver) GetETag() string {
 	return r.etag
+}
+
+func (r *recordingConfigReceiver) GetRayId() string {
+	return r.rayId
 }
 
 func (r *recordingConfigReceiver) GetRawConfig() []byte {
