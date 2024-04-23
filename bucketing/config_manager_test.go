@@ -16,7 +16,7 @@ func TestSetConfig(t *testing.T) {
 	baseConfig := configBody{}
 	err = json.Unmarshal(test_config, &baseConfig)
 	require.NoError(t, err)
-	baseConfig.compile("test_etag", "rayid")
+	baseConfig.compile("test_etag", "rayId")
 
 	require.True(t, setConfig.Equals(baseConfig))
 }
