@@ -9,14 +9,14 @@ jobs:
     name: Performance Regression Check - GoNative
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: 1.19
       - name: Run benchmark
         run: CGO_ENABLED=0 go test -bench=^BenchmarkClient_VariableSerial -run=^# -benchDisableLogs | tee bench_native_output.txt
       - name: Download previous benchmark data
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ./cache
           key: ${{ runner.os }}-benchmark
