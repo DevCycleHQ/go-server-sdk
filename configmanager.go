@@ -14,9 +14,10 @@ import (
 const CONFIG_RETRIES = 1
 
 type ConfigReceiver interface {
-	StoreConfig([]byte, string, string) error
+	StoreConfig([]byte, string, string, string) error
 	GetRawConfig() []byte
 	GetETag() string
+	GetLastModified() string
 	HasConfig() bool
 }
 
@@ -94,9 +95,13 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 	}
 
 	etag := e.localBucketing.GetETag()
+	lastModified := e.localBucketing.GetLastModified()
 
 	if etag != "" {
 		req.Header.Set("If-None-Match", etag)
+	}
+	if lastModified != "" {
+		req.Header.Set("If-Modified-Since", lastModified)
 	}
 	resp, err := e.httpClient.Do(req)
 	if err != nil {
@@ -151,6 +156,7 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 		config,
 		response.Header.Get("Etag"),
 		response.Header.Get("Cf-Ray"),
+		response.Header.Get("Last-Modified"),
 	)
 
 	if err != nil {
@@ -166,8 +172,8 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 	return nil
 }
 
-func (e *EnvironmentConfigManager) setConfig(config []byte, eTag string, rayId string) error {
-	err := e.localBucketing.StoreConfig(config, eTag, rayId)
+func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastModified string) error {
+	err := e.localBucketing.StoreConfig(config, eTag, rayId, lastModified)
 	if err != nil {
 		return err
 	}
@@ -191,6 +197,10 @@ func (e *EnvironmentConfigManager) GetRawConfig() []byte {
 
 func (e *EnvironmentConfigManager) GetETag() string {
 	return e.localBucketing.GetETag()
+}
+
+func (e *EnvironmentConfigManager) GetLastModified() string {
+	return e.localBucketing.GetLastModified()
 }
 
 func (e *EnvironmentConfigManager) Close() {

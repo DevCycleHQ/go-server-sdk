@@ -53,13 +53,13 @@ func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, opti
 	}, err
 }
 
-func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag string, rayId string) error {
+func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag, rayId, lastModified string) error {
 	oldETag := bucketing.GetEtag(n.sdkKey)
 	_, err := n.eventQueue.FlushEventQueue(n.clientUUID, oldETag, n.GetRayId())
 	if err != nil {
 		return fmt.Errorf("Error flushing events for %s: %w", oldETag, err)
 	}
-	err = bucketing.SetConfig(configJSON, n.sdkKey, eTag, rayId, n.eventQueue)
+	err = bucketing.SetConfig(configJSON, n.sdkKey, eTag, rayId, lastModified, n.eventQueue)
 	if err != nil {
 		return fmt.Errorf("Error parsing config: %w", err)
 	}
@@ -84,6 +84,10 @@ func (n *NativeLocalBucketing) HasConfig() bool {
 
 func (n *NativeLocalBucketing) GetClientUUID() string {
 	return n.clientUUID
+}
+
+func (n *NativeLocalBucketing) GetLastModified() string {
+	return bucketing.GetLastModified(n.sdkKey)
 }
 
 func (n *NativeLocalBucketing) GenerateBucketedConfigForUser(user User) (ret *BucketedUserConfig, err error) {

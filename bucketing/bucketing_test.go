@@ -22,7 +22,7 @@ var (
 
 // Bucketing puts the user in the target for the first audience they match
 func TestBucketingFirstMatchingTarget(t *testing.T) {
-	config, err := newConfig(test_config, "", "")
+	config, err := newConfig(test_config, "", "", "")
 	require.NoError(t, err)
 
 	feature := config.GetFeatureForVariableId("615356f120ed334a6054564c")
@@ -53,7 +53,7 @@ func TestBucketing_RolloutGatesUser(t *testing.T) {
 		Email:  "test@email.com",
 	}.GetPopulatedUser(&api.PlatformData{})
 
-	config, err := newConfig(test_config, "", "")
+	config, err := newConfig(test_config, "", "", "")
 	require.NoError(t, err)
 
 	feature := config.GetFeatureForVariableId("61538237b0a70b58ae6af71f")
@@ -190,7 +190,7 @@ func TestBucketing_Deterministic_RolloutNotEqualBucketing(t *testing.T) {
 
 func TestConfigParsing(t *testing.T) {
 	// Parsing the large config should succeed without an error
-	err := SetConfig(test_config, "test", "etag", "rayid")
+	err := SetConfig(test_config, "test", "etag", "rayid", "lastModified")
 	require.NoError(t, err)
 	config, err := getConfig("test")
 	require.NoError(t, err)
@@ -468,7 +468,7 @@ func TestClientData(t *testing.T) {
 		PlatformVersion: "1.1.2",
 	})
 
-	err := SetConfig(test_config, "test", "", "")
+	err := SetConfig(test_config, "test", "", "", "")
 	require.NoError(t, err)
 
 	// Ensure bucketed config has a feature variation map that's empty
@@ -572,7 +572,7 @@ func TestVariableForUser(t *testing.T) {
 		PlatformVersion: "1.1.2",
 	})
 
-	err := SetConfig(test_config, "test", "", "")
+	err := SetConfig(test_config, "test", "", "", "")
 	require.NoError(t, err)
 
 	variableType, value, featureId, variationId, err := generateBucketedVariableForUser("test", user, "json-var", nil)
@@ -585,7 +585,7 @@ func TestVariableForUser(t *testing.T) {
 }
 
 func TestGenerateBucketedConfig_MissingDistribution(t *testing.T) {
-	err := SetConfig(test_broken_config, "broken_config", "", "")
+	err := SetConfig(test_broken_config, "broken_config", "", "", "")
 	require.NoError(t, err)
 
 	user := api.User{
@@ -599,7 +599,7 @@ func TestGenerateBucketedConfig_MissingDistribution(t *testing.T) {
 }
 
 func TestGenerateBucketedConfig_MissingVariations(t *testing.T) {
-	err := SetConfig(test_broken_config, "broken_config", "", "")
+	err := SetConfig(test_broken_config, "broken_config", "", "", "")
 	require.NoError(t, err)
 
 	user := api.User{
@@ -617,7 +617,7 @@ func TestGenerateBucketedConfig_MissingVariations(t *testing.T) {
 }
 
 func TestGenerateBucketedConfig_MissingVariables(t *testing.T) {
-	err := SetConfig(test_broken_config, "broken_config", "", "")
+	err := SetConfig(test_broken_config, "broken_config", "", "", "")
 	require.NoError(t, err)
 
 	user := api.User{
