@@ -5,7 +5,6 @@ import (
 	"sync"
 )
 
-var internalLastModified = make(map[string]string)
 var internalConfigs = make(map[string]*configBody)
 var internalRawConfigs = make(map[string][]byte)
 var configMutex = &sync.RWMutex{}
@@ -36,12 +35,11 @@ func GetRayId(sdkKey string) string {
 }
 
 func GetLastModified(sdkKey string) string {
-	configMutex.RLock()
-	defer configMutex.RUnlock()
-	if val, ok := internalLastModified[sdkKey]; ok {
-		return val
+	config, err := getConfig(sdkKey)
+	if err != nil {
+		return ""
 	}
-	return ""
+	return config.lastModified
 }
 
 func GetRawConfig(sdkKey string) []byte {
@@ -61,7 +59,6 @@ func SetConfig(rawJSON []byte, sdkKey, etag, rayId, lastModified string, eventQu
 		return err
 	}
 	internalConfigs[sdkKey] = config
-	internalLastModified[sdkKey] = lastModified
 	internalRawConfigs[sdkKey] = rawJSON
 	if len(eventQueue) > 0 {
 		eventQueue[0].MergeAggEventQueueKeys(config)
