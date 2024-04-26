@@ -163,7 +163,7 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 		return err
 	}
 
-	util.Infof("Config set. ETag: %s\n", e.localBucketing.GetETag())
+	util.Infof("Config set. ETag: %s Last-Modified: %s\n", e.localBucketing.GetETag(), e.localBucketing.GetLastModified())
 
 	if e.firstLoad {
 		e.firstLoad = false
