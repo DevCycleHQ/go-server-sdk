@@ -67,7 +67,7 @@ func (e *EnvironmentConfigManager) StartSSE() error {
 	if err != nil {
 		return err
 	}
-	if e.options.AdvancedOptions.ServerSentEventsURI == "" {
+	if e.options.AdvancedOptions.RealtimeUpdatesURI == "" {
 		util.Warnf("Server Sent Events URI not set. Aborting SSE connection. Falling back to polling")
 		e.StartPolling(e.options.ConfigPollingIntervalMS)
 		return fmt.Errorf("server Sent Events URI not set. Aborting SSE connection. Falling back to polling")
@@ -205,7 +205,7 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 		return err
 	}
 	if e.minimalConfig != nil && e.minimalConfig.SSE != nil {
-		e.options.AdvancedOptions.ServerSentEventsURI = fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path)
+		e.options.AdvancedOptions.RealtimeUpdatesURI = fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path)
 	}
 	return nil
 }

@@ -47,11 +47,11 @@ type APIKey struct {
 }
 
 type AdvancedOptions struct {
-	OverridePlatformData      *api.PlatformData
-	ServerSentEventsURI       string
-	ServerSentEventsTimeout   time.Duration
-	ServerSentEventsQueueSize int
-	ServerSentEventsBackoff   time.Duration
+	OverridePlatformData     *api.PlatformData
+	RealtimeUpdatesURI       string
+	RealtimeUpdatesTimeout   time.Duration
+	RealtimeUpdatesQueueSize int
+	RealtimeUpdatesBackoff   time.Duration
 }
 
 type Options struct {
@@ -62,7 +62,7 @@ type Options struct {
 	RequestTimeout               time.Duration `json:"requestTimeout,omitempty"`
 	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging,omitempty"`
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging,omitempty"`
-	DisableServerSentEvents      bool          `json:"disableServerSentEvents,omitempty"`
+	DisableRealtimeUpdates       bool          `json:"disableServerSentEvents,omitempty"`
 	MaxEventQueueSize            int           `json:"maxEventsPerFlush,omitempty"`
 	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
 	ConfigCDNURI                 string
@@ -118,14 +118,14 @@ func (o *Options) CheckDefaults() {
 	} else if o.FlushEventQueueSize > 50000 {
 		o.FlushEventQueueSize = 50000
 	}
-	if o.AdvancedOptions.ServerSentEventsQueueSize <= 0 {
-		o.AdvancedOptions.ServerSentEventsQueueSize = 100
+	if o.AdvancedOptions.RealtimeUpdatesQueueSize <= 0 {
+		o.AdvancedOptions.RealtimeUpdatesQueueSize = 100
 	}
-	if o.AdvancedOptions.ServerSentEventsTimeout <= time.Second*5 {
-		o.AdvancedOptions.ServerSentEventsTimeout = time.Second * 5
+	if o.AdvancedOptions.RealtimeUpdatesTimeout <= time.Second*5 {
+		o.AdvancedOptions.RealtimeUpdatesTimeout = time.Second * 5
 	}
-	if o.AdvancedOptions.ServerSentEventsBackoff <= time.Minute*1 {
-		o.AdvancedOptions.ServerSentEventsBackoff = time.Minute * 1
+	if o.AdvancedOptions.RealtimeUpdatesBackoff <= time.Minute*1 {
+		o.AdvancedOptions.RealtimeUpdatesBackoff = time.Minute * 1
 	}
 }
 
