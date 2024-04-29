@@ -32,7 +32,7 @@ func main() {
 
 	client, err := devcycle.NewClient(sdkKey, &dvcOptions)
 	time.Sleep(10 * time.Second)
-	if(err != nil) {
+	if err != nil {
 		log.Fatalf("Error initializing client: %v", err)
 	}
 	fmt.Println(client.GetRawConfig())
@@ -82,7 +82,7 @@ func main() {
 	}
 
 	err = client.FlushEvents()
-	if(err != nil) {
+	if err != nil {
 		log.Fatalf("Error flushing events: %v", err)
 	}
 
