@@ -51,10 +51,10 @@ func newSSEManager(configManager *EnvironmentConfigManager, options *Options) *S
 
 func (m *SSEManager) connectSSE(url string) (err error) {
 	sse, err := eventsource.SubscribeWithURL(url,
-		eventsource.StreamOptionReadTimeout(m.Options.AdvancedOptions.ServerSentEventsTimeout),
-		eventsource.StreamOptionCanRetryFirstConnection(m.Options.AdvancedOptions.ServerSentEventsTimeout),
+		eventsource.StreamOptionReadTimeout(m.Options.AdvancedOptions.RealtimeUpdatesTimeout),
+		eventsource.StreamOptionCanRetryFirstConnection(m.Options.AdvancedOptions.RealtimeUpdatesTimeout),
 		eventsource.StreamOptionErrorHandler(m.errorHandler),
-		eventsource.StreamOptionUseBackoff(m.Options.AdvancedOptions.ServerSentEventsBackoff),
+		eventsource.StreamOptionUseBackoff(m.Options.AdvancedOptions.RealtimeUpdatesBackoff),
 		eventsource.StreamOptionUseJitter(0.25),
 		eventsource.StreamOptionHTTPClient(m.ConfigManager.httpClient))
 
@@ -102,7 +102,7 @@ func (m *SSEManager) receiveSSEMessages() {
 }
 
 func (m *SSEManager) StartSSE() error {
-	err := m.connectSSE(m.Options.AdvancedOptions.ServerSentEventsURI)
+	err := m.connectSSE(m.Options.AdvancedOptions.RealtimeUpdatesURI)
 	if err != nil {
 		return err
 	}

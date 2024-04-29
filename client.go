@@ -123,7 +123,7 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		}
 
 		c.configManager = NewEnvironmentConfigManager(sdkKey, c.localBucketing, options, c.cfg)
-		if c.DevCycleOptions.DisableServerSentEvents {
+		if c.DevCycleOptions.DisableRealtimeUpdates {
 			c.configManager.StartPolling(options.ConfigPollingIntervalMS)
 		} else {
 			err = c.configManager.StartSSE()
