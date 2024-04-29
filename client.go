@@ -151,11 +151,7 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 			}()
 		}
 	}
-
-	c.sseManager = &SSEManager{
-		Options: options,
-		Stream:  nil,
-	}
+	c.sseManager = c.configManager.sseManager
 	return c, nil
 }
 
