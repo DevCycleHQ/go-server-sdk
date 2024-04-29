@@ -12,12 +12,14 @@ type recordingConfigReceiver struct {
 	configureCount int
 	etag           string
 	rayId          string
+	lastModified   string
 }
 
-func (r *recordingConfigReceiver) StoreConfig(_ []byte, etag string, rayId string) error {
+func (r *recordingConfigReceiver) StoreConfig(_ []byte, etag, rayId, lastModified string) error {
 	r.configureCount++
 	r.etag = etag
 	r.rayId = rayId
+	r.lastModified = lastModified
 	return nil
 }
 
@@ -35,6 +37,10 @@ func (r *recordingConfigReceiver) GetRayId() string {
 
 func (r *recordingConfigReceiver) GetRawConfig() []byte {
 	return nil
+}
+
+func (r *recordingConfigReceiver) GetLastModified() string {
+	return r.lastModified
 }
 
 func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
@@ -82,6 +88,12 @@ func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
 	if !manager.HasConfig() {
 		t.Fatal("cm.hasConfig != true")
 	}
+	if manager.GetETag() != "TESTING" {
+		t.Fatal("cm.configEtag != TESTING")
+	}
+	if manager.GetLastModified() != "LAST-MODIFIED" {
+		t.Fatal("cm.lastModified != LAST-MODIFIED")
+	}
 }
 
 func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
@@ -103,6 +115,12 @@ func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
 	}
 	if !manager.HasConfig() {
 		t.Fatal("cm.hasConfig != true")
+	}
+	if manager.GetETag() != "TESTING" {
+		t.Fatal("cm.configEtag != TESTING")
+	}
+	if manager.GetLastModified() != "LAST-MODIFIED" {
+		t.Fatal("cm.lastModified != LAST-MODIFIED")
 	}
 }
 

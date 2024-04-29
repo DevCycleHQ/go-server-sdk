@@ -34,6 +34,14 @@ func GetRayId(sdkKey string) string {
 	return config.rayId
 }
 
+func GetLastModified(sdkKey string) string {
+	config, err := getConfig(sdkKey)
+	if err != nil {
+		return ""
+	}
+	return config.lastModified
+}
+
 func GetRawConfig(sdkKey string) []byte {
 	configMutex.RLock()
 	defer configMutex.RUnlock()
@@ -43,10 +51,10 @@ func GetRawConfig(sdkKey string) []byte {
 	return nil
 }
 
-func SetConfig(rawJSON []byte, sdkKey, etag string, rayId string, eventQueue ...*EventQueue) error {
+func SetConfig(rawJSON []byte, sdkKey, etag, rayId, lastModified string, eventQueue ...*EventQueue) error {
 	configMutex.Lock()
 	defer configMutex.Unlock()
-	config, err := newConfig(rawJSON, etag, rayId)
+	config, err := newConfig(rawJSON, etag, rayId, lastModified)
 	if err != nil {
 		return err
 	}

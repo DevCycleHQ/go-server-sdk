@@ -32,12 +32,13 @@ type configBody struct {
 	Variables              []*Variable             `json:"variables" validate:"required,dive"`
 	etag                   string
 	rayId                  string
+	lastModified           string
 	variableIdMap          map[string]*Variable
 	variableKeyMap         map[string]*Variable
 	variableIdToFeatureMap map[string]*ConfigFeature
 }
 
-func newConfig(configJSON []byte, etag string, rayId string) (*configBody, error) {
+func newConfig(configJSON []byte, etag, rayId, lastModified string) (*configBody, error) {
 	config := configBody{}
 	if err := json.Unmarshal(configJSON, &config); err != nil {
 		return nil, err
@@ -48,7 +49,7 @@ func newConfig(configJSON []byte, etag string, rayId string) (*configBody, error
 	if config.Audiences == nil {
 		config.Audiences = make(map[string]NoIdAudience)
 	}
-	config.compile(etag, rayId)
+	config.compile(etag, rayId, lastModified)
 	return &config, nil
 }
 
@@ -73,7 +74,7 @@ func (c *configBody) GetFeatureForVariableId(id string) *ConfigFeature {
 	return nil
 }
 
-func (c *configBody) compile(etag string, rayId string) {
+func (c *configBody) compile(etag, rayId, lastModified string) {
 	// Build mappings of IDs and keys to features and variables.
 	variableIdToFeatureMap := make(map[string]*ConfigFeature)
 	for _, feature := range c.Features {
@@ -98,7 +99,7 @@ func (c *configBody) compile(etag string, rayId string) {
 	c.variableKeyMap = variableKeyMap
 	c.etag = etag
 	c.rayId = rayId
-
+	c.lastModified = lastModified
 	// Sort the feature distributions by "_variation" attribute in descending alphabetical order
 	for _, feature := range c.Features {
 		for _, target := range feature.Configuration.Targets {
