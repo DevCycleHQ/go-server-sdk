@@ -132,6 +132,8 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 			}
 		}
 
+		c.sseManager = c.configManager.sseManager
+
 		if c.DevCycleOptions.OnInitializedChannel != nil {
 			// TODO: Pass this error back via a channel internally
 			go func() {
@@ -151,7 +153,7 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 			}()
 		}
 	}
-	c.sseManager = c.configManager.sseManager
+
 	return c, nil
 }
 
