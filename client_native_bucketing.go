@@ -55,7 +55,7 @@ func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, opti
 
 func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag, rayId, lastModified string) error {
 	oldETag := bucketing.GetEtag(n.sdkKey)
-	_, err := n.eventQueue.FlushEventQueue(n.clientUUID, oldETag, n.GetRayId())
+	_, err := n.eventQueue.FlushEventQueue(n.clientUUID, oldETag, n.GetRayId(), n.GetLastModified())
 	if err != nil {
 		return fmt.Errorf("Error flushing events for %s: %w", oldETag, err)
 	}
@@ -149,9 +149,7 @@ func (n *NativeLocalBucketing) UserQueueLength() (int, error) {
 }
 
 func (n *NativeLocalBucketing) FlushEventQueue(callback EventFlushCallback) error {
-	configEtag := bucketing.GetEtag(n.sdkKey)
-	rayId := bucketing.GetRayId(n.sdkKey)
-	payloads, err := n.eventQueue.FlushEventQueue(n.clientUUID, configEtag, rayId)
+	payloads, err := n.eventQueue.FlushEventQueue(n.clientUUID, n.GetETag(), n.GetRayId(), n.GetLastModified())
 	if err != nil {
 		return fmt.Errorf("Error flushing event queue: %w", err)
 	}
