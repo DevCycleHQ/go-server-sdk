@@ -80,6 +80,9 @@ func (e *EnvironmentConfigManager) StartPolling(
 ) {
 	if e.ticker == nil {
 		e.ticker = time.NewTicker(interval)
+	} else {
+		// Don't start a new poll if the ticker has already been started.
+		return
 	}
 
 	go func() {
