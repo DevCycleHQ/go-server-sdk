@@ -48,7 +48,6 @@ type APIKey struct {
 
 type AdvancedOptions struct {
 	OverridePlatformData     *api.PlatformData
-	RealtimeUpdatesURI       string
 	RealtimeUpdatesTimeout   time.Duration
 	RealtimeUpdatesQueueSize int
 	RealtimeUpdatesBackoff   time.Duration
@@ -67,7 +66,7 @@ type Options struct {
 	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
 	ConfigCDNURI                 string
 	EventsAPIURI                 string
-	OnInitializedChannel         chan bool
+	ClientEventHandler           chan api.ClientEvent
 	BucketingAPIURI              string
 	Logger                       util.Logger
 	AdvancedOptions

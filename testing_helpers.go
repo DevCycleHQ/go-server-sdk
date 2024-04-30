@@ -25,8 +25,7 @@ var (
 
 	//go:embed testdata/fixture_small_config_sse.json
 	test_small_config_sse string
-
-	test_options = &Options{
+	test_options          = &Options{
 		// use defaults that will be set by the CheckDefaults
 		EventFlushIntervalMS:    time.Second * 30,
 		ConfigPollingIntervalMS: time.Second * 10,

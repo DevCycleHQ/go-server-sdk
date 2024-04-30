@@ -3,6 +3,7 @@ package devcycle
 import (
 	"flag"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -377,28 +378,28 @@ func TestClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t *te
 	defer httpmock.DeactivateAndReset()
 	httpConfigMock(200)
 
-	onInitialized := make(chan bool)
+	onInitialized := make(chan api.ClientEvent, 10)
 
 	// Try each of the combos to make sure they all act as expected and don't hang
-	dvcOptions := Options{OnInitializedChannel: onInitialized, EnableCloudBucketing: true}
+	dvcOptions := Options{ClientEventHandler: onInitialized, EnableCloudBucketing: true}
 	c, err := NewClient(test_environmentKey, &dvcOptions)
 	fatalErr(t, err)
 	val := <-onInitialized
-	if !val {
-		t.Fatal("Expected true from onInitialized channel")
+	if val.Error != nil && val.EventType != api.ClientEventType_Initialized {
+		t.Fatal("Expected success from onInitialized channel")
 	}
 
-	if c.isInitialized {
-		// isInitialized is only relevant when using Local Bucketing
+	if !c.isInitialized {
+		// isInitialized returns true immediately when using Cloud Bucketing.
 		t.Fatal("Expected isInitialized to be false")
 	}
 
-	dvcOptions = Options{OnInitializedChannel: onInitialized, EnableCloudBucketing: false}
+	dvcOptions = Options{ClientEventHandler: onInitialized, EnableCloudBucketing: false}
 	c, err = NewClient(test_environmentKey, &dvcOptions)
 	fatalErr(t, err)
 	val = <-onInitialized
-	if !val {
-		t.Fatal("Expected true from onInitialized channel")
+	if val.Error != nil && val.EventType != api.ClientEventType_Initialized {
+		t.Fatal("Expected success from onInitialized channel")
 	}
 
 	if !c.isInitialized {
@@ -409,16 +410,16 @@ func TestClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t *te
 		t.Fatal("Expected config to be loaded")
 	}
 
-	dvcOptions = Options{OnInitializedChannel: nil, EnableCloudBucketing: true}
+	dvcOptions = Options{ClientEventHandler: nil, EnableCloudBucketing: true}
 	c, err = NewClient(test_environmentKey, &dvcOptions)
 	fatalErr(t, err)
 
-	if c.isInitialized {
-		// isInitialized is only relevant when using Local Bucketing
+	if !c.isInitialized {
+		// isInitialized returns true immediately when using Cloud Bucketing.
 		t.Fatal("Expected isInitialized to be false")
 	}
 
-	dvcOptions = Options{OnInitializedChannel: nil, EnableCloudBucketing: false}
+	dvcOptions = Options{ClientEventHandler: nil, EnableCloudBucketing: false}
 	c, err = NewClient(test_environmentKey, &dvcOptions)
 	fatalErr(t, err)
 

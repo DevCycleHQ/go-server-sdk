@@ -2,6 +2,7 @@ package devcycle
 
 import (
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"net/http"
 	"testing"
 
@@ -52,7 +53,10 @@ func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
 	httpConfigMock(200)
 
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, test_options, NewConfiguration(test_options))
+	testOptionsWithHandler := *test_options
+
+	testOptionsWithHandler.ClientEventHandler = make(chan api.ClientEvent, 10)
+	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, &testOptionsWithHandler, NewConfiguration(&testOptionsWithHandler))
 
 	err := manager.initialFetch()
 	if err != nil {
@@ -68,6 +72,16 @@ func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
 	if manager.GetETag() != "TESTING" {
 		t.Fatal("cm.configEtag != TESTING")
 	}
+	event1 := <-testOptionsWithHandler.ClientEventHandler
+	event2 := <-testOptionsWithHandler.ClientEventHandler
+	if event1.EventType != api.ClientEventType_ConfigUpdated {
+		fmt.Println(event1)
+		t.Fatal("expected to have an event of initial config set first")
+	}
+	if event2.EventType != api.ClientEventType_Initialized {
+		fmt.Println(event2)
+		t.Fatal("expected to have an event of initialized second")
+	}
 }
 
 func TestEnvironmentConfigManager_fetchConfig_success_sse(t *testing.T) {
@@ -78,7 +92,10 @@ func TestEnvironmentConfigManager_fetchConfig_success_sse(t *testing.T) {
 	httpSSEConnectionMock()
 
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, test_options_sse, NewConfiguration(test_options_sse))
+	testOptionsWithHandler := *test_options
+
+	testOptionsWithHandler.ClientEventHandler = make(chan api.ClientEvent, 10)
+	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, &testOptionsWithHandler, NewConfiguration(&testOptionsWithHandler))
 
 	err := manager.StartSSE()
 	if err != nil {
@@ -96,8 +113,18 @@ func TestEnvironmentConfigManager_fetchConfig_success_sse(t *testing.T) {
 	if manager.sseManager == nil {
 		t.Fatal("cm.sseManager == nil")
 	}
-	if manager.sseManager.Stream == nil {
-		t.Fatal("cm.sseManager.Stream == nil")
+	if manager.sseManager.stream == nil {
+		t.Fatal("cm.sseManager.stream == nil")
+	}
+	event1 := <-testOptionsWithHandler.ClientEventHandler
+	event2 := <-testOptionsWithHandler.ClientEventHandler
+	if event1.EventType != api.ClientEventType_ConfigUpdated {
+		fmt.Println(event1)
+		t.Fatal("expected to have an event of initial config set first")
+	}
+	if event2.EventType != api.ClientEventType_Initialized {
+		fmt.Println(event2)
+		t.Fatal("expected to have an event of initialized second")
 	}
 }
 

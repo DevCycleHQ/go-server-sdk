@@ -2,15 +2,18 @@ package devcycle
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/launchdarkly/eventsource"
 	"time"
 )
 
 type SSEManager struct {
-	ConfigManager *EnvironmentConfigManager
-	Options       *Options
-	Stream        *eventsource.Stream
+	configManager *EnvironmentConfigManager
+	options       *Options
+	stream        *eventsource.Stream
+	URL           string
 	eventChannel  chan eventsource.Event
 	errorHandler  eventsource.StreamErrorHandler
 }
@@ -38,8 +41,8 @@ func newSSEManager(configManager *EnvironmentConfigManager, options *Options) *S
 		options.CheckDefaults()
 	}
 	return &SSEManager{
-		ConfigManager: configManager,
-		Options:       options,
+		configManager: configManager,
+		options:       options,
 		errorHandler: func(err error) eventsource.StreamErrorHandlerResult {
 			util.Warnf("SSE - Error: %v\n", err)
 			return eventsource.StreamErrorHandlerResult{
@@ -50,20 +53,36 @@ func newSSEManager(configManager *EnvironmentConfigManager, options *Options) *S
 }
 
 func (m *SSEManager) connectSSE(url string) (err error) {
+	sseClientEvent := api.ClientEvent{
+		EventType: api.ClientEventType_RealtimeUpdates,
+		EventData: "Connected to SSE stream: " + url,
+		Status:    "success",
+		Error:     nil,
+	}
+
+	defer func() {
+		if m.options.ClientEventHandler != nil {
+			go func() {
+				m.options.ClientEventHandler <- sseClientEvent
+			}()
+		}
+	}()
 	sse, err := eventsource.SubscribeWithURL(url,
-		eventsource.StreamOptionReadTimeout(m.Options.AdvancedOptions.RealtimeUpdatesTimeout),
-		eventsource.StreamOptionCanRetryFirstConnection(m.Options.AdvancedOptions.RealtimeUpdatesTimeout),
+		eventsource.StreamOptionReadTimeout(m.options.AdvancedOptions.RealtimeUpdatesTimeout),
+		eventsource.StreamOptionCanRetryFirstConnection(m.options.AdvancedOptions.RealtimeUpdatesTimeout),
 		eventsource.StreamOptionErrorHandler(m.errorHandler),
-		eventsource.StreamOptionUseBackoff(m.Options.AdvancedOptions.RealtimeUpdatesBackoff),
+		eventsource.StreamOptionUseBackoff(m.options.AdvancedOptions.RealtimeUpdatesBackoff),
 		eventsource.StreamOptionUseJitter(0.25),
-		eventsource.StreamOptionHTTPClient(m.ConfigManager.httpClient))
+		eventsource.StreamOptionHTTPClient(m.configManager.httpClient))
 
 	if err != nil {
+		sseClientEvent.Status = "error"
+		sseClientEvent.Error = err
+		sseClientEvent.EventData = "Error connecting to SSE stream: " + url
 		return
 	}
-	m.Stream = sse
+	m.stream = sse
 	m.eventChannel = sse.Events
-
 	return
 }
 
@@ -82,7 +101,7 @@ func (m *SSEManager) receiveSSEMessages() {
 	//nolint:all
 	for {
 		select {
-		case event, ok := <-m.Stream.Events:
+		case event, ok := <-m.stream.Events:
 			if !ok {
 				break
 			}
@@ -92,7 +111,7 @@ func (m *SSEManager) receiveSSEMessages() {
 				continue
 			}
 			if message.Type_ == "refetchConfig" || message.Type_ == "" {
-				err = m.ConfigManager.fetchConfig(CONFIG_RETRIES)
+				err = m.configManager.fetchConfig(CONFIG_RETRIES)
 				if err != nil {
 					util.Warnf("SSE - Error fetching config: %v\n", err)
 				}
@@ -101,8 +120,16 @@ func (m *SSEManager) receiveSSEMessages() {
 	}
 }
 
+func (m *SSEManager) StartSSEOverride(url string) error {
+	m.URL = url
+	return m.StartSSE()
+}
+
 func (m *SSEManager) StartSSE() error {
-	err := m.connectSSE(m.Options.AdvancedOptions.RealtimeUpdatesURI)
+	if m.URL == "" {
+		return fmt.Errorf("URL cannot be empty")
+	}
+	err := m.connectSSE(m.URL)
 	if err != nil {
 		return err
 	}

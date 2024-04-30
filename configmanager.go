@@ -67,22 +67,23 @@ func (e *EnvironmentConfigManager) StartSSE() error {
 	if err != nil {
 		return err
 	}
-	if e.options.AdvancedOptions.RealtimeUpdatesURI == "" {
+	if e.sseManager.URL == "" {
 		util.Warnf("Server Sent Events URI not set. Aborting SSE connection. Falling back to polling")
-		e.StartPolling(e.options.ConfigPollingIntervalMS)
 		return fmt.Errorf("server Sent Events URI not set. Aborting SSE connection. Falling back to polling")
 	}
 	return e.sseManager.StartSSE()
 }
 
-func (e *EnvironmentConfigManager) StartPolling(
-	interval time.Duration,
-) {
+func (e *EnvironmentConfigManager) GetSSE() *SSEManager {
+	return e.sseManager
+}
+
+func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) error {
 	if e.ticker == nil {
 		e.ticker = time.NewTicker(interval)
 	} else {
 		// Don't start a new poll if the ticker has already been started.
-		return
+		return fmt.Errorf("polling already started")
 	}
 
 	go func() {
@@ -100,10 +101,41 @@ func (e *EnvironmentConfigManager) StartPolling(
 			}
 		}
 	}()
+
+	if e.options.ClientEventHandler != nil {
+		err := e.initialFetch()
+		if err != nil {
+			util.Warnf("Error fetching config: %s\n", err)
+			e.options.ClientEventHandler <- api.ClientEvent{
+				EventType: api.ClientEventType_Error,
+				EventData: "Error fetching config: " + err.Error(),
+				Status:    "error",
+				Error:     err,
+			}
+		}
+		return err
+	} else {
+		go e.initialFetch()
+	}
+
+	return nil
 }
 
 func (e *EnvironmentConfigManager) initialFetch() error {
-	return e.fetchConfig(CONFIG_RETRIES)
+
+	err := e.fetchConfig(CONFIG_RETRIES)
+	if err != nil {
+		return err
+	}
+	if e.options.ClientEventHandler != nil {
+		e.options.ClientEventHandler <- api.ClientEvent{
+			EventType: api.ClientEventType_Initialized,
+			EventData: "Initialized DevCycle SDK.",
+			Status:    "success",
+			Error:     nil,
+		}
+	}
+	return nil
 }
 
 func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err error) {
@@ -198,17 +230,37 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 }
 
 func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastModified string) error {
+	configUpdatedEvent := api.ClientEvent{
+		EventType: api.ClientEventType_ConfigUpdated,
+		EventData: fmt.Sprintf("Config updated. RayId: %s ETag: %s Last-Modified: %s", rayId, eTag, lastModified),
+		Status:    "success",
+		Error:     nil,
+	}
+	defer func() {
+		if e.options.ClientEventHandler != nil {
+			go func() {
+				e.options.ClientEventHandler <- configUpdatedEvent
+			}()
+		}
+	}()
 	err := e.localBucketing.StoreConfig(config, eTag, rayId, lastModified)
 	if err != nil {
+		configUpdatedEvent.EventType = api.ClientEventType_Error
+		configUpdatedEvent.Status = "error"
+		configUpdatedEvent.Error = err
 		return err
 	}
 
 	err = json.Unmarshal(e.GetRawConfig(), &e.minimalConfig)
 	if err != nil {
+		configUpdatedEvent.EventType = api.ClientEventType_Error
+		configUpdatedEvent.Status = "error"
+		configUpdatedEvent.Error = err
 		return err
 	}
 	if e.minimalConfig != nil && e.minimalConfig.SSE != nil {
-		e.options.AdvancedOptions.RealtimeUpdatesURI = fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path)
+		e.sseManager.URL = fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path)
+		configUpdatedEvent.EventData = fmt.Sprintf("%s SSE URL: %s", configUpdatedEvent.EventData, e.sseManager.URL)
 	}
 	return nil
 }
