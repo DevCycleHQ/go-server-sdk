@@ -91,7 +91,7 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 						metaData["configRayId"] = rayId
 					}
 					if lastModified != "" {
-						metaData["lastModified"] = lastModified
+						metaData["configLastModified"] = lastModified
 					}
 
 					event := api.Event{
