@@ -125,51 +125,38 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		} else {
 			if c.DevCycleOptions.ClientEventHandler != nil {
 				// This error will only occur if the initial fetch fails
-				err = c.configManager.StartSSE()
-				if err != nil {
-					go func() {
-						c.internalClientEventChannel <- api.ClientEvent{
-							EventType: api.ClientEventType_Error,
-							EventData: "failed to make initial fetch request when starting SSE",
-							Status:    "error",
-							Error:     err,
-						}
-					}()
-				} else {
-					c.handleInitialization()
-				}
-			} else {
 				go func() {
-					// This error will only occur if the initial fetch fails
-					err = c.configManager.StartSSE()
-					if err != nil {
-						go func() {
-							c.internalClientEventChannel <- api.ClientEvent{
-								EventType: api.ClientEventType_Error,
-								EventData: "failed to make initial fetch request when starting SSE",
-								Status:    "error",
-								Error:     err,
-							}
-						}()
-					} else {
-						c.handleInitialization()
+					sseErr := c.configManager.StartSSE()
+					c.configManager.InternalClientEvents <- api.ClientEvent{
+						EventType: api.ClientEventType_Error,
+						EventData: "failed to make initial fetch request when starting SSE",
+						Status:    "error",
+						Error:     sseErr,
 					}
+					c.handleInitialization()
 				}()
+			} else {
+				// This error will only occur if the initial fetch fails
+				err = c.configManager.StartSSE()
+				c.handleInitialization()
+				if err != nil {
+					c.configManager.InternalClientEvents <- api.ClientEvent{
+						EventType: api.ClientEventType_Error,
+						EventData: "failed to make initial fetch request when starting SSE",
+						Status:    "error",
+						Error:     err,
+					}
+				}
 			}
 		}
 		if err != nil {
 			util.Warnf("Error initializing SSE, defaulting to polling: %v", err)
 			err = c.configManager.StartPolling(options.ConfigPollingIntervalMS)
-			if err == nil {
-				c.handleInitialization()
-			}
+			c.handleInitialization()
 		} else {
 			c.handleInitialization()
 		}
-
-		if err != nil {
-			return c, err
-		}
+		return c, err
 	} else {
 		c.handleInitialization()
 	}

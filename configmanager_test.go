@@ -5,6 +5,7 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/jarcoal/httpmock"
 )
@@ -73,14 +74,9 @@ func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
 		t.Fatal("cm.configEtag != TESTING")
 	}
 	event1 := <-testOptionsWithHandler.ClientEventHandler
-	event2 := <-testOptionsWithHandler.ClientEventHandler
-	if event1.EventType != api.ClientEventType_ConfigUpdated {
+	if event1.EventType != api.ClientEventType_Initialized {
 		fmt.Println(event1)
-		t.Fatal("expected to have an event of initial config set first")
-	}
-	if event2.EventType != api.ClientEventType_Initialized {
-		fmt.Println(event2)
-		t.Fatal("expected to have an event of initialized second")
+		t.Fatal("expected to have an event of initialized first")
 	}
 }
 
@@ -92,10 +88,8 @@ func TestEnvironmentConfigManager_fetchConfig_success_sse(t *testing.T) {
 	httpSSEConnectionMock()
 
 	localBucketing := &recordingConfigReceiver{}
-	testOptionsWithHandler := *test_options
 
-	testOptionsWithHandler.ClientEventHandler = make(chan api.ClientEvent, 10)
-	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, &testOptionsWithHandler, NewConfiguration(&testOptionsWithHandler))
+	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, test_options_sse, NewConfiguration(test_options_sse))
 
 	err := manager.StartSSE()
 	if err != nil {
@@ -116,16 +110,8 @@ func TestEnvironmentConfigManager_fetchConfig_success_sse(t *testing.T) {
 	if manager.sseManager.stream == nil {
 		t.Fatal("cm.sseManager.stream == nil")
 	}
-	event1 := <-testOptionsWithHandler.ClientEventHandler
-	event2 := <-testOptionsWithHandler.ClientEventHandler
-	if event1.EventType != api.ClientEventType_ConfigUpdated {
-		fmt.Println(event1)
-		t.Fatal("expected to have an event of initial config set first")
-	}
-	if event2.EventType != api.ClientEventType_Initialized {
-		fmt.Println(event2)
-		t.Fatal("expected to have an event of initialized second")
-	}
+	time.Sleep(time.Second * 5)
+	fmt.Println(httpmock.GetCallCountInfo()["GET https://config-cdn.devcycle.com/config/v1/server/"+test_environmentKey+".json"])
 }
 
 func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {

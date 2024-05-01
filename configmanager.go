@@ -7,6 +7,7 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/util"
@@ -23,17 +24,18 @@ type ConfigReceiver interface {
 }
 
 type EnvironmentConfigManager struct {
-	sdkKey         string
-	minimalConfig  *api.MinimalConfig
-	localBucketing ConfigReceiver
-	firstLoad      bool
-	context        context.Context
-	stopPolling    context.CancelFunc
-	httpClient     *http.Client
-	cfg            *HTTPConfiguration
-	ticker         *time.Ticker
-	sseManager     *SSEManager
-	options        *Options
+	sdkKey               string
+	minimalConfig        *api.MinimalConfig
+	localBucketing       ConfigReceiver
+	firstLoad            bool
+	context              context.Context
+	stopPolling          context.CancelFunc
+	httpClient           *http.Client
+	cfg                  *HTTPConfiguration
+	ticker               *time.Ticker
+	sseManager           *SSEManager
+	options              *Options
+	InternalClientEvents chan api.ClientEvent
 }
 
 func NewEnvironmentConfigManager(
@@ -41,8 +43,8 @@ func NewEnvironmentConfigManager(
 	localBucketing ConfigReceiver,
 	options *Options,
 	cfg *HTTPConfiguration,
-) (e *EnvironmentConfigManager) {
-	configManager := &EnvironmentConfigManager{
+) (configManager *EnvironmentConfigManager) {
+	configManager = &EnvironmentConfigManager{
 		options:        options,
 		sdkKey:         sdkKey,
 		localBucketing: localBucketing,
@@ -54,12 +56,75 @@ func NewEnvironmentConfigManager(
 		},
 		firstLoad: true,
 	}
-
+	configManager.InternalClientEvents = make(chan api.ClientEvent, 100)
 	configManager.sseManager = newSSEManager(configManager, options)
 
 	configManager.context, configManager.stopPolling = context.WithCancel(context.Background())
-
+	go configManager.ssePollingManager()
 	return configManager
+}
+
+func (e *EnvironmentConfigManager) ssePollingManager() {
+	if e.options.DisableRealtimeUpdates {
+		return
+	}
+	for {
+		select {
+		case <-e.context.Done():
+			util.Warnf("Stopping SSE polling.")
+			return
+		case event := <-e.InternalClientEvents:
+			switch event.EventType {
+			case api.ClientEventType_InternalNewConfigAvailable:
+				if e.ticker != nil {
+					continue
+				}
+				err := e.fetchConfig(CONFIG_RETRIES)
+				if err != nil {
+					util.Warnf("Error fetching config: %s\n", err)
+					e.InternalClientEvents <- api.ClientEvent{
+						EventType: api.ClientEventType_Error,
+						EventData: "Error fetching config: " + err.Error(),
+						Status:    "error",
+						Error:     err,
+					}
+				}
+				break
+			case api.ClientEventType_InternalSSEFailure:
+				// Re-enable polling until a valid config is fetched, and then re-initialize SSE.
+				e.sseManager.StopSSE()
+				err := e.StartPolling(e.options.ConfigPollingIntervalMS)
+				if err != nil {
+					e.InternalClientEvents <- api.ClientEvent{
+						EventType: api.ClientEventType_Error,
+						EventData: "Error starting polling after SSE failure: " + err.Error(),
+						Status:    "error",
+						Error:     err,
+					}
+				}
+				break
+			case api.ClientEventType_InternalSSEConnected:
+				e.stopPolling()
+				e.ticker = nil
+				break
+			case api.ClientEventType_ConfigUpdated:
+				if strings.Contains(event.EventData.(string), "SSE URL") {
+					// Reconnect SSE
+					e.sseManager.StopSSE()
+					err := e.sseManager.StartSSE()
+					if err != nil {
+						e.InternalClientEvents <- api.ClientEvent{
+							EventType: api.ClientEventType_Error,
+							EventData: "Error starting SSE after config update: " + err.Error(),
+							Status:    "error",
+							Error:     err,
+						}
+					}
+				}
+				break
+			}
+		}
+	}
 }
 
 func (e *EnvironmentConfigManager) StartSSE() error {
@@ -103,22 +168,22 @@ func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) error {
 	}()
 
 	if e.options.ClientEventHandler != nil {
-		err := e.initialFetch()
-		if err != nil {
-			util.Warnf("Error fetching config: %s\n", err)
-			e.options.ClientEventHandler <- api.ClientEvent{
-				EventType: api.ClientEventType_Error,
-				EventData: "Error fetching config: " + err.Error(),
-				Status:    "error",
-				Error:     err,
+		go func() {
+			err := e.initialFetch()
+			if err != nil {
+				util.Warnf("Error fetching config: %s\n", err)
+				e.InternalClientEvents <- api.ClientEvent{
+					EventType: api.ClientEventType_Error,
+					EventData: "Error fetching initial config: " + err.Error(),
+					Status:    "error",
+					Error:     err,
+				}
 			}
-		}
-		return err
+		}()
+		return nil
 	} else {
-		go e.initialFetch()
+		return e.initialFetch()
 	}
-
-	return nil
 }
 
 func (e *EnvironmentConfigManager) initialFetch() error {
@@ -237,11 +302,9 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 		Error:     nil,
 	}
 	defer func() {
-		if e.options.ClientEventHandler != nil {
-			go func() {
-				e.options.ClientEventHandler <- configUpdatedEvent
-			}()
-		}
+		go func() {
+			e.InternalClientEvents <- configUpdatedEvent
+		}()
 	}()
 	err := e.localBucketing.StoreConfig(config, eTag, rayId, lastModified)
 	if err != nil {
@@ -259,8 +322,11 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 		return err
 	}
 	if e.minimalConfig != nil && e.minimalConfig.SSE != nil {
-		e.sseManager.URL = fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path)
-		configUpdatedEvent.EventData = fmt.Sprintf("%s SSE URL: %s", configUpdatedEvent.EventData, e.sseManager.URL)
+		sseUrl := fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path)
+		if e.sseManager.URL != sseUrl {
+			e.sseManager.URL = sseUrl
+			configUpdatedEvent.EventData = fmt.Sprintf("%s SSE URL: %s", configUpdatedEvent.EventData, e.sseManager.URL)
+		}
 	}
 	return nil
 }

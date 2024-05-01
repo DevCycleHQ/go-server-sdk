@@ -409,6 +409,9 @@ func TestClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t *te
 	if !c.hasConfig() {
 		t.Fatal("Expected config to be loaded")
 	}
+	if c.Close() != nil {
+		t.Fatal("Expected client to be successfully closed")
+	}
 
 	dvcOptions = Options{ClientEventHandler: nil, EnableCloudBucketing: true}
 	c, err = NewClient(test_environmentKey, &dvcOptions)
@@ -417,6 +420,9 @@ func TestClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t *te
 	if !c.isInitialized {
 		// isInitialized returns true immediately when using Cloud Bucketing.
 		t.Fatal("Expected isInitialized to be false")
+	}
+	if c.Close() != nil {
+		t.Fatal("Expected client to be successfully closed")
 	}
 
 	dvcOptions = Options{ClientEventHandler: nil, EnableCloudBucketing: false}
@@ -429,6 +435,9 @@ func TestClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t *te
 
 	if !c.hasConfig() {
 		t.Fatal("Expected config to be loaded")
+	}
+	if c.Close() != nil {
+		t.Fatal("Expected client to be successfully closed")
 	}
 }
 

@@ -110,4 +110,6 @@ func httpSSEConnectionMock() {
 			return resp, nil
 		},
 	)
+	responder := httpmock.NewStringResponder(200, "")
+	responder.Then(httpmock.NewStringResponder(200, sseResponseBody())).Delay(time.Second * 3)
 }

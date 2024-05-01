@@ -1,21 +1,25 @@
 package devcycle
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/launchdarkly/eventsource"
+	"sync"
 	"time"
 )
 
 type SSEManager struct {
-	configManager *EnvironmentConfigManager
-	options       *Options
-	stream        *eventsource.Stream
-	URL           string
-	eventChannel  chan eventsource.Event
-	errorHandler  eventsource.StreamErrorHandler
+	configManager    *EnvironmentConfigManager
+	options          *Options
+	stream           *eventsource.Stream
+	URL              string
+	errorHandler     eventsource.StreamErrorHandler
+	streamLock       sync.Mutex
+	context          context.Context
+	stopEventHandler context.CancelFunc
 }
 
 type sseEvent struct {
@@ -40,7 +44,7 @@ func newSSEManager(configManager *EnvironmentConfigManager, options *Options) *S
 		options = &Options{}
 		options.CheckDefaults()
 	}
-	return &SSEManager{
+	sseManager := &SSEManager{
 		configManager: configManager,
 		options:       options,
 		errorHandler: func(err error) eventsource.StreamErrorHandlerResult {
@@ -50,20 +54,22 @@ func newSSEManager(configManager *EnvironmentConfigManager, options *Options) *S
 			}
 		},
 	}
+	sseManager.context, sseManager.stopEventHandler = context.WithCancel(context.Background())
+	return sseManager
 }
 
 func (m *SSEManager) connectSSE(url string) (err error) {
 	sseClientEvent := api.ClientEvent{
-		EventType: api.ClientEventType_RealtimeUpdates,
+		EventType: api.ClientEventType_InternalSSEConnected,
 		EventData: "Connected to SSE stream: " + url,
 		Status:    "success",
 		Error:     nil,
 	}
 
 	defer func() {
-		if m.options.ClientEventHandler != nil {
+		if m.configManager.InternalClientEvents != nil {
 			go func() {
-				m.options.ClientEventHandler <- sseClientEvent
+				m.configManager.InternalClientEvents <- sseClientEvent
 			}()
 		}
 	}()
@@ -76,13 +82,15 @@ func (m *SSEManager) connectSSE(url string) (err error) {
 		eventsource.StreamOptionHTTPClient(m.configManager.httpClient))
 
 	if err != nil {
-		sseClientEvent.Status = "error"
+		sseClientEvent.EventType = api.ClientEventType_InternalSSEFailure
+		sseClientEvent.Status = "failure"
 		sseClientEvent.Error = err
 		sseClientEvent.EventData = "Error connecting to SSE stream: " + url
 		return
 	}
+	m.streamLock.Lock()
+	defer m.streamLock.Unlock()
 	m.stream = sse
-	m.eventChannel = sse.Events
 	return
 }
 
@@ -98,24 +106,39 @@ func (m *SSEManager) parseMessage(rawMessage []byte) (message sseMessage, err er
 }
 
 func (m *SSEManager) receiveSSEMessages() {
-	//nolint:all
 	for {
-		select {
-		case event, ok := <-m.stream.Events:
-			if !ok {
-				break
-			}
-			message, err := m.parseMessage([]byte(event.Data()))
-			if err != nil {
-				util.Debugf("SSE - Error unmarshalling message: %v\n", err)
-				continue
-			}
-			if message.Type_ == "refetchConfig" || message.Type_ == "" {
-				err = m.configManager.fetchConfig(CONFIG_RETRIES)
+		err := func() error {
+			m.streamLock.Lock()
+			defer m.streamLock.Unlock()
+			select {
+			case <-m.context.Done():
+				m.StopSSE()
+				m.streamLock.Unlock()
+				return fmt.Errorf("SSE - Stopping SSE polling")
+			case event, ok := <-m.stream.Events:
+				if !ok {
+					return nil
+				}
+				message, err := m.parseMessage([]byte(event.Data()))
 				if err != nil {
-					util.Warnf("SSE - Error fetching config: %v\n", err)
+					util.Debugf("SSE - Error unmarshalling message: %v\n", err)
+					return nil
+				}
+				if message.Type_ == "refetchConfig" || message.Type_ == "" {
+					go func() {
+						m.configManager.InternalClientEvents <- api.ClientEvent{
+							EventType: api.ClientEventType_InternalNewConfigAvailable,
+							EventData: message.LastModified,
+							Status:    "",
+							Error:     nil,
+						}
+					}()
 				}
 			}
+			return nil
+		}()
+		if err != nil {
+			return
 		}
 	}
 }
@@ -135,4 +158,12 @@ func (m *SSEManager) StartSSE() error {
 	}
 	go m.receiveSSEMessages()
 	return nil
+}
+
+func (m *SSEManager) StopSSE() {
+	m.streamLock.Lock()
+	defer m.streamLock.Unlock()
+	if m.stream != nil {
+		m.stream.Close()
+	}
 }
