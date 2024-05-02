@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"reflect"
@@ -18,11 +19,15 @@ import (
 	"github.com/jarcoal/httpmock"
 )
 
+func init() {
+	rand.NewSource(time.Now().UnixNano())
+}
+
 func TestClient_AllFeatures_Local(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
-	c, err := NewClient(test_environmentKey, &Options{})
+	sdkKey, _ := httpConfigMock(200)
+	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
 
 	features, err := c.AllFeatures(
@@ -35,8 +40,8 @@ func TestClient_AllFeatures_Local(t *testing.T) {
 func TestClient_AllVariablesLocal(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
-	c, err := NewClient(test_environmentKey, &Options{})
+	sdkKey, _ := httpConfigMock(200)
+	c, err := NewClient(sdkKey, &Options{})
 	require.NoError(t, err)
 
 	variables, err := c.AllVariables(
@@ -50,8 +55,9 @@ func TestClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpCustomConfigMock(test_environmentKey, 200, test_config_special_characters_var)
-	c, err := NewClient(test_environmentKey, &Options{})
+	sdkKey := generateTestSDKKey()
+	httpCustomConfigMock(sdkKey, 200, test_config_special_characters_var)
+	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
 
 	variables, err := c.AllVariables(
@@ -84,8 +90,9 @@ func TestClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
 func TestClient_VariableCloud(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
+	sdkKey := generateTestSDKKey()
 	httpBucketingAPIMock()
-	c, err := NewClient(test_environmentKey, &Options{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
+	c, err := NewClient(sdkKey, &Options{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
 	fatalErr(t, err)
 
 	user := User{UserId: "j_test", DeviceModel: "testing"}
@@ -101,9 +108,10 @@ func TestClient_VariableCloud(t *testing.T) {
 func TestClient_VariableLocalNumber(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
+	sdkKey := generateTestSDKKey()
+	httpCustomConfigMock(sdkKey, 200, test_large_config)
 
-	c, err := NewClient(test_environmentKey, &Options{})
+	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
 
 	user := User{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
@@ -132,9 +140,10 @@ func TestClient_VariableLocalNumber(t *testing.T) {
 func TestClient_VariableLocalNumberWithNilDefault(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
+	sdkKey := generateTestSDKKey()
+	httpCustomConfigMock(sdkKey, 200, test_large_config)
 
-	c, err := NewClient(test_environmentKey, &Options{})
+	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
 
 	user := User{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
@@ -162,10 +171,11 @@ func TestClient_VariableLocalNumberWithNilDefault(t *testing.T) {
 func TestClient_VariableEventIsQueued(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
+	sdkKey := generateTestSDKKey()
+	httpCustomConfigMock(sdkKey, 200, test_large_config)
 	httpEventsApiMock()
 
-	c, err := NewClient(test_environmentKey, &Options{})
+	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
 
 	user := User{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
@@ -189,9 +199,9 @@ func TestClient_VariableEventIsQueued(t *testing.T) {
 func TestClient_VariableLocalFlush(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
+	sdkKey, _ := httpConfigMock(200)
 
-	c, err := NewClient(test_environmentKey, &Options{})
+	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
 
 	user := User{UserId: "j_test", DeviceModel: "testing"}
@@ -205,9 +215,9 @@ func TestClient_VariableLocalFlush(t *testing.T) {
 func TestClient_VariableLocal(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
+	sdkKey, _ := httpConfigMock(200)
 
-	c, err := NewClient(test_environmentKey, &Options{})
+	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
 
 	user := User{UserId: "j_test", DeviceModel: "testing"}
@@ -240,9 +250,9 @@ func TestClient_VariableLocal(t *testing.T) {
 func TestClient_VariableLocal_UserWithCustomData(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
+	sdkKey, _ := httpConfigMock(200)
 
-	c, err := NewClient(test_environmentKey, &Options{})
+	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
 
 	customData := map[string]interface{}{
@@ -293,9 +303,9 @@ func TestClient_VariableLocal_UserWithCustomData(t *testing.T) {
 func TestClient_VariableLocal_403(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock(403)
+	sdkKey, _ := httpConfigMock(403)
 
-	_, err := NewClient(test_environmentKey, &Options{})
+	_, err := NewClient(sdkKey, &Options{})
 	if err == nil {
 		t.Fatal("Expected error from configmanager")
 	}
@@ -304,10 +314,10 @@ func TestClient_VariableLocal_403(t *testing.T) {
 func TestClient_TrackLocal_QueueEvent(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
+	sdkKey, _ := httpConfigMock(200)
 	dvcOptions := Options{ConfigPollingIntervalMS: 10 * time.Second}
 
-	c, err := NewClient(test_environmentKey, &dvcOptions)
+	c, err := NewClient(sdkKey, &dvcOptions)
 	fatalErr(t, err)
 
 	track, err := c.Track(User{UserId: "j_test", DeviceModel: "testing"}, Event{
@@ -327,10 +337,10 @@ func TestClient_TrackLocal_QueueEventBeforeConfig(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 
 	// Config will fail to load on HTTP 500 after several retries without an error
-	httpConfigMock(http.StatusInternalServerError)
+	sdkKey, _ := httpConfigMock(http.StatusInternalServerError)
 	dvcOptions := Options{ConfigPollingIntervalMS: 10 * time.Second}
 
-	c, err := NewClient(test_environmentKey, &dvcOptions)
+	c, err := NewClient(sdkKey, &dvcOptions)
 	fatalErr(t, err)
 
 	track, err := c.Track(User{UserId: "j_test", DeviceModel: "testing"}, Event{
@@ -347,10 +357,11 @@ func TestClient_TrackLocal_QueueEventBeforeConfig(t *testing.T) {
 
 func TestProduction_Local(t *testing.T) {
 	environmentKey := os.Getenv("DEVCYCLE_SERVER_SDK_KEY")
-	user := User{UserId: "test"}
 	if environmentKey == "" {
 		t.Skip("DEVCYCLE_SERVER_SDK_KEY not set. Not using production tests.")
 	}
+	user := User{UserId: "test"}
+
 	dvcOptions := Options{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         false,
@@ -373,71 +384,67 @@ func TestProduction_Local(t *testing.T) {
 	}
 }
 
-func TestClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
+func TestClient_Validate_InitHandler(t *testing.T) {
 
-	onInitialized := make(chan api.ClientEvent, 10)
-
-	// Try each of the combos to make sure they all act as expected and don't hang
-	dvcOptions := Options{ClientEventHandler: onInitialized, EnableCloudBucketing: true}
-	c, err := NewClient(test_environmentKey, &dvcOptions)
-	fatalErr(t, err)
-	val := <-onInitialized
-	if val.Error != nil && val.EventType != api.ClientEventType_Initialized {
-		t.Fatal("Expected success from onInitialized channel")
+	type testCase struct {
+		description  string
+		options      Options
+		checkChannel bool
+		checkConfig  bool
 	}
 
-	if !c.isInitialized {
-		// isInitialized returns true immediately when using Cloud Bucketing.
-		t.Fatal("Expected isInitialized to be false")
-	}
-
-	dvcOptions = Options{ClientEventHandler: onInitialized, EnableCloudBucketing: false}
-	c, err = NewClient(test_environmentKey, &dvcOptions)
-	fatalErr(t, err)
-	val = <-onInitialized
-	if val.Error != nil && val.EventType != api.ClientEventType_Initialized {
-		t.Fatal("Expected success from onInitialized channel")
-	}
-
-	if !c.isInitialized {
-		t.Fatal("Expected isInitialized to be true")
-	}
-
-	if !c.hasConfig() {
-		t.Fatal("Expected config to be loaded")
-	}
-	if c.Close() != nil {
-		t.Fatal("Expected client to be successfully closed")
-	}
-
-	dvcOptions = Options{ClientEventHandler: nil, EnableCloudBucketing: true}
-	c, err = NewClient(test_environmentKey, &dvcOptions)
-	fatalErr(t, err)
-
-	if !c.isInitialized {
-		// isInitialized returns true immediately when using Cloud Bucketing.
-		t.Fatal("Expected isInitialized to be false")
-	}
-	if c.Close() != nil {
-		t.Fatal("Expected client to be successfully closed")
-	}
-
-	dvcOptions = Options{ClientEventHandler: nil, EnableCloudBucketing: false}
-	c, err = NewClient(test_environmentKey, &dvcOptions)
-	fatalErr(t, err)
-
-	if !c.isInitialized {
-		t.Fatal("Expected isInitialized to be true")
-	}
-
-	if !c.hasConfig() {
-		t.Fatal("Expected config to be loaded")
-	}
-	if c.Close() != nil {
-		t.Fatal("Expected client to be successfully closed")
+	for _, scenario := range []testCase{
+		{
+			description:  "Cloud Bucketing Enabled",
+			options:      Options{ClientEventHandler: nil, EnableCloudBucketing: true},
+			checkChannel: false,
+			checkConfig:  false,
+		},
+		{
+			description:  "Local Bucketing Enabled",
+			options:      Options{ClientEventHandler: nil},
+			checkChannel: false,
+			checkConfig:  true,
+		},
+		{
+			description:  "Cloud Bucketing Enabled with ClientEventHandler",
+			options:      Options{ClientEventHandler: make(chan api.ClientEvent, 10), EnableCloudBucketing: true},
+			checkChannel: true,
+			checkConfig:  false,
+		},
+		{
+			description:  "Local Bucketing Enabled with ClientEventHandler",
+			options:      Options{ClientEventHandler: make(chan api.ClientEvent, 10)},
+			checkChannel: true,
+			checkConfig:  true,
+		},
+	} {
+		t.Run(scenario.description, func(t *testing.T) {
+			httpmock.Activate()
+			defer httpmock.DeactivateAndReset()
+			sdkKey, _ := httpConfigMock(200)
+			client, err := NewClient(sdkKey, &scenario.options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if scenario.checkChannel {
+				val := <-scenario.options.ClientEventHandler
+				if val.Error != nil && val.EventType != api.ClientEventType_Initialized {
+					t.Fatal("Expected success from onInitialized channel")
+				}
+			}
+			if scenario.checkConfig {
+				if !client.hasConfig() {
+					t.Fatal("Expected config to be loaded")
+				}
+			}
+			if !client.isInitialized {
+				t.Fatal("Expected isInitialized to be true")
+			}
+			if client.Close() != nil {
+				t.Fatal("Expected client to be successfully closed")
+			}
+		})
 	}
 }
 
@@ -464,7 +471,8 @@ func BenchmarkClient_VariableSerial(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
+	sdkKey := generateTestSDKKey()
+	httpCustomConfigMock(sdkKey, 200, test_large_config)
 	httpEventsApiMock()
 
 	if benchmarkDisableLogs {
@@ -485,7 +493,7 @@ func BenchmarkClient_VariableSerial(b *testing.B) {
 		options.EventFlushIntervalMS = 0
 	}
 
-	client, err := NewClient(test_environmentKey, options)
+	client, err := NewClient(sdkKey, options)
 	if err != nil {
 		b.Errorf("Failed to initialize client: %v", err)
 	}
@@ -510,7 +518,8 @@ func BenchmarkClient_VariableParallel(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpCustomConfigMock(test_environmentKey, 200, test_large_config)
+	sdkKey := generateTestSDKKey()
+	httpCustomConfigMock(sdkKey, 200, test_large_config)
 	httpEventsApiMock()
 
 	if benchmarkDisableLogs {
@@ -531,7 +540,7 @@ func BenchmarkClient_VariableParallel(b *testing.B) {
 		options.EventFlushIntervalMS = time.Millisecond * 500
 	}
 
-	client, err := NewClient(test_environmentKey, options)
+	client, err := NewClient(sdkKey, options)
 	if err != nil {
 		b.Errorf("Failed to initialize client: %v", err)
 	}

@@ -7,7 +7,6 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/launchdarkly/eventsource"
-	"sync"
 	"time"
 )
 
@@ -17,7 +16,6 @@ type SSEManager struct {
 	stream           *eventsource.Stream
 	URL              string
 	errorHandler     eventsource.StreamErrorHandler
-	streamLock       sync.Mutex
 	context          context.Context
 	stopEventHandler context.CancelFunc
 }
@@ -78,9 +76,7 @@ func (m *SSEManager) connectSSE(url string) (err error) {
 		eventsource.StreamOptionCanRetryFirstConnection(m.options.AdvancedOptions.RealtimeUpdatesTimeout),
 		eventsource.StreamOptionErrorHandler(m.errorHandler),
 		eventsource.StreamOptionUseBackoff(m.options.AdvancedOptions.RealtimeUpdatesBackoff),
-		eventsource.StreamOptionUseJitter(0.25),
-		eventsource.StreamOptionHTTPClient(m.configManager.httpClient))
-
+		eventsource.StreamOptionUseJitter(0.25))
 	if err != nil {
 		sseClientEvent.EventType = api.ClientEventType_InternalSSEFailure
 		sseClientEvent.Status = "failure"
@@ -88,8 +84,6 @@ func (m *SSEManager) connectSSE(url string) (err error) {
 		sseClientEvent.EventData = "Error connecting to SSE stream: " + url
 		return
 	}
-	m.streamLock.Lock()
-	defer m.streamLock.Unlock()
 	m.stream = sse
 	return
 }
@@ -108,12 +102,11 @@ func (m *SSEManager) parseMessage(rawMessage []byte) (message sseMessage, err er
 func (m *SSEManager) receiveSSEMessages() {
 	for {
 		err := func() error {
-			m.streamLock.Lock()
-			defer m.streamLock.Unlock()
 			select {
 			case <-m.context.Done():
-				m.StopSSE()
-				m.streamLock.Unlock()
+				if m.stream != nil {
+					m.stream.Close()
+				}
 				return fmt.Errorf("SSE - Stopping SSE polling")
 			case event, ok := <-m.stream.Events:
 				if !ok {
@@ -128,7 +121,7 @@ func (m *SSEManager) receiveSSEMessages() {
 					go func() {
 						m.configManager.InternalClientEvents <- api.ClientEvent{
 							EventType: api.ClientEventType_InternalNewConfigAvailable,
-							EventData: message.LastModified,
+							EventData: time.UnixMilli(int64(message.LastModified)),
 							Status:    "",
 							Error:     nil,
 						}
@@ -161,9 +154,5 @@ func (m *SSEManager) StartSSE() error {
 }
 
 func (m *SSEManager) StopSSE() {
-	m.streamLock.Lock()
-	defer m.streamLock.Unlock()
-	if m.stream != nil {
-		m.stream.Close()
-	}
+	m.stopEventHandler()
 }

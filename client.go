@@ -100,7 +100,7 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 	} else {
 		c.platformData = GeneratePlatformData()
 	}
-	c.internalClientEventChannel = make(chan api.ClientEvent, 100)
+	c.internalClientEventChannel = make(chan api.ClientEvent, 1)
 
 	if c.DevCycleOptions.Logger != nil {
 		util.SetLogger(c.DevCycleOptions.Logger)
@@ -120,47 +120,26 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		}
 
 		c.configManager = NewEnvironmentConfigManager(sdkKey, c.localBucketing, options, c.cfg)
-		if c.DevCycleOptions.DisableRealtimeUpdates {
-			err = c.configManager.StartPolling(options.ConfigPollingIntervalMS)
-		} else {
-			if c.DevCycleOptions.ClientEventHandler != nil {
-				// This error will only occur if the initial fetch fails
-				go func() {
-					sseErr := c.configManager.StartSSE()
-					c.configManager.InternalClientEvents <- api.ClientEvent{
-						EventType: api.ClientEventType_Error,
-						EventData: "failed to make initial fetch request when starting SSE",
-						Status:    "error",
-						Error:     sseErr,
-					}
-					c.handleInitialization()
-				}()
-			} else {
-				// This error will only occur if the initial fetch fails
-				err = c.configManager.StartSSE()
+
+		if c.DevCycleOptions.ClientEventHandler != nil {
+			go func() {
+				_ = c.configManager.initialFetch()
 				c.handleInitialization()
-				if err != nil {
-					c.configManager.InternalClientEvents <- api.ClientEvent{
-						EventType: api.ClientEventType_Error,
-						EventData: "failed to make initial fetch request when starting SSE",
-						Status:    "error",
-						Error:     err,
-					}
-				}
-			}
-		}
-		if err != nil {
-			util.Warnf("Error initializing SSE, defaulting to polling: %v", err)
-			err = c.configManager.StartPolling(options.ConfigPollingIntervalMS)
-			c.handleInitialization()
+			}()
 		} else {
+			err = c.configManager.initialFetch()
 			c.handleInitialization()
+			return c, err
 		}
-		return c, err
-	} else {
-		c.handleInitialization()
+		if !c.DevCycleOptions.EnableRealtimeUpdates {
+			c.configManager.StartPolling(options.ConfigPollingIntervalMS)
+		} else {
+			c.configManager.StartSSE()
+		}
+
 	}
 
+	c.handleInitialization()
 	return c, nil
 }
 
@@ -542,13 +521,9 @@ func (c *Client) Close() (err error) {
 
 	if !c.isInitialized {
 		util.Infof("Awaiting client initialization before closing")
-	initLock:
-		for {
-			select {
-			case event := <-c.internalClientEventChannel:
-				if event.EventType == api.ClientEventType_Initialized {
-					break initLock
-				}
+		for event := range c.internalClientEventChannel {
+			if event.EventType == api.ClientEventType_Initialized {
+				break
 			}
 		}
 	}

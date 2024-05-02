@@ -138,10 +138,10 @@ func Test_setCustomDataValue(t *testing.T) {
 
 func getProviderForConfig(t *testing.T, config string, cloudBucketing bool) openfeature.FeatureProvider {
 	t.Helper()
+	sdkKey := generateTestSDKKey()
+	httpCustomConfigMock(sdkKey, 200, config)
 
-	httpCustomConfigMock(test_environmentKey, 200, config)
-
-	client, err := NewClient(test_environmentKey, &Options{
+	client, err := NewClient(sdkKey, &Options{
 		EnableCloudBucketing: cloudBucketing,
 	})
 	require.NoError(t, err)

@@ -2,6 +2,7 @@ package devcycle
 
 import (
 	_ "embed"
+	"golang.org/x/exp/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,7 +12,7 @@ import (
 )
 
 var (
-	test_environmentKey = "dvc_server_token_hash"
+	//test_environmentKey = "dvc_server_token_hash"
 
 	//go:embed testdata/fixture_small_config.json
 	test_config string
@@ -29,12 +30,12 @@ var (
 		// use defaults that will be set by the CheckDefaults
 		EventFlushIntervalMS:    time.Second * 30,
 		ConfigPollingIntervalMS: time.Second * 10,
-		DisableRealtimeUpdates:  true,
 	}
 	test_options_sse = &Options{
 		// use defaults that will be set by the CheckDefaults
 		EventFlushIntervalMS:    time.Second * 30,
 		ConfigPollingIntervalMS: time.Second * 10,
+		EnableRealtimeUpdates:   true,
 	}
 )
 
@@ -67,8 +68,10 @@ func httpEventsApiMock() {
 		httpmock.NewStringResponder(201, `{}`))
 }
 
-func httpConfigMock(respcode int) httpmock.Responder {
-	return httpCustomConfigMock(test_environmentKey, respcode, test_config)
+func httpConfigMock(respcode int) (sdkKey string, responder httpmock.Responder) {
+	sdkKey = generateTestSDKKey()
+	responder = httpCustomConfigMock(sdkKey, respcode, test_config)
+	return
 }
 
 func httpCustomConfigMock(sdkKey string, respcode int, config string) httpmock.Responder {
@@ -82,8 +85,14 @@ func httpCustomConfigMock(sdkKey string, respcode int, config string) httpmock.R
 	return responder
 }
 
-func httpSSEConfigMock(respCode int) httpmock.Responder {
-	return httpCustomConfigMock(test_environmentKey, respCode, test_small_config_sse)
+func httpSSEConfigMock(respCode int, sdkKeys ...string) (sdkKey string, responder httpmock.Responder) {
+	if len(sdkKeys) == 0 {
+		sdkKey = generateTestSDKKey()
+	} else {
+		sdkKey = sdkKeys[0]
+	}
+	responder = httpCustomConfigMock(sdkKey, respCode, test_small_config_sse)
+	return
 }
 
 func sseResponseBody() string {
@@ -110,6 +119,8 @@ func httpSSEConnectionMock() {
 			return resp, nil
 		},
 	)
-	responder := httpmock.NewStringResponder(200, "")
-	responder.Then(httpmock.NewStringResponder(200, sseResponseBody())).Delay(time.Second * 3)
+}
+
+func generateTestSDKKey() string {
+	return "dvc_server_TESTING" + strconv.FormatInt(rand.Int63(), 10) + "_hash"
 }

@@ -29,13 +29,19 @@ type EnvironmentConfigManager struct {
 	localBucketing       ConfigReceiver
 	firstLoad            bool
 	context              context.Context
-	stopPolling          context.CancelFunc
+	shutdown             context.CancelFunc
+	pollingManager       *configPollingManager
 	httpClient           *http.Client
 	cfg                  *HTTPConfiguration
-	ticker               *time.Ticker
 	sseManager           *SSEManager
 	options              *Options
 	InternalClientEvents chan api.ClientEvent
+}
+
+type configPollingManager struct {
+	context     context.Context
+	ticker      *time.Ticker
+	stopPolling context.CancelFunc
 }
 
 func NewEnvironmentConfigManager(
@@ -59,15 +65,14 @@ func NewEnvironmentConfigManager(
 	configManager.InternalClientEvents = make(chan api.ClientEvent, 100)
 	configManager.sseManager = newSSEManager(configManager, options)
 
-	configManager.context, configManager.stopPolling = context.WithCancel(context.Background())
-	go configManager.ssePollingManager()
+	configManager.context, configManager.shutdown = context.WithCancel(context.Background())
+	if options.EnableRealtimeUpdates {
+		go configManager.ssePollingManager()
+	}
 	return configManager
 }
 
 func (e *EnvironmentConfigManager) ssePollingManager() {
-	if e.options.DisableRealtimeUpdates {
-		return
-	}
 	for {
 		select {
 		case <-e.context.Done():
@@ -76,10 +81,8 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 		case event := <-e.InternalClientEvents:
 			switch event.EventType {
 			case api.ClientEventType_InternalNewConfigAvailable:
-				if e.ticker != nil {
-					continue
-				}
-				err := e.fetchConfig(CONFIG_RETRIES)
+				minimumLastUpdated := event.EventData.(time.Time)
+				err := e.fetchConfig(CONFIG_RETRIES, minimumLastUpdated)
 				if err != nil {
 					util.Warnf("Error fetching config: %s\n", err)
 					e.InternalClientEvents <- api.ClientEvent{
@@ -104,8 +107,9 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 				}
 				break
 			case api.ClientEventType_InternalSSEConnected:
-				e.stopPolling()
-				e.ticker = nil
+				if e.pollingManager != nil {
+					e.pollingManager.stopPolling()
+				}
 				break
 			case api.ClientEventType_ConfigUpdated:
 				if strings.Contains(event.EventData.(string), "SSE URL") {
@@ -128,10 +132,10 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 }
 
 func (e *EnvironmentConfigManager) StartSSE() error {
-	err := e.initialFetch()
-	if err != nil {
-		return err
+	if !e.options.EnableRealtimeUpdates {
+		return fmt.Errorf("realtime updates are disabled. Cannot start SSE")
 	}
+
 	if e.sseManager.URL == "" {
 		util.Warnf("Server Sent Events URI not set. Aborting SSE connection. Falling back to polling")
 		return fmt.Errorf("server Sent Events URI not set. Aborting SSE connection. Falling back to polling")
@@ -144,21 +148,28 @@ func (e *EnvironmentConfigManager) GetSSE() *SSEManager {
 }
 
 func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) error {
-	if e.ticker == nil {
-		e.ticker = time.NewTicker(interval)
-	} else {
-		// Don't start a new poll if the ticker has already been started.
-		return fmt.Errorf("polling already started")
+	if e.pollingManager != nil {
+		e.pollingManager.stopPolling()
 	}
+	pollingManager := &configPollingManager{
+		context:     nil,
+		ticker:      time.NewTicker(interval),
+		stopPolling: nil,
+	}
+	pollingManager.context, pollingManager.stopPolling = context.WithCancel(context.Background())
 
+	e.pollingManager = pollingManager
 	go func() {
 		for {
+			if e.pollingManager == nil {
+				return
+			}
 			select {
 			case <-e.context.Done():
 				util.Warnf("Stopping config polling.")
-				e.ticker.Stop()
+				e.pollingManager.ticker.Stop()
 				return
-			case <-e.ticker.C:
+			case <-e.pollingManager.ticker.C:
 				err := e.fetchConfig(CONFIG_RETRIES)
 				if err != nil {
 					util.Warnf("Error fetching config: %s\n", err)
@@ -166,24 +177,7 @@ func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) error {
 			}
 		}
 	}()
-
-	if e.options.ClientEventHandler != nil {
-		go func() {
-			err := e.initialFetch()
-			if err != nil {
-				util.Warnf("Error fetching config: %s\n", err)
-				e.InternalClientEvents <- api.ClientEvent{
-					EventType: api.ClientEventType_Error,
-					EventData: "Error fetching initial config: " + err.Error(),
-					Status:    "error",
-					Error:     err,
-				}
-			}
-		}()
-		return nil
-	} else {
-		return e.initialFetch()
-	}
+	return nil
 }
 
 func (e *EnvironmentConfigManager) initialFetch() error {
@@ -193,17 +187,19 @@ func (e *EnvironmentConfigManager) initialFetch() error {
 		return err
 	}
 	if e.options.ClientEventHandler != nil {
-		e.options.ClientEventHandler <- api.ClientEvent{
-			EventType: api.ClientEventType_Initialized,
-			EventData: "Initialized DevCycle SDK.",
-			Status:    "success",
-			Error:     nil,
-		}
+		go func() {
+			e.options.ClientEventHandler <- api.ClientEvent{
+				EventType: api.ClientEventType_Initialized,
+				EventData: "Initialized DevCycle SDK.",
+				Status:    "success",
+				Error:     nil,
+			}
+		}()
 	}
 	return nil
 }
 
-func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err error) {
+func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumLastModified ...time.Time) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			// get the stack trace and potentially log it here
@@ -225,7 +221,9 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 	if lastModified != "" {
 		req.Header.Set("If-Modified-Since", lastModified)
 	}
+
 	resp, err := e.httpClient.Do(req)
+
 	if err != nil {
 		if numRetriesRemaining > 0 {
 			util.Warnf("Retrying config fetch %d more times. Error: %s", numRetriesRemaining, err)
@@ -234,13 +232,28 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 		return err
 	}
 	defer resp.Body.Close()
+
+	if len(minimumLastModified) > 0 {
+		respLastModified := resp.Header.Get("Last-Modified")
+		if respLastModified == "" {
+			return e.fetchConfig(numRetriesRemaining, minimumLastModified...)
+		}
+		respLMTime, timeError := time.Parse(time.RFC1123, respLastModified)
+		if timeError != nil {
+			return e.fetchConfig(numRetriesRemaining, minimumLastModified...)
+		}
+		if respLMTime.Before(minimumLastModified[0]) {
+			return e.fetchConfig(numRetriesRemaining, minimumLastModified...)
+		}
+	}
+
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
 		return e.setConfigFromResponse(resp)
 	case statusCode == http.StatusNotModified:
 		return nil
 	case statusCode == http.StatusForbidden:
-		e.stopPolling()
+		e.pollingManager.stopPolling()
 		return fmt.Errorf("invalid SDK key. Aborting config polling")
 	case statusCode >= 500:
 		// Retryable Errors. Continue polling.
@@ -354,5 +367,11 @@ func (e *EnvironmentConfigManager) GetLastModified() string {
 }
 
 func (e *EnvironmentConfigManager) Close() {
-	e.stopPolling()
+	if e.pollingManager != nil {
+		e.pollingManager.stopPolling()
+	}
+	if e.sseManager != nil {
+		e.sseManager.StopSSE()
+	}
+
 }

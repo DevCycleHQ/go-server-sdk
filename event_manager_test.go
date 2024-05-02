@@ -13,9 +13,9 @@ import (
 func TestEventManager_QueueEvent(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
+	sdkKey, _ := httpConfigMock(200)
 
-	c, err := NewClient("dvc_server_token_hash", &Options{})
+	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
 	defer c.Close()
 
@@ -29,9 +29,9 @@ func TestEventManager_QueueEvent(t *testing.T) {
 func TestEventManager_QueueEvent_100_DropEvent(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
+	sdkKey, _ := httpConfigMock(200)
 
-	c, err := NewClient("dvc_server_token_hash", &Options{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
+	c, err := NewClient(sdkKey, &Options{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
 	fatalErr(t, err)
 	defer c.Close()
 
@@ -54,9 +54,9 @@ func TestEventManager_QueueEvent_100_DropEvent(t *testing.T) {
 func TestEventManager_QueueEvent_100_Flush(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	httpConfigMock(200)
+	sdkKey, _ := httpConfigMock(200)
 	httpEventsApiMock()
-	c, err := NewClient("dvc_server_token_hash", &Options{
+	c, err := NewClient(sdkKey, &Options{
 		MaxEventQueueSize:       100,
 		FlushEventQueueSize:     10,
 		ConfigPollingIntervalMS: time.Second,
