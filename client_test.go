@@ -379,18 +379,20 @@ func TestClient_LocalBucketingHandler(t *testing.T) {
 	clientEventHandler := make(chan api.ClientEvent, 10)
 	c, err := NewClient(sdkKey, &Options{ClientEventHandler: clientEventHandler})
 	fatalErr(t, err)
-	init := <-clientEventHandler
-
-	if init.EventType != api.ClientEventType_Initialized {
-		t.Fatal("Expected initialized event")
+	event1 := <-clientEventHandler
+	event2 := <-clientEventHandler
+	switch event1.EventType {
+	case api.ClientEventType_Initialized:
+		if event2.EventType != api.ClientEventType_ConfigUpdated {
+			t.Fatal("Expected config updated event and initialized events")
+		}
+	case api.ClientEventType_ConfigUpdated:
+		if event2.EventType != api.ClientEventType_Initialized {
+			t.Fatal("Expected initialized and config updated events")
+		}
 	}
 	if !c.isInitialized {
 		t.Fatal("Expected client to be initialized")
-	}
-	for event := range clientEventHandler {
-		if event.EventType == api.ClientEventType_ConfigUpdated {
-			break
-		}
 	}
 	if !c.hasConfig() {
 		t.Fatal("Expected client to have config")
