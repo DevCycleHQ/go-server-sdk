@@ -129,12 +129,13 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		} else {
 			err = c.configManager.initialFetch()
 			c.handleInitialization()
-			return c, err
 		}
 
+		// If SSE is enabled - the first config pull will trigger SSE to be started.
 		if !c.DevCycleOptions.EnableRealtimeUpdates {
 			err = c.configManager.StartPolling(options.ConfigPollingIntervalMS)
 		}
+		return c, err
 	}
 
 	c.handleInitialization()
