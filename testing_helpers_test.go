@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/jarcoal/httpmock"
@@ -39,7 +40,7 @@ var (
 	}
 )
 
-func init() {
+func TestMain(t *testing.M) {
 	// Remove newlines in configs
 	test_config = strings.ReplaceAll(test_config, "\n", "")
 	test_small_config_sse = strings.ReplaceAll(test_small_config_sse, "\n", "")
@@ -49,6 +50,8 @@ func init() {
 	// Set default options
 	test_options.CheckDefaults()
 	test_options_sse.CheckDefaults()
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
 }
 
 func httpBucketingAPIMock() {

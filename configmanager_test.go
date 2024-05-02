@@ -46,8 +46,6 @@ func (r *recordingConfigReceiver) GetLastModified() string {
 }
 
 func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
 
 	sdkKey, _ := httpConfigMock(200)
 
@@ -79,8 +77,6 @@ func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
 }
 
 func TestEnvironmentConfigManager_fetchConfig_success_sse(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
 
 	sdkKey, _ := httpSSEConfigMock(200)
 	httpSSEConnectionMock()
@@ -108,8 +104,7 @@ func TestEnvironmentConfigManager_fetchConfig_success_sse(t *testing.T) {
 }
 
 func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey := generateTestSDKKey()
 
 	error500Response := httpmock.NewStringResponder(http.StatusInternalServerError, "Internal Server Error")
@@ -136,8 +131,6 @@ func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
 }
 
 func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
 
 	connectionErrorResponse := httpmock.NewErrorResponder(fmt.Errorf("connection error"))
 	sdkKey := generateTestSDKKey()
@@ -164,7 +157,6 @@ func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
 }
 
 func TestEnvironmentConfigManager_fetchConfig_retries_errors_sse(t *testing.T) {
-	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	sdkKey := generateTestSDKKey()
 	httpSSEConnectionMock()
@@ -187,8 +179,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries_errors_sse(t *testing.T) {
 }
 
 func TestEnvironmentConfigManager_fetchConfig_returns_errors(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey := generateTestSDKKey()
 	connectionErrorResponse := httpmock.NewErrorResponder(fmt.Errorf("connection error"))
 
@@ -206,8 +197,6 @@ func TestEnvironmentConfigManager_fetchConfig_returns_errors(t *testing.T) {
 }
 
 func TestEnvironmentConfigManager_fetchConfig_returns_errors_sse(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
 
 	connectionErrorResponse := httpmock.NewErrorResponder(fmt.Errorf("connection error"))
 	sdkKey := generateTestSDKKey()

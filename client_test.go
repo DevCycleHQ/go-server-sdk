@@ -448,8 +448,7 @@ func init() {
 
 func BenchmarkClient_VariableSerial(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey := generateTestSDKKey()
 	httpCustomConfigMock(sdkKey, 200, test_large_config)
 	httpEventsApiMock()
@@ -495,8 +494,7 @@ func BenchmarkClient_VariableSerial(b *testing.B) {
 
 func BenchmarkClient_VariableParallel(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey := generateTestSDKKey()
 	httpCustomConfigMock(sdkKey, 200, test_large_config)
 	httpEventsApiMock()

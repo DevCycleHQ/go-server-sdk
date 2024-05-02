@@ -11,8 +11,7 @@ import (
 )
 
 func TestEventManager_QueueEvent(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey, _ := httpConfigMock(200)
 
 	c, err := NewClient(sdkKey, &Options{})
@@ -27,8 +26,7 @@ func TestEventManager_QueueEvent(t *testing.T) {
 }
 
 func TestEventManager_QueueEvent_100_DropEvent(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey, _ := httpConfigMock(200)
 
 	c, err := NewClient(sdkKey, &Options{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
@@ -52,8 +50,7 @@ func TestEventManager_QueueEvent_100_DropEvent(t *testing.T) {
 }
 
 func TestEventManager_QueueEvent_100_Flush(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey, _ := httpConfigMock(200)
 	httpEventsApiMock()
 	c, err := NewClient(sdkKey, &Options{
