@@ -384,67 +384,46 @@ func TestProduction_Local(t *testing.T) {
 	}
 }
 
-func TestClient_Validate_InitHandler(t *testing.T) {
+func TestClient_CloudBucketingHandler(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	sdkKey := generateTestSDKKey()
+	httpBucketingAPIMock()
+	clientEventHandler := make(chan api.ClientEvent, 10)
+	c, err := NewClient(sdkKey, &Options{EnableCloudBucketing: true, ClientEventHandler: clientEventHandler})
+	fatalErr(t, err)
+	init := <-clientEventHandler
 
-	type testCase struct {
-		description  string
-		options      Options
-		checkChannel bool
-		checkConfig  bool
+	if init.EventType != api.ClientEventType_Initialized {
+		t.Fatal("Expected initialized event")
 	}
+	if !c.isInitialized {
+		t.Fatal("Expected client to be initialized")
+	}
+}
 
-	for _, scenario := range []testCase{
-		{
-			description:  "Cloud Bucketing Enabled",
-			options:      Options{ClientEventHandler: nil, EnableCloudBucketing: true},
-			checkChannel: false,
-			checkConfig:  false,
-		},
-		{
-			description:  "Local Bucketing Enabled",
-			options:      Options{ClientEventHandler: nil},
-			checkChannel: false,
-			checkConfig:  true,
-		},
-		{
-			description:  "Cloud Bucketing Enabled with ClientEventHandler",
-			options:      Options{ClientEventHandler: make(chan api.ClientEvent, 10), EnableCloudBucketing: true},
-			checkChannel: true,
-			checkConfig:  false,
-		},
-		{
-			description:  "Local Bucketing Enabled with ClientEventHandler",
-			options:      Options{ClientEventHandler: make(chan api.ClientEvent, 10)},
-			checkChannel: true,
-			checkConfig:  true,
-		},
-	} {
-		t.Run(scenario.description, func(t *testing.T) {
-			httpmock.Activate()
-			defer httpmock.DeactivateAndReset()
-			sdkKey, _ := httpConfigMock(200)
-			client, err := NewClient(sdkKey, &scenario.options)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if scenario.checkChannel {
-				val := <-scenario.options.ClientEventHandler
-				if val.Error != nil && val.EventType != api.ClientEventType_Initialized {
-					t.Fatal("Expected success from onInitialized channel")
-				}
-			}
-			if scenario.checkConfig {
-				if !client.hasConfig() {
-					t.Fatal("Expected config to be loaded")
-				}
-			}
-			if !client.isInitialized {
-				t.Fatal("Expected isInitialized to be true")
-			}
-			if client.Close() != nil {
-				t.Fatal("Expected client to be successfully closed")
-			}
-		})
+func TestClient_LocalBucketingHandler(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	sdkKey, _ := httpConfigMock(200)
+	clientEventHandler := make(chan api.ClientEvent, 10)
+	c, err := NewClient(sdkKey, &Options{ClientEventHandler: clientEventHandler})
+	fatalErr(t, err)
+	init := <-clientEventHandler
+
+	if init.EventType != api.ClientEventType_Initialized {
+		t.Fatal("Expected initialized event")
+	}
+	if !c.isInitialized {
+		t.Fatal("Expected client to be initialized")
+	}
+	for event := range clientEventHandler {
+		if event.EventType == api.ClientEventType_ConfigUpdated {
+			break
+		}
+	}
+	if !c.hasConfig() {
+		t.Fatal("Expected client to have config")
 	}
 }
 

@@ -72,9 +72,9 @@ func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
 		t.Fatal("cm.configEtag != TESTING")
 	}
 	event1 := <-testOptionsWithHandler.ClientEventHandler
-	if event1.EventType != api.ClientEventType_Initialized {
+	if event1.Status != "success" {
 		fmt.Println(event1)
-		t.Fatal("expected to have an event of initialized first")
+		t.Fatal("event1.Status != success")
 	}
 }
 
@@ -122,9 +122,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
 	manager := NewEnvironmentConfigManager(sdkKey, localBucketing, test_options, NewConfiguration(test_options))
 	defer manager.Close()
 	err := manager.initialFetch()
-	if err != nil {
-		t.Fatal(err)
-	}
+	fatalErr(t, err)
 	if !manager.HasConfig() {
 		t.Fatal("cm.hasConfig != true")
 	}

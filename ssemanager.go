@@ -52,7 +52,8 @@ func newSSEManager(configManager *EnvironmentConfigManager, options *Options) *S
 			}
 		},
 	}
-	sseManager.context, sseManager.stopEventHandler = context.WithCancel(context.Background())
+	sseManager.context = configManager.context
+	sseManager.stopEventHandler = configManager.shutdown
 	return sseManager
 }
 

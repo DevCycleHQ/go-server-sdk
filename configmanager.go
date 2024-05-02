@@ -63,10 +63,11 @@ func NewEnvironmentConfigManager(
 		firstLoad: true,
 	}
 	configManager.InternalClientEvents = make(chan api.ClientEvent, 100)
-	configManager.sseManager = newSSEManager(configManager, options)
 
 	configManager.context, configManager.shutdown = context.WithCancel(context.Background())
+
 	if options.EnableRealtimeUpdates {
+		configManager.sseManager = newSSEManager(configManager, options)
 		go configManager.ssePollingManager()
 	}
 	return configManager
@@ -125,7 +126,6 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 						}
 					}
 				}
-
 			}
 		}
 	}
@@ -156,7 +156,8 @@ func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) error {
 		ticker:      time.NewTicker(interval),
 		stopPolling: nil,
 	}
-	pollingManager.context, pollingManager.stopPolling = context.WithCancel(context.Background())
+	pollingManager.context = e.context
+	pollingManager.stopPolling = e.shutdown
 
 	e.pollingManager = pollingManager
 	go func() {
@@ -185,16 +186,6 @@ func (e *EnvironmentConfigManager) initialFetch() error {
 	err := e.fetchConfig(CONFIG_RETRIES)
 	if err != nil {
 		return err
-	}
-	if e.options.ClientEventHandler != nil {
-		go func() {
-			e.options.ClientEventHandler <- api.ClientEvent{
-				EventType: api.ClientEventType_Initialized,
-				EventData: "Initialized DevCycle SDK.",
-				Status:    "success",
-				Error:     nil,
-			}
-		}()
 	}
 	return nil
 }
@@ -317,6 +308,9 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 	defer func() {
 		go func() {
 			e.InternalClientEvents <- configUpdatedEvent
+			if e.options.ClientEventHandler != nil {
+				e.options.ClientEventHandler <- configUpdatedEvent
+			}
 		}()
 	}()
 	err := e.localBucketing.StoreConfig(config, eTag, rayId, lastModified)
@@ -367,11 +361,11 @@ func (e *EnvironmentConfigManager) GetLastModified() string {
 }
 
 func (e *EnvironmentConfigManager) Close() {
+	e.shutdown()
 	if e.pollingManager != nil {
 		e.pollingManager.stopPolling()
 	}
 	if e.sseManager != nil {
-		e.sseManager.StopSSE()
+		e.sseManager.stopEventHandler()
 	}
-
 }
