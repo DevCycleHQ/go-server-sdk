@@ -238,8 +238,6 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 		if e.pollingManager != nil {
 			e.pollingManager.stopPolling()
 		}
-		body, _ := io.ReadAll(resp.Body)
-		fmt.Println(body)
 		return fmt.Errorf("invalid SDK key. Aborting config polling")
 	case statusCode >= 500:
 		// Retryable Errors. Continue polling.
