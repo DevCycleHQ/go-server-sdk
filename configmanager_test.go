@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/jarcoal/httpmock"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
+	"time"
 )
 
 type recordingConfigReceiver struct {
@@ -48,7 +50,6 @@ func (r *recordingConfigReceiver) GetLastModified() string {
 func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
 
 	sdkKey, _ := httpConfigMock(200)
-
 	localBucketing := &recordingConfigReceiver{}
 	testOptionsWithHandler := *test_options
 
@@ -87,8 +88,6 @@ func TestEnvironmentConfigManager_fetchConfig_success_sse(t *testing.T) {
 	defer manager.Close()
 	err := manager.initialFetch()
 	fatalErr(t, err)
-	err = manager.StartSSE()
-	fatalErr(t, err)
 	if localBucketing.configureCount != 1 {
 		t.Fatal("localBucketing.configureCount != 1")
 	}
@@ -101,10 +100,13 @@ func TestEnvironmentConfigManager_fetchConfig_success_sse(t *testing.T) {
 	if manager.sseManager == nil {
 		t.Fatal("cm.sseManager == nil")
 	}
+	require.Eventually(t, func() bool {
+		return manager.SSEConnected.Load()
+	}, 3*time.Second, 10*time.Millisecond)
+
 }
 
 func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
-
 	sdkKey := generateTestSDKKey()
 
 	error500Response := httpmock.NewStringResponder(http.StatusInternalServerError, "Internal Server Error")
@@ -157,7 +159,6 @@ func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
 }
 
 func TestEnvironmentConfigManager_fetchConfig_retries_errors_sse(t *testing.T) {
-	defer httpmock.DeactivateAndReset()
 	sdkKey := generateTestSDKKey()
 	httpSSEConnectionMock()
 
@@ -171,8 +172,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries_errors_sse(t *testing.T) {
 	defer manager.Close()
 	err := manager.initialFetch()
 	fatalErr(t, err)
-	err = manager.StartSSE()
-	fatalErr(t, err)
+
 	if !manager.HasConfig() {
 		t.Fatal("cm.hasConfig != true")
 	}
@@ -207,10 +207,19 @@ func TestEnvironmentConfigManager_fetchConfig_returns_errors_sse(t *testing.T) {
 	localBucketing := &recordingConfigReceiver{}
 	manager := NewEnvironmentConfigManager(sdkKey, localBucketing, test_options_sse, NewConfiguration(test_options_sse))
 	defer manager.Close()
-	err := manager.StartSSE()
+
+	err := manager.initialFetch()
 	if err == nil {
 		t.Fatal("expected error but got nil")
 	}
+
+	if manager.HasConfig() {
+		t.Fatal("manager.hasConfig == true")
+	}
+	if manager.sseManager.Started {
+		t.Fatal("manager.sseManager.Started == true")
+	}
+
 }
 
 func errorResponseChain(sdkKey string, errorResponse httpmock.Responder, count int, configMock ...func(respcode int, sdkKeys ...string) (string, httpmock.Responder)) httpmock.Responder {

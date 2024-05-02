@@ -2,8 +2,11 @@ package devcycle
 
 import (
 	_ "embed"
-	"golang.org/x/exp/rand"
+	"flag"
+	"log"
+	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -13,8 +16,6 @@ import (
 )
 
 var (
-	//test_environmentKey = "dvc_server_token_hash"
-
 	//go:embed testdata/fixture_small_config.json
 	test_config string
 
@@ -41,6 +42,12 @@ var (
 )
 
 func TestMain(t *testing.M) {
+	httpmock.Activate()
+	flag.BoolVar(&benchmarkEnableEvents, "benchEnableEvents", false, "Custom test flag that enables event logging in benchmarks")
+	flag.BoolVar(&benchmarkEnableConfigUpdates, "benchEnableConfigUpdates", false, "Custom test flag that enables config updates in benchmarks")
+	flag.BoolVar(&benchmarkDisableLogs, "benchDisableLogs", false, "Custom test flag that disables logging in benchmarks")
+	rand.NewSource(time.Now().UnixNano())
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	// Remove newlines in configs
 	test_config = strings.ReplaceAll(test_config, "\n", "")
 	test_small_config_sse = strings.ReplaceAll(test_small_config_sse, "\n", "")
@@ -50,8 +57,10 @@ func TestMain(t *testing.M) {
 	// Set default options
 	test_options.CheckDefaults()
 	test_options_sse.CheckDefaults()
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+	httpBucketingAPIMock()
+	httpEventsApiMock()
+
+	os.Exit(t.Run())
 }
 
 func httpBucketingAPIMock() {

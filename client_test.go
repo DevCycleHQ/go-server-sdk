@@ -1,31 +1,21 @@
 package devcycle
 
 import (
-	"flag"
 	"fmt"
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/stretchr/testify/require"
 	"io"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/jarcoal/httpmock"
 )
 
-func init() {
-	rand.NewSource(time.Now().UnixNano())
-}
-
 func TestClient_AllFeatures_Local(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
 	sdkKey, _ := httpConfigMock(200)
 	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
@@ -38,8 +28,6 @@ func TestClient_AllFeatures_Local(t *testing.T) {
 }
 
 func TestClient_AllVariablesLocal(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
 	sdkKey, _ := httpConfigMock(200)
 	c, err := NewClient(sdkKey, &Options{})
 	require.NoError(t, err)
@@ -52,9 +40,6 @@ func TestClient_AllVariablesLocal(t *testing.T) {
 }
 
 func TestClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
-
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
 	sdkKey := generateTestSDKKey()
 	httpCustomConfigMock(sdkKey, 200, test_config_special_characters_var)
 	c, err := NewClient(sdkKey, &Options{})
@@ -88,8 +73,6 @@ func TestClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
 }
 
 func TestClient_VariableCloud(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
 	sdkKey := generateTestSDKKey()
 	httpBucketingAPIMock()
 	c, err := NewClient(sdkKey, &Options{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
@@ -106,8 +89,7 @@ func TestClient_VariableCloud(t *testing.T) {
 }
 
 func TestClient_VariableLocalNumber(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey := generateTestSDKKey()
 	httpCustomConfigMock(sdkKey, 200, test_large_config)
 
@@ -138,8 +120,6 @@ func TestClient_VariableLocalNumber(t *testing.T) {
 }
 
 func TestClient_VariableLocalNumberWithNilDefault(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
 	sdkKey := generateTestSDKKey()
 	httpCustomConfigMock(sdkKey, 200, test_large_config)
 
@@ -169,8 +149,7 @@ func TestClient_VariableLocalNumberWithNilDefault(t *testing.T) {
 }
 
 func TestClient_VariableEventIsQueued(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey := generateTestSDKKey()
 	httpCustomConfigMock(sdkKey, 200, test_large_config)
 	httpEventsApiMock()
@@ -197,8 +176,7 @@ func TestClient_VariableEventIsQueued(t *testing.T) {
 }
 
 func TestClient_VariableLocalFlush(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey, _ := httpConfigMock(200)
 
 	c, err := NewClient(sdkKey, &Options{})
@@ -213,8 +191,7 @@ func TestClient_VariableLocalFlush(t *testing.T) {
 }
 
 func TestClient_VariableLocal(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey, _ := httpConfigMock(200)
 
 	c, err := NewClient(sdkKey, &Options{})
@@ -248,8 +225,7 @@ func TestClient_VariableLocal(t *testing.T) {
 }
 
 func TestClient_VariableLocal_UserWithCustomData(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey, _ := httpConfigMock(200)
 
 	c, err := NewClient(sdkKey, &Options{})
@@ -301,8 +277,7 @@ func TestClient_VariableLocal_UserWithCustomData(t *testing.T) {
 }
 
 func TestClient_VariableLocal_403(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey, _ := httpConfigMock(403)
 
 	_, err := NewClient(sdkKey, &Options{})
@@ -312,8 +287,7 @@ func TestClient_VariableLocal_403(t *testing.T) {
 }
 
 func TestClient_TrackLocal_QueueEvent(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey, _ := httpConfigMock(200)
 	dvcOptions := Options{ConfigPollingIntervalMS: 10 * time.Second}
 
@@ -333,8 +307,6 @@ func TestClient_TrackLocal_QueueEvent(t *testing.T) {
 }
 
 func TestClient_TrackLocal_QueueEventBeforeConfig(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
 
 	// Config will fail to load on HTTP 500 after several retries without an error
 	sdkKey, _ := httpConfigMock(http.StatusInternalServerError)
@@ -385,8 +357,7 @@ func TestProduction_Local(t *testing.T) {
 }
 
 func TestClient_CloudBucketingHandler(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey := generateTestSDKKey()
 	httpBucketingAPIMock()
 	clientEventHandler := make(chan api.ClientEvent, 10)
@@ -403,8 +374,7 @@ func TestClient_CloudBucketingHandler(t *testing.T) {
 }
 
 func TestClient_LocalBucketingHandler(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+
 	sdkKey, _ := httpConfigMock(200)
 	clientEventHandler := make(chan api.ClientEvent, 10)
 	c, err := NewClient(sdkKey, &Options{ClientEventHandler: clientEventHandler})
@@ -439,12 +409,6 @@ var (
 	benchmarkEnableConfigUpdates bool
 	benchmarkDisableLogs         bool
 )
-
-func init() {
-	flag.BoolVar(&benchmarkEnableEvents, "benchEnableEvents", false, "Custom test flag that enables event logging in benchmarks")
-	flag.BoolVar(&benchmarkEnableConfigUpdates, "benchEnableConfigUpdates", false, "Custom test flag that enables config updates in benchmarks")
-	flag.BoolVar(&benchmarkDisableLogs, "benchDisableLogs", false, "Custom test flag that disables logging in benchmarks")
-}
 
 func BenchmarkClient_VariableSerial(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})

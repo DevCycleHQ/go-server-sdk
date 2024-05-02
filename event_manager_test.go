@@ -11,9 +11,7 @@ import (
 )
 
 func TestEventManager_QueueEvent(t *testing.T) {
-
 	sdkKey, _ := httpConfigMock(200)
-
 	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
 	defer c.Close()

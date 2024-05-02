@@ -14,10 +14,13 @@ type SSEManager struct {
 	configManager    *EnvironmentConfigManager
 	options          *Options
 	stream           *eventsource.Stream
-	URL              string
+	eventChannel     chan eventsource.Event
+	url              string
 	errorHandler     eventsource.StreamErrorHandler
 	context          context.Context
 	stopEventHandler context.CancelFunc
+	cfg              *HTTPConfiguration
+	Started          bool
 }
 
 type sseEvent struct {
@@ -37,7 +40,7 @@ func (m *sseMessage) LastModifiedDuration() time.Duration {
 	return time.Duration(m.LastModified) * time.Millisecond
 }
 
-func newSSEManager(configManager *EnvironmentConfigManager, options *Options) *SSEManager {
+func newSSEManager(configManager *EnvironmentConfigManager, options *Options, cfg *HTTPConfiguration) *SSEManager {
 	if options == nil {
 		options = &Options{}
 		options.CheckDefaults()
@@ -51,13 +54,17 @@ func newSSEManager(configManager *EnvironmentConfigManager, options *Options) *S
 				CloseNow: false,
 			}
 		},
+		cfg: cfg,
 	}
-	sseManager.context = configManager.context
-	sseManager.stopEventHandler = configManager.shutdown
+	sseManager.context, sseManager.stopEventHandler = context.WithCancel(context.Background())
+
 	return sseManager
 }
 
 func (m *SSEManager) connectSSE(url string) (err error) {
+	if m.stream != nil {
+		m.stream.Close()
+	}
 	sseClientEvent := api.ClientEvent{
 		EventType: api.ClientEventType_InternalSSEConnected,
 		EventData: "Connected to SSE stream: " + url,
@@ -66,18 +73,15 @@ func (m *SSEManager) connectSSE(url string) (err error) {
 	}
 
 	defer func() {
-		if m.configManager.InternalClientEvents != nil {
-			go func() {
-				m.configManager.InternalClientEvents <- sseClientEvent
-			}()
-		}
+		m.configManager.InternalClientEvents <- sseClientEvent
 	}()
 	sse, err := eventsource.SubscribeWithURL(url,
 		eventsource.StreamOptionReadTimeout(m.options.AdvancedOptions.RealtimeUpdatesTimeout),
 		eventsource.StreamOptionCanRetryFirstConnection(m.options.AdvancedOptions.RealtimeUpdatesTimeout),
 		eventsource.StreamOptionErrorHandler(m.errorHandler),
 		eventsource.StreamOptionUseBackoff(m.options.AdvancedOptions.RealtimeUpdatesBackoff),
-		eventsource.StreamOptionUseJitter(0.25))
+		eventsource.StreamOptionUseJitter(0.25),
+		eventsource.StreamOptionHTTPClient(m.cfg.HTTPClient))
 	if err != nil {
 		sseClientEvent.EventType = api.ClientEventType_InternalSSEFailure
 		sseClientEvent.Status = "failure"
@@ -85,7 +89,13 @@ func (m *SSEManager) connectSSE(url string) (err error) {
 		sseClientEvent.EventData = "Error connecting to SSE stream: " + url
 		return
 	}
+	if m.stream != nil {
+		m.stream.Close()
+	}
 	m.stream = sse
+	m.eventChannel = m.stream.Events
+	m.Started = sseClientEvent.Error == nil
+	go m.receiveSSEMessages()
 	return
 }
 
@@ -102,14 +112,14 @@ func (m *SSEManager) parseMessage(rawMessage []byte) (message sseMessage, err er
 
 func (m *SSEManager) receiveSSEMessages() {
 	for {
+		if m.stream == nil || m.context.Err() != nil {
+			return
+		}
 		err := func() error {
 			select {
 			case <-m.context.Done():
-				if m.stream != nil {
-					m.stream.Close()
-				}
 				return fmt.Errorf("SSE - Stopping SSE polling")
-			case event, ok := <-m.stream.Events:
+			case event, ok := <-m.eventChannel:
 				if !ok {
 					return nil
 				}
@@ -119,14 +129,12 @@ func (m *SSEManager) receiveSSEMessages() {
 					return nil
 				}
 				if message.Type_ == "refetchConfig" || message.Type_ == "" {
-					go func() {
-						m.configManager.InternalClientEvents <- api.ClientEvent{
-							EventType: api.ClientEventType_InternalNewConfigAvailable,
-							EventData: time.UnixMilli(int64(message.LastModified)),
-							Status:    "",
-							Error:     nil,
-						}
-					}()
+					m.configManager.InternalClientEvents <- api.ClientEvent{
+						EventType: api.ClientEventType_InternalNewConfigAvailable,
+						EventData: time.UnixMilli(int64(message.LastModified)),
+						Status:    "",
+						Error:     nil,
+					}
 				}
 			}
 			return nil
@@ -138,22 +146,13 @@ func (m *SSEManager) receiveSSEMessages() {
 }
 
 func (m *SSEManager) StartSSEOverride(url string) error {
-	m.URL = url
-	return m.StartSSE()
-}
-
-func (m *SSEManager) StartSSE() error {
-	if m.URL == "" {
-		return fmt.Errorf("URL cannot be empty")
-	}
-	err := m.connectSSE(m.URL)
-	if err != nil {
-		return err
-	}
-	go m.receiveSSEMessages()
-	return nil
+	m.url = url
+	return m.connectSSE(url)
 }
 
 func (m *SSEManager) StopSSE() {
-	m.stopEventHandler()
+	if m.stream != nil {
+		m.stream.Close()
+		m.stopEventHandler()
+	}
 }

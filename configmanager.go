@@ -7,7 +7,7 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"io"
 	"net/http"
-	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/util"
@@ -36,6 +36,7 @@ type EnvironmentConfigManager struct {
 	sseManager           *SSEManager
 	options              *Options
 	InternalClientEvents chan api.ClientEvent
+	SSEConnected         atomic.Bool
 }
 
 type configPollingManager struct {
@@ -55,19 +56,15 @@ func NewEnvironmentConfigManager(
 		sdkKey:         sdkKey,
 		localBucketing: localBucketing,
 		cfg:            cfg,
-		httpClient: &http.Client{
-			// Set an explicit timeout so that we don't wait forever on a request
-			// Use the configurable timeout because fetching the first config can block SDK initialization.
-			Timeout: options.RequestTimeout,
-		},
-		firstLoad: true,
+		httpClient:     cfg.HTTPClient,
+		firstLoad:      true,
 	}
 	configManager.InternalClientEvents = make(chan api.ClientEvent, 100)
 
 	configManager.context, configManager.shutdown = context.WithCancel(context.Background())
 
 	if options.EnableRealtimeUpdates {
-		configManager.sseManager = newSSEManager(configManager, options)
+		configManager.sseManager = newSSEManager(configManager, options, cfg)
 		go configManager.ssePollingManager()
 	}
 	return configManager
@@ -95,6 +92,7 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 				}
 
 			case api.ClientEventType_InternalSSEFailure:
+				e.SSEConnected.Store(false)
 				// Re-enable polling until a valid config is fetched, and then re-initialize SSE.
 				e.sseManager.StopSSE()
 				err := e.StartPolling(e.options.ConfigPollingIntervalMS)
@@ -111,12 +109,15 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 				if e.pollingManager != nil {
 					e.pollingManager.stopPolling()
 				}
+				e.SSEConnected.Store(true)
 
 			case api.ClientEventType_ConfigUpdated:
-				if strings.Contains(event.EventData.(string), "SSE URL") {
+				eventData := event.EventData.(map[string]string)
+
+				if url, ok := eventData["sseUrl"]; ok && e.options.EnableRealtimeUpdates {
 					// Reconnect SSE
 					e.sseManager.StopSSE()
-					err := e.sseManager.StartSSE()
+					err := e.StartSSE(url)
 					if err != nil {
 						e.InternalClientEvents <- api.ClientEvent{
 							EventType: api.ClientEventType_Error,
@@ -131,20 +132,11 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 	}
 }
 
-func (e *EnvironmentConfigManager) StartSSE() error {
+func (e *EnvironmentConfigManager) StartSSE(url string) error {
 	if !e.options.EnableRealtimeUpdates {
 		return fmt.Errorf("realtime updates are disabled. Cannot start SSE")
 	}
-
-	if e.sseManager.URL == "" {
-		util.Warnf("Server Sent Events URI not set. Aborting SSE connection. Falling back to polling")
-		return fmt.Errorf("server Sent Events URI not set. Aborting SSE connection. Falling back to polling")
-	}
-	return e.sseManager.StartSSE()
-}
-
-func (e *EnvironmentConfigManager) GetSSE() *SSEManager {
-	return e.sseManager
+	return e.sseManager.StartSSEOverride(url)
 }
 
 func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) error {
@@ -156,8 +148,7 @@ func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) error {
 		ticker:      time.NewTicker(interval),
 		stopPolling: nil,
 	}
-	pollingManager.context = e.context
-	pollingManager.stopPolling = e.shutdown
+	pollingManager.context, pollingManager.stopPolling = context.WithCancel(e.context)
 
 	e.pollingManager = pollingManager
 	go func() {
@@ -244,7 +235,11 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 	case statusCode == http.StatusNotModified:
 		return nil
 	case statusCode == http.StatusForbidden:
-		e.pollingManager.stopPolling()
+		if e.pollingManager != nil {
+			e.pollingManager.stopPolling()
+		}
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Println(body)
 		return fmt.Errorf("invalid SDK key. Aborting config polling")
 	case statusCode >= 500:
 		// Retryable Errors. Continue polling.
@@ -301,9 +296,13 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastModified string) error {
 	configUpdatedEvent := api.ClientEvent{
 		EventType: api.ClientEventType_ConfigUpdated,
-		EventData: fmt.Sprintf("Config updated. RayId: %s ETag: %s Last-Modified: %s", rayId, eTag, lastModified),
-		Status:    "success",
-		Error:     nil,
+		EventData: map[string]string{
+			"rayId":        rayId,
+			"eTag":         eTag,
+			"lastModified": lastModified,
+		},
+		Status: "success",
+		Error:  nil,
 	}
 	defer func() {
 		go func() {
@@ -330,9 +329,8 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 	}
 	if e.minimalConfig != nil && e.minimalConfig.SSE != nil {
 		sseUrl := fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path)
-		if e.sseManager.URL != sseUrl {
-			e.sseManager.URL = sseUrl
-			configUpdatedEvent.EventData = fmt.Sprintf("%s SSE URL: %s", configUpdatedEvent.EventData, e.sseManager.URL)
+		if e.sseManager.url != sseUrl {
+			configUpdatedEvent.EventData.(map[string]string)["sseUrl"] = sseUrl
 		}
 	}
 	return nil

@@ -86,7 +86,7 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		return nil, err
 	}
 	if !sdkKeyIsValid(sdkKey) {
-		return nil, fmt.Errorf("Invalid sdk key. Call NewClient with a valid sdk key.")
+		return nil, fmt.Errorf("invalid sdk key %s. Call NewClient with a valid sdk key", sdkKey)
 	}
 	options.CheckDefaults()
 	cfg := NewConfiguration(options)
@@ -131,12 +131,10 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 			c.handleInitialization()
 			return c, err
 		}
-		if !c.DevCycleOptions.EnableRealtimeUpdates {
-			c.configManager.StartPolling(options.ConfigPollingIntervalMS)
-		} else {
-			c.configManager.StartSSE()
-		}
 
+		if !c.DevCycleOptions.EnableRealtimeUpdates {
+			err = c.configManager.StartPolling(options.ConfigPollingIntervalMS)
+		}
 	}
 
 	c.handleInitialization()
@@ -187,13 +185,6 @@ func (c *Client) GetRawConfig() (config []byte, etag string, err error) {
 		return c.configManager.GetRawConfig(), c.configManager.GetETag(), nil
 	}
 	return nil, "", errors.New("cannot read raw config; config manager has no config")
-}
-
-func (c *Client) GetSSE() *SSEManager {
-	if c.configManager == nil {
-		return nil
-	}
-	return c.configManager.GetSSE()
 }
 
 /*
