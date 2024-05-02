@@ -129,6 +129,9 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		} else {
 			err = c.configManager.initialFetch()
 			c.handleInitialization()
+			if err != nil {
+				return c, err
+			}
 		}
 
 		// If SSE is enabled - the first config pull will trigger SSE to be started.
