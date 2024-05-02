@@ -92,7 +92,7 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 						Error:     err,
 					}
 				}
-				break
+
 			case api.ClientEventType_InternalSSEFailure:
 				// Re-enable polling until a valid config is fetched, and then re-initialize SSE.
 				e.sseManager.StopSSE()
@@ -105,12 +105,12 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 						Error:     err,
 					}
 				}
-				break
+
 			case api.ClientEventType_InternalSSEConnected:
 				if e.pollingManager != nil {
 					e.pollingManager.stopPolling()
 				}
-				break
+
 			case api.ClientEventType_ConfigUpdated:
 				if strings.Contains(event.EventData.(string), "SSE URL") {
 					// Reconnect SSE
@@ -125,7 +125,7 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 						}
 					}
 				}
-				break
+
 			}
 		}
 	}
