@@ -123,6 +123,17 @@ func (m *SSEManager) receiveSSEMessages() {
 				if !ok {
 					return nil
 				}
+
+				if m.options.ClientEventHandler != nil {
+					go func() {
+						m.options.ClientEventHandler <- api.ClientEvent{
+							EventType: api.ClientEventType_RealtimeUpdates,
+							EventData: event,
+							Status:    "success",
+							Error:     nil,
+						}
+					}()
+				}
 				message, err := m.parseMessage([]byte(event.Data()))
 				if err != nil {
 					util.Debugf("SSE - Error unmarshalling message: %v\n", err)
