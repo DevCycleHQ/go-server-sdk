@@ -129,7 +129,7 @@ func (m *SSEManager) receiveSSEMessages() {
 						m.options.ClientEventHandler <- api.ClientEvent{
 							EventType: api.ClientEventType_RealtimeUpdates,
 							EventData: event,
-							Status:    "success",
+							Status:    "info",
 							Error:     nil,
 						}
 					}()
@@ -140,6 +140,7 @@ func (m *SSEManager) receiveSSEMessages() {
 					return nil
 				}
 				if message.Type_ == "refetchConfig" || message.Type_ == "" {
+					util.Debugf("SSE - Received refetchConfig message: %v\n", message)
 					m.configManager.InternalClientEvents <- api.ClientEvent{
 						EventType: api.ClientEventType_InternalNewConfigAvailable,
 						EventData: time.UnixMilli(int64(message.LastModified)),
