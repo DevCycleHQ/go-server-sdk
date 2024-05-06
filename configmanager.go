@@ -80,6 +80,23 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 			switch event.EventType {
 			case api.ClientEventType_InternalNewConfigAvailable:
 				minimumLastUpdated := event.EventData.(time.Time)
+				if e.GetLastModified() != "" {
+					currentLastModified, err := time.Parse(time.RFC1123, e.GetLastModified())
+					if err != nil {
+						util.Warnf("Error parsing last modified time: %s\n", err)
+						e.InternalClientEvents <- api.ClientEvent{
+							EventType: api.ClientEventType_Error,
+							EventData: "Error parsing last modified time: " + err.Error(),
+							Status:    "error",
+							Error:     err,
+						}
+					}
+					if currentLastModified.After(minimumLastUpdated) {
+						// Skip fetching config if the current config is newer than the minimumLastUpdated
+						continue
+					}
+				}
+
 				err := e.fetchConfig(CONFIG_RETRIES, minimumLastUpdated)
 				if err != nil {
 					util.Warnf("Error fetching config: %s\n", err)
