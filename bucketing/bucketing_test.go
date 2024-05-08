@@ -18,33 +18,47 @@ var (
 
 	//go:embed testdata/fixture_test_broken_config.json
 	test_broken_config []byte
+
+	//go:embed testdata/test_config_disbale_passthrough.json
+	test_config_disbale_passthrough []byte
 )
+
+type config struct {
+	configBody []byte
+}
+
+var test_configs = []config{
+	{configBody: test_config},
+	{configBody: test_config_disbale_passthrough},
+}
 
 // Bucketing puts the user in the target for the first audience they match
 func TestBucketingFirstMatchingTarget(t *testing.T) {
-	config, err := newConfig(test_config, "", "", "")
-	require.NoError(t, err)
+	for _, test_config := range test_configs {
+		config, err := newConfig(test_config.configBody, "", "", "")
+		require.NoError(t, err)
 
-	feature := config.GetFeatureForVariableId("615356f120ed334a6054564c")
-	require.NotNil(t, feature)
+		feature := config.GetFeatureForVariableId("615356f120ed334a6054564c")
+		require.NotNil(t, feature)
 
-	user := api.User{
-		UserId:  "asuh",
-		Country: "Canada",
-	}.GetPopulatedUser(&api.PlatformData{})
+		user := api.User{
+			UserId:  "asuh",
+			Country: "Canada",
+		}.GetPopulatedUser(&api.PlatformData{})
 
-	target, err := doesUserQualifyForFeature(config, feature, user, nil)
-	require.NoError(t, err)
+		target, err := doesUserQualifyForFeature(config, feature, user, nil)
+		require.NoError(t, err)
 
-	// should match target 2
-	require.Equal(t, target.Target.Id, "61536f468fd67f0091982533")
+		// should match target 2
+		require.Equal(t, target.Target.Id, "61536f468fd67f0091982533")
 
-	user.Email = "test@email.com"
-	target, err = doesUserQualifyForFeature(config, feature, user, nil)
-	require.NoError(t, err)
+		user.Email = "test@email.com"
+		target, err = doesUserQualifyForFeature(config, feature, user, nil)
+		require.NoError(t, err)
 
-	// should match target 1
-	require.Equal(t, target.Target.Id, "61536f3bc838a705c105eb62")
+		// should match target 1
+		require.Equal(t, target.Target.Id, "61536f3bc838a705c105eb62")
+	}
 }
 
 func TestBucketing_RolloutGatesUser(t *testing.T) {
@@ -53,7 +67,7 @@ func TestBucketing_RolloutGatesUser(t *testing.T) {
 		Email:  "test@email.com",
 	}.GetPopulatedUser(&api.PlatformData{})
 
-	config, err := newConfig(test_config, "", "", "")
+	config, err := newConfig(test_config_disbale_passthrough, "", "", "")
 	require.NoError(t, err)
 
 	feature := config.GetFeatureForVariableId("61538237b0a70b58ae6af71f")
@@ -79,6 +93,60 @@ func TestBucketing_RolloutGatesUser(t *testing.T) {
 	target, err := doesUserQualifyForFeature(config, feature, user, nil)
 	require.NoError(t, err)
 	require.Equal(t, "61536f468fd67f0091982533", target.Target.Id)
+}
+
+func TestBucketing_RolloutPassthroughUser(t *testing.T) {
+	user := api.User{
+		UserId: "does_not_pass_rollout",
+		Email:  "test@email.com",
+		CustomData: map[string]interface{}{
+			"favouriteFood":  "pizza",
+			"favouriteDrink": "coffee",
+		},
+	}.GetPopulatedUser(&api.PlatformData{
+		PlatformVersion: "1.1.2",
+	})
+
+	config, err := newConfig(test_config, "", "", "")
+	require.NoError(t, err)
+
+	feature := config.GetFeatureForVariableId("61538237b0a70b58ae6af71f")
+
+	feature.Configuration.Targets[0].Rollout = &Rollout{
+		Type:            "gradual",
+		StartPercentage: 0,
+		StartDate:       time.Now().Add(time.Hour * -1),
+		Stages: []RolloutStage{
+			{
+				Type:       "linear",
+				Date:       time.Now().Add(time.Hour * 24),
+				Percentage: 1,
+			},
+		},
+	}
+
+	target, err := doesUserQualifyForFeature(config, feature, user, nil)
+	require.NoError(t, err)
+	require.Equal(t, "61536f669c69b86cccc5f15e", target.Target.Id)
+
+	require.NotNil(t, feature)
+	feature.Configuration.Targets[0].Rollout = &Rollout{
+		Type:            "gradual",
+		StartPercentage: 0,
+		StartDate:       time.Now().Add(time.Hour * -24),
+		Stages: []RolloutStage{
+			{
+				Type:       "linear",
+				Date:       time.Now().Add(time.Hour * -1),
+				Percentage: 1,
+			},
+		},
+	}
+
+	target, err = doesUserQualifyForFeature(config, feature, user, nil)
+	require.NoError(t, err)
+	require.Equal(t, "61536f468fd67f0091982533", target.Target.Id)
+
 }
 
 func TestUserHashingBucketing_BucketingDistribution(t *testing.T) {
@@ -189,54 +257,56 @@ func TestBucketing_Deterministic_RolloutNotEqualBucketing(t *testing.T) {
 }
 
 func TestConfigParsing(t *testing.T) {
-	// Parsing the large config should succeed without an error
-	err := SetConfig(test_config, "test", "etag", "rayid", "lastModified")
-	require.NoError(t, err)
-	config, err := getConfig("test")
-	require.NoError(t, err)
+	for _, test_config := range test_configs {
+		// Parsing the large config should succeed without an error
+		err := SetConfig(test_config.configBody, "test", "etag", "rayid", "lastModified")
+		require.NoError(t, err)
+		config, err := getConfig("test")
+		require.NoError(t, err)
 
-	// Spot check parsing down to a filter
-	features := config.Features
-	require.Len(t, features, 4)
-	targets := features[0].Configuration.Targets
-	require.Len(t, targets, 3)
-	filters := targets[0].Audience.Filters.Filters
-	require.Len(t, filters, 1)
-	require.IsType(t, &UserFilter{}, filters[0])
-	userFilter := filters[0].(*UserFilter)
-	require.Equal(t, "user", userFilter.GetType())
-	require.Equal(t, "email", userFilter.GetSubType())
-	require.Equal(t, "=", userFilter.GetComparator())
-	require.Equal(t, "etag", config.etag)
-	require.Equal(t, "rayid", config.rayId)
+		// Spot check parsing down to a filter
+		features := config.Features
+		require.Len(t, features, 4)
+		targets := features[0].Configuration.Targets
+		require.Len(t, targets, 3)
+		filters := targets[0].Audience.Filters.Filters
+		require.Len(t, filters, 1)
+		require.IsType(t, &UserFilter{}, filters[0])
+		userFilter := filters[0].(*UserFilter)
+		require.Equal(t, "user", userFilter.GetType())
+		require.Equal(t, "email", userFilter.GetSubType())
+		require.Equal(t, "=", userFilter.GetComparator())
+		require.Equal(t, "etag", config.etag)
+		require.Equal(t, "rayid", config.rayId)
 
-	// Check maps of variables IDs and keys
-	require.Equal(t, map[string]*Variable{
-		"614ef6ea475129459160721a": {Id: "614ef6ea475129459160721a", Type: "String", Key: "test"},
-		"615356f120ed334a6054564c": {Id: "615356f120ed334a6054564c", Type: "String", Key: "swagTest"},
-		"61538237b0a70b58ae6af71f": {Id: "61538237b0a70b58ae6af71f", Type: "String", Key: "feature2Var"},
-		"61538237b0a70b58ae6af71g": {Id: "61538237b0a70b58ae6af71g", Type: "String", Key: "feature2.cool"},
-		"61538237b0a70b58ae6af71h": {Id: "61538237b0a70b58ae6af71h", Type: "String", Key: "feature2.hello"},
-		"61538237b0a70b58ae6af71q": {Id: "61538237b0a70b58ae6af71q", Type: "JSON", Key: "json-var"},
-		"61538237b0a70b58ae6af71s": {Id: "61538237b0a70b58ae6af71s", Type: "Number", Key: "num-var"},
-		"61538237b0a70b58ae6af71y": {Id: "61538237b0a70b58ae6af71y", Type: "Boolean", Key: "bool-var"},
-		"61538237b0a70b58ae6af71z": {Id: "61538237b0a70b58ae6af71z", Type: "String", Key: "audience-match"},
-		"61538937b0a70b58ae6af71f": {Id: "61538937b0a70b58ae6af71f", Type: "String", Key: "feature4Var"}},
-		config.variableIdMap,
-	)
-	require.Equal(t, map[string]*Variable{
-		"audience-match": {Id: "61538237b0a70b58ae6af71z", Type: "String", Key: "audience-match"},
-		"bool-var":       {Id: "61538237b0a70b58ae6af71y", Type: "Boolean", Key: "bool-var"},
-		"feature2.cool":  {Id: "61538237b0a70b58ae6af71g", Type: "String", Key: "feature2.cool"},
-		"feature2.hello": {Id: "61538237b0a70b58ae6af71h", Type: "String", Key: "feature2.hello"},
-		"feature2Var":    {Id: "61538237b0a70b58ae6af71f", Type: "String", Key: "feature2Var"},
-		"feature4Var":    {Id: "61538937b0a70b58ae6af71f", Type: "String", Key: "feature4Var"},
-		"json-var":       {Id: "61538237b0a70b58ae6af71q", Type: "JSON", Key: "json-var"},
-		"num-var":        {Id: "61538237b0a70b58ae6af71s", Type: "Number", Key: "num-var"},
-		"swagTest":       {Id: "615356f120ed334a6054564c", Type: "String", Key: "swagTest"},
-		"test":           {Id: "614ef6ea475129459160721a", Type: "String", Key: "test"}},
-		config.variableKeyMap,
-	)
+		// Check maps of variables IDs and keys
+		require.Equal(t, map[string]*Variable{
+			"614ef6ea475129459160721a": {Id: "614ef6ea475129459160721a", Type: "String", Key: "test"},
+			"615356f120ed334a6054564c": {Id: "615356f120ed334a6054564c", Type: "String", Key: "swagTest"},
+			"61538237b0a70b58ae6af71f": {Id: "61538237b0a70b58ae6af71f", Type: "String", Key: "feature2Var"},
+			"61538237b0a70b58ae6af71g": {Id: "61538237b0a70b58ae6af71g", Type: "String", Key: "feature2.cool"},
+			"61538237b0a70b58ae6af71h": {Id: "61538237b0a70b58ae6af71h", Type: "String", Key: "feature2.hello"},
+			"61538237b0a70b58ae6af71q": {Id: "61538237b0a70b58ae6af71q", Type: "JSON", Key: "json-var"},
+			"61538237b0a70b58ae6af71s": {Id: "61538237b0a70b58ae6af71s", Type: "Number", Key: "num-var"},
+			"61538237b0a70b58ae6af71y": {Id: "61538237b0a70b58ae6af71y", Type: "Boolean", Key: "bool-var"},
+			"61538237b0a70b58ae6af71z": {Id: "61538237b0a70b58ae6af71z", Type: "String", Key: "audience-match"},
+			"61538937b0a70b58ae6af71f": {Id: "61538937b0a70b58ae6af71f", Type: "String", Key: "feature4Var"}},
+			config.variableIdMap,
+		)
+		require.Equal(t, map[string]*Variable{
+			"audience-match": {Id: "61538237b0a70b58ae6af71z", Type: "String", Key: "audience-match"},
+			"bool-var":       {Id: "61538237b0a70b58ae6af71y", Type: "Boolean", Key: "bool-var"},
+			"feature2.cool":  {Id: "61538237b0a70b58ae6af71g", Type: "String", Key: "feature2.cool"},
+			"feature2.hello": {Id: "61538237b0a70b58ae6af71h", Type: "String", Key: "feature2.hello"},
+			"feature2Var":    {Id: "61538237b0a70b58ae6af71f", Type: "String", Key: "feature2Var"},
+			"feature4Var":    {Id: "61538937b0a70b58ae6af71f", Type: "String", Key: "feature4Var"},
+			"json-var":       {Id: "61538237b0a70b58ae6af71q", Type: "JSON", Key: "json-var"},
+			"num-var":        {Id: "61538237b0a70b58ae6af71s", Type: "Number", Key: "num-var"},
+			"swagTest":       {Id: "615356f120ed334a6054564c", Type: "String", Key: "swagTest"},
+			"test":           {Id: "614ef6ea475129459160721a", Type: "String", Key: "test"}},
+			config.variableKeyMap,
+		)
+	}
 }
 
 func TestRollout_Gradual(t *testing.T) {
@@ -468,96 +538,98 @@ func TestClientData(t *testing.T) {
 		PlatformVersion: "1.1.2",
 	})
 
-	err := SetConfig(test_config, "test", "", "", "")
-	require.NoError(t, err)
+	for _, test_config := range test_configs {
+		err := SetConfig(test_config.configBody, "test", "", "", "")
+		require.NoError(t, err)
 
-	// Ensure bucketed config has a feature variation map that's empty
-	bucketedUserConfig, err := GenerateBucketedConfig("test", user, nil)
-	require.NoError(t, err)
-	_, _, _, _, err = generateBucketedVariableForUser("test", user, "num-var", nil)
-	require.ErrorContainsf(t, err, "does not qualify", "does not qualify")
-	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
+		// Ensure bucketed config has a feature variation map that's empty
+		bucketedUserConfig, err := GenerateBucketedConfig("test", user, nil)
+		require.NoError(t, err)
+		_, _, _, _, err = generateBucketedVariableForUser("test", user, "num-var", nil)
+		require.ErrorContainsf(t, err, "does not qualify", "does not qualify")
+		require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
 
-	// Test global client custom data -- combination of user.CustomData and global client custom data
-	// will should get the user bucketed properly
-	clientCustomData := map[string]interface{}{
-		"favouriteFood":  "NOT PIZZA!!",
-		"favouriteDrink": "coffee",
+		// Test global client custom data -- combination of user.CustomData and global client custom data
+		// will should get the user bucketed properly
+		clientCustomData := map[string]interface{}{
+			"favouriteFood":  "NOT PIZZA!!",
+			"favouriteDrink": "coffee",
+		}
+
+		bucketedUserConfig, err = GenerateBucketedConfig("test", user, clientCustomData)
+		require.NoError(t, err)
+		require.Equal(t, map[string]string{
+			"614ef6aa473928459060721a": "615357cf7e9ebdca58446ed0",
+			"614ef6aa475928459060721a": "615382338424cb11646d7667",
+		}, bucketedUserConfig.FeatureVariationMap)
+		variableType, value, featureId, variationId, err := generateBucketedVariableForUser("test", user, "num-var", clientCustomData)
+		require.Equal(t, VariableTypesNumber, variableType)
+		require.Equal(t, "614ef6aa473928459060721a", featureId)
+		require.Equal(t, "615357cf7e9ebdca58446ed0", variationId)
+		require.NoError(t, err)
+		require.Equal(t, 610.61, value)
+
+		// Test user with matching private custom data and no global client custom data
+		userWithPrivateCustomData := api.User{
+			UserId: "client-test",
+			PrivateCustomData: map[string]interface{}{
+				"favouriteFood":  "pizza",
+				"favouriteDrink": "coffee",
+			},
+		}.GetPopulatedUser(&api.PlatformData{
+			PlatformVersion: "1.1.2",
+		})
+		bucketedUserConfig, err = GenerateBucketedConfig("test", userWithPrivateCustomData, nil)
+		require.NoError(t, err)
+		require.Equal(t, map[string]string{
+			"614ef6aa473928459060721a": "615357cf7e9ebdca58446ed0",
+			"614ef6aa475928459060721a": "615382338424cb11646d7667",
+		}, bucketedUserConfig.FeatureVariationMap)
+		variableType, value, featureId, variationId, err = generateBucketedVariableForUser("test", userWithPrivateCustomData, "num-var", clientCustomData)
+		require.Equal(t, VariableTypesNumber, variableType)
+		require.Equal(t, "614ef6aa473928459060721a", featureId)
+		require.Equal(t, "615357cf7e9ebdca58446ed0", variationId)
+		require.NoError(t, err)
+		require.Equal(t, 610.61, value)
+
+		// Test with a user that has custom data that doesn't match the feature
+		userWithWrongData := api.User{
+			UserId: "hates-pizza",
+			CustomData: map[string]interface{}{
+				"favouriteFood": "NOT PIZZA!",
+			},
+		}.GetPopulatedUser(&api.PlatformData{
+			PlatformVersion: "1.1.2",
+		})
+		bucketedUserConfig, err = GenerateBucketedConfig("test", userWithWrongData, nil)
+		require.NoError(t, err)
+		require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
+
+		// Test with a user that has no custom data
+		userWithNoCustomData := api.User{
+			UserId:     "hates-pizza",
+			CustomData: map[string]interface{}{},
+		}.GetPopulatedUser(&api.PlatformData{
+			PlatformVersion: "1.1.2",
+		})
+		bucketedUserConfig, err = GenerateBucketedConfig("test", userWithNoCustomData, nil)
+		require.NoError(t, err)
+		require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
+
+		// bucketing requires platform version 1.1.1 or higher
+		userWithWrongPlatformVersion := api.User{
+			UserId: "hates-pizza",
+			CustomData: map[string]interface{}{
+				"favouriteFood":  "pizza",
+				"favouriteDrink": "coffee",
+			},
+		}.GetPopulatedUser(&api.PlatformData{
+			PlatformVersion: "0.3.99",
+		})
+		bucketedUserConfig, err = GenerateBucketedConfig("test", userWithWrongPlatformVersion, nil)
+		require.NoError(t, err)
+		require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
 	}
-
-	bucketedUserConfig, err = GenerateBucketedConfig("test", user, clientCustomData)
-	require.NoError(t, err)
-	require.Equal(t, map[string]string{
-		"614ef6aa473928459060721a": "615357cf7e9ebdca58446ed0",
-		"614ef6aa475928459060721a": "615382338424cb11646d7667",
-	}, bucketedUserConfig.FeatureVariationMap)
-	variableType, value, featureId, variationId, err := generateBucketedVariableForUser("test", user, "num-var", clientCustomData)
-	require.Equal(t, VariableTypesNumber, variableType)
-	require.Equal(t, "614ef6aa473928459060721a", featureId)
-	require.Equal(t, "615357cf7e9ebdca58446ed0", variationId)
-	require.NoError(t, err)
-	require.Equal(t, 610.61, value)
-
-	// Test user with matching private custom data and no global client custom data
-	userWithPrivateCustomData := api.User{
-		UserId: "client-test",
-		PrivateCustomData: map[string]interface{}{
-			"favouriteFood":  "pizza",
-			"favouriteDrink": "coffee",
-		},
-	}.GetPopulatedUser(&api.PlatformData{
-		PlatformVersion: "1.1.2",
-	})
-	bucketedUserConfig, err = GenerateBucketedConfig("test", userWithPrivateCustomData, nil)
-	require.NoError(t, err)
-	require.Equal(t, map[string]string{
-		"614ef6aa473928459060721a": "615357cf7e9ebdca58446ed0",
-		"614ef6aa475928459060721a": "615382338424cb11646d7667",
-	}, bucketedUserConfig.FeatureVariationMap)
-	variableType, value, featureId, variationId, err = generateBucketedVariableForUser("test", userWithPrivateCustomData, "num-var", clientCustomData)
-	require.Equal(t, VariableTypesNumber, variableType)
-	require.Equal(t, "614ef6aa473928459060721a", featureId)
-	require.Equal(t, "615357cf7e9ebdca58446ed0", variationId)
-	require.NoError(t, err)
-	require.Equal(t, 610.61, value)
-
-	// Test with a user that has custom data that doesn't match the feature
-	userWithWrongData := api.User{
-		UserId: "hates-pizza",
-		CustomData: map[string]interface{}{
-			"favouriteFood": "NOT PIZZA!",
-		},
-	}.GetPopulatedUser(&api.PlatformData{
-		PlatformVersion: "1.1.2",
-	})
-	bucketedUserConfig, err = GenerateBucketedConfig("test", userWithWrongData, nil)
-	require.NoError(t, err)
-	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
-
-	// Test with a user that has no custom data
-	userWithNoCustomData := api.User{
-		UserId:     "hates-pizza",
-		CustomData: map[string]interface{}{},
-	}.GetPopulatedUser(&api.PlatformData{
-		PlatformVersion: "1.1.2",
-	})
-	bucketedUserConfig, err = GenerateBucketedConfig("test", userWithNoCustomData, nil)
-	require.NoError(t, err)
-	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
-
-	// bucketing requires platform version 1.1.1 or higher
-	userWithWrongPlatformVersion := api.User{
-		UserId: "hates-pizza",
-		CustomData: map[string]interface{}{
-			"favouriteFood":  "pizza",
-			"favouriteDrink": "coffee",
-		},
-	}.GetPopulatedUser(&api.PlatformData{
-		PlatformVersion: "0.3.99",
-	})
-	bucketedUserConfig, err = GenerateBucketedConfig("test", userWithWrongPlatformVersion, nil)
-	require.NoError(t, err)
-	require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
 
 }
 
@@ -572,16 +644,17 @@ func TestVariableForUser(t *testing.T) {
 		PlatformVersion: "1.1.2",
 	})
 
-	err := SetConfig(test_config, "test", "", "", "")
-	require.NoError(t, err)
+	for _, test_config := range test_configs {
+		err := SetConfig(test_config.configBody, "test", "", "", "")
+		require.NoError(t, err)
 
-	variableType, value, featureId, variationId, err := generateBucketedVariableForUser("test", user, "json-var", nil)
-	require.NoError(t, err)
-	require.Equal(t, VariableTypesJSON, variableType)
-	require.Equal(t, "614ef6aa473928459060721a", featureId)
-	require.Equal(t, "615357cf7e9ebdca58446ed0", variationId)
-	require.Equal(t, "{\"hello\":\"world\",\"num\":610,\"bool\":true}", value)
-
+		variableType, value, featureId, variationId, err := generateBucketedVariableForUser("test", user, "json-var", nil)
+		require.NoError(t, err)
+		require.Equal(t, VariableTypesJSON, variableType)
+		require.Equal(t, "614ef6aa473928459060721a", featureId)
+		require.Equal(t, "615357cf7e9ebdca58446ed0", variationId)
+		require.Equal(t, "{\"hello\":\"world\",\"num\":610,\"bool\":true}", value)
+	}
 }
 
 func TestGenerateBucketedConfig_MissingDistribution(t *testing.T) {

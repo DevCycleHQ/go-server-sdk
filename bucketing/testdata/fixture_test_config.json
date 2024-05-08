@@ -472,60 +472,18 @@
       },
       "variations": [
         {
-          "_id": "6153553b8cf4e45e0464268d",
-          "name": "variation 1",
-          "key": "variation-1-key",
-          "variables": [
-            {
-              "_var": "614ef6ea475129459160721a",
-              "value": "scat"
-            },
-            {
-              "_var": "615356f120ed334a6054564c",
-              "value": "man"
-            },
-            {
-              "_var": "61538237b0a70b58ae6af71y",
-              "value": false
-            },
-            {
-              "_var": "61538237b0a70b58ae6af71s",
-              "value": 610.61
-            },
-            {
-              "_var": "61538237b0a70b58ae6af71q",
-              "value": "{\"hello\":\"world\",\"num\":610,\"bool\":true}"
-            }
-          ]
-        },
-        {
-          "_id": "615357cf7e9ebdca58446ed0",
-          "name": "variation 2",
-          "key": "variation-2-key",
-          "variables": [
-            {
-              "_var": "615356f120ed334a6054564c",
-              "value": "YEEEEOWZA"
-            },
-            {
-              "_var": "61538237b0a70b58ae6af71y",
-              "value": false
-            },
-            {
-              "_var": "61538237b0a70b58ae6af71s",
-              "value": 610.61
-            },
-            {
-              "_var": "61538237b0a70b58ae6af71q",
-              "value": "{\"hello\":\"world\",\"num\":610,\"bool\":true}"
-            }
-          ]
-        },
-        {
           "_id": "615382338424cb11646d7667",
           "name": "variation 1 aud 2",
           "key": "variation-1-aud-2-key",
           "variables": [
+            {
+              "_var": "61538237b0a70b58ae6af71g",
+              "value": "Var 1 aud 2"
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71h",
+              "value": "Var 1 aud 2"
+            },
             {
               "_var": "61538237b0a70b58ae6af71f",
               "value": "Var 1 aud 2"
@@ -544,6 +502,10 @@
             {
               "_var": "61538237b0a70b58ae6af71h",
               "value": "multivar last"
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71f",
+              "value": "Var 1 multivar"
             }
           ]
         },
@@ -559,6 +521,10 @@
             {
               "_var": "61538237b0a70b58ae6af71h",
               "value": "multivar last unused"
+            },
+            {
+              "_var": "61538237b0a70b58ae6af71f",
+              "value": "Var 1 multivar"
             }
           ]
         }
