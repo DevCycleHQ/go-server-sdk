@@ -51,10 +51,9 @@ type Client struct {
 	eventQueue      *EventManager
 	localBucketing  LocalBucketing
 	platformData    *PlatformData
-	sseManager      *SSEManager
 	// Set to true when the client has been initialized, regardless of whether the config has loaded successfully.
-	isInitialized                bool
-	internalOnInitializedChannel chan bool
+	isInitialized              bool
+	internalClientEventChannel chan api.ClientEvent
 }
 
 type LocalBucketing interface {
@@ -87,7 +86,7 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		return nil, err
 	}
 	if !sdkKeyIsValid(sdkKey) {
-		return nil, fmt.Errorf("Invalid sdk key. Call NewClient with a valid sdk key.")
+		return nil, fmt.Errorf("invalid sdk key %s. Call NewClient with a valid sdk key", sdkKey)
 	}
 	options.CheckDefaults()
 	cfg := NewConfiguration(options)
@@ -101,14 +100,13 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 	} else {
 		c.platformData = GeneratePlatformData()
 	}
+	c.internalClientEventChannel = make(chan api.ClientEvent, 1)
 
 	if c.DevCycleOptions.Logger != nil {
 		util.SetLogger(c.DevCycleOptions.Logger)
 	}
 	if c.IsLocalBucketing() {
 		util.Infof("Using Native Bucketing")
-
-		c.internalOnInitializedChannel = make(chan bool, 1)
 
 		err := c.setLBClient(sdkKey, options)
 		if err != nil {
@@ -122,38 +120,28 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		}
 
 		c.configManager = NewEnvironmentConfigManager(sdkKey, c.localBucketing, options, c.cfg)
-		if c.DevCycleOptions.DisableRealtimeUpdates {
-			c.configManager.StartPolling(options.ConfigPollingIntervalMS)
-		} else {
-			err = c.configManager.StartSSE()
-			if err != nil {
-				util.Warnf("Error initializing SSE, defaulting to polling: %v", err)
-				c.configManager.StartPolling(options.ConfigPollingIntervalMS)
-			}
-		}
 
-		c.sseManager = c.configManager.sseManager
-
-		if c.DevCycleOptions.OnInitializedChannel != nil {
-			// TODO: Pass this error back via a channel internally
+		if c.DevCycleOptions.ClientEventHandler != nil {
 			go func() {
 				_ = c.configManager.initialFetch()
 				c.handleInitialization()
 			}()
 		} else {
-			err := c.configManager.initialFetch()
+			err = c.configManager.initialFetch()
 			c.handleInitialization()
-			return c, err
+			if err != nil {
+				return c, err
+			}
 		}
-	} else {
-		util.Infof("Using Cloud Bucketing")
-		if c.DevCycleOptions.OnInitializedChannel != nil {
-			go func() {
-				c.DevCycleOptions.OnInitializedChannel <- true
-			}()
+
+		// If SSE is enabled - the first config pull will trigger SSE to be started.
+		if !c.DevCycleOptions.EnableRealtimeUpdates {
+			err = c.configManager.StartPolling(options.ConfigPollingIntervalMS)
 		}
+		return c, err
 	}
 
+	c.handleInitialization()
 	return c, nil
 }
 
@@ -162,18 +150,26 @@ func (c *Client) IsLocalBucketing() bool {
 }
 
 func (c *Client) handleInitialization() {
+	bucketingInitMessage := "Using cloud bucketing with hostname: " + c.DevCycleOptions.BucketingAPIURI
+	if c.IsLocalBucketing() {
+		bucketingInitMessage = fmt.Sprintf("Client initialized with local bucketing %v", c.localBucketing.GetClientUUID())
+	}
+	initEvent := api.ClientEvent{
+		EventType: api.ClientEventType_Initialized,
+		EventData: bucketingInitMessage,
+		Status:    "success",
+		Error:     nil,
+	}
+	c.internalClientEventChannel <- initEvent
 	c.isInitialized = true
 
-	if c.IsLocalBucketing() {
-		util.Infof("Client initialized with local bucketing %v", c.localBucketing.GetClientUUID())
-	}
-	if c.DevCycleOptions.OnInitializedChannel != nil {
+	if c.DevCycleOptions.ClientEventHandler != nil {
 		go func() {
-			c.DevCycleOptions.OnInitializedChannel <- true
+			c.DevCycleOptions.ClientEventHandler <- initEvent
 		}()
-
 	}
-	c.internalOnInitializedChannel <- true
+	util.Infof(bucketingInitMessage)
+
 }
 
 func (c *Client) generateBucketedConfig(user User) (config *BucketedUserConfig, err error) {
@@ -520,7 +516,11 @@ func (c *Client) Close() (err error) {
 
 	if !c.isInitialized {
 		util.Infof("Awaiting client initialization before closing")
-		<-c.internalOnInitializedChannel
+		for event := range c.internalClientEventChannel {
+			if event.EventType == api.ClientEventType_Initialized {
+				break
+			}
+		}
 	}
 
 	if c.eventQueue != nil {

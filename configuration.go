@@ -48,7 +48,6 @@ type APIKey struct {
 
 type AdvancedOptions struct {
 	OverridePlatformData     *api.PlatformData
-	RealtimeUpdatesURI       string
 	RealtimeUpdatesTimeout   time.Duration
 	RealtimeUpdatesQueueSize int
 	RealtimeUpdatesBackoff   time.Duration
@@ -62,12 +61,12 @@ type Options struct {
 	RequestTimeout               time.Duration `json:"requestTimeout,omitempty"`
 	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging,omitempty"`
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging,omitempty"`
-	DisableRealtimeUpdates       bool          `json:"disableServerSentEvents,omitempty"`
+	EnableRealtimeUpdates        bool          `json:"enableRealtimeUpdates,omitempty"`
 	MaxEventQueueSize            int           `json:"maxEventsPerFlush,omitempty"`
 	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
 	ConfigCDNURI                 string
 	EventsAPIURI                 string
-	OnInitializedChannel         chan bool
+	ClientEventHandler           chan api.ClientEvent
 	BucketingAPIURI              string
 	Logger                       util.Logger
 	AdvancedOptions
