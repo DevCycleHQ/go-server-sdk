@@ -21,10 +21,7 @@
             "type": "user",
             "subType": "email",
             "comparator": "=",
-            "values": [
-              "test@email.com",
-              "test2@email.com"
-            ]
+            "values": ["test@email.com", "test2@email.com"]
           }
         ],
         "operator": "and"
@@ -39,17 +36,13 @@
                 "type": "user",
                 "subType": "user_id",
                 "comparator": "=",
-                "values": [
-                  "asuh"
-                ]
+                "values": ["asuh"]
               },
               {
                 "type": "user",
                 "subType": "country",
                 "comparator": "!=",
-                "values": [
-                  "U S AND A"
-                ]
+                "values": ["U S AND A"]
               }
             ],
             "operator": "and"
@@ -58,17 +51,13 @@
             "type": "user",
             "subType": "user_id",
             "comparator": "=",
-            "values": [
-              "asuh"
-            ]
+            "values": ["asuh"]
           },
           {
             "type": "user",
             "subType": "country",
             "comparator": "!=",
-            "values": [
-              "U S AND A"
-            ]
+            "values": ["U S AND A"]
           }
         ],
         "operator": "and"
@@ -81,9 +70,7 @@
             "type": "user",
             "subType": "platformVersion",
             "comparator": ">",
-            "values": [
-              "1.1.1"
-            ]
+            "values": ["1.1.1"]
           },
           {
             "type": "user",
@@ -91,9 +78,7 @@
             "dataKey": "favouriteFood",
             "dataKeyType": "String",
             "comparator": "=",
-            "values": [
-              "pizza"
-            ]
+            "values": ["pizza"]
           },
           {
             "type": "user",
@@ -101,9 +86,7 @@
             "dataKey": "favouriteDrink",
             "dataKeyType": "String",
             "comparator": "=",
-            "values": [
-              "coffee"
-            ]
+            "values": ["coffee"]
           }
         ],
         "operator": "and"
@@ -118,9 +101,7 @@
             "dataKey": "favouriteNumber",
             "dataKeyType": "Number",
             "comparator": "=",
-            "values": [
-              610
-            ]
+            "values": [610]
           },
           {
             "type": "user",
@@ -128,10 +109,7 @@
             "dataKey": "favouriteBoolean",
             "dataKeyType": "Boolean",
             "comparator": "=",
-            "values": [
-              true,
-              false
-            ]
+            "values": [true, false]
           }
         ],
         "operator": "and"
@@ -143,9 +121,7 @@
           {
             "type": "audienceMatch",
             "comparator": "=",
-            "_audiences": [
-              "614ef6ea475929459060721a"
-            ]
+            "_audiences": ["614ef6ea475929459060721a"]
           }
         ],
         "operator": "and"
@@ -200,10 +176,7 @@
                     "type": "user",
                     "subType": "email",
                     "comparator": "=",
-                    "values": [
-                      "test@email.com",
-                      "test2@email.com"
-                    ]
+                    "values": ["test@email.com", "test2@email.com"]
                   }
                 ],
                 "operator": "and"
@@ -232,17 +205,13 @@
                         "type": "user",
                         "subType": "user_id",
                         "comparator": "=",
-                        "values": [
-                          "asuh"
-                        ]
+                        "values": ["asuh"]
                       },
                       {
                         "type": "user",
                         "subType": "country",
                         "comparator": "!=",
-                        "values": [
-                          "U S AND A"
-                        ]
+                        "values": ["U S AND A"]
                       }
                     ],
                     "operator": "and"
@@ -251,17 +220,13 @@
                     "type": "user",
                     "subType": "user_id",
                     "comparator": "=",
-                    "values": [
-                      "asuh"
-                    ]
+                    "values": ["asuh"]
                   },
                   {
                     "type": "user",
                     "subType": "country",
                     "comparator": "!=",
-                    "values": [
-                      "U S AND A"
-                    ]
+                    "values": ["U S AND A"]
                   }
                 ],
                 "operator": "and"
@@ -284,9 +249,7 @@
                     "type": "user",
                     "subType": "platformVersion",
                     "comparator": ">",
-                    "values": [
-                      "1.1.1"
-                    ]
+                    "values": ["1.1.1"]
                   },
                   {
                     "type": "user",
@@ -294,9 +257,7 @@
                     "dataKey": "favouriteFood",
                     "dataKeyType": "String",
                     "comparator": "=",
-                    "values": [
-                      "pizza"
-                    ]
+                    "values": ["pizza"]
                   },
                   {
                     "type": "user",
@@ -304,9 +265,7 @@
                     "dataKey": "favouriteDrink",
                     "dataKeyType": "String",
                     "comparator": "=",
-                    "values": [
-                      "coffee"
-                    ]
+                    "values": ["coffee"]
                   }
                 ],
                 "operator": "and"
@@ -403,10 +362,7 @@
                     "type": "user",
                     "subType": "email",
                     "comparator": "=",
-                    "values": [
-                      "test@email.com",
-                      "test2@email.com"
-                    ]
+                    "values": ["test@email.com", "test2@email.com"]
                   }
                 ],
                 "operator": "and"
@@ -433,9 +389,7 @@
                     "type": "user",
                     "subType": "platformVersion",
                     "comparator": ">",
-                    "values": [
-                      "1.1.1"
-                    ]
+                    "values": ["1.1.1"]
                   },
                   {
                     "type": "user",
@@ -443,9 +397,7 @@
                     "dataKey": "favouriteFood",
                     "dataKeyType": "String",
                     "comparator": "=",
-                    "values": [
-                      "pizza"
-                    ]
+                    "values": ["pizza"]
                   },
                   {
                     "type": "user",
@@ -453,9 +405,7 @@
                     "dataKey": "favouriteDrink",
                     "dataKeyType": "String",
                     "comparator": "=",
-                    "values": [
-                      "coffee"
-                    ]
+                    "values": ["coffee"]
                   }
                 ],
                 "operator": "and"
@@ -546,9 +496,7 @@
                   {
                     "type": "audienceMatch",
                     "comparator": "=",
-                    "_audiences": [
-                      "614ef6ea475929459060721a"
-                    ]
+                    "_audiences": ["614ef6ea475929459060721a"]
                   }
                 ],
                 "operator": "and"
@@ -594,10 +542,7 @@
                     "type": "user",
                     "subType": "email",
                     "comparator": "=",
-                    "values": [
-                      "test@email.com",
-                      "test2@email.com"
-                    ]
+                    "values": ["test@email.com", "test2@email.com"]
                   }
                 ],
                 "operator": "and"
