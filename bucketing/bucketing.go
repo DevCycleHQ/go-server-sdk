@@ -114,7 +114,7 @@ func evaluateSegmentationForFeature(config *configBody, feature *ConfigFeature, 
 			doesUserPassthrough = doesUserPassRollout(*target.Rollout, rolloutHash)
 		}
 		operator := target.Audience.Filters
-		if operator.Evaluate(config.Audiences, user, clientCustomData) && doesUserPassthrough {
+		if doesUserPassthrough && operator.Evaluate(config.Audiences, user, clientCustomData) {
 			return target
 		}
 	}
