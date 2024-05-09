@@ -106,8 +106,15 @@ func doesUserPassRollout(rollout Rollout, boundedHash float64) bool {
 
 func evaluateSegmentationForFeature(config *configBody, feature *ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) *Target {
 	for _, target := range feature.Configuration.Targets {
+		passthroughEnabled := !config.Project.Settings.DisablePassthroughRollouts
+		doesUserPassthrough := true
+		if target.Rollout != nil && passthroughEnabled {
+			boundedHash := generateBoundedHashes(user.UserId, target.Id)
+			rolloutHash := boundedHash.RolloutHash
+			doesUserPassthrough = doesUserPassRollout(*target.Rollout, rolloutHash)
+		}
 		operator := target.Audience.Filters
-		if operator.Evaluate(config.Audiences, user, clientCustomData) {
+		if doesUserPassthrough && operator.Evaluate(config.Audiences, user, clientCustomData) {
 			return target
 		}
 	}
@@ -127,8 +134,9 @@ func doesUserQualifyForFeature(config *configBody, feature *ConfigFeature, user 
 
 	boundedHashes := generateBoundedHashes(user.UserId, target.Id)
 	rolloutHash := boundedHashes.RolloutHash
+	passthroughEnabled := !config.Project.Settings.DisablePassthroughRollouts
 
-	if target.Rollout != nil && !doesUserPassRollout(*target.Rollout, rolloutHash) {
+	if target.Rollout != nil && !passthroughEnabled && !doesUserPassRollout(*target.Rollout, rolloutHash) {
 		return targetAndHashes{}, ErrUserRollout
 	}
 	return targetAndHashes{
