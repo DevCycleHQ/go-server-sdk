@@ -78,7 +78,7 @@ func (m *SSEManager) connectSSE(url string) (err error) {
 		eventsource.StreamOptionReadTimeout(m.options.RequestTimeout),
 		eventsource.StreamOptionCanRetryFirstConnection(m.options.RequestTimeout),
 		eventsource.StreamOptionErrorHandler(m.errorHandler),
-		eventsource.StreamOptionUseBackoff(m.options.AdvancedOptions.RealtimeUpdatesBackoff),
+		eventsource.StreamOptionUseBackoff(m.options.RequestTimeout),
 		eventsource.StreamOptionUseJitter(0.25),
 		eventsource.StreamOptionHTTPClient(m.cfg.HTTPClient))
 	if err != nil {
