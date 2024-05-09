@@ -135,16 +135,18 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 			case api.ClientEventType_ConfigUpdated:
 				eventData := event.EventData.(map[string]string)
 
-				if url, ok := eventData["sseUrl"]; ok && e.options.EnableBetaRealtimeUpdates {
+				if url, ok := eventData["sseUrl"]; ok && e.options.EnableBetaRealtimeUpdates && e.sseManager != nil {
 					// Reconnect SSE
-					e.sseManager.StopSSE()
-					err := e.StartSSE(url)
-					if err != nil {
-						e.InternalClientEvents <- api.ClientEvent{
-							EventType: api.ClientEventType_Error,
-							EventData: "Error starting SSE after config update: " + err.Error(),
-							Status:    "error",
-							Error:     err,
+					if e.sseManager.url != url {
+						e.sseManager.StopSSE()
+						err := e.StartSSE(url)
+						if err != nil {
+							e.InternalClientEvents <- api.ClientEvent{
+								EventType: api.ClientEventType_Error,
+								EventData: "Error starting SSE after config update: " + err.Error(),
+								Status:    "error",
+								Error:     err,
+							}
 						}
 					}
 				}
