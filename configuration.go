@@ -14,38 +14,6 @@ import (
 
 type EventQueueOptions = api.EventQueueOptions
 
-type contextKey string
-
-func (c contextKey) String() string {
-	return "auth " + string(c)
-}
-
-var (
-	// ContextOAuth2 takes a oauth2.TokenSource as authentication for the request.
-	ContextOAuth2 = contextKey("token")
-
-	// ContextBasicAuth takes BasicAuth as authentication for the request.
-	ContextBasicAuth = contextKey("basic")
-
-	// ContextAccessToken takes a string oauth2 access token as authentication for the request.
-	ContextAccessToken = contextKey("accesstoken")
-
-	// ContextAPIKey takes an APIKey as authentication for the request
-	ContextAPIKey = contextKey("apikey")
-)
-
-// BasicAuth provides basic http authentication to a request passed via context using ContextBasicAuth
-type BasicAuth struct {
-	UserName string `json:"userName,omitempty"`
-	Password string `json:"password,omitempty"`
-}
-
-// APIKey provides API key based authentication to a request passed via context using ContextAPIKey
-type APIKey struct {
-	Key    string
-	Prefix string
-}
-
 type AdvancedOptions struct {
 	OverridePlatformData     *api.PlatformData
 	RealtimeUpdatesTimeout   time.Duration
@@ -61,7 +29,7 @@ type Options struct {
 	RequestTimeout               time.Duration `json:"requestTimeout,omitempty"`
 	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging,omitempty"`
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging,omitempty"`
-	EnableRealtimeUpdates        bool          `json:"enableRealtimeUpdates,omitempty"`
+	EnableBetaRealtimeUpdates    bool          `json:"enableRealtimeUpdates,omitempty"`
 	MaxEventQueueSize            int           `json:"maxEventsPerFlush,omitempty"`
 	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
 	ConfigCDNURI                 string

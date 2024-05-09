@@ -63,7 +63,7 @@ func NewEnvironmentConfigManager(
 
 	configManager.context, configManager.shutdown = context.WithCancel(context.Background())
 
-	if options.EnableRealtimeUpdates {
+	if options.EnableBetaRealtimeUpdates {
 		configManager.sseManager = newSSEManager(configManager, options, cfg)
 		go configManager.ssePollingManager()
 	}
@@ -131,7 +131,7 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 			case api.ClientEventType_ConfigUpdated:
 				eventData := event.EventData.(map[string]string)
 
-				if url, ok := eventData["sseUrl"]; ok && e.options.EnableRealtimeUpdates {
+				if url, ok := eventData["sseUrl"]; ok && e.options.EnableBetaRealtimeUpdates {
 					// Reconnect SSE
 					e.sseManager.StopSSE()
 					err := e.StartSSE(url)
@@ -150,7 +150,7 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 }
 
 func (e *EnvironmentConfigManager) StartSSE(url string) error {
-	if !e.options.EnableRealtimeUpdates {
+	if !e.options.EnableBetaRealtimeUpdates {
 		return fmt.Errorf("realtime updates are disabled. Cannot start SSE")
 	}
 	return e.sseManager.StartSSEOverride(url)

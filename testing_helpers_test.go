@@ -35,9 +35,9 @@ var (
 	}
 	test_options_sse = &Options{
 		// use defaults that will be set by the CheckDefaults
-		EventFlushIntervalMS:    time.Second * 30,
-		ConfigPollingIntervalMS: time.Second * 10,
-		EnableRealtimeUpdates:   true,
+		EventFlushIntervalMS:      time.Second * 30,
+		ConfigPollingIntervalMS:   time.Second * 10,
+		EnableBetaRealtimeUpdates: true,
 	}
 )
 

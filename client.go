@@ -135,7 +135,7 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		}
 
 		// If SSE is enabled - the first config pull will trigger SSE to be started.
-		if !c.DevCycleOptions.EnableRealtimeUpdates {
+		if !c.DevCycleOptions.EnableBetaRealtimeUpdates {
 			err = c.configManager.StartPolling(options.ConfigPollingIntervalMS)
 		}
 		return c, err
