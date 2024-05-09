@@ -40,16 +40,15 @@ func (m *sseMessage) LastModifiedDuration() time.Duration {
 	return time.Duration(m.LastModified) * time.Millisecond
 }
 
-func newSSEManager(configManager *EnvironmentConfigManager, options *Options, cfg *HTTPConfiguration) *SSEManager {
+func newSSEManager(configManager *EnvironmentConfigManager, options *Options, cfg *HTTPConfiguration) (*SSEManager, error) {
 	if options == nil {
-		options = &Options{}
-		options.CheckDefaults()
+		return nil, fmt.Errorf("SSE - Options cannot be nil")
 	}
 	sseManager := &SSEManager{
 		configManager: configManager,
 		options:       options,
 		errorHandler: func(err error) eventsource.StreamErrorHandlerResult {
-			util.Warnf("SSE - Error: %v\n", err)
+			util.Debugf("SSE - Error: %v\n", err)
 			return eventsource.StreamErrorHandlerResult{
 				CloseNow: false,
 			}
@@ -58,7 +57,7 @@ func newSSEManager(configManager *EnvironmentConfigManager, options *Options, cf
 	}
 	sseManager.context, sseManager.stopEventHandler = context.WithCancel(context.Background())
 
-	return sseManager
+	return sseManager, nil
 }
 
 func (m *SSEManager) connectSSE(url string) (err error) {
@@ -76,8 +75,8 @@ func (m *SSEManager) connectSSE(url string) (err error) {
 		m.configManager.InternalClientEvents <- sseClientEvent
 	}()
 	sse, err := eventsource.SubscribeWithURL(url,
-		eventsource.StreamOptionReadTimeout(m.options.AdvancedOptions.RealtimeUpdatesTimeout),
-		eventsource.StreamOptionCanRetryFirstConnection(m.options.AdvancedOptions.RealtimeUpdatesTimeout),
+		eventsource.StreamOptionReadTimeout(m.options.RequestTimeout),
+		eventsource.StreamOptionCanRetryFirstConnection(m.options.RequestTimeout),
 		eventsource.StreamOptionErrorHandler(m.errorHandler),
 		eventsource.StreamOptionUseBackoff(m.options.AdvancedOptions.RealtimeUpdatesBackoff),
 		eventsource.StreamOptionUseJitter(0.25),

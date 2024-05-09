@@ -85,6 +85,9 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		util.Errorf("%v", err)
 		return nil, err
 	}
+	if options == nil {
+		return nil, errors.New("missing options! Call NewClient with valid options")
+	}
 	if !sdkKeyIsValid(sdkKey) {
 		return nil, fmt.Errorf("invalid sdk key %s. Call NewClient with a valid sdk key", sdkKey)
 	}
@@ -119,8 +122,11 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 			return c, fmt.Errorf("Error initializing event queue: %w", err)
 		}
 
-		c.configManager = NewEnvironmentConfigManager(sdkKey, c.localBucketing, options, c.cfg)
+		c.configManager, err = NewEnvironmentConfigManager(sdkKey, c.localBucketing, options, c.cfg)
 
+		if err != nil {
+			return nil, fmt.Errorf("Error initializing config manager: %w", err)
+		}
 		if c.DevCycleOptions.ClientEventHandler != nil {
 			go func() {
 				_ = c.configManager.initialFetch()

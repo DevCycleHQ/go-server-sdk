@@ -50,7 +50,7 @@ func NewEnvironmentConfigManager(
 	localBucketing ConfigReceiver,
 	options *Options,
 	cfg *HTTPConfiguration,
-) (configManager *EnvironmentConfigManager) {
+) (configManager *EnvironmentConfigManager, err error) {
 	configManager = &EnvironmentConfigManager{
 		options:        options,
 		sdkKey:         sdkKey,
@@ -64,10 +64,14 @@ func NewEnvironmentConfigManager(
 	configManager.context, configManager.shutdown = context.WithCancel(context.Background())
 
 	if options.EnableBetaRealtimeUpdates {
-		configManager.sseManager = newSSEManager(configManager, options, cfg)
+		sseManager, err := newSSEManager(configManager, options, cfg)
+		if err != nil {
+			return nil, err
+		}
+		configManager.sseManager = sseManager
 		go configManager.ssePollingManager()
 	}
-	return configManager
+	return configManager, nil
 }
 
 func (e *EnvironmentConfigManager) ssePollingManager() {

@@ -54,7 +54,7 @@ func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
 	testOptionsWithHandler := *test_options
 
 	testOptionsWithHandler.ClientEventHandler = make(chan api.ClientEvent, 10)
-	manager := NewEnvironmentConfigManager(sdkKey, localBucketing, &testOptionsWithHandler, NewConfiguration(&testOptionsWithHandler))
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, &testOptionsWithHandler, NewConfiguration(&testOptionsWithHandler))
 	defer manager.Close()
 	err := manager.initialFetch()
 	if err != nil {
@@ -84,7 +84,7 @@ func TestEnvironmentConfigManager_fetchConfig_success_sse(t *testing.T) {
 
 	localBucketing := &recordingConfigReceiver{}
 
-	manager := NewEnvironmentConfigManager(sdkKey, localBucketing, test_options_sse, NewConfiguration(test_options_sse))
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, test_options_sse, NewConfiguration(test_options_sse))
 	defer manager.Close()
 	err := manager.initialFetch()
 	fatalErr(t, err)
@@ -116,7 +116,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
 	)
 
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(sdkKey, localBucketing, test_options, NewConfiguration(test_options))
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, test_options, NewConfiguration(test_options))
 	defer manager.Close()
 	err := manager.initialFetch()
 	fatalErr(t, err)
@@ -141,7 +141,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
 	)
 
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(sdkKey, localBucketing, test_options, NewConfiguration(test_options))
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, test_options, NewConfiguration(test_options))
 	defer manager.Close()
 	err := manager.initialFetch()
 	if err != nil {
@@ -168,7 +168,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries_errors_sse(t *testing.T) {
 	)
 
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(sdkKey, localBucketing, test_options_sse, NewConfiguration(test_options_sse))
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, test_options_sse, NewConfiguration(test_options_sse))
 	defer manager.Close()
 	err := manager.initialFetch()
 	fatalErr(t, err)
@@ -188,7 +188,7 @@ func TestEnvironmentConfigManager_fetchConfig_returns_errors(t *testing.T) {
 	)
 
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(sdkKey, localBucketing, test_options, NewConfiguration(test_options))
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, test_options, NewConfiguration(test_options))
 	defer manager.Close()
 	err := manager.initialFetch()
 	if err == nil {
@@ -205,7 +205,7 @@ func TestEnvironmentConfigManager_fetchConfig_returns_errors_sse(t *testing.T) {
 	)
 
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(sdkKey, localBucketing, test_options_sse, NewConfiguration(test_options_sse))
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, test_options_sse, NewConfiguration(test_options_sse))
 	defer manager.Close()
 
 	err := manager.initialFetch()

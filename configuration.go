@@ -15,10 +15,7 @@ import (
 type EventQueueOptions = api.EventQueueOptions
 
 type AdvancedOptions struct {
-	OverridePlatformData     *api.PlatformData
-	RealtimeUpdatesTimeout   time.Duration
-	RealtimeUpdatesQueueSize int
-	RealtimeUpdatesBackoff   time.Duration
+	OverridePlatformData *api.PlatformData
 }
 
 type Options struct {
@@ -84,15 +81,6 @@ func (o *Options) CheckDefaults() {
 		o.FlushEventQueueSize = 1000
 	} else if o.FlushEventQueueSize > 50000 {
 		o.FlushEventQueueSize = 50000
-	}
-	if o.AdvancedOptions.RealtimeUpdatesQueueSize <= 0 {
-		o.AdvancedOptions.RealtimeUpdatesQueueSize = 100
-	}
-	if o.AdvancedOptions.RealtimeUpdatesTimeout <= time.Second*5 {
-		o.AdvancedOptions.RealtimeUpdatesTimeout = time.Second * 5
-	}
-	if o.AdvancedOptions.RealtimeUpdatesBackoff <= time.Minute*1 {
-		o.AdvancedOptions.RealtimeUpdatesBackoff = time.Minute * 1
 	}
 }
 
