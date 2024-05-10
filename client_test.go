@@ -152,7 +152,6 @@ func TestClient_VariableEventIsQueued(t *testing.T) {
 
 	sdkKey := generateTestSDKKey()
 	httpCustomConfigMock(sdkKey, 200, test_large_config)
-	httpEventsApiMock()
 
 	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
@@ -417,7 +416,6 @@ func BenchmarkClient_VariableSerial(b *testing.B) {
 
 	sdkKey := generateTestSDKKey()
 	httpCustomConfigMock(sdkKey, 200, test_large_config)
-	httpEventsApiMock()
 
 	if benchmarkDisableLogs {
 		log.SetOutput(io.Discard)
@@ -463,7 +461,6 @@ func BenchmarkClient_VariableParallel(b *testing.B) {
 
 	sdkKey := generateTestSDKKey()
 	httpCustomConfigMock(sdkKey, 200, test_large_config)
-	httpEventsApiMock()
 
 	if benchmarkDisableLogs {
 		log.SetOutput(io.Discard)

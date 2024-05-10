@@ -1,6 +1,7 @@
 package devcycle
 
 import (
+	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -48,9 +49,7 @@ func TestEventManager_QueueEvent_100_DropEvent(t *testing.T) {
 }
 
 func TestEventManager_QueueEvent_100_Flush(t *testing.T) {
-
 	sdkKey, _ := httpConfigMock(200)
-	httpEventsApiMock()
 	c, err := NewClient(sdkKey, &Options{
 		MaxEventQueueSize:       100,
 		FlushEventQueueSize:     10,
@@ -59,20 +58,17 @@ func TestEventManager_QueueEvent_100_Flush(t *testing.T) {
 	})
 	fatalErr(t, err)
 	defer c.Close()
-
+	require.Eventually(t, func() bool {
+		return c.isInitialized && c.hasConfig()
+	}, 1*time.Second, 100*time.Millisecond)
 	// Track up to FlushEventQueueSize events
-	for i := 0; i < 10; i++ {
+	for i := 0; i < c.DevCycleOptions.FlushEventQueueSize; i++ {
 		_, err = c.Track(User{UserId: "j_test", DeviceModel: "testing"},
 			Event{Target: "customevent", Type_: "event"})
 		if err != nil {
 			t.Fatalf("Error tracking event: %v", err)
 		}
 	}
-	// Wait for raw event queue to drain
-	require.Eventually(t, func() bool {
-		queueLength, _ := c.eventQueue.internalQueue.UserQueueLength()
-		return queueLength == 10
-	}, 1*time.Second, 100*time.Millisecond)
 
 	// Track one more event to trigger an automatic flush
 	_, err = c.Track(User{UserId: "j_test", DeviceModel: "testing"}, Event{Target: "customevent", Type_: "event"})
@@ -81,7 +77,8 @@ func TestEventManager_QueueEvent_100_Flush(t *testing.T) {
 	}
 
 	require.Eventually(t, func() bool {
-		return httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"] == 1
+		fmt.Println(httpmock.GetCallCountInfo())
+		return httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"] >= 1
 	}, 1*time.Second, 100*time.Millisecond)
 
 }

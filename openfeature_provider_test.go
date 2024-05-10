@@ -3,7 +3,6 @@ package devcycle
 import (
 	"context"
 	"fmt"
-	"github.com/jarcoal/httpmock"
 	"testing"
 
 	"github.com/open-feature/go-sdk/pkg/openfeature"
@@ -275,7 +274,6 @@ func TestOFFloatEvaluation_Default(t *testing.T) {
 }
 
 func TestOFFloatEvaluation_BadUserData(t *testing.T) {
-	httpmock.Activate()
 	provider := getProviderForConfig(t, false)
 
 	evalCtx := openfeature.FlattenedContext{

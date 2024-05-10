@@ -37,6 +37,7 @@ type EnvironmentConfigManager struct {
 	options              *Options
 	InternalClientEvents chan api.ClientEvent
 	SSEConnected         atomic.Bool
+	eventManager         *EventManager
 }
 
 type configPollingManager struct {
@@ -48,6 +49,7 @@ type configPollingManager struct {
 func NewEnvironmentConfigManager(
 	sdkKey string,
 	localBucketing ConfigReceiver,
+	manager *EventManager,
 	options *Options,
 	cfg *HTTPConfiguration,
 ) (configManager *EnvironmentConfigManager, err error) {
@@ -71,6 +73,7 @@ func NewEnvironmentConfigManager(
 		configManager.sseManager = sseManager
 		go configManager.ssePollingManager()
 	}
+	configManager.eventManager = manager
 	return configManager, nil
 }
 
@@ -254,6 +257,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
+		resp.Request = req
 		return e.setConfigFromResponse(resp)
 	case statusCode == http.StatusNotModified:
 		return nil
@@ -306,6 +310,9 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 	}
 
 	util.Infof("Config set. ETag: %s Last-Modified: %s\n", e.localBucketing.GetETag(), e.localBucketing.GetLastModified())
+	if e.eventManager != nil {
+		e.eventManager.QueueConfigUpdatedEvent(*response.Request, *response)
+	}
 
 	if e.firstLoad {
 		e.firstLoad = false

@@ -61,7 +61,6 @@ type LocalBucketing interface {
 	InternalEventQueue
 	GenerateBucketedConfigForUser(user User) (ret *BucketedUserConfig, err error)
 	SetClientCustomData(map[string]interface{}) error
-	GetClientUUID() string
 	Variable(user User, key string, variableType string) (variable Variable, err error)
 	Close()
 }
@@ -122,7 +121,7 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 			return c, fmt.Errorf("Error initializing event queue: %w", err)
 		}
 
-		c.configManager, err = NewEnvironmentConfigManager(sdkKey, c.localBucketing, options, c.cfg)
+		c.configManager, err = NewEnvironmentConfigManager(sdkKey, c.localBucketing, c.eventQueue, options, c.cfg)
 
 		if err != nil {
 			return nil, fmt.Errorf("Error initializing config manager: %w", err)
@@ -158,7 +157,7 @@ func (c *Client) IsLocalBucketing() bool {
 func (c *Client) handleInitialization() {
 	bucketingInitMessage := "Using cloud bucketing with hostname: " + c.DevCycleOptions.BucketingAPIURI
 	if c.IsLocalBucketing() {
-		bucketingInitMessage = fmt.Sprintf("Client initialized with local bucketing %v", c.localBucketing.GetClientUUID())
+		bucketingInitMessage = fmt.Sprintf("Client initialized with local bucketing %v", c.localBucketing.GetUUID())
 	}
 	initEvent := api.ClientEvent{
 		EventType: api.ClientEventType_Initialized,

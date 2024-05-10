@@ -261,7 +261,6 @@ func (eq *EventQueue) FlushEventQueue(clientUUID, configEtag, rayId, lastModifie
 	records = append(records, eq.userEventQueue.BuildBatchRecords()...)
 	eq.aggEventQueue = make(AggregateEventQueue)
 	eq.userEventQueue = make(UserEventQueue)
-	eq.userEventQueueCount = 0
 
 	for _, record := range records {
 		var payload *api.FlushPayload
@@ -285,7 +284,7 @@ func (eq *EventQueue) FlushEventQueue(clientUUID, configEtag, rayId, lastModifie
 		}
 		eq.pendingPayloads[payload.PayloadId] = *payload
 	}
-
+	eq.userEventQueueCount = 0
 	eq.updateFailedPayloads()
 
 	eq.eventsFlushed.Add(int32(len(eq.pendingPayloads)))
@@ -420,7 +419,7 @@ func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
 	event.event.FeatureVars = bucketedConfig.FeatureVariationMap
 
 	switch event.event.Type_ {
-	case api.EventType_AggVariableDefaulted, api.EventType_VariableDefaulted, api.EventType_AggVariableEvaluated, api.EventType_VariableEvaluated:
+	case api.EventType_AggVariableDefaulted, api.EventType_VariableDefaulted, api.EventType_AggVariableEvaluated, api.EventType_VariableEvaluated, api.EventType_ConfigUpdated:
 		break
 	default:
 		event.event.CustomType = event.event.Type_
