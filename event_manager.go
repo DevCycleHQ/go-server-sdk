@@ -112,7 +112,7 @@ func (e *EventManager) QueueEvent(user User, event Event) error {
 	return err
 }
 
-func (e *EventManager) QueueConfigUpdatedEvent(req http.Request, resp http.Response) error {
+func (e *EventManager) QueueSDKConfigEvent(req http.Request, resp http.Response) error {
 	uuid := e.GetUUID()
 	user := api.User{UserId: uuid}
 
