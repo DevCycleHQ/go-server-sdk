@@ -52,18 +52,16 @@ func main() {
 	}
 	log.Printf("Variable results: %#v", value)
 
-	// Checking a boolean variable flag
-	booleanVariable := "test-boolean-variable"
-	if featureEnabled, err := client.BooleanValue(context.Background(), booleanVariable, false, evalCtx); err != nil {
+	// Checking a string variable flag
+	stringVariable := "go-example-tests"
+	if exampleValue, err := client.StringValue(context.Background(), stringVariable, "DEFAULT", evalCtx); err != nil {
 		log.Printf("Error retrieving feature flag: %v", err)
-	} else if featureEnabled {
-		log.Printf("%v = true, feature is enabled", booleanVariable)
-	} else {
-		log.Printf("%v = false, feature is disabled", booleanVariable)
+	} else if exampleValue != "DEFAULT" {
+		log.Printf("%v = %s, feature is enabled", stringVariable, exampleValue)
 	}
 
 	// Retrieving a string variable along with the resolution details
-	details, err := client.StringValueDetails(context.Background(), "doesnt-exist", "default", evalCtx)
+	details, err := client.StringValueDetails(context.Background(), "doesnt-exist", "DEFAULT", evalCtx)
 
 	if err != nil {
 		log.Fatal(err)
