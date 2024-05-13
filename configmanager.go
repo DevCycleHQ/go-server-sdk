@@ -328,6 +328,7 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 			"rayId":        rayId,
 			"eTag":         eTag,
 			"lastModified": lastModified,
+			"sseUrl":       "",
 		},
 		Status: "success",
 		Error:  nil,
@@ -357,7 +358,7 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 	}
 	if e.minimalConfig != nil && e.minimalConfig.SSE != nil {
 		sseUrl := fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path)
-		if e.sseManager.url != sseUrl {
+		if e.sseManager != nil && e.sseManager.url != sseUrl {
 			configUpdatedEvent.EventData.(map[string]string)["sseUrl"] = sseUrl
 		}
 	}
