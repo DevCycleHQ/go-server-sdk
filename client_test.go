@@ -406,7 +406,7 @@ func TestClient_ConfigUpdatedEvent(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		if !strings.Contains(string(reqBody), api.EventType_ConfigUpdated) {
+		if !strings.Contains(string(reqBody), api.EventType_SDKConfig) {
 			return nil, fmt.Errorf("Expected config updated event")
 		}
 

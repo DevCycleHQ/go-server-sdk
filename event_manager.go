@@ -117,7 +117,7 @@ func (e *EventManager) QueueSDKConfigEvent(req http.Request, resp http.Response)
 	user := api.User{UserId: uuid}
 
 	event := api.Event{
-		Type_:  api.EventType_ConfigUpdated,
+		Type_:  api.EventType_SDKConfig,
 		UserId: uuid,
 		Target: req.RequestURI,
 		Value:  -1,
