@@ -55,10 +55,11 @@ func (u *UserEventQueue) BuildBatchRecords() []api.UserEventsBatchRecord {
 
 func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData, clientUUID, configEtag, rayId, lastModified string) api.UserEventsBatchRecord {
 	var aggregateEvents []api.Event
-	userId, err := os.Hostname()
+	hostname, err := os.Hostname()
 	if err != nil {
-		userId = "aggregate"
+		hostname = "aggregate"
 	}
+	userId := fmt.Sprintf("%s@%s", clientUUID, hostname)
 	emptyFeatureVars := make(map[string]string)
 
 	// type is either aggVariableEvaluated or aggVariableDefaulted
