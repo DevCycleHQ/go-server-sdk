@@ -200,11 +200,7 @@ func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) error {
 
 func (e *EnvironmentConfigManager) initialFetch() error {
 
-	err := e.fetchConfig(CONFIG_RETRIES)
-	if err != nil {
-		return err
-	}
-	return nil
+	return e.fetchConfig(CONFIG_RETRIES)
 }
 
 func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumLastModified ...time.Time) (err error) {
