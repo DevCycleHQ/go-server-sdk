@@ -373,6 +373,6 @@ func (e *EnvironmentConfigManager) Close() {
 		e.pollingManager.stopPolling()
 	}
 	if e.sseManager != nil {
-		e.sseManager.stopEventHandler()
+		e.sseManager.Close()
 	}
 }

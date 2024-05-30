@@ -119,6 +119,12 @@ func (m *SSEManager) receiveSSEMessages() {
 		// If the stream is killed/stopped - we should stop polling
 		if m.stream == nil || m.context.Err() != nil {
 			m.Connected.Store(false)
+			m.configManager.InternalClientEvents <- api.ClientEvent{
+				EventType: api.ClientEventType_InternalSSEFailure,
+				EventData: "SSE stream has been stopped",
+				Status:    "failure",
+				Error:     m.context.Err(),
+			}
 			return
 		}
 		err := func() error {
@@ -170,10 +176,13 @@ func (m *SSEManager) StartSSEOverride(url string) error {
 }
 
 func (m *SSEManager) StopSSE() {
-	m.stopEventHandler()
 	if m.stream != nil {
 		m.stream.Close()
 		// Close wraps `close` and is safe to call in threads - this also just explicitly sets the stream to nil
 		m.stream = nil
 	}
+}
+
+func (m *SSEManager) Close() {
+	m.stopEventHandler()
 }
