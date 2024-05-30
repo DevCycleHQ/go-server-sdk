@@ -7,6 +7,7 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/launchdarkly/eventsource"
+	"sync/atomic"
 	"time"
 )
 
@@ -21,6 +22,7 @@ type SSEManager struct {
 	stopEventHandler context.CancelFunc
 	cfg              *HTTPConfiguration
 	Started          bool
+	Connected        atomic.Bool
 }
 
 type sseEvent struct {
@@ -55,12 +57,17 @@ func newSSEManager(configManager *EnvironmentConfigManager, options *Options, cf
 		},
 		cfg: cfg,
 	}
+	sseManager.Connected.Store(false)
+
 	sseManager.context, sseManager.stopEventHandler = context.WithCancel(context.Background())
 
 	return sseManager, nil
 }
 
 func (m *SSEManager) connectSSE(url string) (err error) {
+	// A stream is mutex locked - so we need to make sure we close it before we open a new one
+	// This is to prevent multiple streams from being opened, and to prevent race conditions on accessing/reading from
+	// the event stream
 	if m.stream != nil {
 		m.stream.Close()
 	}
@@ -88,9 +95,7 @@ func (m *SSEManager) connectSSE(url string) (err error) {
 		sseClientEvent.EventData = "Error connecting to SSE stream: " + url
 		return
 	}
-	if m.stream != nil {
-		m.stream.Close()
-	}
+	m.Connected.Store(true)
 	m.stream = sse
 	m.eventChannel = m.stream.Events
 	m.Started = sseClientEvent.Error == nil
@@ -111,12 +116,15 @@ func (m *SSEManager) parseMessage(rawMessage []byte) (message sseMessage, err er
 
 func (m *SSEManager) receiveSSEMessages() {
 	for {
+		// If the stream is killed/stopped - we should stop polling
 		if m.stream == nil || m.context.Err() != nil {
+			m.Connected.Store(false)
 			return
 		}
 		err := func() error {
 			select {
 			case <-m.context.Done():
+				m.Connected.Store(false)
 				return fmt.Errorf("SSE - Stopping SSE polling")
 			case event, ok := <-m.eventChannel:
 				if !ok {
@@ -162,8 +170,10 @@ func (m *SSEManager) StartSSEOverride(url string) error {
 }
 
 func (m *SSEManager) StopSSE() {
+	m.stopEventHandler()
 	if m.stream != nil {
 		m.stream.Close()
-		m.stopEventHandler()
+		// Close wraps `close` and is safe to call in threads - this also just explicitly sets the stream to nil
+		m.stream = nil
 	}
 }

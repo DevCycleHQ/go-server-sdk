@@ -7,7 +7,7 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"io"
 	"net/http"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/util"
@@ -36,8 +36,8 @@ type EnvironmentConfigManager struct {
 	sseManager           *SSEManager
 	options              *Options
 	InternalClientEvents chan api.ClientEvent
-	SSEConnected         atomic.Bool
 	eventManager         *EventManager
+	pollingMutex         sync.Mutex
 }
 
 type configPollingManager struct {
@@ -64,6 +64,7 @@ func NewEnvironmentConfigManager(
 	configManager.InternalClientEvents = make(chan api.ClientEvent, 100)
 
 	configManager.context, configManager.shutdown = context.WithCancel(context.Background())
+	configManager.eventManager = manager
 
 	if options.EnableBetaRealtimeUpdates {
 		sseManager, err := newSSEManager(configManager, options, cfg)
@@ -72,9 +73,10 @@ func NewEnvironmentConfigManager(
 		}
 		configManager.sseManager = sseManager
 		go configManager.ssePollingManager()
+	} else {
+		configManager.StartPolling(options.ConfigPollingIntervalMS)
 	}
-	configManager.eventManager = manager
-	return configManager, nil
+	return configManager, err
 }
 
 func (e *EnvironmentConfigManager) ssePollingManager() {
@@ -116,32 +118,19 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 				}
 
 			case api.ClientEventType_InternalSSEFailure:
-				e.SSEConnected.Store(false)
 				// Re-enable polling until a valid config is fetched, and then re-initialize SSE.
 				e.sseManager.StopSSE()
-				err := e.StartPolling(e.options.ConfigPollingIntervalMS)
-				if err != nil {
-					e.InternalClientEvents <- api.ClientEvent{
-						EventType: api.ClientEventType_Error,
-						EventData: "Error starting polling after SSE failure: " + err.Error(),
-						Status:    "error",
-						Error:     err,
-					}
-				}
+				e.StartPolling(e.options.ConfigPollingIntervalMS)
 
 			case api.ClientEventType_InternalSSEConnected:
-				if e.pollingManager != nil {
-					e.pollingManager.stopPolling()
-				}
-				e.SSEConnected.Store(true)
+				e.StartPolling(time.Minute * 10)
 
 			case api.ClientEventType_ConfigUpdated:
 				eventData := event.EventData.(map[string]string)
 
 				if url, ok := eventData["sseUrl"]; ok && e.options.EnableBetaRealtimeUpdates && e.sseManager != nil {
 					// Reconnect SSE
-					if e.sseManager.url != url {
-						e.sseManager.StopSSE()
+					if e.sseManager.url != url || !e.sseManager.Connected.Load() {
 						err := e.StartSSE(url)
 						if err != nil {
 							e.InternalClientEvents <- api.ClientEvent{
@@ -165,7 +154,15 @@ func (e *EnvironmentConfigManager) StartSSE(url string) error {
 	return e.sseManager.StartSSEOverride(url)
 }
 
-func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) error {
+func (e *EnvironmentConfigManager) StopPolling() {
+	if e.pollingManager != nil {
+		e.pollingManager.stopPolling()
+	}
+}
+
+func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) {
+	e.pollingMutex.Lock()
+	defer e.pollingMutex.Unlock()
 	if e.pollingManager != nil {
 		e.pollingManager.stopPolling()
 	}
@@ -195,7 +192,6 @@ func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) error {
 			}
 		}
 	}()
-	return nil
 }
 
 func (e *EnvironmentConfigManager) initialFetch() error {
@@ -218,7 +214,9 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 
 	etag := e.localBucketing.GetETag()
 	lastModified := e.localBucketing.GetLastModified()
-
+	if len(minimumLastModified) > 0 {
+		lastModified = minimumLastModified[0].Format(time.RFC1123)
+	}
 	if etag != "" {
 		req.Header.Set("If-None-Match", etag)
 	}
@@ -237,20 +235,6 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 	}
 	defer resp.Body.Close()
 
-	if len(minimumLastModified) > 0 {
-		respLastModified := resp.Header.Get("Last-Modified")
-		if respLastModified == "" {
-			return e.fetchConfig(numRetriesRemaining, minimumLastModified...)
-		}
-		respLMTime, timeError := time.Parse(time.RFC1123, respLastModified)
-		if timeError != nil {
-			return e.fetchConfig(numRetriesRemaining, minimumLastModified...)
-		}
-		if respLMTime.Before(minimumLastModified[0]) {
-			return e.fetchConfig(numRetriesRemaining, minimumLastModified...)
-		}
-	}
-
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
 		resp.Request = req
@@ -258,9 +242,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 	case statusCode == http.StatusNotModified:
 		return nil
 	case statusCode == http.StatusForbidden:
-		if e.pollingManager != nil {
-			e.pollingManager.stopPolling()
-		}
+		e.StopPolling()
 		return fmt.Errorf("invalid SDK key. Aborting config polling")
 	case statusCode >= 500:
 		// Retryable Errors. Continue polling.
@@ -385,6 +367,8 @@ func (e *EnvironmentConfigManager) GetLastModified() string {
 
 func (e *EnvironmentConfigManager) Close() {
 	e.shutdown()
+	e.pollingMutex.Lock()
+	defer e.pollingMutex.Unlock()
 	if e.pollingManager != nil {
 		e.pollingManager.stopPolling()
 	}

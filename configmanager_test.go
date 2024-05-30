@@ -101,7 +101,7 @@ func TestEnvironmentConfigManager_fetchConfig_success_sse(t *testing.T) {
 		t.Fatal("cm.sseManager == nil")
 	}
 	require.Eventually(t, func() bool {
-		return manager.SSEConnected.Load()
+		return manager.sseManager.Connected.Load()
 	}, 3*time.Second, 10*time.Millisecond)
 
 }
