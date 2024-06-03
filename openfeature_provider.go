@@ -320,7 +320,7 @@ func createUserFromEvaluationContext(evalCtx openfeature.FlattenedContext) (User
 		if targetingKey, ok := evalCtx[openfeature.TargetingKey].(string); ok {
 			userId = targetingKey
 		} else {
-			return DVCUser{}, errors.New("targetingKey must be a string")
+			return User{}, errors.New("targetingKey must be a string")
 		}
 	}
 	if userId == "" {
@@ -329,13 +329,13 @@ func createUserFromEvaluationContext(evalCtx openfeature.FlattenedContext) (User
 			if userIdValue, ok := evalCtx[DEVCYCLE_USER_ID_KEY].(string); ok {
 				userId = userIdValue
 			} else {
-				return DVCUser{}, errors.New("userId must be a string")
+				return User{}, errors.New("userId must be a string")
 			}
 		}
 	}
 
 	if userId == "" {
-		return DVCUser{}, errors.New("targetingKey or userId must be provided")
+		return User{}, errors.New("targetingKey or userId must be provided")
 	}
 	user := User{
 		UserId: userId,

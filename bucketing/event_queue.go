@@ -262,7 +262,6 @@ func (eq *EventQueue) FlushEventQueue(clientUUID, configEtag, rayId, lastModifie
 	records = append(records, eq.userEventQueue.BuildBatchRecords()...)
 	eq.aggEventQueue = make(AggregateEventQueue)
 	eq.userEventQueue = make(UserEventQueue)
-	eq.userEventQueueCount = 0
 
 	for _, record := range records {
 		var payload *api.FlushPayload
@@ -286,7 +285,7 @@ func (eq *EventQueue) FlushEventQueue(clientUUID, configEtag, rayId, lastModifie
 		}
 		eq.pendingPayloads[payload.PayloadId] = *payload
 	}
-
+	eq.userEventQueueCount = 0
 	eq.updateFailedPayloads()
 
 	eq.eventsFlushed.Add(int32(len(eq.pendingPayloads)))

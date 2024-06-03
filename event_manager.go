@@ -24,6 +24,7 @@ type InternalEventQueue interface {
 	UserQueueLength() (int, error)
 	GetUUID() string
 	Metrics() (int32, int32, int32)
+	GetUUID() string
 }
 
 // EventManager is responsible for flushing the event queue and reporting events to the server.
@@ -34,6 +35,7 @@ type EventManager struct {
 	sdkKey        string
 	options       *Options
 	cfg           *HTTPConfiguration
+	httpClient    *http.Client
 	closed        bool
 	flushStop     chan bool
 	forceFlush    chan bool
@@ -47,15 +49,15 @@ type FlushResult struct {
 
 func NewEventManager(options *Options, localBucketing InternalEventQueue, cfg *HTTPConfiguration, sdkKey string) (eventQueue *EventManager, err error) {
 	e := &EventManager{
-		flushMutex: &sync.Mutex{},
+		flushMutex:    &sync.Mutex{},
+		options:       options,
+		internalQueue: localBucketing,
+		cfg:           cfg,
+		sdkKey:        sdkKey,
+		flushStop:     make(chan bool, 1),
+		forceFlush:    make(chan bool, 1),
+		httpClient:    cfg.HTTPClient,
 	}
-	e.options = options
-	e.internalQueue = localBucketing
-	e.cfg = cfg
-	e.sdkKey = sdkKey
-
-	e.flushStop = make(chan bool, 1)
-	e.forceFlush = make(chan bool, 1)
 
 	// Disable automatic flushing of events if all sources of events are disabled
 	// DisableAutomaticEventLogging is passed into the WASM to disable events
@@ -110,6 +112,30 @@ func (e *EventManager) QueueEvent(user User, event Event) error {
 		return fmt.Errorf("event queue is full, dropping event: %+v", event)
 	}
 	return err
+}
+
+func (e *EventManager) QueueSDKConfigEvent(req http.Request, resp http.Response) error {
+	uuid := e.GetUUID()
+	user := api.User{UserId: uuid}
+
+	event := api.Event{
+		Type_:  api.EventType_SDKConfig,
+		UserId: uuid,
+		Target: req.RequestURI,
+		Value:  -1,
+		MetaData: map[string]interface{}{
+			"clientUUID":      uuid,
+			"reqEtag":         req.Header.Get("If-None-Match"),
+			"reqLastModified": req.Header.Get("If-Modified-Since"),
+			"resEtag":         resp.Header.Get("Etag"),
+			"resLastModified": resp.Header.Get("Last-Modified"),
+			"resRayId":        resp.Header.Get("Cf-Ray"),
+			"resStatus":       resp.StatusCode,
+			"errMsg":          resp.Status,
+		},
+	}
+	// We don't actually care about this failing or succeeding. It's best effort to send the event.
+	return e.QueueEvent(user, event)
 }
 
 func (e *EventManager) QueueVariableDefaultedEvent(variableKey string, defaultReason string) error {
@@ -196,7 +222,7 @@ func (e *EventManager) flushEventPayload(
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err = e.cfg.HTTPClient.Do(req)
+	resp, err = e.httpClient.Do(req)
 
 	if err != nil {
 		util.Errorf("Failed to make request to events api: %s", err)

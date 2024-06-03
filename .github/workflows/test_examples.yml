@@ -1,5 +1,5 @@
 name: Test Examples
-
+## For anyone looking to change this (Internal to DevCycle) - the project is here: https://app.devcycle.com/o/org_U9F8YMaTChTEndWw/p/git-hub-actions-integration-tests/features/6642210af1c941418857b237
 on:
   pull_request:
     branches: [ main ]
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DEVCYCLE_SERVER_SDK_KEY: ${{ secrets.DEVCYCLE_SERVER_SDK_KEY }}
-      DEVCYCLE_VARIABLE_KEY: test-boolean-variable
+      DEVCYCLE_VARIABLE_KEY: go-example-tests
     steps:
     - uses: actions/checkout@v4
 

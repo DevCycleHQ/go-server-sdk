@@ -37,6 +37,10 @@ type NativeLocalBucketing struct {
 	clientUUID   string
 }
 
+func (n *NativeLocalBucketing) GetUUID() string {
+	return n.clientUUID
+}
+
 func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, options *Options) (*NativeLocalBucketing, error) {
 	clientUUID := uuid.New().String()
 

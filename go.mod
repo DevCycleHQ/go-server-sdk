@@ -6,6 +6,7 @@ require (
 	github.com/go-playground/validator/v10 v10.18.0
 	github.com/google/uuid v1.3.0
 	github.com/jarcoal/httpmock v1.2.0
+	github.com/launchdarkly/eventsource v1.7.1
 	github.com/matryer/try v0.0.0-20161228173917-9ac251b645a2
 	github.com/open-feature/go-sdk v1.8.0
 	github.com/stretchr/testify v1.8.4

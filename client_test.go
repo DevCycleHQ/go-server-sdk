@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/require"
 	"io"
 	"log"
@@ -14,8 +15,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/jarcoal/httpmock"
 )
 
 func TestClient_AllFeatures_Local(t *testing.T) {
@@ -77,6 +76,7 @@ func TestClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
 
 func TestClient_VariableCloud(t *testing.T) {
 	sdkKey := generateTestSDKKey()
+	httpBucketingAPIMock()
 	c, err := NewClient(sdkKey, &Options{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
 	fatalErr(t, err)
 
@@ -91,6 +91,7 @@ func TestClient_VariableCloud(t *testing.T) {
 }
 
 func TestClient_VariableLocalNumber(t *testing.T) {
+
 	sdkKey := generateTestSDKKey()
 	httpCustomConfigMock(sdkKey, 200, test_large_config)
 
@@ -323,10 +324,11 @@ func TestClient_TrackLocal_QueueEventBeforeConfig(t *testing.T) {
 
 func TestProduction_Local(t *testing.T) {
 	environmentKey := os.Getenv("DEVCYCLE_SERVER_SDK_KEY")
-	user := User{UserId: "test"}
 	if environmentKey == "" {
 		t.Skip("DEVCYCLE_SERVER_SDK_KEY not set. Not using production tests.")
 	}
+	user := User{UserId: "test"}
+
 	dvcOptions := Options{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         false,
@@ -349,61 +351,75 @@ func TestProduction_Local(t *testing.T) {
 	}
 }
 
-func TestClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t *testing.T) {
+func TestClient_CloudBucketingHandler(t *testing.T) {
+
+	sdkKey := generateTestSDKKey()
+	httpBucketingAPIMock()
+	clientEventHandler := make(chan api.ClientEvent, 10)
+	c, err := NewClient(sdkKey, &Options{EnableCloudBucketing: true, ClientEventHandler: clientEventHandler})
+	fatalErr(t, err)
+	init := <-clientEventHandler
+
+	if init.EventType != api.ClientEventType_Initialized {
+		t.Fatal("Expected initialized event")
+	}
+	if !c.isInitialized {
+		t.Fatal("Expected client to be initialized")
+	}
+}
+
+func TestClient_LocalBucketingHandler(t *testing.T) {
+
 	sdkKey, _ := httpConfigMock(200)
-
-	onInitialized := make(chan bool)
-
-	// Try each of the combos to make sure they all act as expected and don't hang
-	dvcOptions := Options{OnInitializedChannel: onInitialized, EnableCloudBucketing: true}
-	c, err := NewClient(sdkKey, &dvcOptions)
+	clientEventHandler := make(chan api.ClientEvent, 10)
+	c, err := NewClient(sdkKey, &Options{ClientEventHandler: clientEventHandler})
 	fatalErr(t, err)
-	val := <-onInitialized
-	if !val {
-		t.Fatal("Expected true from onInitialized channel")
+	event1 := <-clientEventHandler
+	event2 := <-clientEventHandler
+	switch event1.EventType {
+	case api.ClientEventType_Initialized:
+		if event2.EventType != api.ClientEventType_ConfigUpdated {
+			t.Fatal("Expected config updated event and initialized events")
+		}
+	case api.ClientEventType_ConfigUpdated:
+		if event2.EventType != api.ClientEventType_Initialized {
+			t.Fatal("Expected initialized and config updated events")
+		}
 	}
-
-	if c.isInitialized {
-		// isInitialized is only relevant when using Local Bucketing
-		t.Fatal("Expected isInitialized to be false")
-	}
-
-	dvcOptions = Options{OnInitializedChannel: onInitialized, EnableCloudBucketing: false}
-	c, err = NewClient(sdkKey, &dvcOptions)
-	fatalErr(t, err)
-	val = <-onInitialized
-	if !val {
-		t.Fatal("Expected true from onInitialized channel")
-	}
-
 	if !c.isInitialized {
-		t.Fatal("Expected isInitialized to be true")
+		t.Fatal("Expected client to be initialized")
 	}
-
 	if !c.hasConfig() {
-		t.Fatal("Expected config to be loaded")
+		t.Fatal("Expected client to have config")
 	}
+}
 
-	dvcOptions = Options{OnInitializedChannel: nil, EnableCloudBucketing: true}
-	c, err = NewClient(sdkKey, &dvcOptions)
-	fatalErr(t, err)
+func TestClient_ConfigUpdatedEvent(t *testing.T) {
+	responder := func(req *http.Request) (*http.Response, error) {
+		reqBody, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.Contains(string(reqBody), api.EventType_SDKConfig) {
+			return nil, fmt.Errorf("Expected config updated event")
+		}
 
-	if c.isInitialized {
-		// isInitialized is only relevant when using Local Bucketing
-		t.Fatal("Expected isInitialized to be false")
+		return httpmock.NewStringResponse(201, `{}`), nil
 	}
-
-	dvcOptions = Options{OnInitializedChannel: nil, EnableCloudBucketing: false}
-	c, err = NewClient(sdkKey, &dvcOptions)
+	httpmock.RegisterResponder("POST", "https://config-updated.devcycle.com/v1/events/batch", responder)
+	sdkKey, _ := httpConfigMock(200)
+	c, err := NewClient(sdkKey, &Options{EventsAPIURI: "https://config-updated.devcycle.com"})
 	fatalErr(t, err)
-
 	if !c.isInitialized {
-		t.Fatal("Expected isInitialized to be true")
+		t.Fatal("Expected client to be initialized")
 	}
-
 	if !c.hasConfig() {
-		t.Fatal("Expected config to be loaded")
+		t.Fatal("Expected client to have config")
 	}
+	_ = c.FlushEvents()
+	require.Eventually(t, func() bool {
+		return httpmock.GetCallCountInfo()["POST https://config-updated.devcycle.com/v1/events/batch"] >= 1
+	}, 1*time.Second, 100*time.Millisecond)
 }
 func TestClient_ConfigUpdatedEvent(t *testing.T) {
 	sdkKey, _ := httpConfigMock(200)
@@ -470,9 +486,9 @@ func TestClient_ConfigUpdatedEvent_VariableEval(t *testing.T) {
 
 func BenchmarkClient_VariableSerial(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})
+
 	sdkKey := generateTestSDKKey()
 	httpCustomConfigMock(sdkKey, 200, test_large_config)
-	httpEventsApiMock()
 
 	if benchmarkDisableLogs {
 		log.SetOutput(io.Discard)
@@ -515,9 +531,9 @@ func BenchmarkClient_VariableSerial(b *testing.B) {
 
 func BenchmarkClient_VariableParallel(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})
+
 	sdkKey := generateTestSDKKey()
 	httpCustomConfigMock(sdkKey, 200, test_large_config)
-	httpEventsApiMock()
 
 	if benchmarkDisableLogs {
 		log.SetOutput(io.Discard)

@@ -26,19 +26,19 @@ var (
 	test_large_config          string
 	test_large_config_variable = "v-key-25"
 
-	test_options = &Options{
+	//go:embed testdata/fixture_small_config_sse.json
+	test_small_config_sse string
+	test_options          = &Options{
 		// use defaults that will be set by the CheckDefaults
 		EventFlushIntervalMS:    time.Second * 30,
 		ConfigPollingIntervalMS: time.Second * 10,
 	}
 	test_options_sse = &Options{
 		// use defaults that will be set by the CheckDefaults
-		EventFlushIntervalMS:    time.Second * 30,
-		ConfigPollingIntervalMS: time.Second * 10,
+		EventFlushIntervalMS:      time.Second * 30,
+		ConfigPollingIntervalMS:   time.Second * 10,
+		EnableBetaRealtimeUpdates: true,
 	}
-	benchmarkEnableEvents        bool
-	benchmarkEnableConfigUpdates bool
-	benchmarkDisableLogs         bool
 )
 
 func TestMain(t *testing.M) {
@@ -52,6 +52,7 @@ func TestMain(t *testing.M) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	// Remove newlines in configs
 	test_config = strings.ReplaceAll(test_config, "\n", "")
+	test_small_config_sse = strings.ReplaceAll(test_small_config_sse, "\n", "")
 	test_config_special_characters_var = strings.ReplaceAll(test_config_special_characters_var, "\n", "")
 	test_large_config = strings.ReplaceAll(test_large_config, "\n", "")
 
@@ -97,6 +98,16 @@ func httpCustomConfigMock(sdkKey string, respcode int, config string) httpmock.R
 	}
 	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json", responder)
 	return responder
+}
+
+func httpSSEConfigMock(respCode int, sdkKeys ...string) (sdkKey string, responder httpmock.Responder) {
+	if len(sdkKeys) == 0 {
+		sdkKey = generateTestSDKKey()
+	} else {
+		sdkKey = sdkKeys[0]
+	}
+	responder = httpCustomConfigMock(sdkKey, respCode, test_small_config_sse)
+	return
 }
 
 func sseResponseBody() string {
