@@ -3,6 +3,7 @@ package devcycle
 import (
 	"flag"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -434,12 +436,34 @@ func TestClient_Validate_OnInitializedChannel_EnableCloudBucketing_Options(t *te
 		t.Fatal("Expected config to be loaded")
 	}
 }
+func TestClient_ConfigUpdatedEvent(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+	responder := func(req *http.Request) (*http.Response, error) {
+		reqBody, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.Contains(string(reqBody), api.EventType_SDKConfig) {
+			return nil, fmt.Errorf("Expected config updated event")
+		}
 
-func fatalErr(t *testing.T, err error) {
-	t.Helper()
-	if err != nil {
-		t.Fatal(err)
+		return httpmock.NewStringResponse(201, `{}`), nil
 	}
+	httpmock.RegisterResponder("POST", "https://config-updated.devcycle.com/v1/events/batch", responder)
+	c, err := NewClient(test_environmentKey, &Options{EventsAPIURI: "https://config-updated.devcycle.com"})
+	fatalErr(t, err)
+	if !c.isInitialized {
+		t.Fatal("Expected client to be initialized")
+	}
+	if !c.hasConfig() {
+		t.Fatal("Expected client to have config")
+	}
+	_ = c.FlushEvents()
+	require.Eventually(t, func() bool {
+		return httpmock.GetCallCountInfo()["POST https://config-updated.devcycle.com/v1/events/batch"] >= 1
+	}, 1*time.Second, 100*time.Millisecond)
 }
 
 var (

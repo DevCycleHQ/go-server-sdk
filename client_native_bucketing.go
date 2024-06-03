@@ -53,6 +53,10 @@ func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, opti
 	}, err
 }
 
+func (n *NativeLocalBucketing) GetUUID() string {
+	return n.clientUUID
+}
+
 func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag, rayId, lastModified string) error {
 	oldETag := bucketing.GetEtag(n.sdkKey)
 	_, err := n.eventQueue.FlushEventQueue(n.clientUUID, oldETag, n.GetRayId(), n.GetLastModified())
@@ -80,10 +84,6 @@ func (n *NativeLocalBucketing) GetRawConfig() []byte {
 
 func (n *NativeLocalBucketing) HasConfig() bool {
 	return bucketing.HasConfig(n.sdkKey)
-}
-
-func (n *NativeLocalBucketing) GetClientUUID() string {
-	return n.clientUUID
 }
 
 func (n *NativeLocalBucketing) GetLastModified() string {

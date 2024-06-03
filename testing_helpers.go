@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"net/http"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/jarcoal/httpmock"
@@ -69,4 +70,11 @@ func httpCustomConfigMock(sdkKey string, respcode int, config string) httpmock.R
 	}
 	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json", responder)
 	return responder
+}
+
+func fatalErr(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatal(err)
+	}
 }

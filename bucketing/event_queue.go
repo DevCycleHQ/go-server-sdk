@@ -55,10 +55,11 @@ func (u *UserEventQueue) BuildBatchRecords() []api.UserEventsBatchRecord {
 
 func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData, clientUUID, configEtag, rayId, lastModified string) api.UserEventsBatchRecord {
 	var aggregateEvents []api.Event
-	userId, err := os.Hostname()
+	hostname, err := os.Hostname()
 	if err != nil {
-		userId = "aggregate"
+		hostname = "aggregate"
 	}
+	userId := fmt.Sprintf("%s@%s", clientUUID, hostname)
 	emptyFeatureVars := make(map[string]string)
 
 	// type is either aggVariableEvaluated or aggVariableDefaulted
@@ -420,7 +421,7 @@ func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
 	event.event.FeatureVars = bucketedConfig.FeatureVariationMap
 
 	switch event.event.Type_ {
-	case api.EventType_AggVariableDefaulted, api.EventType_VariableDefaulted, api.EventType_AggVariableEvaluated, api.EventType_VariableEvaluated:
+	case api.EventType_AggVariableDefaulted, api.EventType_VariableDefaulted, api.EventType_AggVariableEvaluated, api.EventType_VariableEvaluated, api.EventType_SDKConfig:
 		break
 	default:
 		event.event.CustomType = event.event.Type_

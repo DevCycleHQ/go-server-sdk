@@ -29,12 +29,14 @@ type EnvironmentConfigManager struct {
 	stopPolling    context.CancelFunc
 	httpClient     *http.Client
 	cfg            *HTTPConfiguration
+	eventManager   *EventManager
 	ticker         *time.Ticker
 }
 
 func NewEnvironmentConfigManager(
 	sdkKey string,
 	localBucketing ConfigReceiver,
+	manager *EventManager,
 	options *Options,
 	cfg *HTTPConfiguration,
 ) (e *EnvironmentConfigManager) {
@@ -47,7 +49,8 @@ func NewEnvironmentConfigManager(
 			// Use the configurable timeout because fetching the first config can block SDK initialization.
 			Timeout: options.RequestTimeout,
 		},
-		firstLoad: true,
+		eventManager: manager,
+		firstLoad:    true,
 	}
 
 	configManager.context, configManager.stopPolling = context.WithCancel(context.Background())
@@ -114,6 +117,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int) (err err
 	defer resp.Body.Close()
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
+		resp.Request = req
 		return e.setConfigFromResponse(resp)
 	case statusCode == http.StatusNotModified:
 		return nil
@@ -164,6 +168,9 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 	}
 
 	util.Infof("Config set. ETag: %s Last-Modified: %s\n", e.localBucketing.GetETag(), e.localBucketing.GetLastModified())
+	if e.eventManager != nil {
+		_ = e.eventManager.QueueSDKConfigEvent(*response.Request, *response)
+	}
 
 	if e.firstLoad {
 		e.firstLoad = false

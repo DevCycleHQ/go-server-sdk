@@ -17,6 +17,7 @@ const (
 	EventType_AggVariableEvaluated = "aggVariableEvaluated"
 	EventType_VariableDefaulted    = "variableDefaulted"
 	EventType_AggVariableDefaulted = "aggVariableDefaulted"
+	EventType_SDKConfig            = "sdkConfig"
 	EventType_CustomEvent          = "customEvent"
 )
 
@@ -103,7 +104,7 @@ func (o *EventQueueOptions) CheckBounds() {
 
 func (o *EventQueueOptions) IsEventLoggingDisabled(eventType string) bool {
 	switch eventType {
-	case EventType_VariableEvaluated, EventType_AggVariableEvaluated, EventType_VariableDefaulted, EventType_AggVariableDefaulted:
+	case EventType_VariableEvaluated, EventType_AggVariableEvaluated, EventType_VariableDefaulted, EventType_AggVariableDefaulted, EventType_SDKConfig:
 		return o.DisableAutomaticEventLogging
 	default:
 		return o.DisableCustomEventLogging

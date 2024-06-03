@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"io"
 	"net/http"
 	"sync"
@@ -20,6 +21,7 @@ type InternalEventQueue interface {
 	QueueVariableDefaulted(variableKey, defaultReason string) error
 	FlushEventQueue(EventFlushCallback) error
 	UserQueueLength() (int, error)
+	GetUUID() string
 	Metrics() (int32, int32, int32)
 }
 
@@ -111,6 +113,30 @@ func (e *EventManager) QueueEvent(user User, event Event) error {
 
 func (e *EventManager) QueueVariableDefaultedEvent(variableKey string, defaultReason string) error {
 	return e.internalQueue.QueueVariableDefaulted(variableKey, defaultReason)
+}
+
+func (e *EventManager) QueueSDKConfigEvent(req http.Request, resp http.Response) error {
+	uuid := e.GetUUID()
+	user := api.User{UserId: uuid}
+
+	event := api.Event{
+		Type_:  api.EventType_SDKConfig,
+		UserId: uuid,
+		Target: req.RequestURI,
+		Value:  -1,
+		MetaData: map[string]interface{}{
+			"clientUUID":      uuid,
+			"reqEtag":         req.Header.Get("If-None-Match"),
+			"reqLastModified": req.Header.Get("If-Modified-Since"),
+			"resEtag":         resp.Header.Get("Etag"),
+			"resLastModified": resp.Header.Get("Last-Modified"),
+			"resRayId":        resp.Header.Get("Cf-Ray"),
+			"resStatus":       resp.StatusCode,
+			"errMsg":          resp.Status,
+		},
+	}
+	// We don't actually care about this failing or succeeding. It's best effort to send the event.
+	return e.QueueEvent(user, event)
 }
 
 func (e *EventManager) FlushEvents() (err error) {
@@ -253,4 +279,8 @@ func (e *EventManager) Close() (err error) {
 	e.closed = true
 	err = e.FlushEvents()
 	return err
+}
+
+func (e *EventManager) GetUUID() string {
+	return e.internalQueue.GetUUID()
 }
