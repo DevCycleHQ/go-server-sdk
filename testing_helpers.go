@@ -47,6 +47,7 @@ func httpBucketingAPIMock() {
 			resp := httpmock.NewStringResponse(200, `{"value": true, "_id": "614ef6ea475129459160721a", "key": "test", "type": "Boolean"}`)
 			resp.Header.Set("Etag", "TESTING")
 			resp.Header.Set("Last-Modified", "LAST-MODIFIED")
+			resp.Header.Set("Cf-Ray", "TESTING")
 			return resp, nil
 		},
 	)
@@ -66,6 +67,7 @@ func httpCustomConfigMock(sdkKey string, respcode int, config string) httpmock.R
 		resp := httpmock.NewStringResponse(respcode, config)
 		resp.Header.Set("Etag", "TESTING")
 		resp.Header.Set("Last-Modified", "LAST-MODIFIED")
+		resp.Header.Set("Cf-Ray", "TESTING")
 		return resp, nil
 	}
 	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json", responder)
