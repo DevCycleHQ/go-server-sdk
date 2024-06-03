@@ -39,6 +39,9 @@ var (
 		ConfigPollingIntervalMS:   time.Second * 10,
 		EnableBetaRealtimeUpdates: true,
 	}
+	benchmarkEnableConfigUpdates bool
+	benchmarkEnableEvents        bool
+	benchmarkDisableLogs         bool
 )
 
 func TestMain(t *testing.M) {

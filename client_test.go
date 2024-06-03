@@ -421,7 +421,7 @@ func TestClient_ConfigUpdatedEvent(t *testing.T) {
 		return httpmock.GetCallCountInfo()["POST https://config-updated.devcycle.com/v1/events/batch"] >= 1
 	}, 1*time.Second, 100*time.Millisecond)
 }
-func TestClient_ConfigUpdatedEvent(t *testing.T) {
+func TestClient_ConfigUpdatedEvent_Detail(t *testing.T) {
 	sdkKey, _ := httpConfigMock(200)
 	responder := func(req *http.Request) (*http.Response, error) {
 		reqBody, err := io.ReadAll(req.Body)

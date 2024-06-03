@@ -57,10 +57,6 @@ func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, opti
 	}, err
 }
 
-func (n *NativeLocalBucketing) GetUUID() string {
-	return n.clientUUID
-}
-
 func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag, rayId, lastModified string) error {
 	err := bucketing.SetConfig(configJSON, n.sdkKey, eTag, rayId, lastModified, n.eventQueue)
 	if err != nil {
