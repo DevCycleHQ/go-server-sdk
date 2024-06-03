@@ -127,7 +127,7 @@ func (e *EventManager) QueueSDKConfigEvent(req http.Request, resp http.Response)
 	event := api.Event{
 		Type_:  api.EventType_SDKConfig,
 		UserId: uuid,
-		Target: req.RequestURI,
+		Target: fmt.Sprintf("%s://%s%s", req.URL.Scheme, req.URL.Host, req.URL.Path),
 		Value:  -1,
 		MetaData: map[string]interface{}{
 			"clientUUID":      uuid,
