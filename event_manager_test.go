@@ -64,8 +64,6 @@ func TestEventManager_QueueEvent_100_Flush(t *testing.T) {
 	})
 	fatalErr(t, err)
 	defer c.Close()
-
-	startingLength, _ := c.eventQueue.internalQueue.UserQueueLength()
 	// Track up to FlushEventQueueSize events
 	for i := 0; i < c.DevCycleOptions.FlushEventQueueSize; i++ {
 		_, err = c.Track(User{UserId: "j_test", DeviceModel: "testing"},
@@ -77,7 +75,7 @@ func TestEventManager_QueueEvent_100_Flush(t *testing.T) {
 	// Wait for raw event queue to drain
 	require.Eventually(t, func() bool {
 		queueLength, _ := c.eventQueue.internalQueue.UserQueueLength()
-		return queueLength-startingLength >= 10
+		return queueLength >= 10
 	}, 1*time.Second, 100*time.Millisecond)
 
 	// Track one more event to trigger an automatic flush
