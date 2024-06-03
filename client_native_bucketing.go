@@ -58,12 +58,7 @@ func (n *NativeLocalBucketing) GetUUID() string {
 }
 
 func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag, rayId, lastModified string) error {
-	oldETag := bucketing.GetEtag(n.sdkKey)
-	_, err := n.eventQueue.FlushEventQueue(n.clientUUID, oldETag, n.GetRayId(), n.GetLastModified())
-	if err != nil {
-		return fmt.Errorf("Error flushing events for %s: %w", oldETag, err)
-	}
-	err = bucketing.SetConfig(configJSON, n.sdkKey, eTag, rayId, lastModified, n.eventQueue)
+	err := bucketing.SetConfig(configJSON, n.sdkKey, eTag, rayId, lastModified, n.eventQueue)
 	if err != nil {
 		return fmt.Errorf("Error parsing config: %w", err)
 	}
