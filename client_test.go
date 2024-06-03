@@ -460,6 +460,11 @@ func TestClient_ConfigUpdatedEvent(t *testing.T) {
 	if !c.hasConfig() {
 		t.Fatal("Expected client to have config")
 	}
+	require.Eventually(t, func() bool {
+		l, _ := c.eventQueue.internalQueue.UserQueueLength()
+		return l >= 1
+	}, 1*time.Second, 100*time.Millisecond)
+
 	_ = c.FlushEvents()
 	require.Eventually(t, func() bool {
 		return httpmock.GetCallCountInfo()["POST https://config-updated.devcycle.com/v1/events/batch"] >= 1
