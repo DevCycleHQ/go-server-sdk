@@ -325,6 +325,7 @@ func (eq *EventQueue) HandleFlushResults(successPayloads []string, failurePayloa
 	eq.eventsReported.Add(reported)
 }
 
+// Metrics returns the number of events flushed, reported, and dropped
 func (eq *EventQueue) Metrics() (int32, int32, int32) {
 	return eq.eventsFlushed.Load(), eq.eventsReported.Load(), eq.eventsDropped.Load()
 }
