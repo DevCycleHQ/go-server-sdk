@@ -8,6 +8,7 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"io"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -117,7 +118,11 @@ func (e *EventManager) QueueVariableDefaultedEvent(variableKey string, defaultRe
 
 func (e *EventManager) QueueSDKConfigEvent(req http.Request, resp http.Response) error {
 	uuid := e.GetUUID()
-	user := api.User{UserId: uuid}
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "aggregate"
+	}
+	user := api.User{UserId: fmt.Sprintf("%s@%s", uuid, hostname)}
 
 	event := api.Event{
 		Type_:  api.EventType_SDKConfig,
