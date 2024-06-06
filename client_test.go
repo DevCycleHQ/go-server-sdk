@@ -442,17 +442,17 @@ func TestClient_ConfigUpdatedEvent(t *testing.T) {
 	httpConfigMock(200)
 	responder := func(req *http.Request) (*http.Response, error) {
 		reqBody, err := io.ReadAll(req.Body)
+		fmt.Println(string(reqBody))
 		if err != nil {
-			return nil, err
+			return httpmock.NewStringResponse(500, `{}`), err
 		}
 		if !strings.Contains(string(reqBody), api.EventType_SDKConfig) {
-			return nil, fmt.Errorf("Expected config updated event")
+			t.Fatal("Expected config updated event in request body")
 		}
-
 		return httpmock.NewStringResponse(201, `{}`), nil
 	}
 	httpmock.RegisterResponder("POST", "https://config-updated.devcycle.com/v1/events/batch", responder)
-	c, err := NewClient(test_environmentKey, &Options{EventsAPIURI: "https://config-updated.devcycle.com"})
+	c, err := NewClient(test_environmentKey, &Options{EventsAPIURI: "https://config-updated.devcycle.com", EventFlushIntervalMS: time.Millisecond * 500})
 	fatalErr(t, err)
 	if !c.isInitialized {
 		t.Fatal("Expected client to be initialized")
@@ -460,12 +460,44 @@ func TestClient_ConfigUpdatedEvent(t *testing.T) {
 	if !c.hasConfig() {
 		t.Fatal("Expected client to have config")
 	}
-	require.Eventually(t, func() bool {
-		l, _ := c.eventQueue.internalQueue.UserQueueLength()
-		return l >= 1
-	}, 1*time.Second, 100*time.Millisecond)
 
-	_ = c.FlushEvents()
+	require.Eventually(t, func() bool {
+		return httpmock.GetCallCountInfo()["POST https://config-updated.devcycle.com/v1/events/batch"] >= 1
+	}, 1*time.Second, 100*time.Millisecond)
+}
+
+func TestClient_ConfigUpdatedEvent_VariableEval(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	httpConfigMock(200)
+	responder := func(req *http.Request) (*http.Response, error) {
+		reqBody, err := io.ReadAll(req.Body)
+		fmt.Println(string(reqBody))
+		if err != nil {
+			return httpmock.NewStringResponse(500, `{}`), err
+		}
+		if !strings.Contains(string(reqBody), api.EventType_SDKConfig) || !strings.Contains(string(reqBody), api.EventType_AggVariableDefaulted) {
+			fmt.Println("Expected config updated event and defaulted event in request body")
+		}
+		return httpmock.NewStringResponse(201, `{}`), nil
+	}
+	httpmock.RegisterResponder("POST", "https://config-updated.devcycle.com/v1/events/batch", responder)
+	c, err := NewClient(test_environmentKey, &Options{EventsAPIURI: "https://config-updated.devcycle.com", EventFlushIntervalMS: time.Millisecond * 500})
+	fatalErr(t, err)
+	if !c.isInitialized {
+		t.Fatal("Expected client to be initialized")
+	}
+	if !c.hasConfig() {
+		t.Fatal("Expected client to have config")
+	}
+
+	user := User{UserId: "j_test", DeviceModel: "testing"}
+	variable, err := c.Variable(user, "variableThatShouldBeDefaulted", true)
+
+	if !variable.IsDefaulted {
+		t.Fatal("Expected variable to be defaulted")
+	}
+
 	require.Eventually(t, func() bool {
 		return httpmock.GetCallCountInfo()["POST https://config-updated.devcycle.com/v1/events/batch"] >= 1
 	}, 1*time.Second, 100*time.Millisecond)

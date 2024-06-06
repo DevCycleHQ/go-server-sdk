@@ -52,6 +52,7 @@ func (fp *FlushPayload) AddBatchRecordForUser(record UserEventsBatchRecord, chun
 		for _, chunk := range chunkedEvents {
 			userRecord.Events = append(userRecord.Events, chunk...)
 		}
+		fp.setRecordForUser(record.User.UserId, *userRecord)
 	} else {
 		for _, chunk := range chunkedEvents {
 			fp.Records = append(fp.Records, UserEventsBatchRecord{
@@ -60,7 +61,6 @@ func (fp *FlushPayload) AddBatchRecordForUser(record UserEventsBatchRecord, chun
 			})
 		}
 	}
-
 }
 
 func (fp *FlushPayload) getRecordForUser(userId string) *UserEventsBatchRecord {
@@ -70,6 +70,15 @@ func (fp *FlushPayload) getRecordForUser(userId string) *UserEventsBatchRecord {
 		}
 	}
 	return nil
+}
+
+func (fp *FlushPayload) setRecordForUser(userId string, record UserEventsBatchRecord) {
+	for i, r := range fp.Records {
+		if r.User.UserId == userId {
+			fp.Records[i] = record
+			return
+		}
+	}
 }
 
 type BatchEventsBody struct {

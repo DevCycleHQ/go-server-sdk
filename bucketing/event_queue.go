@@ -384,12 +384,20 @@ func (eq *EventQueue) processEvents(ctx context.Context) {
 			close(eq.userEventQueueRaw)
 			close(eq.aggEventQueueRaw)
 			return
-		case userEvent := <-eq.userEventQueueRaw:
+		case userEvent, ok := <-eq.userEventQueueRaw:
+			// if the channel is closed - ok will be false
+			if !ok {
+				return
+			}
 			err := eq.processUserEvent(userEvent)
 			if err != nil {
 				return
 			}
-		case aggEvent := <-eq.aggEventQueueRaw:
+		case aggEvent, ok := <-eq.aggEventQueueRaw:
+			// if the channel is closed - ok will be false
+			if !ok {
+				return
+			}
 			err := eq.processAggregateEvent(aggEvent)
 			if err != nil {
 				return
