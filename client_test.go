@@ -492,7 +492,7 @@ func TestClient_ConfigUpdatedEvent_VariableEval(t *testing.T) {
 	}
 
 	user := User{UserId: "j_test", DeviceModel: "testing"}
-	variable, err := c.Variable(user, "variableThatShouldBeDefaulted", true)
+	variable, _ := c.Variable(user, "variableThatShouldBeDefaulted", true)
 
 	if !variable.IsDefaulted {
 		t.Fatal("Expected variable to be defaulted")
