@@ -170,6 +170,9 @@ func (e *EnvironmentConfigManager) setConfigFromResponse(response *http.Response
 	util.Infof("Config set. ETag: %s Last-Modified: %s\n", e.localBucketing.GetETag(), e.localBucketing.GetLastModified())
 	if e.eventManager != nil {
 		err = e.eventManager.QueueSDKConfigEvent(*response.Request, *response)
+		if err != nil {
+			util.Warnf("Error queuing SDK config event: %s\n", err)
+		}
 	}
 
 	if e.firstLoad {
