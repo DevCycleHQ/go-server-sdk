@@ -50,7 +50,7 @@ func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
 	httpConfigMock(200)
 
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, test_options, NewConfiguration(test_options))
+	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, nil, test_options, NewConfiguration(test_options))
 
 	err := manager.initialFetch()
 	if err != nil {
@@ -79,7 +79,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
 	)
 
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, test_options, NewConfiguration(test_options))
+	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, nil, test_options, NewConfiguration(test_options))
 
 	err := manager.initialFetch()
 	if err != nil {
@@ -107,7 +107,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
 	)
 
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, test_options, NewConfiguration(test_options))
+	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, nil, test_options, NewConfiguration(test_options))
 
 	err := manager.initialFetch()
 	if err != nil {
@@ -135,7 +135,7 @@ func TestEnvironmentConfigManager_fetchConfig_returns_errors(t *testing.T) {
 	)
 
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, test_options, NewConfiguration(test_options))
+	manager := NewEnvironmentConfigManager(test_environmentKey, localBucketing, nil, test_options, NewConfiguration(test_options))
 
 	err := manager.initialFetch()
 	if err == nil {

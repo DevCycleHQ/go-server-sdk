@@ -17,6 +17,7 @@ const (
 	EventType_AggVariableEvaluated = "aggVariableEvaluated"
 	EventType_VariableDefaulted    = "variableDefaulted"
 	EventType_AggVariableDefaulted = "aggVariableDefaulted"
+	EventType_SDKConfig            = "sdkConfig"
 	EventType_CustomEvent          = "customEvent"
 )
 
@@ -51,6 +52,7 @@ func (fp *FlushPayload) AddBatchRecordForUser(record UserEventsBatchRecord, chun
 		for _, chunk := range chunkedEvents {
 			userRecord.Events = append(userRecord.Events, chunk...)
 		}
+		fp.setRecordForUser(record.User.UserId, *userRecord)
 	} else {
 		for _, chunk := range chunkedEvents {
 			fp.Records = append(fp.Records, UserEventsBatchRecord{
@@ -59,7 +61,6 @@ func (fp *FlushPayload) AddBatchRecordForUser(record UserEventsBatchRecord, chun
 			})
 		}
 	}
-
 }
 
 func (fp *FlushPayload) getRecordForUser(userId string) *UserEventsBatchRecord {
@@ -69,6 +70,15 @@ func (fp *FlushPayload) getRecordForUser(userId string) *UserEventsBatchRecord {
 		}
 	}
 	return nil
+}
+
+func (fp *FlushPayload) setRecordForUser(userId string, record UserEventsBatchRecord) {
+	for i, r := range fp.Records {
+		if r.User.UserId == userId {
+			fp.Records[i] = record
+			return
+		}
+	}
 }
 
 type BatchEventsBody struct {
@@ -103,7 +113,7 @@ func (o *EventQueueOptions) CheckBounds() {
 
 func (o *EventQueueOptions) IsEventLoggingDisabled(eventType string) bool {
 	switch eventType {
-	case EventType_VariableEvaluated, EventType_AggVariableEvaluated, EventType_VariableDefaulted, EventType_AggVariableDefaulted:
+	case EventType_VariableEvaluated, EventType_AggVariableEvaluated, EventType_VariableDefaulted, EventType_AggVariableDefaulted, EventType_SDKConfig:
 		return o.DisableAutomaticEventLogging
 	default:
 		return o.DisableCustomEventLogging
