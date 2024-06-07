@@ -419,7 +419,7 @@ func TestClient_ConfigUpdatedEvent(t *testing.T) {
 		return httpmock.NewStringResponse(201, `{}`), nil
 	}
 	httpmock.RegisterResponder("POST", "https://config-updated.devcycle.com/v1/events/batch", responder)
-	c, err := NewClient(sdkKey, &Options{EventsAPIURI: "https://config-updated.devcycle.com"})
+	c, err := NewClient(sdkKey, &Options{EventsAPIURI: "https://config-updated.devcycle.com", EventFlushIntervalMS: 500 * time.Millisecond})
 	fatalErr(t, err)
 	if !c.isInitialized {
 		t.Fatal("Expected client to be initialized")
