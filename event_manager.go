@@ -24,7 +24,6 @@ type InternalEventQueue interface {
 	UserQueueLength() (int, error)
 	GetUUID() string
 	Metrics() (int32, int32, int32)
-	GetUUID() string
 }
 
 // EventManager is responsible for flushing the event queue and reporting events to the server.
@@ -112,30 +111,6 @@ func (e *EventManager) QueueEvent(user User, event Event) error {
 		return fmt.Errorf("event queue is full, dropping event: %+v", event)
 	}
 	return err
-}
-
-func (e *EventManager) QueueSDKConfigEvent(req http.Request, resp http.Response) error {
-	uuid := e.GetUUID()
-	user := api.User{UserId: uuid}
-
-	event := api.Event{
-		Type_:  api.EventType_SDKConfig,
-		UserId: uuid,
-		Target: req.RequestURI,
-		Value:  -1,
-		MetaData: map[string]interface{}{
-			"clientUUID":      uuid,
-			"reqEtag":         req.Header.Get("If-None-Match"),
-			"reqLastModified": req.Header.Get("If-Modified-Since"),
-			"resEtag":         resp.Header.Get("Etag"),
-			"resLastModified": resp.Header.Get("Last-Modified"),
-			"resRayId":        resp.Header.Get("Cf-Ray"),
-			"resStatus":       resp.StatusCode,
-			"errMsg":          resp.Status,
-		},
-	}
-	// We don't actually care about this failing or succeeding. It's best effort to send the event.
-	return e.QueueEvent(user, event)
 }
 
 func (e *EventManager) QueueVariableDefaultedEvent(variableKey string, defaultReason string) error {
