@@ -233,6 +233,11 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 		}
 		return err
 	}
+
+	if lmHeader, parseError := time.Parse(time.RFC1123, resp.Header.Get("Last-Modified")); parseError == nil && len(minimumLastModified) > 0 && lmHeader.Before(minimumLastModified[0]) {
+		return e.fetchConfig(numRetriesRemaining-1, minimumLastModified[0])
+	}
+
 	defer resp.Body.Close()
 
 	switch statusCode := resp.StatusCode; {
