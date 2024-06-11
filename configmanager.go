@@ -237,7 +237,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 	if lastModifiedHeader != "" {
 		lastModifiedHeaderTS, parseError := time.Parse(time.RFC1123, lastModifiedHeader)
 		if parseError == nil {
-			if len(minimumLastModified) > 0 && lastModifiedHeaderTS.Before(minimumLastModified[0]) {
+			if len(minimumLastModified) > 0 && lastModifiedHeaderTS.Before(minimumLastModified[0]) && numRetriesRemaining > 0 {
 				return e.fetchConfig(numRetriesRemaining-1, minimumLastModified...)
 			}
 		}
