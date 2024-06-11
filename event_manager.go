@@ -34,6 +34,7 @@ type EventManager struct {
 	sdkKey        string
 	options       *Options
 	cfg           *HTTPConfiguration
+	httpClient    *http.Client
 	closed        bool
 	flushStop     chan bool
 	forceFlush    chan bool
@@ -47,15 +48,15 @@ type FlushResult struct {
 
 func NewEventManager(options *Options, localBucketing InternalEventQueue, cfg *HTTPConfiguration, sdkKey string) (eventQueue *EventManager, err error) {
 	e := &EventManager{
-		flushMutex: &sync.Mutex{},
+		flushMutex:    &sync.Mutex{},
+		options:       options,
+		internalQueue: localBucketing,
+		cfg:           cfg,
+		sdkKey:        sdkKey,
+		flushStop:     make(chan bool, 1),
+		forceFlush:    make(chan bool, 1),
+		httpClient:    cfg.HTTPClient,
 	}
-	e.options = options
-	e.internalQueue = localBucketing
-	e.cfg = cfg
-	e.sdkKey = sdkKey
-
-	e.flushStop = make(chan bool, 1)
-	e.forceFlush = make(chan bool, 1)
 
 	// Disable automatic flushing of events if all sources of events are disabled
 	// DisableAutomaticEventLogging is passed into the WASM to disable events
@@ -196,7 +197,7 @@ func (e *EventManager) flushEventPayload(
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err = e.cfg.HTTPClient.Do(req)
+	resp, err = e.httpClient.Do(req)
 
 	if err != nil {
 		util.Errorf("Failed to make request to events api: %s", err)

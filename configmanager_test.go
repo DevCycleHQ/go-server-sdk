@@ -2,10 +2,12 @@ package devcycle
 
 import (
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/jarcoal/httpmock"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
-
-	"github.com/jarcoal/httpmock"
+	"time"
 )
 
 type recordingConfigReceiver struct {
@@ -13,13 +15,15 @@ type recordingConfigReceiver struct {
 	etag           string
 	rayId          string
 	lastModified   string
+	config         []byte
 }
 
-func (r *recordingConfigReceiver) StoreConfig(_ []byte, etag, rayId, lastModified string) error {
+func (r *recordingConfigReceiver) StoreConfig(c []byte, etag, rayId, lastModified string) error {
 	r.configureCount++
 	r.etag = etag
 	r.rayId = rayId
 	r.lastModified = lastModified
+	r.config = c
 	return nil
 }
 
@@ -36,7 +40,7 @@ func (r *recordingConfigReceiver) GetRayId() string {
 }
 
 func (r *recordingConfigReceiver) GetRawConfig() []byte {
-	return nil
+	return r.config
 }
 
 func (r *recordingConfigReceiver) GetLastModified() string {
@@ -44,11 +48,14 @@ func (r *recordingConfigReceiver) GetLastModified() string {
 }
 
 func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
+
 	sdkKey, _ := httpConfigMock(200)
-
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, test_options, NewConfiguration(test_options))
+	testOptionsWithHandler := *test_options
 
+	testOptionsWithHandler.ClientEventHandler = make(chan api.ClientEvent, 10)
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, &testOptionsWithHandler, NewConfiguration(&testOptionsWithHandler))
+	defer manager.Close()
 	err := manager.initialFetch()
 	if err != nil {
 		t.Fatal(err)
@@ -63,6 +70,40 @@ func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
 	if manager.GetETag() != "TESTING" {
 		t.Fatal("cm.configEtag != TESTING")
 	}
+	event1 := <-testOptionsWithHandler.ClientEventHandler
+	if event1.Status != "success" {
+		fmt.Println(event1)
+		t.Fatal("event1.Status != success")
+	}
+}
+
+func TestEnvironmentConfigManager_fetchConfig_success_sse(t *testing.T) {
+
+	sdkKey, _ := httpSSEConfigMock(200)
+	httpSSEConnectionMock()
+
+	localBucketing := &recordingConfigReceiver{}
+
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, test_options_sse, NewConfiguration(test_options_sse))
+	defer manager.Close()
+	err := manager.initialFetch()
+	fatalErr(t, err)
+	if localBucketing.configureCount != 1 {
+		t.Fatal("localBucketing.configureCount != 1")
+	}
+	if !manager.HasConfig() {
+		t.Fatal("cm.hasConfig != true")
+	}
+	if manager.GetETag() != "TESTING" {
+		t.Fatal("cm.configEtag != TESTING")
+	}
+	if manager.sseManager == nil {
+		t.Fatal("cm.sseManager == nil")
+	}
+	require.Eventually(t, func() bool {
+		return manager.sseManager.Connected.Load()
+	}, 3*time.Second, 10*time.Millisecond)
+
 }
 
 func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
@@ -75,12 +116,10 @@ func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
 	)
 
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, test_options, NewConfiguration(test_options))
-
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, test_options, NewConfiguration(test_options))
+	defer manager.Close()
 	err := manager.initialFetch()
-	if err != nil {
-		t.Fatal(err)
-	}
+	fatalErr(t, err)
 	if !manager.HasConfig() {
 		t.Fatal("cm.hasConfig != true")
 	}
@@ -90,19 +129,20 @@ func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
 	if manager.GetLastModified() != "LAST-MODIFIED" {
 		t.Fatal("cm.lastModified != LAST-MODIFIED")
 	}
+
 }
 
 func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
-	sdkKey := generateTestSDKKey()
-	connectionErrorResponse := httpmock.NewErrorResponder(fmt.Errorf("connection error"))
 
+	connectionErrorResponse := httpmock.NewErrorResponder(fmt.Errorf("connection error"))
+	sdkKey := generateTestSDKKey()
 	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
 		errorResponseChain(sdkKey, connectionErrorResponse, CONFIG_RETRIES),
 	)
 
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, test_options, NewConfiguration(test_options))
-
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, test_options, NewConfiguration(test_options))
+	defer manager.Close()
 	err := manager.initialFetch()
 	if err != nil {
 		t.Fatal(err)
@@ -118,9 +158,29 @@ func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
 	}
 }
 
-func TestEnvironmentConfigManager_fetchConfig_returns_errors(t *testing.T) {
+func TestEnvironmentConfigManager_fetchConfig_retries_errors_sse(t *testing.T) {
 	sdkKey := generateTestSDKKey()
+	httpSSEConnectionMock()
 
+	connectionErrorResponse := httpmock.NewErrorResponder(fmt.Errorf("connection error"))
+	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
+		errorResponseChain(sdkKey, connectionErrorResponse, CONFIG_RETRIES, httpSSEConfigMock),
+	)
+
+	localBucketing := &recordingConfigReceiver{}
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, test_options_sse, NewConfiguration(test_options_sse))
+	defer manager.Close()
+	err := manager.initialFetch()
+	fatalErr(t, err)
+
+	if !manager.HasConfig() {
+		t.Fatal("cm.hasConfig != true")
+	}
+}
+
+func TestEnvironmentConfigManager_fetchConfig_returns_errors(t *testing.T) {
+
+	sdkKey := generateTestSDKKey()
 	connectionErrorResponse := httpmock.NewErrorResponder(fmt.Errorf("connection error"))
 
 	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
@@ -128,12 +188,38 @@ func TestEnvironmentConfigManager_fetchConfig_returns_errors(t *testing.T) {
 	)
 
 	localBucketing := &recordingConfigReceiver{}
-	manager := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, test_options, NewConfiguration(test_options))
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, test_options, NewConfiguration(test_options))
+	defer manager.Close()
+	err := manager.initialFetch()
+	if err == nil {
+		t.Fatal("expected error but got nil")
+	}
+}
+
+func TestEnvironmentConfigManager_fetchConfig_returns_errors_sse(t *testing.T) {
+
+	connectionErrorResponse := httpmock.NewErrorResponder(fmt.Errorf("connection error"))
+	sdkKey := generateTestSDKKey()
+	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
+		errorResponseChain(sdkKey, connectionErrorResponse, CONFIG_RETRIES+1),
+	)
+
+	localBucketing := &recordingConfigReceiver{}
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, test_options_sse, NewConfiguration(test_options_sse))
+	defer manager.Close()
 
 	err := manager.initialFetch()
 	if err == nil {
 		t.Fatal("expected error but got nil")
 	}
+
+	if manager.HasConfig() {
+		t.Fatal("manager.hasConfig == true")
+	}
+	if manager.sseManager.Started {
+		t.Fatal("manager.sseManager.Started == true")
+	}
+
 }
 
 func errorResponseChain(sdkKey string, errorResponse httpmock.Responder, count int, configMock ...func(respcode int, sdkKeys ...string) (string, httpmock.Responder)) httpmock.Responder {

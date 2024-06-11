@@ -21,13 +21,9 @@ func main() {
 
 	user := devcycle.User{UserId: "test"}
 	dvcOptions := devcycle.Options{
-		EnableEdgeDB:                 false,
-		EnableCloudBucketing:         false,
-		EventFlushIntervalMS:         0,
-		ConfigPollingIntervalMS:      10 * time.Second,
-		RequestTimeout:               10 * time.Second,
-		DisableAutomaticEventLogging: false,
-		DisableCustomEventLogging:    false,
+		EventFlushIntervalMS:    0,
+		ConfigPollingIntervalMS: 10 * time.Second,
+		RequestTimeout:          10 * time.Second,
 	}
 
 	client, err := devcycle.NewClient(sdkKey, &dvcOptions)

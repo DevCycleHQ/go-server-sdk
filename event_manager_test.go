@@ -25,6 +25,7 @@ func TestEventManager_QueueEvent(t *testing.T) {
 }
 
 func TestEventManager_QueueEvent_100_DropEvent(t *testing.T) {
+
 	sdkKey, _ := httpConfigMock(200)
 
 	c, err := NewClient(sdkKey, &Options{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
