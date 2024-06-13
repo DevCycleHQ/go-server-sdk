@@ -130,7 +130,7 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 
 				if url, ok := eventData["sseUrl"]; ok && e.options.EnableBetaRealtimeUpdates && e.sseManager != nil {
 					// Reconnect SSE
-					if e.sseManager.url != url || !e.sseManager.Connected.Load() {
+					if url != "" && (e.sseManager.url != url || !e.sseManager.Connected.Load()) {
 						err := e.StartSSE(url)
 						if err != nil {
 							e.InternalClientEvents <- api.ClientEvent{
@@ -200,6 +200,7 @@ func (e *EnvironmentConfigManager) initialFetch() error {
 }
 
 func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumLastModified ...time.Time) (err error) {
+	util.Debugf("Fetching config. Retries remaining: %d\n", numRetriesRemaining)
 	defer func() {
 		if r := recover(); r != nil {
 			// get the stack trace and potentially log it here
@@ -349,7 +350,7 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 	}
 	if e.minimalConfig != nil && e.minimalConfig.SSE != nil {
 		sseUrl := fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path)
-		if e.sseManager != nil && e.sseManager.url != sseUrl {
+		if e.sseManager != nil {
 			configUpdatedEvent.EventData.(map[string]string)["sseUrl"] = sseUrl
 		}
 	}
