@@ -21,9 +21,9 @@ func main() {
 
 	user := devcycle.User{UserId: "test"}
 	dvcOptions := devcycle.Options{
-		EventFlushIntervalMS:    0,
-		ConfigPollingIntervalMS: 10 * time.Second,
-		RequestTimeout:          10 * time.Second,
+		EventFlushIntervalMS:      1 * time.Minute,
+		ConfigPollingIntervalMS:   1 * time.Second,
+		EnableBetaRealtimeUpdates: os.Getenv("DEVCYCLE_REALTIME_UPDATES") == "true",
 	}
 
 	client, err := devcycle.NewClient(sdkKey, &dvcOptions)
@@ -31,7 +31,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error initializing client: %v", err)
 	}
-	fmt.Println(client.GetRawConfig())
+	//fmt.Println(client.GetRawConfig())
 	log.Printf("client initialized")
 
 	features, _ := client.AllFeatures(user)
@@ -82,8 +82,16 @@ func main() {
 		log.Fatalf("Error flushing events: %v", err)
 	}
 
-	time.Sleep(2 * time.Second)
+	prevAllVariable, _ := client.AllVariables(user)
+	for {
+		currentVariables, _ := client.AllVariables(user)
+		if len(currentVariables) != len(prevAllVariable) {
+			fmt.Println("HEY - NEW VARIABLES! - HERE THEY ARE!")
+			fmt.Println(currentVariables)
+			prevAllVariable = currentVariables
+		}
+		time.Sleep(2 * time.Second)
+	}
 
 	client.Close()
-
 }
