@@ -251,6 +251,20 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 		resp.Request = req
 		return e.setConfigFromResponse(resp)
 	case statusCode == http.StatusNotModified:
+		if e.sseManager != nil && !e.sseManager.Connected.Load() && e.minimalConfig != nil && e.minimalConfig.SSE != nil {
+			configUpdatedEvent := api.ClientEvent{
+				EventType: api.ClientEventType_ConfigUpdated,
+				EventData: map[string]string{
+					"rayId":        resp.Header.Get("Cf-Ray"),
+					"eTag":         resp.Header.Get("Etag"),
+					"lastModified": lastModified,
+					"sseUrl":       fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path),
+				},
+				Status: "success",
+				Error:  nil,
+			}
+			e.InternalClientEvents <- configUpdatedEvent
+		}
 		return nil
 	case statusCode == http.StatusForbidden:
 		e.StopPolling()
