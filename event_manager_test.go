@@ -14,7 +14,7 @@ import (
 func TestEventManager_QueueEvent(t *testing.T) {
 	sdkKey, _ := httpConfigMock(200)
 	c, err := NewClient(sdkKey, &Options{})
-	fatalErr(t, err)
+	require.NoError(t, err)
 	defer c.Close()
 
 	_, err = c.Track(User{UserId: "j_test", DeviceModel: "testing"},
@@ -29,7 +29,7 @@ func TestEventManager_QueueEvent_100_DropEvent(t *testing.T) {
 	sdkKey, _ := httpConfigMock(200)
 
 	c, err := NewClient(sdkKey, &Options{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
-	fatalErr(t, err)
+	require.NoError(t, err)
 	defer c.Close()
 
 	errored := false
@@ -56,7 +56,7 @@ func TestEventManager_QueueEvent_100_Flush(t *testing.T) {
 		ConfigPollingIntervalMS: time.Second,
 		EventFlushIntervalMS:    time.Second,
 	})
-	fatalErr(t, err)
+	require.NoError(t, err)
 	defer c.Close()
 	require.Eventually(t, func() bool {
 		return c.isInitialized && c.hasConfig()

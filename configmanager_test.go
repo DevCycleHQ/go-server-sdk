@@ -167,7 +167,7 @@ func TestEnvironmentConfigManager_fetchConfig_success_sse(t *testing.T) {
 	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, test_options_sse, NewConfiguration(test_options_sse))
 	defer manager.Close()
 	err := manager.initialFetch()
-	fatalErr(t, err)
+	require.NoError(t, err)
 	if localBucketing.configureCount != 1 {
 		t.Fatal("localBucketing.configureCount != 1")
 	}
@@ -309,7 +309,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries_errors_sse(t *testing.T) {
 	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, test_options_sse, NewConfiguration(test_options_sse))
 	defer manager.Close()
 	err := manager.initialFetch()
-	fatalErr(t, err)
+	require.NoError(t, err)
 
 	if !manager.HasConfig() {
 		t.Fatal("cm.hasConfig != true")

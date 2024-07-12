@@ -151,10 +151,3 @@ func httpSSEConnectionMock() {
 func generateTestSDKKey() string {
 	return "dvc_server_TESTING" + strconv.FormatInt(rand.Int63(), 10) + "_hash"
 }
-
-func fatalErr(t *testing.T, err error) {
-	t.Helper()
-	if err != nil {
-		t.Fatal(err)
-	}
-}
