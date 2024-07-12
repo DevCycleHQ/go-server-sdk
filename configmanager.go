@@ -200,6 +200,9 @@ func (e *EnvironmentConfigManager) initialFetch() error {
 }
 
 func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumLastModified ...time.Time) (err error) {
+	if numRetriesRemaining < 0 {
+		return fmt.Errorf("retries exhausted")
+	}
 	util.Debugf("Fetching config. Retries remaining: %d\n", numRetriesRemaining)
 	defer func() {
 		if r := recover(); r != nil {
