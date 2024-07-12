@@ -215,7 +215,11 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 
 	etag := e.localBucketing.GetETag()
 	lastModified := e.localBucketing.GetLastModified()
-	if len(minimumLastModified) > 0 {
+	parsedLM, err := time.Parse(time.RFC1123, lastModified)
+	if err != nil {
+		util.Warnf("Error parsing last modified time: %s\n", err)
+	}
+	if len(minimumLastModified) > 0 && parsedLM.Before(minimumLastModified[0]) {
 		lastModified = minimumLastModified[0].Format(time.RFC1123)
 	}
 	if etag != "" {
@@ -236,9 +240,12 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 	}
 	lastModifiedHeader := resp.Header.Get("Last-Modified")
 	if lastModifiedHeader != "" {
-		lastModifiedHeaderTS, parseError := time.Parse(time.RFC1123, lastModifiedHeader)
+		responseLastModified, parseError := time.Parse(time.RFC1123, lastModifiedHeader)
 		if parseError == nil {
-			if len(minimumLastModified) > 0 && lastModifiedHeaderTS.Before(minimumLastModified[0]) && numRetriesRemaining > 0 {
+			if storedLM, parseErr := time.Parse(time.RFC1123, e.localBucketing.GetLastModified()); parseErr == nil && storedLM.After(responseLastModified) {
+				return e.fetchConfig(numRetriesRemaining - 1)
+			}
+			if len(minimumLastModified) > 0 && responseLastModified.Before(minimumLastModified[0]) && numRetriesRemaining > 0 {
 				return e.fetchConfig(numRetriesRemaining-1, minimumLastModified...)
 			}
 		}

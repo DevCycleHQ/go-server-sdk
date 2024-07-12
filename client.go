@@ -427,7 +427,9 @@ func (c *Client) Track(user User, event Event) (bool, error) {
 	if event.Type_ == "" {
 		return false, errors.New("event type is required")
 	}
-
+	if event.ClientDate.IsZero() || event.ClientDate.Before(time.UnixMilli(0)) {
+		event.ClientDate = time.Now()
+	}
 	if c.IsLocalBucketing() {
 		if c.hasConfig() {
 			err := c.eventQueue.QueueEvent(user, event)
