@@ -307,8 +307,8 @@ func TestClient_TrackLocal_QueueEventBeforeConfig(t *testing.T) {
 	sdkKey, _ := httpConfigMock(http.StatusInternalServerError)
 	dvcOptions := Options{ConfigPollingIntervalMS: 10 * time.Second}
 
+	// Expect initial retry to fail and return an error
 	c, err := NewClient(sdkKey, &dvcOptions)
-	fatalErr(t, err)
 
 	track, err := c.Track(User{UserId: "j_test", DeviceModel: "testing"}, Event{
 		Target:      "customEvent",

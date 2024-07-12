@@ -5,7 +5,6 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/require"
-	"net/http"
 	"sync"
 	"testing"
 	"time"
@@ -190,7 +189,7 @@ func TestEnvironmentConfigManager_fetchConfig_success_sse(t *testing.T) {
 func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
 	sdkKey := generateTestSDKKey()
 
-	error500Response := httpmock.NewStringResponder(http.StatusInternalServerError, "Internal Server Error")
+	error500Response := httpCustomConfigMock(sdkKey, 500, "Connection error", true)
 
 	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
 		errorResponseChain(sdkKey, error500Response, CONFIG_RETRIES),
@@ -200,15 +199,15 @@ func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
 	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, test_options, NewConfiguration(test_options))
 	defer manager.Close()
 	err := manager.initialFetch()
-	fatalErr(t, err)
+	require.NoError(t, err)
 	if !manager.HasConfig() {
 		t.Fatal("cm.hasConfig != true")
 	}
 	if manager.GetETag() != "TESTING" {
 		t.Fatal("cm.configEtag != TESTING")
 	}
-	if manager.GetLastModified() != "LAST-MODIFIED" {
-		t.Fatal("cm.lastModified != LAST-MODIFIED")
+	if _, err = time.Parse(time.RFC1123, manager.GetLastModified()); err != nil {
+		t.Fatal("cm.lastModified was not validly parsed")
 	}
 }
 
@@ -274,9 +273,8 @@ func TestEnvironmentConfigManager_fetchConfig_retries_until_abort(t *testing.T) 
 }
 
 func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
-
-	connectionErrorResponse := httpmock.NewErrorResponder(fmt.Errorf("connection error"))
 	sdkKey := generateTestSDKKey()
+	connectionErrorResponse := httpCustomConfigMock(sdkKey, 500, "Connection error", true)
 	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
 		errorResponseChain(sdkKey, connectionErrorResponse, CONFIG_RETRIES),
 	)
@@ -284,18 +282,17 @@ func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
 	localBucketing := &recordingConfigReceiver{}
 	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, test_options, NewConfiguration(test_options))
 	defer manager.Close()
+
 	err := manager.initialFetch()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if !manager.HasConfig() {
 		t.Fatal("cm.hasConfig != true")
 	}
 	if manager.GetETag() != "TESTING" {
 		t.Fatal("cm.configEtag != TESTING")
 	}
-	if manager.GetLastModified() != "LAST-MODIFIED" {
-		t.Fatal("cm.lastModified != LAST-MODIFIED")
+	if _, err = time.Parse(time.RFC1123, manager.GetLastModified()); err != nil {
+		t.Fatal("cm.lastModified was not validly parsed")
 	}
 }
 
@@ -372,7 +369,7 @@ func errorResponseChain(sdkKey string, errorResponse httpmock.Responder, count i
 		successResponse = httpCustomConfigMock(sdkKey, 200, test_config, true)
 	}
 	response := errorResponse
-	for i := 0; i < count; i++ {
+	for i := 1; i < count; i++ {
 		response = response.Then(errorResponse)
 	}
 	response = response.Then(successResponse)

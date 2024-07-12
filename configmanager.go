@@ -226,7 +226,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 	lastModified := e.localBucketing.GetLastModified()
 	storedLM, err := time.Parse(time.RFC1123, lastModified)
 	if err != nil {
-		util.Warnf("Error parsing last modified time: %s\n", err)
+		util.Warnf("Error parsing stored last modified time: %s\n", err)
 	}
 	if len(minimumLastModified) > 0 && storedLM.Before(minimumLastModified[0]) {
 		lastModified = minimumLastModified[0].Format(time.RFC1123)
@@ -247,23 +247,23 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 		}
 		return err
 	}
-	lastModifiedHeader := resp.Header.Get("Last-Modified")
-	if lastModifiedHeader != "" {
-		responseLastModified, parseError := time.Parse(time.RFC1123, lastModifiedHeader)
-		if parseError == nil {
-			if storedLM.After(responseLastModified) {
-				return e.fetchConfig(numRetriesRemaining - 1)
-			}
-			if len(minimumLastModified) > 0 && responseLastModified.Before(minimumLastModified[0]) && numRetriesRemaining > 0 {
-				return e.fetchConfig(numRetriesRemaining-1, minimumLastModified...)
-			}
-		}
-	}
 
 	defer resp.Body.Close()
 
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
+		lastModifiedHeader := resp.Header.Get("Last-Modified")
+		if lastModifiedHeader != "" {
+			responseLastModified, parseError := time.Parse(time.RFC1123, lastModifiedHeader)
+			if parseError == nil {
+				if storedLM.After(responseLastModified) {
+					return e.fetchConfig(numRetriesRemaining - 1)
+				}
+				if len(minimumLastModified) > 0 && responseLastModified.Before(minimumLastModified[0]) {
+					return e.fetchConfig(numRetriesRemaining-1, minimumLastModified...)
+				}
+			}
+		}
 		resp.Request = req
 		return e.setConfigFromResponse(resp)
 	case statusCode == http.StatusNotModified:
@@ -287,6 +287,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 		return fmt.Errorf("invalid SDK key. Aborting config polling")
 	case statusCode >= 500:
 		// Retryable Errors. Continue polling.
+		// Infinitely retry 500s
 		util.Warnf("Config fetch failed. Status:" + resp.Status)
 	default:
 		err = fmt.Errorf("Unexpected response code: %d\n"+
