@@ -94,7 +94,6 @@ func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
 }
 
 func TestEnvironmentConfigManager_fetchConfig_refuseOld(t *testing.T) {
-
 	sdkKey := generateTestSDKKey()
 	initialHeaders := map[string]string{
 		"Etag":          "INITIAL-ETAG",
@@ -213,6 +212,67 @@ func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
 	}
 }
 
+func TestEnvironmentConfigManager_fetchConfig_retries_until_abort(t *testing.T) {
+	sdkKey := generateTestSDKKey()
+	initialHeaders := map[string]string{
+		"Etag":          "INITIAL-ETAG",
+		"Last-Modified": time.Now().Add(-time.Hour).Format(time.RFC1123),
+		"Cf-Ray":        "INITIAL-CF-RAY",
+	}
+	olderHeaders := map[string]string{
+		"Etag":          "OLDER-ETAG",
+		"Last-Modified": time.Now().Add(-time.Hour * 2).Format(time.RFC1123),
+		"Cf-Ray":        "OLDER-CF-RAY",
+	}
+	firstResponse := httpCustomConfigMock(sdkKey, 200, test_config, true, initialHeaders)
+	secondResponse := httpCustomConfigMock(sdkKey, 200, test_config, true, olderHeaders)
+
+	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
+		firstResponse.Then(secondResponse).Then(secondResponse).Then(secondResponse),
+	)
+	localBucketing := &recordingConfigReceiver{}
+	testOptionsWithHandler := *test_options
+	testOptionsWithHandler.ConfigPollingIntervalMS = time.Second * 1
+	testOptionsWithHandler.ClientEventHandler = make(chan api.ClientEvent, 10)
+	manager, _ := NewEnvironmentConfigManager(sdkKey, localBucketing, nil, &testOptionsWithHandler, NewConfiguration(&testOptionsWithHandler))
+	defer manager.Close()
+	err := manager.initialFetch()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if localBucketing.configureCount != 1 {
+		t.Fatal("localBucketing.configureCount != 1")
+	}
+	if !manager.HasConfig() {
+		t.Fatal("cm.hasConfig != true")
+	}
+	if manager.GetETag() != "INITIAL-ETAG" {
+		t.Fatal("cm.configEtag != INITIAL-ETAG")
+	}
+	if manager.GetLastModified() != initialHeaders["Last-Modified"] {
+		t.Fatal("cm.lastModified != " + initialHeaders["Last-Modified"])
+	}
+	event1 := <-testOptionsWithHandler.ClientEventHandler
+	if event1.Status != "success" {
+		fmt.Println(event1)
+		t.Fatal("event1.Status != success")
+	}
+
+	// Config fetch will abort and return an error before the third retry.
+	require.Never(t, func() bool {
+		if manager.GetETag() == "OLDER-ETAG" || manager.GetLastModified() == olderHeaders["Last-Modified"] {
+			return true
+		}
+		return false
+	}, 2*time.Second, 1*time.Second)
+	require.Eventually(t, func() bool {
+		event := <-manager.InternalClientEvents
+		fmt.Println(event)
+		return event.EventType == api.ClientEventType_Error
+	}, 3*time.Second, 500*time.Millisecond)
+}
+
 func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
 
 	connectionErrorResponse := httpmock.NewErrorResponder(fmt.Errorf("connection error"))
@@ -312,7 +372,7 @@ func errorResponseChain(sdkKey string, errorResponse httpmock.Responder, count i
 		successResponse = httpCustomConfigMock(sdkKey, 200, test_config, true)
 	}
 	response := errorResponse
-	for i := 1; i < count; i++ {
+	for i := 0; i < count; i++ {
 		response = response.Then(errorResponse)
 	}
 	response = response.Then(successResponse)

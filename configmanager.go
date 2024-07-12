@@ -187,6 +187,12 @@ func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) {
 			case <-e.pollingManager.ticker.C:
 				err := e.fetchConfig(CONFIG_RETRIES)
 				if err != nil {
+					e.InternalClientEvents <- api.ClientEvent{
+						EventType: api.ClientEventType_Error,
+						EventData: "Error fetching config: " + err.Error(),
+						Status:    "error",
+						Error:     err,
+					}
 					util.Warnf("Error fetching config: %s\n", err)
 				}
 			}
