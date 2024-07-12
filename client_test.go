@@ -43,7 +43,7 @@ func TestClient_AllVariablesLocal(t *testing.T) {
 
 func TestClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
 	sdkKey := generateTestSDKKey()
-	httpCustomConfigMock(sdkKey, 200, test_config_special_characters_var)
+	httpCustomConfigMock(sdkKey, 200, test_config_special_characters_var, false)
 	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
 
@@ -93,7 +93,7 @@ func TestClient_VariableCloud(t *testing.T) {
 func TestClient_VariableLocalNumber(t *testing.T) {
 
 	sdkKey := generateTestSDKKey()
-	httpCustomConfigMock(sdkKey, 200, test_large_config)
+	httpCustomConfigMock(sdkKey, 200, test_large_config, false)
 
 	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
@@ -123,7 +123,7 @@ func TestClient_VariableLocalNumber(t *testing.T) {
 
 func TestClient_VariableLocalNumberWithNilDefault(t *testing.T) {
 	sdkKey := generateTestSDKKey()
-	httpCustomConfigMock(sdkKey, 200, test_large_config)
+	httpCustomConfigMock(sdkKey, 200, test_large_config, false)
 
 	c, err := NewClient(sdkKey, &Options{})
 	fatalErr(t, err)
@@ -152,7 +152,7 @@ func TestClient_VariableLocalNumberWithNilDefault(t *testing.T) {
 
 func TestClient_VariableEventIsQueued(t *testing.T) {
 	sdkKey := generateTestSDKKey()
-	httpCustomConfigMock(sdkKey, 200, test_large_config)
+	httpCustomConfigMock(sdkKey, 200, test_large_config, false)
 	httpEventsApiMock()
 
 	c, err := NewClient(sdkKey, &Options{})
@@ -487,7 +487,7 @@ func BenchmarkClient_VariableSerial(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})
 
 	sdkKey := generateTestSDKKey()
-	httpCustomConfigMock(sdkKey, 200, test_large_config)
+	httpCustomConfigMock(sdkKey, 200, test_large_config, false)
 
 	if benchmarkDisableLogs {
 		log.SetOutput(io.Discard)
@@ -532,7 +532,7 @@ func BenchmarkClient_VariableParallel(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})
 
 	sdkKey := generateTestSDKKey()
-	httpCustomConfigMock(sdkKey, 200, test_large_config)
+	httpCustomConfigMock(sdkKey, 200, test_large_config, false)
 
 	if benchmarkDisableLogs {
 		log.SetOutput(io.Discard)
