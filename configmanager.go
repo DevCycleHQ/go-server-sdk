@@ -225,7 +225,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 	if lastModified != "" {
 		req.Header.Set("If-Modified-Since", lastModified)
 	}
-	if etag != "" && e.options.EnableETagMatching {
+	if etag != "" && !e.options.DisableETagMatching {
 		req.Header.Set("If-None-Match", etag)
 	}
 

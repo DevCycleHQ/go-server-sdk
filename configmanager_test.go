@@ -140,7 +140,7 @@ func TestEnvironmentConfigManager_fetchConfig_refuseOld(t *testing.T) {
 			return true
 		}
 		return false
-	}, 3*time.Second, 500*time.Millisecond)
+	}, 2*time.Second, 500*time.Millisecond)
 
 	require.Eventually(t, func() bool {
 		return manager.GetLastModified() == newestHeaders["Last-Modified"]
