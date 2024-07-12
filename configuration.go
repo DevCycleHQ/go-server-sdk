@@ -26,6 +26,7 @@ type Options struct {
 	RequestTimeout               time.Duration `json:"requestTimeout,omitempty"`
 	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging,omitempty"`
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging,omitempty"`
+	DisableETagMatching          bool          `json:"disableETagMatching,omitempty"`
 	EnableBetaRealtimeUpdates    bool          `json:"enableRealtimeUpdates,omitempty"`
 	MaxEventQueueSize            int           `json:"maxEventsPerFlush,omitempty"`
 	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`

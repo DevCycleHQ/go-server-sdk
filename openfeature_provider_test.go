@@ -144,7 +144,7 @@ func getProviderForConfig(t *testing.T, cloudBucketing bool) openfeature.Feature
 func getProviderForCustomConfig(t *testing.T, config string, cloudBucketing bool) openfeature.FeatureProvider {
 	t.Helper()
 	sdkKey := generateTestSDKKey()
-	httpCustomConfigMock(sdkKey, 200, config)
+	httpCustomConfigMock(sdkKey, 200, config, false)
 
 	client, err := NewClient(sdkKey, &Options{
 		EnableCloudBucketing: cloudBucketing,

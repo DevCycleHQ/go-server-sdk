@@ -74,7 +74,7 @@ func httpBucketingAPIMock() {
 
 			resp := httpmock.NewStringResponse(200, `{"value": true, "_id": "614ef6ea475129459160721a", "key": "test", "type": "Boolean"}`)
 			resp.Header.Set("Etag", "TESTING")
-			resp.Header.Set("Last-Modified", "LAST-MODIFIED")
+			resp.Header.Set("Last-Modified", time.Now().Add(-time.Second*2).Format(time.RFC1123Z))
 			return resp, nil
 		},
 	)
@@ -87,19 +87,28 @@ func httpEventsApiMock() {
 
 func httpConfigMock(respcode int) (sdkKey string, responder httpmock.Responder) {
 	sdkKey = generateTestSDKKey()
-	responder = httpCustomConfigMock(sdkKey, respcode, test_config)
+	responder = httpCustomConfigMock(sdkKey, respcode, test_config, false)
 	return
 }
 
-func httpCustomConfigMock(sdkKey string, respcode int, config string) httpmock.Responder {
+func httpCustomConfigMock(sdkKey string, respcode int, config string, skipRegister bool, headers ...map[string]string) httpmock.Responder {
 	responder := func(req *http.Request) (*http.Response, error) {
 		resp := httpmock.NewStringResponse(respcode, config)
-		resp.Header.Set("Etag", "TESTING")
-		resp.Header.Set("Last-Modified", "LAST-MODIFIED")
-		resp.Header.Set("Cf-Ray", "TESTING")
+		if len(headers) > 0 {
+			for k, v := range headers[0] {
+				resp.Header.Set(k, v)
+			}
+		} else {
+			resp.Header.Set("Etag", "TESTING")
+			resp.Header.Set("Last-Modified", time.Now().Add(-time.Second*2).Format(time.RFC1123))
+			resp.Header.Set("Cf-Ray", "TESTING")
+		}
+
 		return resp, nil
 	}
-	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json", responder)
+	if !skipRegister {
+		httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json", responder)
+	}
 	return responder
 }
 
@@ -109,7 +118,7 @@ func httpSSEConfigMock(respCode int, sdkKeys ...string) (sdkKey string, responde
 	} else {
 		sdkKey = sdkKeys[0]
 	}
-	responder = httpCustomConfigMock(sdkKey, respCode, test_small_config_sse)
+	responder = httpCustomConfigMock(sdkKey, respCode, test_small_config_sse, false)
 	return
 }
 
@@ -141,11 +150,4 @@ func httpSSEConnectionMock() {
 
 func generateTestSDKKey() string {
 	return "dvc_server_TESTING" + strconv.FormatInt(rand.Int63(), 10) + "_hash"
-}
-
-func fatalErr(t *testing.T, err error) {
-	t.Helper()
-	if err != nil {
-		t.Fatal(err)
-	}
 }

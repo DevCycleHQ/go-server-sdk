@@ -20,12 +20,11 @@ import (
 func TestClient_AllFeatures_Local(t *testing.T) {
 	sdkKey, _ := httpConfigMock(200)
 	c, err := NewClient(sdkKey, &Options{})
-	fatalErr(t, err)
+	require.NoError(t, err)
 
 	features, err := c.AllFeatures(
 		User{UserId: "j_test", DeviceModel: "testing"})
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	fmt.Println(features)
 }
 
@@ -43,14 +42,12 @@ func TestClient_AllVariablesLocal(t *testing.T) {
 
 func TestClient_AllVariablesLocal_WithSpecialCharacters(t *testing.T) {
 	sdkKey := generateTestSDKKey()
-	httpCustomConfigMock(sdkKey, 200, test_config_special_characters_var)
+	httpCustomConfigMock(sdkKey, 200, test_config_special_characters_var, false)
 	c, err := NewClient(sdkKey, &Options{})
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	variables, err := c.AllVariables(
 		User{UserId: "j_test", DeviceModel: "testing"})
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	fmt.Println(variables)
 	if len(variables) != 1 {
 		t.Error("Expected 1 variable, got", len(variables))
@@ -78,31 +75,28 @@ func TestClient_VariableCloud(t *testing.T) {
 	sdkKey := generateTestSDKKey()
 	httpBucketingAPIMock()
 	c, err := NewClient(sdkKey, &Options{EnableCloudBucketing: true, ConfigPollingIntervalMS: 10 * time.Second})
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	user := User{UserId: "j_test", DeviceModel: "testing"}
 	variable, err := c.Variable(user, "test", true)
-	fatalErr(t, err)
+	require.NoError(t, err)
 	fmt.Println(variable)
 
 	variableValue, err := c.VariableValue(user, "test", true)
-	fatalErr(t, err)
+	require.NoError(t, err)
 	fmt.Println(variableValue)
 }
 
 func TestClient_VariableLocalNumber(t *testing.T) {
 
 	sdkKey := generateTestSDKKey()
-	httpCustomConfigMock(sdkKey, 200, test_large_config)
+	httpCustomConfigMock(sdkKey, 200, test_large_config, false)
 
 	c, err := NewClient(sdkKey, &Options{})
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	user := User{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
 	fmt.Println(c.AllVariables(user))
 	variable, err := c.Variable(user, "v-key-76", 69)
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	if variable.IsDefaulted || variable.Value == 69 {
 		t.Fatal("variable should not be defaulted")
 	}
@@ -114,7 +108,7 @@ func TestClient_VariableLocalNumber(t *testing.T) {
 	fmt.Println(variable)
 
 	variableValue, err := c.VariableValue(user, "v-key-76", 69)
-	fatalErr(t, err)
+	require.NoError(t, err)
 	if variableValue.(float64) != 60.0 {
 		t.Fatal("variableValue should be 60")
 	}
@@ -123,18 +117,16 @@ func TestClient_VariableLocalNumber(t *testing.T) {
 
 func TestClient_VariableLocalNumberWithNilDefault(t *testing.T) {
 	sdkKey := generateTestSDKKey()
-	httpCustomConfigMock(sdkKey, 200, test_large_config)
+	httpCustomConfigMock(sdkKey, 200, test_large_config, false)
 
 	c, err := NewClient(sdkKey, &Options{})
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	user := User{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
 	fmt.Println(c.AllVariables(user))
 	variable, err := c.Variable(
 		user,
 		"v-key-76", nil)
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	if variable.IsDefaulted || variable.Value == nil {
 		t.Fatal("variable should not be defaulted")
 	}
@@ -146,23 +138,21 @@ func TestClient_VariableLocalNumberWithNilDefault(t *testing.T) {
 	fmt.Println(variable)
 
 	variable, err = c.Variable(user, "nonsense-key", nil)
-	fatalErr(t, err)
+	require.NoError(t, err)
 	fmt.Println(variable)
 }
 
 func TestClient_VariableEventIsQueued(t *testing.T) {
 	sdkKey := generateTestSDKKey()
-	httpCustomConfigMock(sdkKey, 200, test_large_config)
+	httpCustomConfigMock(sdkKey, 200, test_large_config, false)
 	httpEventsApiMock()
 
 	c, err := NewClient(sdkKey, &Options{})
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	user := User{UserId: "dontcare", DeviceModel: "testing", CustomData: map[string]interface{}{"data-key-7": "3yejExtXkma4"}}
 	fmt.Println(c.AllVariables(user))
 	variable, err := c.Variable(user, "v-key-76", 69)
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	if variable.IsDefaulted || variable.Value == 69 {
 		t.Fatal("variable should not be defaulted")
 	}
@@ -180,13 +170,12 @@ func TestClient_VariableLocalFlush(t *testing.T) {
 	sdkKey, _ := httpConfigMock(200)
 
 	c, err := NewClient(sdkKey, &Options{})
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	user := User{UserId: "j_test", DeviceModel: "testing"}
 	variable, err := c.Variable(user, "variableThatShouldBeDefaulted", true)
-	fatalErr(t, err)
+	require.NoError(t, err)
 	err = c.FlushEvents()
-	fatalErr(t, err)
+	require.NoError(t, err)
 	fmt.Println(variable)
 }
 
@@ -194,12 +183,10 @@ func TestClient_VariableLocal(t *testing.T) {
 	sdkKey, _ := httpConfigMock(200)
 
 	c, err := NewClient(sdkKey, &Options{})
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	user := User{UserId: "j_test", DeviceModel: "testing"}
 	variable, err := c.Variable(user, "test", true)
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	expected := Variable{
 		BaseVariable: BaseVariable{
 			Key:   "test",
@@ -217,7 +204,7 @@ func TestClient_VariableLocal(t *testing.T) {
 	fmt.Println(variable)
 
 	variableValue, err := c.VariableValue(user, "test", true)
-	fatalErr(t, err)
+	require.NoError(t, err)
 	if variableValue != true {
 		t.Fatal("Expected variableValue to be true")
 	}
@@ -227,8 +214,7 @@ func TestClient_VariableLocal_UserWithCustomData(t *testing.T) {
 	sdkKey, _ := httpConfigMock(200)
 
 	c, err := NewClient(sdkKey, &Options{})
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	customData := map[string]interface{}{
 		"propStr":  "hello",
 		"propInt":  1,
@@ -249,8 +235,7 @@ func TestClient_VariableLocal_UserWithCustomData(t *testing.T) {
 		PrivateCustomData: customPrivateData,
 	}
 	variable, err := c.Variable(user, "test", true)
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	expected := Variable{
 		BaseVariable: BaseVariable{
 			Key:   "test",
@@ -268,7 +253,7 @@ func TestClient_VariableLocal_UserWithCustomData(t *testing.T) {
 	fmt.Println(variable)
 
 	variableValue, err := c.VariableValue(user, "test", true)
-	fatalErr(t, err)
+	require.NoError(t, err)
 	if variableValue != true {
 		t.Fatal("Expected variableValue to be true")
 	}
@@ -287,8 +272,7 @@ func TestClient_TrackLocal_QueueEvent(t *testing.T) {
 	dvcOptions := Options{ConfigPollingIntervalMS: 10 * time.Second}
 
 	c, err := NewClient(sdkKey, &dvcOptions)
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	track, err := c.Track(User{UserId: "j_test", DeviceModel: "testing"}, Event{
 		Target:      "customEvent",
 		Value:       0,
@@ -296,8 +280,7 @@ func TestClient_TrackLocal_QueueEvent(t *testing.T) {
 		FeatureVars: nil,
 		MetaData:    nil,
 	})
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	fmt.Println(track)
 }
 
@@ -307,9 +290,9 @@ func TestClient_TrackLocal_QueueEventBeforeConfig(t *testing.T) {
 	sdkKey, _ := httpConfigMock(http.StatusInternalServerError)
 	dvcOptions := Options{ConfigPollingIntervalMS: 10 * time.Second}
 
+	// Expect initial retry to fail and return an error
 	c, err := NewClient(sdkKey, &dvcOptions)
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	track, err := c.Track(User{UserId: "j_test", DeviceModel: "testing"}, Event{
 		Target:      "customEvent",
 		Value:       0,
@@ -317,8 +300,7 @@ func TestClient_TrackLocal_QueueEventBeforeConfig(t *testing.T) {
 		FeatureVars: nil,
 		MetaData:    nil,
 	})
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	fmt.Println(track)
 }
 
@@ -339,13 +321,10 @@ func TestProduction_Local(t *testing.T) {
 		DisableCustomEventLogging:    false,
 	}
 	client, err := NewClient(environmentKey, &dvcOptions)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	variables, err := client.AllVariables(user)
-	fatalErr(t, err)
-
+	require.NoError(t, err)
 	if len(variables) == 0 {
 		t.Fatal("No variables returned")
 	}
@@ -357,7 +336,7 @@ func TestClient_CloudBucketingHandler(t *testing.T) {
 	httpBucketingAPIMock()
 	clientEventHandler := make(chan api.ClientEvent, 10)
 	c, err := NewClient(sdkKey, &Options{EnableCloudBucketing: true, ClientEventHandler: clientEventHandler})
-	fatalErr(t, err)
+	require.NoError(t, err)
 	init := <-clientEventHandler
 
 	if init.EventType != api.ClientEventType_Initialized {
@@ -373,7 +352,7 @@ func TestClient_LocalBucketingHandler(t *testing.T) {
 	sdkKey, _ := httpConfigMock(200)
 	clientEventHandler := make(chan api.ClientEvent, 10)
 	c, err := NewClient(sdkKey, &Options{ClientEventHandler: clientEventHandler})
-	fatalErr(t, err)
+	require.NoError(t, err)
 	event1 := <-clientEventHandler
 	event2 := <-clientEventHandler
 	switch event1.EventType {
@@ -409,7 +388,7 @@ func TestClient_ConfigUpdatedEvent(t *testing.T) {
 	httpmock.RegisterResponder("POST", "https://config-updated.devcycle.com/v1/events/batch", responder)
 	sdkKey, _ := httpConfigMock(200)
 	c, err := NewClient(sdkKey, &Options{EventsAPIURI: "https://config-updated.devcycle.com", EventFlushIntervalMS: 500 * time.Millisecond})
-	fatalErr(t, err)
+	require.NoError(t, err)
 	if !c.isInitialized {
 		t.Fatal("Expected client to be initialized")
 	}
@@ -435,7 +414,7 @@ func TestClient_ConfigUpdatedEvent_Detail(t *testing.T) {
 	}
 	httpmock.RegisterResponder("POST", "https://config-updated.devcycle.com/v1/events/batch", responder)
 	c, err := NewClient(sdkKey, &Options{EventsAPIURI: "https://config-updated.devcycle.com", EventFlushIntervalMS: 500 * time.Millisecond})
-	fatalErr(t, err)
+	require.NoError(t, err)
 	if !c.isInitialized {
 		t.Fatal("Expected client to be initialized")
 	}
@@ -463,7 +442,7 @@ func TestClient_ConfigUpdatedEvent_VariableEval(t *testing.T) {
 	}
 	httpmock.RegisterResponder("POST", "https://config-updated.devcycle.com/v1/events/batch", responder)
 	c, err := NewClient(sdkKey, &Options{EventsAPIURI: "https://config-updated.devcycle.com", EventFlushIntervalMS: time.Millisecond * 500})
-	fatalErr(t, err)
+	require.NoError(t, err)
 	if !c.isInitialized {
 		t.Fatal("Expected client to be initialized")
 	}
@@ -487,7 +466,7 @@ func BenchmarkClient_VariableSerial(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})
 
 	sdkKey := generateTestSDKKey()
-	httpCustomConfigMock(sdkKey, 200, test_large_config)
+	httpCustomConfigMock(sdkKey, 200, test_large_config, false)
 
 	if benchmarkDisableLogs {
 		log.SetOutput(io.Discard)
@@ -532,7 +511,7 @@ func BenchmarkClient_VariableParallel(b *testing.B) {
 	util.SetLogger(util.DiscardLogger{})
 
 	sdkKey := generateTestSDKKey()
-	httpCustomConfigMock(sdkKey, 200, test_large_config)
+	httpCustomConfigMock(sdkKey, 200, test_large_config, false)
 
 	if benchmarkDisableLogs {
 		log.SetOutput(io.Discard)

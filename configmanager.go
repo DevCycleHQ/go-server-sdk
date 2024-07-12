@@ -187,6 +187,12 @@ func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) {
 			case <-e.pollingManager.ticker.C:
 				err := e.fetchConfig(CONFIG_RETRIES)
 				if err != nil {
+					e.InternalClientEvents <- api.ClientEvent{
+						EventType: api.ClientEventType_Error,
+						EventData: "Error fetching config: " + err.Error(),
+						Status:    "error",
+						Error:     err,
+					}
 					util.Warnf("Error fetching config: %s\n", err)
 				}
 			}
@@ -200,6 +206,9 @@ func (e *EnvironmentConfigManager) initialFetch() error {
 }
 
 func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumLastModified ...time.Time) (err error) {
+	if numRetriesRemaining < 0 {
+		return fmt.Errorf("retries exhausted")
+	}
 	util.Debugf("Fetching config. Retries remaining: %d\n", numRetriesRemaining)
 	defer func() {
 		if r := recover(); r != nil {
@@ -215,14 +224,18 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 
 	etag := e.localBucketing.GetETag()
 	lastModified := e.localBucketing.GetLastModified()
-	if len(minimumLastModified) > 0 {
-		lastModified = minimumLastModified[0].Format(time.RFC1123)
+	storedLM, err := time.Parse(time.RFC1123, lastModified)
+	if err != nil {
+		util.Warnf("Error parsing stored last modified time: %s\n", err)
 	}
-	if etag != "" {
-		req.Header.Set("If-None-Match", etag)
+	if len(minimumLastModified) > 0 && storedLM.Before(minimumLastModified[0]) {
+		lastModified = minimumLastModified[0].Format(time.RFC1123)
 	}
 	if lastModified != "" {
 		req.Header.Set("If-Modified-Since", lastModified)
+	}
+	if etag != "" && !e.options.DisableETagMatching {
+		req.Header.Set("If-None-Match", etag)
 	}
 
 	resp, err := e.httpClient.Do(req)
@@ -234,20 +247,23 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 		}
 		return err
 	}
-	lastModifiedHeader := resp.Header.Get("Last-Modified")
-	if lastModifiedHeader != "" {
-		lastModifiedHeaderTS, parseError := time.Parse(time.RFC1123, lastModifiedHeader)
-		if parseError == nil {
-			if len(minimumLastModified) > 0 && lastModifiedHeaderTS.Before(minimumLastModified[0]) && numRetriesRemaining > 0 {
-				return e.fetchConfig(numRetriesRemaining-1, minimumLastModified...)
-			}
-		}
-	}
 
 	defer resp.Body.Close()
 
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
+		lastModifiedHeader := resp.Header.Get("Last-Modified")
+		if lastModifiedHeader != "" {
+			responseLastModified, parseError := time.Parse(time.RFC1123, lastModifiedHeader)
+			if parseError == nil {
+				if storedLM.After(responseLastModified) {
+					return e.fetchConfig(numRetriesRemaining - 1)
+				}
+				if len(minimumLastModified) > 0 && responseLastModified.Before(minimumLastModified[0]) {
+					return e.fetchConfig(numRetriesRemaining-1, minimumLastModified...)
+				}
+			}
+		}
 		resp.Request = req
 		return e.setConfigFromResponse(resp)
 	case statusCode == http.StatusNotModified:
@@ -271,6 +287,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 		return fmt.Errorf("invalid SDK key. Aborting config polling")
 	case statusCode >= 500:
 		// Retryable Errors. Continue polling.
+		// Infinitely retry 500s
 		util.Warnf("Config fetch failed. Status:" + resp.Status)
 	default:
 		err = fmt.Errorf("Unexpected response code: %d\n"+
