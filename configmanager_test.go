@@ -6,6 +6,7 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/require"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 )
@@ -16,34 +17,49 @@ type recordingConfigReceiver struct {
 	rayId          string
 	lastModified   string
 	config         []byte
+	mutex          sync.Mutex
 }
 
 func (r *recordingConfigReceiver) StoreConfig(c []byte, etag, rayId, lastModified string) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	r.configureCount++
 	r.etag = etag
 	r.rayId = rayId
 	r.lastModified = lastModified
 	r.config = c
+
 	return nil
 }
 
 func (r *recordingConfigReceiver) HasConfig() bool {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	return r.configureCount > 0
 }
 
 func (r *recordingConfigReceiver) GetETag() string {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
 	return r.etag
 }
 
 func (r *recordingConfigReceiver) GetRayId() string {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	return r.rayId
 }
 
 func (r *recordingConfigReceiver) GetRawConfig() []byte {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	return r.config
 }
 
 func (r *recordingConfigReceiver) GetLastModified() string {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	return r.lastModified
 }
 
@@ -132,15 +148,11 @@ func TestEnvironmentConfigManager_fetchConfig_refuseOld(t *testing.T) {
 	}
 
 	require.Never(t, func() bool {
-		if manager.GetETag() == "OLDER-ETAG" {
-			t.Fatal("cm.configEtag == OLDER-ETAG")
-			return true
-		}
-		if manager.GetLastModified() == olderHeaders["Last-Modified"] {
+		if manager.GetETag() == "OLDER-ETAG" || manager.GetLastModified() == olderHeaders["Last-Modified"] {
 			return true
 		}
 		return false
-	}, 2*time.Second, 500*time.Millisecond)
+	}, 2*time.Second, 1*time.Second)
 
 	require.Eventually(t, func() bool {
 		return manager.GetLastModified() == newestHeaders["Last-Modified"]
