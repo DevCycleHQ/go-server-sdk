@@ -46,6 +46,10 @@ const (
 	ComparatorNotExist     = "!exist"
 	ComparatorContain      = "contain"
 	ComparatorNotContain   = "!contain"
+	ComparatorStartWith    = "startWith"
+	ComparatorNotStartWith = "!startWith"
+	ComparatorEndWith      = "endWith"
+	ComparatorNotEndWith   = "!endWith"
 )
 
 const (

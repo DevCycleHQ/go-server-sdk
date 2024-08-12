@@ -91,18 +91,26 @@ func _checkNumbersFilter(number float64, filter *UserFilter) bool {
 func checkStringsFilter(str string, filter *UserFilter) bool {
 	operator := filter.GetComparator()
 	values := filter.CompiledStringVals
-	if operator == "=" {
+	if operator == ComparatorEqual {
 		return str != "" && stringArrayIn(values, str)
-	} else if operator == "!=" {
+	} else if operator == ComparatorNotEqual {
 		return str != "" && !stringArrayIn(values, str)
-	} else if operator == "exist" {
+	} else if operator == ComparatorExist {
 		return str != ""
-	} else if operator == "!exist" {
+	} else if operator == ComparatorNotExist {
 		return str == ""
-	} else if operator == "contain" {
+	} else if operator == ComparatorContain {
 		return str != "" && stringArrayContains(values, str)
-	} else if operator == "!contain" {
+	} else if operator == ComparatorNotContain {
 		return str == "" || !stringArrayContains(values, str)
+	} else if operator == ComparatorStartWith {
+		return str != "" && stringArrayStartsWith(values, str)
+	} else if operator == ComparatorNotStartWith {
+		return str == "" || !stringArrayStartsWith(values, str)
+	} else if operator == ComparatorEndWith {
+		return str != "" && stringArrayEndsWith(values, str)
+	} else if operator == ComparatorNotEndWith {
+		return str == "" || !stringArrayEndsWith(values, str)
 	} else {
 		return false
 	}
@@ -119,7 +127,34 @@ func stringArrayIn(arr []string, search string) bool {
 
 func stringArrayContains(substrings []string, search string) bool {
 	for _, substring := range substrings {
+		if substring == "" {
+			continue
+		}
 		if strings.Contains(search, substring) {
+			return true
+		}
+	}
+	return false
+}
+
+func stringArrayStartsWith(prefixes []string, search string) bool {
+	for _, prefix := range prefixes {
+		if prefix == "" {
+			continue
+		}
+		if strings.HasPrefix(search, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func stringArrayEndsWith(suffixes []string, search string) bool {
+	for _, suffix := range suffixes {
+		if suffix == "" {
+			continue
+		}
+		if strings.HasSuffix(search, suffix) {
 			return true
 		}
 	}
