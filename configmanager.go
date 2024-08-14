@@ -260,6 +260,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 					return e.fetchConfig(numRetriesRemaining - 1)
 				}
 				if len(minimumLastModified) > 0 && responseLastModified.Before(minimumLastModified[0]) {
+					_ = e.eventManager.QueueSDKConfigEvent(*req, *resp)
 					return e.fetchConfig(numRetriesRemaining-1, minimumLastModified...)
 				}
 			}
