@@ -570,6 +570,67 @@
           ]
         }
       ]
+    },
+    {
+      "_id": "614ef8aa475928459060721d",
+      "type": "experiment",
+      "key": "header-copy",
+      "configuration": {
+        "_id": "61536f62502d80fff97ed641",
+        "targets": [
+          {
+            "_id": "61536f468fd67f0091982532",
+            "_audience": {
+              "filters": {
+                "filters": [
+                  {
+                    "type": "all",
+                    "subType": "",
+                    "comparator": "",
+                    "values": []
+                  }
+                ],
+                "operator": "and"
+              }
+            },
+            "distribution": [
+              {
+                "_variation": "615382338424cb11646d9669",
+                "percentage": 0.5
+              },
+              {
+                "_variation": "615382338424cb11646d9670",
+                "percentage": 0.5
+              }
+            ],
+            "bucketingKey": "favouriteFood"
+          }
+        ]
+      },
+      "variations": [
+        {
+          "_id": "615382338424cb11646d9669",
+          "name": "New Copy",
+          "key": "new-copy",
+          "variables": [
+            {
+              "_var": "61538937b0a70b58ae6af71x",
+              "value": "New!"
+            }
+          ]
+        },
+        {
+          "_id": "615382338424cb11646d9670",
+          "name": "Old Copy",
+          "key": "old-copy",
+          "variables": [
+            {
+              "_var": "61538937b0a70b58ae6af71x",
+              "value": "default header"
+            }
+          ]
+        }
+      ]
     }
   ],
   "variables": [
@@ -622,6 +683,11 @@
       "_id": "61538937b0a70b58ae6af71f",
       "type": "String",
       "key": "feature4Var"
+    },
+    {
+      "_id": "61538937b0a70b58ae6af71x",
+      "type": "String",
+      "key": "experiment1Var"
     }
   ],
   "variableHashes": {

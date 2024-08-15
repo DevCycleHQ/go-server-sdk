@@ -27,11 +27,11 @@ type boundedHash struct {
 	BucketingHash float64 `json:"bucketingHash"`
 }
 
-func generateBoundedHashes(userId, targetId string) boundedHash {
+func generateBoundedHashes(bucketingKeyValue string, targetId string) boundedHash {
 	var targetHash = murmurhashV3(targetId, baseSeed)
 	var bhash = boundedHash{
-		RolloutHash:   generateBoundedHash(userId+"_rollout", targetHash),
-		BucketingHash: generateBoundedHash(userId, targetHash),
+		RolloutHash:   generateBoundedHash(bucketingKeyValue+"_rollout", targetHash),
+		BucketingHash: generateBoundedHash(bucketingKeyValue, targetHash),
 	}
 	return bhash
 }
@@ -39,6 +39,20 @@ func generateBoundedHashes(userId, targetId string) boundedHash {
 func generateBoundedHash(input string, hashSeed uint32) float64 {
 	mh := murmurhashV3(input, hashSeed)
 	return float64(mh) / float64(maxHashValue)
+}
+
+func determineUserBucketingValue(userId string, mergedCustomData map[string]interface{}, targetBucketingKey string) string {
+	if (targetBucketingKey == "" || targetBucketingKey == "user_id") {
+		return userId
+	}
+
+	if customDataValue, keyExists := mergedCustomData[targetBucketingKey]; keyExists {
+		if (customDataValue == nil) {
+			return "null"
+		}
+        return customDataValue.(string)
+    }
+	return "null"
 }
 
 func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64 {
@@ -105,11 +119,14 @@ func doesUserPassRollout(rollout Rollout, boundedHash float64) bool {
 }
 
 func evaluateSegmentationForFeature(config *configBody, feature *ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) *Target {
+	var mergedCustomData = user.CombinedCustomData()
 	for _, target := range feature.Configuration.Targets {
 		passthroughEnabled := !config.Project.Settings.DisablePassthroughRollouts
 		doesUserPassthrough := true
 		if target.Rollout != nil && passthroughEnabled {
-			boundedHash := generateBoundedHashes(user.UserId, target.Id)
+			var bucketingValue = determineUserBucketingValue(user.UserId, mergedCustomData, target.BucketingKey)
+
+			boundedHash := generateBoundedHashes(bucketingValue, target.Id)
 			rolloutHash := boundedHash.RolloutHash
 			doesUserPassthrough = doesUserPassRollout(*target.Rollout, rolloutHash)
 		}
@@ -132,7 +149,10 @@ func doesUserQualifyForFeature(config *configBody, feature *ConfigFeature, user 
 		return targetAndHashes{}, ErrUserDoesNotQualifyForTargets
 	}
 
-	boundedHashes := generateBoundedHashes(user.UserId, target.Id)
+	var mergedCustomData = user.CombinedCustomData()
+	var bucketingValue = determineUserBucketingValue(user.UserId, mergedCustomData, target.BucketingKey)
+
+	boundedHashes := generateBoundedHashes(bucketingValue, target.Id)
 	rolloutHash := boundedHashes.RolloutHash
 	passthroughEnabled := !config.Project.Settings.DisablePassthroughRollouts
 
