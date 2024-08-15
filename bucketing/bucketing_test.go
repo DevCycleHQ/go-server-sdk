@@ -770,3 +770,62 @@ func TestBucketing_Deterministic_AlternateKeyRandomDistribution(t *testing.T) {
 
 	require.Equal(t, bucketedUserConfig3.FeatureVariationMap["614ef8aa475928459060721d"], bucketedUserConfig4.FeatureVariationMap["614ef8aa475928459060721d"])
 }
+
+func TestBucketing_Deterministic_AlternateKeyRollout(t *testing.T) {
+	user := api.User{
+		UserId: "client-test",
+		CustomData: map[string]interface{}{
+			"favouriteFood": "cake",
+			"favouriteNull": nil,
+			"numericId": 123,
+		},
+	}.GetPopulatedUser(&api.PlatformData{
+		PlatformVersion: "1.1.2",
+	})
+	user2 := api.User{
+		UserId: "client_test_2",
+		CustomData: map[string]interface{}{
+			"favouriteFood": "cake",
+			"favouriteNull": nil,
+			"numericId": 123,
+		},
+	}.GetPopulatedUser(&api.PlatformData{
+		PlatformVersion: "1.1.2",
+	})
+	user3 := api.User{
+		UserId: "client_test_3",
+		CustomData: map[string]interface{}{
+			"favouriteFood": nil,
+			"favouriteNull": nil,
+			"numericId": nil,
+		},
+	}.GetPopulatedUser(&api.PlatformData{
+		PlatformVersion: "1.1.2",
+	})
+	user4 := api.User{
+		UserId: "client_test_3",
+		CustomData: map[string]interface{}{
+			"favouriteNull":  nil,
+		},
+	}.GetPopulatedUser(&api.PlatformData{
+		PlatformVersion: "1.1.2",
+	})
+
+	err := SetConfig(test_config, "test", "", "", "")
+	require.NoError(t, err)
+
+	// Check if users with the same alternate bucketing key get the same variation
+	bucketedUserConfig, err := GenerateBucketedConfig("test", user, nil)
+	require.NoError(t, err)
+	bucketedUserConfig2, err := GenerateBucketedConfig("test", user2, nil)
+	require.NoError(t, err)
+	require.Equal(t, bucketedUserConfig.FeatureVariationMap["614ef8aa475928459060721e"], bucketedUserConfig2.FeatureVariationMap["614ef8aa475928459060721e"])
+
+	// Check if users with explicitly null or missing alternate bucketing key get the same variation
+	bucketedUserConfig3, err := GenerateBucketedConfig("test", user3, nil)
+	require.NoError(t, err)
+	bucketedUserConfig4, err := GenerateBucketedConfig("test", user4, nil)
+	require.NoError(t, err)
+
+	require.Equal(t, bucketedUserConfig3.FeatureVariationMap["614ef8aa475928459060721e"], bucketedUserConfig4.FeatureVariationMap["614ef8aa475928459060721e"])
+}

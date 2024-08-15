@@ -631,6 +631,75 @@
           ]
         }
       ]
+    },
+    {
+      "_id": "614ef8aa475928459060721e",
+      "type": "permission",
+      "key": "feature_access",
+      "configuration": {
+        "_id": "61536f62502d80fff97ed642",
+        "targets": [
+          {
+            "_id": "61536f468fd67f0091982533",
+            "_audience": {
+              "filters": {
+                "filters": [
+                  {
+                    "type": "all",
+                    "subType": "",
+                    "comparator": "",
+                    "values": []
+                  }
+                ],
+                "operator": "and"
+              }
+            },
+            "distribution": [
+              {
+                "_variation": "615382338424cb11646d9671",
+                "percentage": 1
+              }
+            ],
+            "rollout": {
+              "type": "gradual",
+              "startPercentage": 0,
+              "startDate": "2024-04-05T17:58:32.318Z",
+              "stages": [
+                {
+                  "type": "linear",
+                  "percentage": 1,
+                  "date": "2034-04-07T17:58:32.319Z"
+                }
+              ]
+            },
+            "bucketingKey": "numericId"
+          }
+        ]
+      },
+      "variations": [
+        {
+          "_id": "615382338424cb11646d9671",
+          "name": "Has Access",
+          "key": "has-access",
+          "variables": [
+            {
+              "_var": "61538937b0a70b58ae6af71g",
+              "value": true
+            }
+          ]
+        },
+        {
+          "_id": "615382338424cb11646d9672",
+          "name": "No Access",
+          "key": "no-access",
+          "variables": [
+            {
+              "_var": "61538937b0a70b58ae6af71g",
+              "value": false
+            }
+          ]
+        }
+      ]
     }
   ],
   "variables": [
@@ -687,7 +756,12 @@
     {
       "_id": "61538937b0a70b58ae6af71x",
       "type": "String",
-      "key": "experiment1Var"
+      "key": "experiment_var"
+    },
+    {
+      "_id": "61538937b0a70b58ae6af71g",
+      "type": "Boolean",
+      "key": "new_feature"
     }
   ],
   "variableHashes": {

@@ -2,6 +2,7 @@ package bucketing
 
 import (
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
@@ -11,6 +12,7 @@ import (
 // Max value of an unsigned 32-bit integer, which is what murmurhash returns
 const maxHashValue uint32 = 4294967295
 const baseSeed = 1
+const defaultBucketingValue = "null"
 
 var ErrMissingVariableForVariation = errors.New("Config missing variable for variation")
 var ErrMissingFeature = errors.New("Config missing feature for variable")
@@ -48,11 +50,22 @@ func determineUserBucketingValue(userId string, mergedCustomData map[string]inte
 
 	if customDataValue, keyExists := mergedCustomData[targetBucketingKey]; keyExists {
 		if (customDataValue == nil) {
-			return "null"
+			return defaultBucketingValue
 		}
-        return customDataValue.(string)
-    }
-	return "null"
+	
+		switch v := customDataValue.(type) {
+		case int:
+			return strconv.Itoa(v)
+		case float64:
+			return strconv.FormatFloat(v, 'f', -1, 64)
+		case string:
+			return v
+		// For Boolean and other types, we will return the defaultBucketingValue of "null"
+		default:
+			return defaultBucketingValue
+		}
+	}
+	return defaultBucketingValue
 }
 
 func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64 {
