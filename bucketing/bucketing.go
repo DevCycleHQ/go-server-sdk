@@ -60,7 +60,8 @@ func determineUserBucketingValueForTarget(targetBucketingKey, userId string, mer
 			return strconv.FormatFloat(v, 'f', -1, 64)
 		case string:
 			return v
-		// For Boolean and other types, we will return the defaultBucketingValue of "null"
+		case bool:
+			return strconv.FormatBool(v)
 		default:
 			return defaultBucketingValue
 		}

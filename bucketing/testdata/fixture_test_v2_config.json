@@ -700,6 +700,67 @@
           ]
         }
       ]
+    },
+    {
+      "_id": "614ef8aa475928459060721f",
+      "type": "ops",
+      "key": "operational_guard",
+      "configuration": {
+        "_id": "61536f62502d80fff97ed643",
+        "targets": [
+          {
+            "_id": "61536f468fd67f0091982535",
+            "_audience": {
+              "filters": {
+                "filters": [
+                  {
+                    "type": "all",
+                    "subType": "",
+                    "comparator": "",
+                    "values": []
+                  }
+                ],
+                "operator": "and"
+              }
+            },
+            "distribution": [
+              {
+                "_variation": "615382338424cb11646d9673",
+                "percentage": 0.5
+              },
+              {
+                "_variation": "615382338424cb11646d9674",
+                "percentage": 0.5
+              }
+            ],
+            "bucketingKey": "isSubscriber"
+          }
+        ]
+      },
+      "variations": [
+        {
+          "_id": "615382338424cb11646d9673",
+          "name": "Has Access",
+          "key": "has-access",
+          "variables": [
+            {
+              "_var": "61538937b0a70b58ae6af71h",
+              "value": true
+            }
+          ]
+        },
+        {
+          "_id": "615382338424cb11646d9674",
+          "name": "No Access",
+          "key": "no-access",
+          "variables": [
+            {
+              "_var": "61538937b0a70b58ae6af71h",
+              "value": false
+            }
+          ]
+        }
+      ]
     }
   ],
   "variables": [
@@ -762,6 +823,11 @@
       "_id": "61538937b0a70b58ae6af71g",
       "type": "Boolean",
       "key": "new_feature"
+    },
+    {
+      "_id": "61538937b0a70b58ae6af71h",
+      "type": "Boolean",
+      "key": "gated_access"
     }
   ],
   "variableHashes": {
