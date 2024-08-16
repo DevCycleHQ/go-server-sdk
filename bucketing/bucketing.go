@@ -2,6 +2,7 @@ package bucketing
 
 import (
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/api"
@@ -11,6 +12,7 @@ import (
 // Max value of an unsigned 32-bit integer, which is what murmurhash returns
 const maxHashValue uint32 = 4294967295
 const baseSeed = 1
+const defaultBucketingValue = "null"
 
 var ErrMissingVariableForVariation = errors.New("Config missing variable for variation")
 var ErrMissingFeature = errors.New("Config missing feature for variable")
@@ -27,11 +29,11 @@ type boundedHash struct {
 	BucketingHash float64 `json:"bucketingHash"`
 }
 
-func generateBoundedHashes(userId, targetId string) boundedHash {
+func generateBoundedHashes(bucketingKeyValue, targetId string) boundedHash {
 	var targetHash = murmurhashV3(targetId, baseSeed)
 	var bhash = boundedHash{
-		RolloutHash:   generateBoundedHash(userId+"_rollout", targetHash),
-		BucketingHash: generateBoundedHash(userId, targetHash),
+		RolloutHash:   generateBoundedHash(bucketingKeyValue+"_rollout", targetHash),
+		BucketingHash: generateBoundedHash(bucketingKeyValue, targetHash),
 	}
 	return bhash
 }
@@ -39,6 +41,32 @@ func generateBoundedHashes(userId, targetId string) boundedHash {
 func generateBoundedHash(input string, hashSeed uint32) float64 {
 	mh := murmurhashV3(input, hashSeed)
 	return float64(mh) / float64(maxHashValue)
+}
+
+func determineUserBucketingValueForTarget(targetBucketingKey, userId string, mergedCustomData map[string]interface{}) string {
+	if targetBucketingKey == "" || targetBucketingKey == "user_id" {
+		return userId
+	}
+
+	if customDataValue, keyExists := mergedCustomData[targetBucketingKey]; keyExists {
+		if customDataValue == nil {
+			return defaultBucketingValue
+		}
+
+		switch v := customDataValue.(type) {
+		case int:
+			return strconv.Itoa(v)
+		case float64:
+			return strconv.FormatFloat(v, 'f', -1, 64)
+		case string:
+			return v
+		case bool:
+			return strconv.FormatBool(v)
+		default:
+			return defaultBucketingValue
+		}
+	}
+	return defaultBucketingValue
 }
 
 func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64 {
@@ -105,11 +133,14 @@ func doesUserPassRollout(rollout Rollout, boundedHash float64) bool {
 }
 
 func evaluateSegmentationForFeature(config *configBody, feature *ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) *Target {
+	var mergedCustomData = user.CombinedCustomData()
 	for _, target := range feature.Configuration.Targets {
 		passthroughEnabled := !config.Project.Settings.DisablePassthroughRollouts
 		doesUserPassthrough := true
 		if target.Rollout != nil && passthroughEnabled {
-			boundedHash := generateBoundedHashes(user.UserId, target.Id)
+			var bucketingValue = determineUserBucketingValueForTarget(target.BucketingKey, user.UserId, mergedCustomData)
+
+			boundedHash := generateBoundedHashes(bucketingValue, target.Id)
 			rolloutHash := boundedHash.RolloutHash
 			doesUserPassthrough = doesUserPassRollout(*target.Rollout, rolloutHash)
 		}
@@ -132,7 +163,10 @@ func doesUserQualifyForFeature(config *configBody, feature *ConfigFeature, user 
 		return targetAndHashes{}, ErrUserDoesNotQualifyForTargets
 	}
 
-	boundedHashes := generateBoundedHashes(user.UserId, target.Id)
+	var mergedCustomData = user.CombinedCustomData()
+	var bucketingValue = determineUserBucketingValueForTarget(target.BucketingKey, user.UserId, mergedCustomData)
+
+	boundedHashes := generateBoundedHashes(bucketingValue, target.Id)
 	rolloutHash := boundedHashes.RolloutHash
 	passthroughEnabled := !config.Project.Settings.DisablePassthroughRollouts
 

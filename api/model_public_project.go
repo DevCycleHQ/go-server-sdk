@@ -8,9 +8,9 @@ type Project struct {
 }
 
 type ProjectSettings struct {
-	EdgeDB EdgeDBSettings `json:"edgeDB"`
-	OptIn  OptInSettings  `json:"optIn"`
-	DisablePassthroughRollouts bool `json:"disablePassthroughRollouts"` 
+	EdgeDB                     EdgeDBSettings `json:"edgeDB"`
+	OptIn                      OptInSettings  `json:"optIn"`
+	DisablePassthroughRollouts bool           `json:"disablePassthroughRollouts"`
 }
 
 type EdgeDBSettings struct {

@@ -9,6 +9,7 @@ type Target struct {
 	Audience     *Audience            `json:"_audience"`
 	Rollout      *Rollout             `json:"rollout"`
 	Distribution []TargetDistribution `json:"distribution"`
+	BucketingKey string               `json:"bucketingKey"`
 }
 
 func (t *Target) DecideTargetVariation(boundedHash float64) (string, error) {
