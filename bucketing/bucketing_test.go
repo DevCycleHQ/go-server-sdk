@@ -16,6 +16,9 @@ var (
 	//go:embed testdata/fixture_test_config.json
 	test_config []byte
 
+	//go:embed testdata/fixture_test_v2_config.json
+	test_v2_config []byte
+
 	//go:embed testdata/fixture_test_broken_config.json
 	test_broken_config []byte
 
@@ -746,13 +749,13 @@ func TestBucketing_Deterministic_AlternateKeyRandomDistribution(t *testing.T) {
 	user4 := api.User{
 		UserId: "client_test_3",
 		CustomData: map[string]interface{}{
-			"favouriteNull":  nil,
+			"favouriteNull": nil,
 		},
 	}.GetPopulatedUser(&api.PlatformData{
 		PlatformVersion: "1.1.2",
 	})
 
-	err := SetConfig(test_config, "test", "", "", "")
+	err := SetConfig(test_v2_config, "test", "", "", "")
 	require.NoError(t, err)
 
 	// Check if users with the same alternate bucketing key get the same variation
@@ -777,7 +780,7 @@ func TestBucketing_Deterministic_AlternateKeyRollout(t *testing.T) {
 		CustomData: map[string]interface{}{
 			"favouriteFood": "cake",
 			"favouriteNull": nil,
-			"numericId": 123,
+			"numericId":     123,
 		},
 	}.GetPopulatedUser(&api.PlatformData{
 		PlatformVersion: "1.1.2",
@@ -787,7 +790,7 @@ func TestBucketing_Deterministic_AlternateKeyRollout(t *testing.T) {
 		CustomData: map[string]interface{}{
 			"favouriteFood": "cake",
 			"favouriteNull": nil,
-			"numericId": 123,
+			"numericId":     123,
 		},
 	}.GetPopulatedUser(&api.PlatformData{
 		PlatformVersion: "1.1.2",
@@ -797,7 +800,7 @@ func TestBucketing_Deterministic_AlternateKeyRollout(t *testing.T) {
 		CustomData: map[string]interface{}{
 			"favouriteFood": nil,
 			"favouriteNull": nil,
-			"numericId": nil,
+			"numericId":     nil,
 		},
 	}.GetPopulatedUser(&api.PlatformData{
 		PlatformVersion: "1.1.2",
@@ -805,13 +808,13 @@ func TestBucketing_Deterministic_AlternateKeyRollout(t *testing.T) {
 	user4 := api.User{
 		UserId: "client_test_3",
 		CustomData: map[string]interface{}{
-			"favouriteNull":  nil,
+			"favouriteNull": nil,
 		},
 	}.GetPopulatedUser(&api.PlatformData{
 		PlatformVersion: "1.1.2",
 	})
 
-	err := SetConfig(test_config, "test", "", "", "")
+	err := SetConfig(test_v2_config, "test", "", "", "")
 	require.NoError(t, err)
 
 	// Check if users with the same alternate bucketing key get the same variation

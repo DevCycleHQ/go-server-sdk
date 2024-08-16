@@ -29,7 +29,7 @@ type boundedHash struct {
 	BucketingHash float64 `json:"bucketingHash"`
 }
 
-func generateBoundedHashes(bucketingKeyValue string, targetId string) boundedHash {
+func generateBoundedHashes(bucketingKeyValue, targetId string) boundedHash {
 	var targetHash = murmurhashV3(targetId, baseSeed)
 	var bhash = boundedHash{
 		RolloutHash:   generateBoundedHash(bucketingKeyValue+"_rollout", targetHash),
@@ -43,16 +43,16 @@ func generateBoundedHash(input string, hashSeed uint32) float64 {
 	return float64(mh) / float64(maxHashValue)
 }
 
-func determineUserBucketingValue(userId string, mergedCustomData map[string]interface{}, targetBucketingKey string) string {
-	if (targetBucketingKey == "" || targetBucketingKey == "user_id") {
+func determineUserBucketingValueForTarget(targetBucketingKey, userId string, mergedCustomData map[string]interface{}) string {
+	if targetBucketingKey == "" || targetBucketingKey == "user_id" {
 		return userId
 	}
 
 	if customDataValue, keyExists := mergedCustomData[targetBucketingKey]; keyExists {
-		if (customDataValue == nil) {
+		if customDataValue == nil {
 			return defaultBucketingValue
 		}
-	
+
 		switch v := customDataValue.(type) {
 		case int:
 			return strconv.Itoa(v)
@@ -137,7 +137,7 @@ func evaluateSegmentationForFeature(config *configBody, feature *ConfigFeature, 
 		passthroughEnabled := !config.Project.Settings.DisablePassthroughRollouts
 		doesUserPassthrough := true
 		if target.Rollout != nil && passthroughEnabled {
-			var bucketingValue = determineUserBucketingValue(user.UserId, mergedCustomData, target.BucketingKey)
+			var bucketingValue = determineUserBucketingValueForTarget(target.BucketingKey, user.UserId, mergedCustomData)
 
 			boundedHash := generateBoundedHashes(bucketingValue, target.Id)
 			rolloutHash := boundedHash.RolloutHash
@@ -163,7 +163,7 @@ func doesUserQualifyForFeature(config *configBody, feature *ConfigFeature, user 
 	}
 
 	var mergedCustomData = user.CombinedCustomData()
-	var bucketingValue = determineUserBucketingValue(user.UserId, mergedCustomData, target.BucketingKey)
+	var bucketingValue = determineUserBucketingValueForTarget(target.BucketingKey, user.UserId, mergedCustomData)
 
 	boundedHashes := generateBoundedHashes(bucketingValue, target.Id)
 	rolloutHash := boundedHashes.RolloutHash
