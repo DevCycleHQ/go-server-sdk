@@ -1592,6 +1592,66 @@ func TestDoesUserPassFilter_WithUserEmailFilter(t *testing.T) {
 			values:     []interface{}{"@gmail.com", "@devcycle.com", "@hotmail.com"},
 			expected:   true,
 		},
+		{
+			name:       "User email starts with filter",
+			comparator: ComparatorStartWith,
+			values:     []interface{}{"test"},
+			expected:   true,
+		},
+		{
+			name:       "User email emds with filter",
+			comparator: ComparatorEndWith,
+			values:     []interface{}{"@devcycle.com"},
+			expected:   true,
+		},
+		{
+			name:       "User email does not start with filter",
+			comparator: ComparatorNotStartWith,
+			values:     []interface{}{"user"},
+			expected:   true,
+		},
+		{
+			name:       "User email does not end with filter",
+			comparator: ComparatorNotEndWith,
+			values:     []interface{}{"@devcycle.io"},
+			expected:   true,
+		},
+		{
+			name:       "User email does start with filter with empty value",
+			comparator: ComparatorStartWith,
+			values:     []interface{}{""},
+			expected:   false,
+		},
+		{
+			name:       "User email does end with filter with empty value",
+			comparator: ComparatorEndWith,
+			values:     []interface{}{""},
+			expected:   false,
+		},
+		{
+			name:       "User email does contain filter with empty value",
+			comparator: ComparatorContain,
+			values:     []interface{}{""},
+			expected:   false,
+		},
+		{
+			name:       "User email does not start with filter with empty value",
+			comparator: ComparatorNotStartWith,
+			values:     []interface{}{""},
+			expected:   true,
+		},
+		{
+			name:       "User email does not end with filter with empty value",
+			comparator: ComparatorNotEndWith,
+			values:     []interface{}{""},
+			expected:   true,
+		},
+		{
+			name:       "User email does not contain filter with empty value",
+			comparator: ComparatorNotContain,
+			values:     []interface{}{""},
+			expected:   true,
+		},
 	}
 
 	for _, tc := range testCases {
