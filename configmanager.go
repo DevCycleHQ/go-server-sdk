@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"io"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
@@ -392,7 +393,7 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 func (e *EnvironmentConfigManager) getConfigURL() string {
 	configBasePath := e.cfg.ConfigCDNBasePath
 
-	return fmt.Sprintf("%s/config/v1/server/%s.json", configBasePath, e.sdkKey)
+	return fmt.Sprintf("%s/config/v2/server/%s.json", configBasePath, e.sdkKey)
 }
 
 func (e *EnvironmentConfigManager) HasConfig() bool {

@@ -3,6 +3,7 @@ package devcycle
 import (
 	_ "embed"
 	"flag"
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -107,7 +108,8 @@ func httpCustomConfigMock(sdkKey string, respcode int, config string, skipRegist
 		return resp, nil
 	}
 	if !skipRegister {
-		httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json", responder)
+		const CONFIG_URL_FORMAT = "https://config-cdn.devcycle.com/config/v2/server/%s.json"
+		httpmock.RegisterResponder("GET", fmt.Sprintf(CONFIG_URL_FORMAT, sdkKey), responder)
 	}
 	return responder
 }
