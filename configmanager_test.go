@@ -2,12 +2,13 @@ package devcycle
 
 import (
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/api"
-	"github.com/jarcoal/httpmock"
-	"github.com/stretchr/testify/require"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/jarcoal/httpmock"
+	"github.com/stretchr/testify/require"
 )
 
 type recordingConfigReceiver struct {
@@ -62,6 +63,8 @@ func (r *recordingConfigReceiver) GetLastModified() string {
 	return r.lastModified
 }
 
+const CONFIG_SDK_URL = "https://config-cdn.devcycle.com/config/v2/server/%s.json"
+
 func TestEnvironmentConfigManager_fetchConfig_success(t *testing.T) {
 
 	sdkKey, _ := httpConfigMock(200)
@@ -113,7 +116,7 @@ func TestEnvironmentConfigManager_fetchConfig_refuseOld(t *testing.T) {
 	secondResponse := httpCustomConfigMock(sdkKey, 200, test_config, true, olderHeaders)
 	thirdResponse := httpCustomConfigMock(sdkKey, 200, test_config, true, newestHeaders)
 
-	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
+	httpmock.RegisterResponder("GET", fmt.Sprintf(CONFIG_SDK_URL, sdkKey),
 		firstResponse.Then(secondResponse).Then(thirdResponse),
 	)
 	localBucketing := &recordingConfigReceiver{}
@@ -191,7 +194,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries500(t *testing.T) {
 
 	error500Response := httpCustomConfigMock(sdkKey, 500, "Connection error", true)
 
-	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
+	httpmock.RegisterResponder("GET", fmt.Sprintf(CONFIG_SDK_URL, sdkKey),
 		errorResponseChain(sdkKey, error500Response, CONFIG_RETRIES),
 	)
 
@@ -226,7 +229,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries_until_abort(t *testing.T) 
 	firstResponse := httpCustomConfigMock(sdkKey, 200, test_config, true, initialHeaders)
 	secondResponse := httpCustomConfigMock(sdkKey, 200, test_config, true, olderHeaders)
 
-	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
+	httpmock.RegisterResponder("GET", fmt.Sprintf(CONFIG_SDK_URL, sdkKey),
 		firstResponse.Then(secondResponse).Then(secondResponse).Then(secondResponse),
 	)
 	localBucketing := &recordingConfigReceiver{}
@@ -275,7 +278,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries_until_abort(t *testing.T) 
 func TestEnvironmentConfigManager_fetchConfig_retries_errors(t *testing.T) {
 	sdkKey := generateTestSDKKey()
 	connectionErrorResponse := httpCustomConfigMock(sdkKey, 500, "Connection error", true)
-	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
+	httpmock.RegisterResponder("GET", fmt.Sprintf(CONFIG_SDK_URL, sdkKey),
 		errorResponseChain(sdkKey, connectionErrorResponse, CONFIG_RETRIES),
 	)
 
@@ -301,7 +304,7 @@ func TestEnvironmentConfigManager_fetchConfig_retries_errors_sse(t *testing.T) {
 	httpSSEConnectionMock()
 
 	connectionErrorResponse := httpmock.NewErrorResponder(fmt.Errorf("connection error"))
-	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
+	httpmock.RegisterResponder("GET", fmt.Sprintf(CONFIG_SDK_URL, sdkKey),
 		errorResponseChain(sdkKey, connectionErrorResponse, CONFIG_RETRIES, httpSSEConfigMock),
 	)
 
@@ -321,7 +324,7 @@ func TestEnvironmentConfigManager_fetchConfig_returns_errors(t *testing.T) {
 	sdkKey := generateTestSDKKey()
 	connectionErrorResponse := httpmock.NewErrorResponder(fmt.Errorf("connection error"))
 
-	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
+	httpmock.RegisterResponder("GET", fmt.Sprintf(CONFIG_SDK_URL, sdkKey),
 		errorResponseChain(sdkKey, connectionErrorResponse, CONFIG_RETRIES+1),
 	)
 
@@ -338,7 +341,7 @@ func TestEnvironmentConfigManager_fetchConfig_returns_errors_sse(t *testing.T) {
 
 	connectionErrorResponse := httpmock.NewErrorResponder(fmt.Errorf("connection error"))
 	sdkKey := generateTestSDKKey()
-	httpmock.RegisterResponder("GET", "https://config-cdn.devcycle.com/config/v1/server/"+sdkKey+".json",
+	httpmock.RegisterResponder("GET", fmt.Sprintf(CONFIG_SDK_URL, sdkKey),
 		errorResponseChain(sdkKey, connectionErrorResponse, CONFIG_RETRIES+1),
 	)
 
