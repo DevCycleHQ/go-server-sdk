@@ -391,10 +391,16 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 }
 
 func (e *EnvironmentConfigManager) getConfigURL() string {
-	configBasePath := e.cfg.ConfigCDNBasePath
+    configBasePath := e.cfg.ConfigCDNBasePath
 
-	return fmt.Sprintf("%s/config/v2/server/%s.json", configBasePath, e.sdkKey)
+    version := "v2"
+    if e.options.AdvancedOptions.OverrideConfigWithV1 {
+        version = "v1"
+    }
+
+    return fmt.Sprintf("%s/config/%s/server/%s.json", configBasePath, version, e.sdkKey)
 }
+
 
 func (e *EnvironmentConfigManager) HasConfig() bool {
 	return e.localBucketing.HasConfig()
