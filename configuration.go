@@ -16,6 +16,7 @@ type EventQueueOptions = api.EventQueueOptions
 
 type AdvancedOptions struct {
 	OverridePlatformData *api.PlatformData
+	OverrideConfigWithV1        bool
 }
 
 type Options struct {
