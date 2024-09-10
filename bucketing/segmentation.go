@@ -2,6 +2,7 @@ package bucketing
 
 import (
 	"fmt"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"math"
 	"regexp"
 	"strings"
@@ -57,7 +58,28 @@ func checkCustomData(filter *CustomDataFilter, data map[string]interface{}, clie
 	} else {
 		dataValue = data[filter.DataKey]
 	}
-
+	isNot64Bit := false
+	switch dataValue.(type) {
+	case uint8:
+		isNot64Bit = true
+	case uint16:
+		isNot64Bit = true
+	case uint32:
+		isNot64Bit = true
+	case uint:
+		isNot64Bit = true
+	case int8:
+		isNot64Bit = true
+	case int16:
+		isNot64Bit = true
+	case int32:
+		isNot64Bit = true
+	case float32:
+		isNot64Bit = true
+	}
+	if isNot64Bit {
+		util.Errorf("Custom data key %s is not a 64 bit type. Please use a 64 bit type", filter.DataKey)
+	}
 	if operator == "exist" {
 		return checkValueExists(dataValue)
 	} else if operator == "!exist" {
@@ -68,6 +90,7 @@ func checkCustomData(filter *CustomDataFilter, data map[string]interface{}, clie
 		} else {
 			return checkStringsFilter(v, filter.UserFilter)
 		}
+
 	} else if _, ok := dataValue.(float64); ok && filter.DataKeyType == "Number" {
 		return checkNumbersFilterJSONValue(dataValue, filter.UserFilter)
 	} else if v, ok := dataValue.(bool); ok && filter.DataKeyType == "Boolean" {
