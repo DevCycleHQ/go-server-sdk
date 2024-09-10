@@ -74,6 +74,8 @@ func checkCustomData(filter *CustomDataFilter, data map[string]interface{}, clie
 		isNot64Bit = true
 	case int32:
 		isNot64Bit = true
+	case int:
+		isNot64Bit = true
 	case float32:
 		isNot64Bit = true
 	}
