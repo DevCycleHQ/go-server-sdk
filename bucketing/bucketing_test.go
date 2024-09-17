@@ -178,11 +178,11 @@ func TestUserHashingBucketing_BucketingDistribution(t *testing.T) {
 		Distribution: []TargetDistribution{
 			{
 				Variation:  "var1",
-				Percentage: 0.25,
+				Percentage: 0.2555,
 			},
 			{
 				Variation:  "var2",
-				Percentage: 0.45,
+				Percentage: 0.4445,
 			},
 			{
 				Variation:  "var3",
