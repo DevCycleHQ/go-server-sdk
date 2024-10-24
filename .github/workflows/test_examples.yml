@@ -9,7 +9,7 @@ jobs:
     name: Test Examples
     runs-on: ubuntu-latest
     env:
-      DEVCYCLE_SERVER_SDK_KEY: dvc_server_token_test
+      DEVCYCLE_SERVER_SDK_KEY: dvc_server_token_hash
       DEVCYCLE_VARIABLE_KEY: test
     steps:
     - uses: actions/checkout@v4
