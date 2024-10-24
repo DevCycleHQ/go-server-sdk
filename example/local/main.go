@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -19,7 +18,14 @@ func main() {
 		log.Fatal("DEVCYCLE_VARIABLE_KEY env var not set: set it to a variable key")
 	}
 
-	user := devcycle.User{UserId: "test"}
+	user := devcycle.User{UserId: "test", CustomData: map[string]interface{}{
+		"number-custom-property":     1334,
+		"number-custom-property-3dp": 1334.610,
+		"number-custom-property-2dp": 1334.61,
+		"number-custom-property-1dp": 1334.6,
+		"number-custom-property-0dp": 1334,
+	}}
+
 	dvcOptions := devcycle.Options{
 		EventFlushIntervalMS:    0,
 		ConfigPollingIntervalMS: 10 * time.Second,
@@ -31,8 +37,21 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error initializing client: %v", err)
 	}
-	fmt.Println(client.GetRawConfig())
 	log.Printf("client initialized")
+
+	variable, err := client.Variable(user, "go-custom-data", false)
+	variable2, err2 := client.Variable(user, "go-custom-data", false)
+	if err != nil {
+		log.Fatalf("Error getting variable %v: %v", "go-custom-data", err)
+	}
+
+	if err2 != nil {
+		log.Fatalf("Error getting variable %v: %v", "go-custom-data", err2)
+	}
+	log.Printf("variable %v: value=%v (%v) defaulted=%t", variable.Key, variable.Value, variable.Type_, variable.IsDefaulted)
+	log.Printf("variable %v: value=%v (%v) defaulted=%t", variable2.Key, variable2.Value, variable2.Type_, variable2.IsDefaulted)
+
+	return
 
 	features, _ := client.AllFeatures(user)
 	for key, feature := range features {
