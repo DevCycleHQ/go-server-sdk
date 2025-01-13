@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -31,7 +30,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error initializing client: %v", err)
 	}
-	fmt.Println(client.GetRawConfig())
 	log.Printf("client initialized")
 
 	features, _ := client.AllFeatures(user)
