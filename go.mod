@@ -1,6 +1,6 @@
 module github.com/devcyclehq/go-server-sdk/v2
 
-go 1.20
+go 1.21
 
 require (
 	github.com/go-playground/validator/v10 v10.24.0
