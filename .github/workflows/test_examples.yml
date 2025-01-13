@@ -9,8 +9,8 @@ jobs:
     name: Test Examples
     runs-on: ubuntu-latest
     env:
-      DEVCYCLE_SERVER_SDK_KEY: ${{ secrets.DEVCYCLE_SERVER_SDK_KEY }}
-      DEVCYCLE_VARIABLE_KEY: go-example-tests
+      DEVCYCLE_SERVER_SDK_KEY: dvc_server_token_hash
+      DEVCYCLE_VARIABLE_KEY: test
     steps:
     - uses: actions/checkout@v4
 
