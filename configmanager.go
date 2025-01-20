@@ -67,15 +67,15 @@ func NewEnvironmentConfigManager(
 	configManager.context, configManager.shutdown = context.WithCancel(context.Background())
 	configManager.eventManager = manager
 
-	if options.EnableBetaRealtimeUpdates {
+	if options.DisableRealtimeUpdates {
+		configManager.StartPolling(options.ConfigPollingIntervalMS)
+	} else {
 		sseManager, err := newSSEManager(configManager, options, cfg)
 		if err != nil {
 			return nil, err
 		}
 		configManager.sseManager = sseManager
 		go configManager.ssePollingManager()
-	} else {
-		configManager.StartPolling(options.ConfigPollingIntervalMS)
 	}
 	return configManager, err
 }
@@ -129,7 +129,7 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 			case api.ClientEventType_ConfigUpdated:
 				eventData := event.EventData.(map[string]string)
 
-				if url, ok := eventData["sseUrl"]; ok && e.options.EnableBetaRealtimeUpdates && e.sseManager != nil {
+				if url, ok := eventData["sseUrl"]; ok && !e.options.DisableRealtimeUpdates && e.sseManager != nil {
 					// Reconnect SSE
 					if url != "" && (e.sseManager.url != url || !e.sseManager.Connected.Load()) {
 						err := e.StartSSE(url)
@@ -149,7 +149,7 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 }
 
 func (e *EnvironmentConfigManager) StartSSE(url string) error {
-	if !e.options.EnableBetaRealtimeUpdates {
+	if e.options.DisableRealtimeUpdates {
 		return fmt.Errorf("realtime updates are disabled. Cannot start SSE")
 	}
 	return e.sseManager.StartSSEOverride(url)
@@ -391,16 +391,15 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 }
 
 func (e *EnvironmentConfigManager) getConfigURL() string {
-    configBasePath := e.cfg.ConfigCDNBasePath
+	configBasePath := e.cfg.ConfigCDNBasePath
 
-    version := "v2"
-    if e.options.AdvancedOptions.OverrideConfigWithV1 {
-        version = "v1"
-    }
+	version := "v2"
+	if e.options.AdvancedOptions.OverrideConfigWithV1 {
+		version = "v1"
+	}
 
-    return fmt.Sprintf("%s/config/%s/server/%s.json", configBasePath, version, e.sdkKey)
+	return fmt.Sprintf("%s/config/%s/server/%s.json", configBasePath, version, e.sdkKey)
 }
-
 
 func (e *EnvironmentConfigManager) HasConfig() bool {
 	return e.localBucketing.HasConfig()

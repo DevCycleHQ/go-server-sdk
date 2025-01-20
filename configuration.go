@@ -16,7 +16,7 @@ type EventQueueOptions = api.EventQueueOptions
 
 type AdvancedOptions struct {
 	OverridePlatformData *api.PlatformData
-	OverrideConfigWithV1        bool
+	OverrideConfigWithV1 bool
 }
 
 type Options struct {
@@ -28,14 +28,16 @@ type Options struct {
 	DisableAutomaticEventLogging bool          `json:"disableAutomaticEventLogging,omitempty"`
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging,omitempty"`
 	DisableETagMatching          bool          `json:"disableETagMatching,omitempty"`
-	EnableBetaRealtimeUpdates    bool          `json:"enableRealtimeUpdates,omitempty"`
-	MaxEventQueueSize            int           `json:"maxEventsPerFlush,omitempty"`
-	FlushEventQueueSize          int           `json:"minEventsPerFlush,omitempty"`
-	ConfigCDNURI                 string
-	EventsAPIURI                 string
-	ClientEventHandler           chan api.ClientEvent
-	BucketingAPIURI              string
-	Logger                       util.Logger
+	DisableRealtimeUpdates       bool          `json:"disableRealtimeUpdates,omitempty"`
+	// Deprecated: EnableBetaRealtimeUpdates is no longer supported. SSE connections are enabled by default.
+	EnableBetaRealtimeUpdates bool `json:"enableRealtimeUpdates,omitempty"`
+	MaxEventQueueSize         int  `json:"maxEventsPerFlush,omitempty"`
+	FlushEventQueueSize       int  `json:"minEventsPerFlush,omitempty"`
+	ConfigCDNURI              string
+	EventsAPIURI              string
+	ClientEventHandler        chan api.ClientEvent
+	BucketingAPIURI           string
+	Logger                    util.Logger
 	AdvancedOptions
 }
 
