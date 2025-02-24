@@ -1,14 +1,18 @@
 package devcycle
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
+	"sync/atomic"
+	"time"
+
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 	"github.com/launchdarkly/eventsource"
-	"sync/atomic"
-	"time"
 )
 
 type SSEManager struct {
@@ -23,6 +27,8 @@ type SSEManager struct {
 	cfg              *HTTPConfiguration
 	Started          bool
 	Connected        atomic.Bool
+	reader           *bufio.Reader
+	response         *http.Response
 }
 
 type sseEvent struct {
@@ -81,6 +87,7 @@ func (m *SSEManager) connectSSE(url string) (err error) {
 	defer func() {
 		m.configManager.InternalClientEvents <- sseClientEvent
 	}()
+
 	sse, err := eventsource.SubscribeWithURL(url,
 		eventsource.StreamOptionReadTimeout(m.options.RequestTimeout),
 		eventsource.StreamOptionCanRetryFirstConnection(m.options.RequestTimeout),
@@ -95,11 +102,14 @@ func (m *SSEManager) connectSSE(url string) (err error) {
 		sseClientEvent.EventData = "Error connecting to SSE stream: " + url
 		return
 	}
+
+	util.Debugf("SSE - Successfully connected to stream: %s", url)
 	m.Connected.Store(true)
 	m.stream = sse
 	m.eventChannel = m.stream.Events
 	m.Started = sseClientEvent.Error == nil
 	go m.receiveSSEMessages()
+
 	return
 }
 
@@ -185,4 +195,43 @@ func (m *SSEManager) StopSSE() {
 
 func (m *SSEManager) Close() {
 	m.stopEventHandler()
+}
+
+func (s *SSEManager) connect(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, "GET", s.url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	client := &http.Client{
+		Timeout: 0, // Disable timeout for SSE connections
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ResponseHeaderTimeout: 10 * time.Second,
+		},
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to connect to SSE endpoint: %w", err)
+	}
+
+	s.reader = bufio.NewReader(resp.Body)
+	s.response = resp
+
+	return nil
+}
+
+func (s *SSEManager) readEvent(ctx context.Context) (*Event, error) {
+	// Add context check before reading
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	// ... existing code ...
 }
