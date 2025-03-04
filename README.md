@@ -1,4 +1,4 @@
-# DevCycle Go Server SDK.
+# DevCycle Go Server SDK
 
 This SDK supports both cloud bucketing (requests outbound to https://bucketing-api.devcycle.com) as well as local bucketing (requests to a local bucketing engine self-contained in this SDK).
 
@@ -16,20 +16,20 @@ import "github.com/devcyclehq/go-server-sdk/v2"
 ## Getting Started
 
 ```golang
-    sdkKey := os.Getenv("DEVCYCLE_SERVER_SDK_KEY")
-	user := devcycle.User{UserId: "test"}
+sdkKey := os.Getenv("DEVCYCLE_SERVER_SDK_KEY")
+user := devcycle.User{UserId: "test"}
 
-	options := devcycle.Options{
-		EnableEdgeDB:                 false,
-		EnableCloudBucketing:         false,
-		EventFlushIntervalMS:         0,
-		ConfigPollingIntervalMS:      10 * time.Second,
-		RequestTimeout:               10 * time.Second,
-		DisableAutomaticEventLogging: false,
-		DisableCustomEventLogging:    false,
-	}
+options := devcycle.Options{
+	EnableEdgeDB:                 false,
+	EnableCloudBucketing:         false,
+	EventFlushIntervalMS:         0,
+	ConfigPollingIntervalMS:      10 * time.Second,
+	RequestTimeout:               10 * time.Second,
+	DisableAutomaticEventLogging: false,
+	DisableCustomEventLogging:    false,
+}
 
-	client, _ := devcycle.NewClient(sdkKey, &options)
+client, _ := devcycle.NewClient(sdkKey, &options)
 ```
 
 ## Usage
@@ -49,7 +49,8 @@ Configuration of the SDK is done through the `Options` struct.
 ## Logging
 
 By default, logging is disabled to avoid overhead and noise in your logs. To enable it for debugging the SDK, set the `devcycle_debug_logging` build tag when compiling your project:
-```
+
+```golang
 go build -tags devcycle_debug_logging ...
 ```
 
@@ -81,11 +82,12 @@ The following options are available when you are using the SDK in Local Bucketin
 | ConfigCDNURI                 | string         | The base URI for retrieving your project configuration from DevCycle. Can be set if you need to proxy traffic through your own server                                                                                           | https://config-cdn.devcycle.com           |
 | EventsAPIURI                 | string         | The base URI for sending events to DevCycle for analytics tracking. Can be set if you need to proxy traffic through your own server                                                                                             | https://events.devcycle.com           |
 | Logger                       | util.Logger    | Allows you to set a custom logger to manage output from the SDK. The default logger will write to stdout and stderr                                                                                                             | nil        |
-# OpenFeature Support
+
+## OpenFeature Support
 
 This SDK provides an implementation of the [OpenFeature](https://openfeature.dev/) Provider interface. Use the `OpenFeatureProvider()` method on the DevCycle SDK client to obtain a provider for OpenFeature.
 
-```go
+```golang
 devcycleClient, err := devcycle.NewClient("DEVCYCLE_SERVER_SDK_KEY", &options)
 err = openfeature.SetProvider(devcycleClient.OpenFeatureProvider())
 ```
@@ -96,7 +98,8 @@ err = openfeature.SetProvider(devcycleClient.OpenFeatureProvider())
 ## Linting
 
 We run golangci/golangci-lint on every PR to catch common errors. You can run the linter locally via the Makefile with:
-```
+
+```bash
 make lint
 ```
 
