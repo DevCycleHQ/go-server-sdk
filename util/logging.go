@@ -98,5 +98,5 @@ func Warnf(format string, a ...any) {
 }
 
 func Errorf(format string, a ...any) {
-	globalLogger.Errorf(format, a...)
+	_ = globalLogger.Errorf(format, a...)
 }
