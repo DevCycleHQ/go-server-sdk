@@ -37,20 +37,6 @@ type Logger interface {
 
 type defaultLogger struct{}
 
-func (defaultLogger) Debugf(format string, a ...any) {
-	if !strings.HasSuffix(format, "\n") {
-		format += "\n"
-	}
-	log.Printf("DEBUG: "+format, a...)
-}
-
-func (defaultLogger) Infof(format string, a ...any) {
-	if !strings.HasSuffix(format, "\n") {
-		format += "\n"
-	}
-	log.Printf("INFO: "+format, a...)
-}
-
 func (defaultLogger) Printf(format string, a ...any) {
 	if !strings.HasSuffix(format, "\n") {
 		format += "\n"
@@ -93,4 +79,24 @@ func (DiscardLogger) Warnf(_ string, _ ...any) {
 
 func (DiscardLogger) Errorf(_ string, _ ...any) error {
 	return nil
+}
+
+func Printf(format string, a ...any) {
+	globalLogger.Printf(format, a...)
+}
+
+func Infof(format string, a ...any) {
+	globalLogger.Infof(format, a...)
+}
+
+func Debugf(format string, a ...any) {
+	globalLogger.Debugf(format, a...)
+}
+
+func Warnf(format string, a ...any) {
+	globalLogger.Warnf(format, a...)
+}
+
+func Errorf(format string, a ...any) {
+	_ = globalLogger.Errorf(format, a...)
 }
