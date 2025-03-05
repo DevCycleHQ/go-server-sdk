@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/open-feature/go-sdk/openfeature"
+	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/util"
-	"github.com/open-feature/go-sdk/pkg/openfeature"
 )
 
 const DEVCYCLE_USER_ID_KEY = "userId"
@@ -16,9 +17,57 @@ type DevCycleProvider struct {
 	Client ClientImpl
 }
 
+func NewDevCycleProvider(sdkKey string, options *Options) (provider DevCycleProvider, err error) {
+
+	client, err := NewClient(sdkKey, options)
+	return client.OpenFeatureProvider(), err
+}
+
 type ClientImpl interface {
 	Variable(userdata User, key string, defaultValue interface{}) (Variable, error)
 	IsLocalBucketing() bool
+	Track(userdata User, event Event) (bool, error)
+	Close() error
+	initialized() bool
+}
+
+// Init holds initialization logic of the provider
+func (p DevCycleProvider) Init(evaluationContext openfeature.EvaluationContext) error {
+	_10msticker := time.NewTicker(10 * time.Millisecond)
+	maxLoop := 1000
+	for {
+		if maxLoop <= 0 {
+			return errors.New("initialization timeout")
+		}
+		select {
+		case <-_10msticker.C:
+			if p.Client.initialized() {
+				return nil
+			} else {
+				maxLoop--
+			}
+		}
+	}
+}
+
+func (p DevCycleProvider) Track(ctx context.Context, trackingEventName string, evalCtx openfeature.FlattenedContext, details openfeature.TrackingEventDetails) {
+	user, err := createUserFromEvaluationContext(evalCtx)
+	if err != nil {
+		util.Warnf("Error creating user from evaluation context: %v", err)
+		return
+	}
+	_, _ = p.Client.Track(user, createEventFromEventDetails(details))
+}
+
+// Status expose the status of the provider
+func (p DevCycleProvider) Status() openfeature.State {
+	// The state is typically set during initialization.
+	return openfeature.ReadyState
+}
+
+// Shutdown define the shutdown operation of the provider
+func (p DevCycleProvider) Shutdown() {
+	_ = p.Client.Close()
 }
 
 // Metadata returns the metadata of the provider
@@ -311,6 +360,26 @@ func toOpenFeatureError(err error) openfeature.ResolutionError {
 		return openfeature.NewTypeMismatchResolutionError(err.Error())
 	}
 	return openfeature.NewGeneralResolutionError(err.Error())
+}
+
+func createEventFromEventDetails(details openfeature.TrackingEventDetails) Event {
+	event := Event{
+
+		Target:      "",
+		CustomType:  "",
+		UserId:      "",
+		ClientDate:  time.Time{},
+		Value:       0,
+		FeatureVars: nil,
+		MetaData:    nil,
+	}
+	event.Value = details.Value()
+	if details.Attributes() != nil {
+		event.CustomType = details.Attribute("type").(string)
+		event.MetaData = details.Attributes()
+	}
+	return event
+
 }
 
 func createUserFromEvaluationContext(evalCtx openfeature.FlattenedContext) (User, error) {
