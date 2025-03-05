@@ -689,6 +689,9 @@ func variableTypeFromValue(key string, value interface{}, allowNil bool) (varTyp
 func (c *Client) callAPI(request *http.Request) (*http.Response, error) {
 	return c.cfg.HTTPClient.Do(request)
 }
+func (c *Client) initialized() bool {
+	return c.isInitialized
+}
 
 func exponentialBackoff(attempt int) float64 {
 	delay := math.Pow(2, float64(attempt)) * 100
