@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"log"
 	"os"
 	"time"
@@ -15,7 +16,7 @@ func main() {
 	if sdkKey == "" {
 		log.Fatal("DEVCYCLE_SERVER_SDK_KEY env var not set: set it to your SDK key")
 	}
-
+	inithandler := make(chan api.ClientEvent, 10)
 	dvcOptions := devcycle.Options{
 		EnableEdgeDB:                 false,
 		EnableCloudBucketing:         false,
@@ -24,10 +25,22 @@ func main() {
 		RequestTimeout:               time.Second * 10,
 		DisableAutomaticEventLogging: false,
 		DisableCustomEventLogging:    false,
+		ClientEventHandler:           inithandler,
 	}
-	dvcClient, _ := devcycle.NewClient(sdkKey, &dvcOptions)
+	dvcClient, err := devcycle.NewClient(sdkKey, &dvcOptions)
+	if err != nil {
+		log.Fatalf("Failed to create DevCycle client: %v", err)
+	}
 
-	if err := openfeature.SetProvider(dvcClient.OpenFeatureProvider()); err != nil {
+	// Wait for the client to be initialized
+	for {
+		event := <-inithandler
+		if event.EventType == api.ClientEventType_Initialized {
+			break
+		}
+		time.Sleep(time.Millisecond * 20)
+	}
+	if err = openfeature.SetProvider(dvcClient.OpenFeatureProvider()); err != nil {
 		log.Fatalf("Failed to set DevCycle provider: %v", err)
 	}
 	client := openfeature.NewClient("devcycle")

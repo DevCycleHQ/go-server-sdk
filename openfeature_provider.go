@@ -42,21 +42,9 @@ type ClientImpl interface {
 	closed() bool
 }
 
-// Init holds initialization logic of the provider
+// Init holds initialization logic of the provider - we don't init a provider specific datamodel so this will always be nil
 func (p DevCycleProvider) Init(evaluationContext openfeature.EvaluationContext) error {
-	_10msticker := time.NewTicker(10 * time.Millisecond)
-	maxLoop := 1000
-	for {
-		if maxLoop <= 0 {
-			return errors.New("initialization timeout")
-		}
-		<-_10msticker.C
-		if p.Client.initialized() {
-			return nil
-		} else {
-			maxLoop--
-		}
-	}
+	return nil
 }
 
 func (p DevCycleProvider) Track(ctx context.Context, trackingEventName string, evalCtx openfeature.EvaluationContext, details openfeature.TrackingEventDetails) {
@@ -73,14 +61,7 @@ func (p DevCycleProvider) Track(ctx context.Context, trackingEventName string, e
 
 // Status expose the status of the provider
 func (p DevCycleProvider) Status() openfeature.State {
-	if p.Client.closed() {
-		// There's no explicit shutdown state so this is the closest we can get
-		return openfeature.FatalState
-	}
-	if p.Client.initialized() {
-		return openfeature.ReadyState
-	}
-	return openfeature.NotReadyState
+	return openfeature.ReadyState
 }
 
 // Shutdown define the shutdown operation of the provider
