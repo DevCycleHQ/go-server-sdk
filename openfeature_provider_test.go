@@ -4,39 +4,59 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
-	"github.com/open-feature/go-sdk/pkg/openfeature"
+	"github.com/open-feature/go-sdk/openfeature"
 	"github.com/stretchr/testify/require"
 )
 
 func TestOFDevCycleProvider_Metadata(t *testing.T) {
-
 	provider := getProviderForConfig(t, false)
 	require.Equal(t, "DevCycleProvider Local", provider.Metadata().Name)
 	provider = getProviderForConfig(t, true)
 	require.Equal(t, "DevCycleProvider Cloud", provider.Metadata().Name)
 }
 
-func TestOFcreateUserFromEvaluationContext_NoUserID(t *testing.T) {
-	_, err := createUserFromEvaluationContext(openfeature.FlattenedContext{})
+func TestOFDevCycleProvider_Close(t *testing.T) {
+	provider := getProviderForConfig(t, false)
+	require.Equal(t, openfeature.ReadyState, provider.Status())
+	provider.Shutdown()
+	state := provider.Status()
+	require.Equal(t, openfeature.FatalState, state)
+}
+
+func TestOFDevCycleProvider_EventChannel(t *testing.T) {
+	provider := getProviderForConfig(t, false)
+	size1, err := provider.internalFullClient.eventQueue.internalQueue.UserQueueLength()
+	provider.Track(context.Background(), "test-event", openfeature.NewEvaluationContext("1234", make(map[string]interface{})), openfeature.NewTrackingEventDetails(1))
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		size, err := provider.internalFullClient.eventQueue.internalQueue.UserQueueLength()
+		require.NoError(t, err)
+		return size > size1
+	}, time.Millisecond*300, time.Millisecond*10)
+}
+
+func TestOFcreateUserFromFlattenedContext_NoUserID(t *testing.T) {
+	_, err := createUserFromFlattenedContext(openfeature.FlattenedContext{})
 	require.Error(t, err, "Expected error when userId is not provided")
 }
 
-func TestOFcreateUserFromEvaluationContext_SimpleUser(t *testing.T) {
-	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": "1234"})
+func TestOFcreateUserFromFlattenedContext_SimpleUser(t *testing.T) {
+	user, err := createUserFromFlattenedContext(openfeature.FlattenedContext{"userId": "1234"})
 	require.NoError(t, err)
 	require.Equal(t, "1234", user.UserId)
 
-	user, err = createUserFromEvaluationContext(openfeature.FlattenedContext{"targetingKey": "1234"})
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"targetingKey": "1234"})
 	require.NoError(t, err)
 	require.Equal(t, "1234", user.UserId)
 
-	user, err = createUserFromEvaluationContext(openfeature.FlattenedContext{"targetingKey": "1234", "userId": "5678"})
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"targetingKey": "1234", "userId": "5678"})
 	require.NoError(t, err)
 	require.Equal(t, "1234", user.UserId)
 }
 
-func TestOFcreateUserFromEvaluationContext_AllUserProperties(t *testing.T) {
+func TestOFcreateUserFromFlattenedContext_AllUserProperties(t *testing.T) {
 	ctx := openfeature.FlattenedContext{
 		"userId":      "1234",
 		"email":       "someone@example.com",
@@ -47,7 +67,7 @@ func TestOFcreateUserFromEvaluationContext_AllUserProperties(t *testing.T) {
 		"appBuild":    "1",
 		"deviceModel": "iPhone X21",
 	}
-	user, err := createUserFromEvaluationContext(ctx)
+	user, err := createUserFromFlattenedContext(ctx)
 	require.NoError(t, err)
 	require.Equal(t, ctx["userId"], user.UserId)
 	require.Equal(t, ctx["email"], user.Email)
@@ -61,42 +81,42 @@ func TestOFcreateUserFromEvaluationContext_AllUserProperties(t *testing.T) {
 	require.Nil(t, user.PrivateCustomData)
 }
 
-func TestOFcreateUserFromEvaluationContext_InvalidDataType(t *testing.T) {
+func TestOFcreateUserFromFlattenedContext_InvalidDataType(t *testing.T) {
 	// Bad email type
-	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": "1234", "email": 1234})
+	user, err := createUserFromFlattenedContext(openfeature.FlattenedContext{"userId": "1234", "email": 1234})
 	require.NoError(t, err)
 	require.Empty(t, user.Email)
 
-	user, err = createUserFromEvaluationContext(openfeature.FlattenedContext{"targetingKey": 1234, "userId": "5678"})
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"targetingKey": 1234, "userId": "5678"})
 	require.EqualError(t, err, "targetingKey must be a string")
 
-	user, err = createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": 5678})
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"userId": 5678})
 	require.EqualError(t, err, "userId must be a string")
 }
 
-func TestOFcreateUserFromEvaluationContext_CustomData(t *testing.T) {
+func TestOFcreateUserFromFlattenedContext_CustomData(t *testing.T) {
 	testCustomData := map[string]interface{}{"key1": "strVal", "key2": float64(1234), "key3": true, "key4": nil}
 	testPrivateData := map[string]interface{}{"key1": "otherVal", "key2": float64(9999), "key3": false, "key4": nil}
-	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": "1234", "customData": testCustomData, "privateCustomData": testPrivateData})
+	user, err := createUserFromFlattenedContext(openfeature.FlattenedContext{"userId": "1234", "customData": testCustomData, "privateCustomData": testPrivateData})
 	require.NoError(t, err)
 	require.Equal(t, testCustomData, user.CustomData)
 	require.Equal(t, testPrivateData, user.PrivateCustomData)
 }
 
-func TestOFcreateUserFromEvaluationContext_CustomDataUnknownProperties(t *testing.T) {
+func TestOFcreateUserFromFlattenedContext_CustomDataUnknownProperties(t *testing.T) {
 	testCustomData := map[string]interface{}{"targetingKey": "1234", "key1": "strVal", "key2": float64(1234), "key3": true, "key4": nil}
-	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext(testCustomData))
+	user, err := createUserFromFlattenedContext(openfeature.FlattenedContext(testCustomData))
 	require.NoError(t, err)
 	delete(testCustomData, openfeature.TargetingKey)
 	delete(testCustomData, "user_id")
 	require.Equal(t, testCustomData, user.CustomData)
 }
 
-func TestOFcreateUserFromEvaluationContext_NestedProperties(t *testing.T) {
+func TestOFcreateUserFromFlattenedContext_NestedProperties(t *testing.T) {
 	testCustomData := map[string]interface{}{"key1": "strVal", "nested": map[string]string{"child": "value"}}
 	testPrivateData := map[string]interface{}{"key1": "otherVal", "nested": map[string]string{"child": "value"}}
 
-	user, err := createUserFromEvaluationContext(openfeature.FlattenedContext{"userId": "1234", "customData": testCustomData, "privateCustomData": testPrivateData})
+	user, err := createUserFromFlattenedContext(openfeature.FlattenedContext{"userId": "1234", "customData": testCustomData, "privateCustomData": testPrivateData})
 	require.NoError(t, err)
 
 	delete(testCustomData, "nested")
@@ -129,7 +149,7 @@ func TestOFsetCustomDataValue(t *testing.T) {
 	}
 }
 
-func getProviderForConfig(t *testing.T, cloudBucketing bool) openfeature.FeatureProvider {
+func getProviderForConfig(t *testing.T, cloudBucketing bool) DevCycleProvider {
 	t.Helper()
 	sdkKey, _ := httpConfigMock(200)
 
@@ -141,7 +161,7 @@ func getProviderForConfig(t *testing.T, cloudBucketing bool) openfeature.Feature
 	return client.OpenFeatureProvider()
 }
 
-func getProviderForCustomConfig(t *testing.T, config string, cloudBucketing bool) openfeature.FeatureProvider {
+func getProviderForCustomConfig(t *testing.T, config string, cloudBucketing bool) DevCycleProvider {
 	t.Helper()
 	sdkKey := generateTestSDKKey()
 	httpCustomConfigMock(sdkKey, 200, config, false)
@@ -459,6 +479,22 @@ func TestOFObjectEvaluation_TargetMatchInvalidType(t *testing.T) {
 type StubClient struct {
 	variable Variable
 	err      error
+}
+
+func (c StubClient) closed() bool {
+	return false
+}
+
+func (c StubClient) Track(userdata User, event Event) (bool, error) {
+	return true, nil
+}
+
+func (c StubClient) Close() error {
+	return nil
+}
+
+func (c StubClient) initialized() bool {
+	return true
 }
 
 func (c StubClient) Variable(userdata User, key string, defaultValue interface{}) (Variable, error) {
