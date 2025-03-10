@@ -34,11 +34,11 @@ func main() {
 
 	// Wait for the client to be initialized
 	for {
+		time.Sleep(time.Millisecond * 100)
 		event := <-inithandler
 		if event.EventType == api.ClientEventType_Initialized {
 			break
 		}
-		time.Sleep(time.Millisecond * 20)
 	}
 	if err = openfeature.SetProvider(dvcClient.OpenFeatureProvider()); err != nil {
 		log.Fatalf("Failed to set DevCycle provider: %v", err)
