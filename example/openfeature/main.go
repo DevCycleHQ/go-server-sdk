@@ -7,7 +7,7 @@ import (
 	"time"
 
 	devcycle "github.com/devcyclehq/go-server-sdk/v2"
-	"github.com/open-feature/go-sdk/pkg/openfeature"
+	"github.com/open-feature/go-sdk/openfeature"
 )
 
 func main() {

@@ -50,13 +50,11 @@ func (p DevCycleProvider) Init(evaluationContext openfeature.EvaluationContext) 
 		if maxLoop <= 0 {
 			return errors.New("initialization timeout")
 		}
-		select {
-		case <-_10msticker.C:
-			if p.Client.initialized() {
-				return nil
-			} else {
-				maxLoop--
-			}
+		<-_10msticker.C
+		if p.Client.initialized() {
+			return nil
+		} else {
+			maxLoop--
 		}
 	}
 }
