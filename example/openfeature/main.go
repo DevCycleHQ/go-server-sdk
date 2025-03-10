@@ -27,7 +27,7 @@ func main() {
 		DisableCustomEventLogging:    false,
 		ClientEventHandler:           inithandler,
 	}
-	dvcClient, err := devcycle.NewClient(sdkKey, &dvcOptions)
+	provider, err := devcycle.NewDevCycleProvider(sdkKey, &dvcOptions)
 	if err != nil {
 		log.Fatalf("Failed to create DevCycle client: %v", err)
 	}
@@ -40,7 +40,7 @@ func main() {
 			break
 		}
 	}
-	if err = openfeature.SetProvider(dvcClient.OpenFeatureProvider()); err != nil {
+	if err = openfeature.SetProvider(provider); err != nil {
 		log.Fatalf("Failed to set DevCycle provider: %v", err)
 	}
 	client := openfeature.NewClient("devcycle")
