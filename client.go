@@ -52,7 +52,9 @@ type Client struct {
 	localBucketing  LocalBucketing
 	platformData    *PlatformData
 	// Set to true when the client has been initialized, regardless of whether the config has loaded successfully.
-	isInitialized              bool
+	isInitialized bool
+	// Set to true when the client has been closed.
+	isClosed                   bool
 	internalClientEventChannel chan api.ClientEvent
 }
 
@@ -537,7 +539,7 @@ func (c *Client) Close() (err error) {
 	}
 
 	c.localBucketing.Close()
-
+	c.isClosed = true
 	return err
 }
 
@@ -691,6 +693,10 @@ func (c *Client) callAPI(request *http.Request) (*http.Response, error) {
 }
 func (c *Client) initialized() bool {
 	return c.isInitialized
+}
+
+func (c *Client) closed() bool {
+	return c.isClosed
 }
 
 func exponentialBackoff(attempt int) float64 {
