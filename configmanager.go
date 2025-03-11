@@ -226,9 +226,12 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 	etag := e.localBucketing.GetETag()
 	lastModified := e.localBucketing.GetLastModified()
 	storedLM, err := time.Parse(time.RFC1123, lastModified)
-	if err != nil {
-		util.Warnf("Error parsing stored last modified time: %s\n", err)
+	if lastModified != "" {
+		if err != nil {
+			util.Warnf("Error parsing stored last modified time: %s\n", err)
+		}
 	}
+
 	if len(minimumLastModified) > 0 && storedLM.Before(minimumLastModified[0]) {
 		lastModified = minimumLastModified[0].Format(time.RFC1123)
 	}

@@ -4,21 +4,72 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/open-feature/go-sdk/openfeature"
+	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/util"
-	"github.com/open-feature/go-sdk/pkg/openfeature"
 )
 
 const DEVCYCLE_USER_ID_KEY = "userId"
 
 // DevCycleProvider implements the FeatureProvider interface and provides functions for evaluating flags
 type DevCycleProvider struct {
-	Client ClientImpl
+	Client             ClientImpl
+	internalFullClient *Client
+}
+
+func NewDevCycleProvider(sdkKey string, options *Options) (provider DevCycleProvider, err error) {
+	client, err := NewClient(sdkKey, options)
+	if err != nil {
+		util.Errorf("Error creating DevCycle client: %v", err)
+		return DevCycleProvider{}, err
+	}
+	provider = DevCycleProvider{Client: client, internalFullClient: client}
+	return
+}
+
+// Convenience method for creating a DevCycleProvider from a Client
+func (c *Client) OpenFeatureProvider() DevCycleProvider {
+	return DevCycleProvider{Client: c, internalFullClient: c}
 }
 
 type ClientImpl interface {
 	Variable(userdata User, key string, defaultValue interface{}) (Variable, error)
 	IsLocalBucketing() bool
+	Track(userdata User, event Event) (bool, error)
+	Close() error
+	initialized() bool
+	closed() bool
+}
+
+// Init holds initialization logic of the provider - we don't init a provider specific datamodel so this will always be nil
+func (p DevCycleProvider) Init(evaluationContext openfeature.EvaluationContext) error {
+	return nil
+}
+
+func (p DevCycleProvider) Track(ctx context.Context, trackingEventName string, evalCtx openfeature.EvaluationContext, details openfeature.TrackingEventDetails) {
+	user, err := createUserFromEvaluationContext(evalCtx)
+	if err != nil {
+		util.Warnf("Error creating user from evaluation context: %v", err)
+		return
+	}
+	_, err = p.Client.Track(user, createEventFromEventDetails(trackingEventName, details))
+	if err != nil {
+		util.Warnf("Error tracking event: %v", err)
+	}
+}
+
+// Status expose the status of the provider
+func (p DevCycleProvider) Status() openfeature.State {
+	if p.Client.closed() {
+		return openfeature.FatalState
+	}
+	return openfeature.ReadyState
+}
+
+// Shutdown define the shutdown operation of the provider
+func (p DevCycleProvider) Shutdown() {
+	_ = p.Client.Close()
 }
 
 // Metadata returns the metadata of the provider
@@ -30,14 +81,9 @@ func (p DevCycleProvider) Metadata() openfeature.Metadata {
 	}
 }
 
-// Convenience method for creating a DevCycleProvider from a Client
-func (c *Client) OpenFeatureProvider() DevCycleProvider {
-	return DevCycleProvider{Client: c}
-}
-
 // BooleanEvaluation returns a boolean flag
 func (p DevCycleProvider) BooleanEvaluation(ctx context.Context, flag string, defaultValue bool, evalCtx openfeature.FlattenedContext) openfeature.BoolResolutionDetail {
-	user, err := createUserFromEvaluationContext(evalCtx)
+	user, err := createUserFromFlattenedContext(evalCtx)
 	if err != nil {
 		return openfeature.BoolResolutionDetail{
 			Value: defaultValue,
@@ -92,7 +138,7 @@ func (p DevCycleProvider) BooleanEvaluation(ctx context.Context, flag string, de
 
 // StringEvaluation returns a string flag
 func (p DevCycleProvider) StringEvaluation(ctx context.Context, flag string, defaultValue string, evalCtx openfeature.FlattenedContext) openfeature.StringResolutionDetail {
-	user, err := createUserFromEvaluationContext(evalCtx)
+	user, err := createUserFromFlattenedContext(evalCtx)
 	if err != nil {
 		return openfeature.StringResolutionDetail{
 			Value: defaultValue,
@@ -147,7 +193,7 @@ func (p DevCycleProvider) StringEvaluation(ctx context.Context, flag string, def
 
 // FloatEvaluation returns a float flag
 func (p DevCycleProvider) FloatEvaluation(ctx context.Context, flag string, defaultValue float64, evalCtx openfeature.FlattenedContext) openfeature.FloatResolutionDetail {
-	user, err := createUserFromEvaluationContext(evalCtx)
+	user, err := createUserFromFlattenedContext(evalCtx)
 	if err != nil {
 		return openfeature.FloatResolutionDetail{
 			Value: defaultValue,
@@ -202,7 +248,7 @@ func (p DevCycleProvider) FloatEvaluation(ctx context.Context, flag string, defa
 
 // IntEvaluation returns an int flag
 func (p DevCycleProvider) IntEvaluation(ctx context.Context, flag string, defaultValue int64, evalCtx openfeature.FlattenedContext) openfeature.IntResolutionDetail {
-	user, err := createUserFromEvaluationContext(evalCtx)
+	user, err := createUserFromFlattenedContext(evalCtx)
 	if err != nil {
 		return openfeature.IntResolutionDetail{
 			Value: defaultValue,
@@ -258,7 +304,7 @@ func (p DevCycleProvider) IntEvaluation(ctx context.Context, flag string, defaul
 // ObjectEvaluation returns an object flag
 func (p DevCycleProvider) ObjectEvaluation(ctx context.Context, flag string, defaultValue interface{}, evalCtx openfeature.FlattenedContext) openfeature.InterfaceResolutionDetail {
 
-	user, err := createUserFromEvaluationContext(evalCtx)
+	user, err := createUserFromFlattenedContext(evalCtx)
 	if err != nil {
 		return openfeature.InterfaceResolutionDetail{
 			Value: defaultValue,
@@ -313,7 +359,29 @@ func toOpenFeatureError(err error) openfeature.ResolutionError {
 	return openfeature.NewGeneralResolutionError(err.Error())
 }
 
-func createUserFromEvaluationContext(evalCtx openfeature.FlattenedContext) (User, error) {
+func createEventFromEventDetails(eventName string, details openfeature.TrackingEventDetails) Event {
+	event := Event{
+		Type_:       "customEvent",
+		CustomType:  eventName,
+		UserId:      "",
+		ClientDate:  time.Time{},
+		Value:       0,
+		FeatureVars: nil,
+		MetaData:    nil,
+	}
+	event.Value = details.Value()
+	if details.Attributes() != nil {
+		event.MetaData = details.Attributes()
+	}
+	return event
+
+}
+
+func createUserFromEvaluationContext(evalCtx openfeature.EvaluationContext) (User, error) {
+	return createUserFromFlattenedContext(flattenContext(evalCtx))
+}
+
+func createUserFromFlattenedContext(evalCtx openfeature.FlattenedContext) (User, error) {
 	userId := ""
 	_, exists := evalCtx[openfeature.TargetingKey]
 	if exists {
@@ -424,4 +492,15 @@ func setCustomDataValue(customData map[string]interface{}, key string, val inter
 	default:
 		util.Warnf("Unsupported type for custom data value: %s=%v", key, val)
 	}
+}
+
+func flattenContext(evalCtx openfeature.EvaluationContext) openfeature.FlattenedContext {
+	flatCtx := openfeature.FlattenedContext{}
+	if evalCtx.Attributes() != nil {
+		flatCtx = evalCtx.Attributes()
+	}
+	if evalCtx.TargetingKey() != "" {
+		flatCtx[openfeature.TargetingKey] = evalCtx.TargetingKey()
+	}
+	return flatCtx
 }
