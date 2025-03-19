@@ -85,8 +85,7 @@ func (m *SSEManager) connectSSE(url string) (err error) {
 		eventsource.StreamOptionCanRetryFirstConnection(m.options.RequestTimeout),
 		eventsource.StreamOptionErrorHandler(m.errorHandler),
 		eventsource.StreamOptionUseBackoff(m.options.RequestTimeout),
-		eventsource.StreamOptionUseJitter(0.25),
-		eventsource.StreamOptionHTTPClient(m.cfg.HTTPClient))
+		eventsource.StreamOptionUseJitter(0.25))
 	if err != nil {
 		sseClientEvent.EventType = api.ClientEventType_InternalSSEFailure
 		sseClientEvent.Status = "failure"
