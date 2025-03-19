@@ -254,6 +254,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 	if err != nil {
 		if numRetriesRemaining > 0 {
 			util.Warnf("Retrying config fetch %d more times. Error: %s", numRetriesRemaining, err)
+			time.Sleep(100 * time.Millisecond)
 			return e.fetchConfig(numRetriesRemaining - 1)
 		}
 		return err
@@ -272,6 +273,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 				}
 				if len(minimumLastModified) > 0 && responseLastModified.Before(minimumLastModified[0]) {
 					_ = e.eventManager.QueueSDKConfigEvent(*req, *resp)
+					time.Sleep(100 * time.Millisecond)
 					return e.fetchConfig(numRetriesRemaining-1, minimumLastModified...)
 				}
 			}
