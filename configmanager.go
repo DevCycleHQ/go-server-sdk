@@ -14,7 +14,7 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
-const CONFIG_RETRIES = 1
+const CONFIG_RETRIES = 5
 
 type ConfigReceiver interface {
 	StoreConfig([]byte, string, string, string) error
@@ -311,7 +311,8 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 	}
 
 	if numRetriesRemaining > 0 {
-		util.Warnf("Retrying config fetch %d more times. Status: %s", numRetriesRemaining, resp.Status)
+		util.Warnf("Retrying config fetch %d mre times. Status: %s", numRetriesRemaining, resp.Status)
+		time.Sleep(100 * time.Millisecond)
 		return e.fetchConfig(numRetriesRemaining - 1)
 	}
 
