@@ -15,8 +15,9 @@ import (
 type EventQueueOptions = api.EventQueueOptions
 
 type AdvancedOptions struct {
-	OverridePlatformData *api.PlatformData
-	OverrideConfigWithV1 bool
+	OverridePlatformData  *api.PlatformData
+	OverrideConfigWithV1  bool
+	OverrideMaxSSEPolling time.Duration
 }
 
 type Options struct {
@@ -72,6 +73,11 @@ func (o *Options) CheckDefaults() {
 		util.Warnf("ConfigPollingIntervalMS cannot be less than 1 second. Defaulting to 10 seconds.")
 		o.ConfigPollingIntervalMS = time.Second * 10
 	}
+
+	if o.AdvancedOptions.OverrideMaxSSEPolling != 0 && o.AdvancedOptions.OverrideMaxSSEPolling < time.Second*1 {
+		o.AdvancedOptions.OverrideMaxSSEPolling = time.Second * 1
+	}
+
 	if o.RequestTimeout <= time.Second*5 {
 		o.RequestTimeout = time.Second * 5
 	}
