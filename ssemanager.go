@@ -82,8 +82,7 @@ func (m *SSEManager) connectSSE(url string) (err error) {
 		m.configManager.InternalClientEvents <- sseClientEvent
 	}()
 	sse, err := eventsource.SubscribeWithURL(url,
-		eventsource.StreamOptionReadTimeout(m.options.RequestTimeout),
-		eventsource.StreamOptionCanRetryFirstConnection(m.options.RequestTimeout),
+		eventsource.StreamOptionCanRetryFirstConnection(-1),
 		eventsource.StreamOptionErrorHandler(m.errorHandler),
 		eventsource.StreamOptionUseBackoff(m.options.RequestTimeout),
 		eventsource.StreamOptionUseJitter(0.25),
