@@ -124,7 +124,14 @@ func (e *EnvironmentConfigManager) ssePollingManager() {
 				e.StartPolling(e.options.ConfigPollingIntervalMS)
 
 			case api.ClientEventType_InternalSSEConnected:
-				e.StartPolling(time.Minute * 10)
+				var pollingInterval time.Duration
+				if e.options.AdvancedOptions.OverrideMaxSSEPolling > 0 {
+					pollingInterval = e.options.AdvancedOptions.OverrideMaxSSEPolling
+				} else {
+					pollingInterval = time.Minute * 5
+				}
+				util.Infof("SSE Connected - increasing polling interval to - %v", pollingInterval)
+				e.StartPolling(pollingInterval)
 
 			case api.ClientEventType_ConfigUpdated:
 				eventData := event.EventData.(map[string]string)
