@@ -14,7 +14,7 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
-const CONFIG_RETRIES = 5
+const CONFIG_RETRIES = 1
 
 type ConfigReceiver interface {
 	StoreConfig([]byte, string, string, string) error
