@@ -184,9 +184,6 @@ func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) {
 	e.pollingManager = pollingManager
 	go func() {
 		for {
-			if e.pollingManager == nil {
-				return
-			}
 			select {
 			case <-e.context.Done():
 				util.Warnf("Stopping config polling.")
