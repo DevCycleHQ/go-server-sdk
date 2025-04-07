@@ -471,13 +471,15 @@ func BenchmarkClient_VariableSerial(b *testing.B) {
 	if benchmarkDisableLogs {
 		log.SetOutput(io.Discard)
 	}
-
+	events := make(chan api.ClientEvent, 10)
 	options := &Options{
 		EnableCloudBucketing:         false,
 		DisableAutomaticEventLogging: true,
 		DisableCustomEventLogging:    true,
+		DisableRealtimeUpdates:       true,
 		ConfigPollingIntervalMS:      time.Minute,
 		EventFlushIntervalMS:         time.Minute,
+		ClientEventHandler:           events,
 	}
 
 	if benchmarkEnableEvents {
@@ -489,6 +491,13 @@ func BenchmarkClient_VariableSerial(b *testing.B) {
 	client, err := NewClient(sdkKey, options)
 	if err != nil {
 		b.Errorf("Failed to initialize client: %v", err)
+	}
+
+	for {
+		event := <-events
+		if event.EventType == api.ClientEventType_Initialized {
+			break
+		}
 	}
 
 	user := User{UserId: "dontcare"}
@@ -521,6 +530,7 @@ func BenchmarkClient_VariableParallel(b *testing.B) {
 		EnableCloudBucketing:         false,
 		DisableAutomaticEventLogging: true,
 		DisableCustomEventLogging:    true,
+		DisableRealtimeUpdates:       true,
 		ConfigPollingIntervalMS:      time.Minute,
 		EventFlushIntervalMS:         time.Minute,
 	}
