@@ -499,14 +499,13 @@ func (c *Client) FlushEvents() error {
 
 func (c *Client) SetClientCustomData(customData map[string]interface{}) error {
 	if c.IsLocalBucketing() {
-		if c.isInitialized {
+		if c.localBucketing != nil {
 			return c.localBucketing.SetClientCustomData(customData)
 		} else {
 			util.Warnf("SetClientCustomData called before client initialized")
 			return nil
 		}
 	}
-
 	return errors.New("SetClientCustomData is not available in cloud bucketing mode")
 }
 
