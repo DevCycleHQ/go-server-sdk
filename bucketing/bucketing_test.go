@@ -27,13 +27,14 @@ var (
 )
 
 type testconfig struct {
-	description string
-	configBody  []byte
+	description    string
+	configBody     []byte
+	expectedReason EvaluationReason
 }
 
 var test_configs = []testconfig{
-	{configBody: test_config, description: "Passthrough Enabled"},
-	{configBody: test_config_disable_passthrough, description: "Passthrough Disabled"},
+	{configBody: test_config, description: "Passthrough Enabled", expectedReason: EvaluationReasonSplit},
+	{configBody: test_config_disable_passthrough, description: "Passthrough Disabled", expectedReason: EvaluationReasonTargetingMatch},
 }
 
 // Bucketing puts the user in the target for the first audience they match
@@ -52,14 +53,16 @@ func TestBucketingFirstMatchingTarget(t *testing.T) {
 				Country: "Canada",
 			}.GetPopulatedUser(&api.PlatformData{})
 
-			target, err := doesUserQualifyForFeature(config, feature, user, nil)
+			target, isRollout, err := doesUserQualifyForFeature(config, feature, user, nil)
+			require.False(t, isRollout)
 			require.NoError(t, err)
 
 			// should match target 2
 			require.Equal(t, target.Target.Id, "61536f468fd67f0091982533")
 
 			user.Email = "test@email.com"
-			target, err = doesUserQualifyForFeature(config, feature, user, nil)
+			target, isRollout, err = doesUserQualifyForFeature(config, feature, user, nil)
+			require.False(t, isRollout)
 			require.NoError(t, err)
 
 			// should match target 1
@@ -92,12 +95,12 @@ func TestBucketing_RolloutGatesUser(t *testing.T) {
 		},
 	}
 
-	_, err = doesUserQualifyForFeature(config, feature, user, nil)
+	_, _, err = doesUserQualifyForFeature(config, feature, user, nil)
 	require.Error(t, err)
 	require.Equal(t, ErrUserRollout, err)
 
 	user.UserId = "pass_rollout"
-	target, err := doesUserQualifyForFeature(config, feature, user, nil)
+	target, _, err := doesUserQualifyForFeature(config, feature, user, nil)
 	require.NoError(t, err)
 	require.Equal(t, "61536f468fd67f0091982533", target.Target.Id)
 }
@@ -132,8 +135,9 @@ func TestBucketing_RolloutPassthroughUser(t *testing.T) {
 		},
 	}
 
-	target, err := doesUserQualifyForFeature(config, feature, user, nil)
+	target, isRollout, err := doesUserQualifyForFeature(config, feature, user, nil)
 	require.NoError(t, err)
+	require.False(t, isRollout)
 	require.Equal(t, "61536f669c69b86cccc5f15e", target.Target.Id)
 
 	require.NotNil(t, feature)
@@ -150,8 +154,9 @@ func TestBucketing_RolloutPassthroughUser(t *testing.T) {
 		},
 	}
 
-	target, err = doesUserQualifyForFeature(config, feature, user, nil)
+	target, isRollout, err = doesUserQualifyForFeature(config, feature, user, nil)
 	require.NoError(t, err)
+	require.True(t, isRollout)
 	require.Equal(t, "61536f468fd67f0091982533", target.Target.Id)
 
 }
@@ -332,30 +337,30 @@ func TestRollout_Gradual(t *testing.T) {
 			},
 		},
 	}
-	if !doesUserPassRollout(rollout, 0.35) {
+	if !isUserInRollout(rollout, 0.35) {
 		t.Errorf("User should pass rollout - 0.35")
 	}
-	if doesUserPassRollout(rollout, 0.85) {
+	if isUserInRollout(rollout, 0.85) {
 		t.Errorf("User should not pass rollout - 0.85")
 	}
-	if !doesUserPassRollout(rollout, 0.2) {
+	if !isUserInRollout(rollout, 0.2) {
 		t.Errorf("User should pass rollout - 0.2")
 	}
-	if doesUserPassRollout(rollout, 0.75) {
+	if isUserInRollout(rollout, 0.75) {
 		t.Errorf("User should not pass rollout - 0.75")
 	}
 	t.Log("Changing rollout percentage to 0.8")
 	rollout.Stages[0].Percentage = 0.8
 
-	if doesUserPassRollout(rollout, 0.51) {
+	if isUserInRollout(rollout, 0.51) {
 		t.Error("User should not pass rollout - 0.51")
 	}
 
-	if doesUserPassRollout(rollout, 0.95) {
+	if isUserInRollout(rollout, 0.95) {
 		t.Error("User should not pass rollout - 0.95")
 	}
 
-	if !doesUserPassRollout(rollout, 0.35) {
+	if !isUserInRollout(rollout, 0.35) {
 		t.Error("User should pass rollout - 0.35")
 	}
 }
@@ -374,19 +379,19 @@ func TestRollout_Gradual_WithStartDateFuture(t *testing.T) {
 		},
 	}
 
-	if doesUserPassRollout(rollout, 0) {
+	if isUserInRollout(rollout, 0) {
 		t.Error("User should not pass rollout - 0")
 	}
-	if doesUserPassRollout(rollout, 0.25) {
+	if isUserInRollout(rollout, 0.25) {
 		t.Error("User should not pass rollout - 0.25")
 	}
-	if doesUserPassRollout(rollout, 0.5) {
+	if isUserInRollout(rollout, 0.5) {
 		t.Error("User should not pass rollout - 0.5")
 	}
-	if doesUserPassRollout(rollout, 0.75) {
+	if isUserInRollout(rollout, 0.75) {
 		t.Error("User should not pass rollout - 0.75")
 	}
-	if doesUserPassRollout(rollout, 1) {
+	if isUserInRollout(rollout, 1) {
 		t.Error("User should not pass rollout - 1")
 	}
 }
@@ -399,19 +404,19 @@ func TestRollout_Gradual_WithStartDate_NoEnd(t *testing.T) {
 		Stages:          []RolloutStage{},
 	}
 
-	if !doesUserPassRollout(rollout, 0) {
+	if !isUserInRollout(rollout, 0) {
 		t.Error("User should pass rollout - 0")
 	}
-	if !doesUserPassRollout(rollout, 0.25) {
+	if !isUserInRollout(rollout, 0.25) {
 		t.Error("User should pass rollout - 0.25")
 	}
-	if !doesUserPassRollout(rollout, 0.5) {
+	if !isUserInRollout(rollout, 0.5) {
 		t.Error("User should pass rollout - 0.5")
 	}
-	if !doesUserPassRollout(rollout, 0.75) {
+	if !isUserInRollout(rollout, 0.75) {
 		t.Error("User should pass rollout - 0.75")
 	}
-	if !doesUserPassRollout(rollout, 1) {
+	if !isUserInRollout(rollout, 1) {
 		t.Error("User should pass rollout - 1")
 	}
 }
@@ -424,19 +429,19 @@ func TestRollout_Gradual_WithStartDate_NoEnd_Future(t *testing.T) {
 		Stages:          []RolloutStage{},
 	}
 
-	if doesUserPassRollout(rollout, 0) {
+	if isUserInRollout(rollout, 0) {
 		t.Error("User should not pass rollout - 0")
 	}
-	if doesUserPassRollout(rollout, 0.25) {
+	if isUserInRollout(rollout, 0.25) {
 		t.Error("User should not pass rollout - 0.25")
 	}
-	if doesUserPassRollout(rollout, 0.5) {
+	if isUserInRollout(rollout, 0.5) {
 		t.Error("User should not pass rollout - 0.5")
 	}
-	if doesUserPassRollout(rollout, 0.75) {
+	if isUserInRollout(rollout, 0.75) {
 		t.Error("User should not pass rollout - 0.75")
 	}
-	if doesUserPassRollout(rollout, 1) {
+	if isUserInRollout(rollout, 1) {
 		t.Error("User should not pass rollout - 1")
 	}
 }
@@ -447,19 +452,19 @@ func TestRollout_Schedule_Valid(t *testing.T) {
 		StartDate: time.Now().Add(time.Minute * -1),
 	}
 
-	if !doesUserPassRollout(rollout, 0) {
+	if !isUserInRollout(rollout, 0) {
 		t.Error("User should pass rollout - 0")
 	}
-	if !doesUserPassRollout(rollout, 0.25) {
+	if !isUserInRollout(rollout, 0.25) {
 		t.Error("User should pass rollout - 0.25")
 	}
-	if !doesUserPassRollout(rollout, 0.5) {
+	if !isUserInRollout(rollout, 0.5) {
 		t.Error("User should pass rollout - 0.5")
 	}
-	if !doesUserPassRollout(rollout, 0.75) {
+	if !isUserInRollout(rollout, 0.75) {
 		t.Error("User should pass rollout - 0.75")
 	}
-	if !doesUserPassRollout(rollout, 1) {
+	if !isUserInRollout(rollout, 1) {
 		t.Error("User should pass rollout - 1")
 	}
 }
@@ -471,19 +476,19 @@ func TestRollout_Schedule_Future(t *testing.T) {
 		StartDate: time.Now().Add(time.Minute * 1),
 	}
 
-	if doesUserPassRollout(rollout, 0) {
+	if isUserInRollout(rollout, 0) {
 		t.Error("User should not pass rollout - 0")
 	}
-	if doesUserPassRollout(rollout, 0.25) {
+	if isUserInRollout(rollout, 0.25) {
 		t.Error("User should not pass rollout - 0.25")
 	}
-	if doesUserPassRollout(rollout, 0.5) {
+	if isUserInRollout(rollout, 0.5) {
 		t.Error("User should not pass rollout - 0.5")
 	}
-	if doesUserPassRollout(rollout, 0.75) {
+	if isUserInRollout(rollout, 0.75) {
 		t.Error("User should not pass rollout - 0.75")
 	}
-	if doesUserPassRollout(rollout, 1) {
+	if isUserInRollout(rollout, 1) {
 		t.Error("User should not pass rollout - 1")
 	}
 }
@@ -510,29 +515,29 @@ func TestRollout_Stepped_Valid(t *testing.T) {
 		},
 	}
 
-	if !doesUserPassRollout(rollout, 0) {
+	if !isUserInRollout(rollout, 0) {
 		t.Error("User should pass rollout - 0")
 	}
-	if !doesUserPassRollout(rollout, 0.25) {
+	if !isUserInRollout(rollout, 0.25) {
 		t.Error("User should pass rollout - 0.25")
 	}
-	if !doesUserPassRollout(rollout, 0.4) {
+	if !isUserInRollout(rollout, 0.4) {
 		t.Error("User should pass rollout - 0.4")
 	}
-	if doesUserPassRollout(rollout, 0.6) {
+	if isUserInRollout(rollout, 0.6) {
 		t.Error("User should not pass rollout - 0.6")
 	}
-	if doesUserPassRollout(rollout, 0.9) {
+	if isUserInRollout(rollout, 0.9) {
 		t.Error("User should not pass rollout - 0.9")
 	}
 }
 
 func TestRollout_Stepped_Error(t *testing.T) {
 	rollout := Rollout{}
-	if doesUserPassRollout(rollout, 0) {
+	if isUserInRollout(rollout, 0) {
 		t.Error("User should not pass rollout - empty")
 	}
-	if doesUserPassRollout(rollout, 1) {
+	if isUserInRollout(rollout, 1) {
 		t.Error("User should not pass rollout - empty")
 	}
 }
@@ -557,7 +562,7 @@ func TestClientData(t *testing.T) {
 			// Ensure bucketed config has a feature variation map that's empty
 			bucketedUserConfig, err := GenerateBucketedConfig("test", user, nil)
 			require.NoError(t, err)
-			_, _, _, _, err = generateBucketedVariableForUser("test", user, "num-var", nil)
+			_, _, _, _, _, err = generateBucketedVariableForUser("test", user, "num-var", nil)
 			require.ErrorContainsf(t, err, "does not qualify", "does not qualify")
 			require.Equal(t, map[string]string{}, bucketedUserConfig.FeatureVariationMap)
 
@@ -574,10 +579,11 @@ func TestClientData(t *testing.T) {
 				"614ef6aa473928459060721a": "615357cf7e9ebdca58446ed0",
 				"614ef6aa475928459060721a": "615382338424cb11646d7667",
 			}, bucketedUserConfig.FeatureVariationMap)
-			variableType, value, featureId, variationId, err := generateBucketedVariableForUser("test", user, "num-var", clientCustomData)
+			variableType, value, featureId, variationId, evalReason, err := generateBucketedVariableForUser("test", user, "num-var", clientCustomData)
 			require.Equal(t, VariableTypesNumber, variableType)
 			require.Equal(t, "614ef6aa473928459060721a", featureId)
 			require.Equal(t, "615357cf7e9ebdca58446ed0", variationId)
+			require.Equal(t, testCase.expectedReason, evalReason)
 			require.NoError(t, err)
 			require.Equal(t, 610.61, value)
 
@@ -597,10 +603,11 @@ func TestClientData(t *testing.T) {
 				"614ef6aa473928459060721a": "615357cf7e9ebdca58446ed0",
 				"614ef6aa475928459060721a": "615382338424cb11646d7667",
 			}, bucketedUserConfig.FeatureVariationMap)
-			variableType, value, featureId, variationId, err = generateBucketedVariableForUser("test", userWithPrivateCustomData, "num-var", clientCustomData)
+			variableType, value, featureId, variationId, evalReason, err = generateBucketedVariableForUser("test", userWithPrivateCustomData, "num-var", clientCustomData)
 			require.Equal(t, VariableTypesNumber, variableType)
 			require.Equal(t, "614ef6aa473928459060721a", featureId)
 			require.Equal(t, "615357cf7e9ebdca58446ed0", variationId)
+			require.Equal(t, testCase.expectedReason, evalReason)
 			require.NoError(t, err)
 			require.Equal(t, 610.61, value)
 
@@ -662,8 +669,9 @@ func TestVariableForUser(t *testing.T) {
 			err := SetConfig(testCase.configBody, "test", "", "", "")
 			require.NoError(t, err)
 
-			variableType, value, featureId, variationId, err := generateBucketedVariableForUser("test", user, "json-var", nil)
+			variableType, value, featureId, variationId, evalReason, err := generateBucketedVariableForUser("test", user, "json-var", nil)
 			require.NoError(t, err)
+			require.Equal(t, testCase.expectedReason, evalReason)
 			require.Equal(t, VariableTypesJSON, variableType)
 			require.Equal(t, "614ef6aa473928459060721a", featureId)
 			require.Equal(t, "615357cf7e9ebdca58446ed0", variationId)
