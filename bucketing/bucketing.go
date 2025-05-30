@@ -31,15 +31,15 @@ const maxHashValue uint32 = 4294967295
 const baseSeed = 1
 const defaultBucketingValue = "null"
 
-var ErrMissingVariableForVariation = errors.New("Config missing variable for variation")
-var ErrMissingFeature = errors.New("Config missing feature for variable")
-var ErrMissingVariable = errors.New("Config missing variable")
-var ErrMissingVariation = errors.New("Config missing variation")
-var ErrFailedToDecideVariation = errors.New("Failed to decide target variation")
-var ErrUserRollout = errors.New("User does not qualify for feature rollout")
-var ErrUserDoesNotQualifyForTargets = errors.New("User does not qualify for any targets for feature")
-var ErrInvalidVariableType = errors.New("Invalid variable type")
-var ErrConfigMissing = errors.New("No config available")
+var ErrMissingVariableForVariation = errors.New("config missing variable for variation")
+var ErrMissingFeature = errors.New("config missing feature for variable")
+var ErrMissingVariable = errors.New("config missing variable")
+var ErrMissingVariation = errors.New("config missing variation")
+var ErrFailedToDecideVariation = errors.New("failed to decide target variation")
+var ErrUserRollout = errors.New("user does not qualify for feature rollout")
+var ErrUserDoesNotQualifyForTargets = errors.New("user does not qualify for any targets for feature")
+var ErrInvalidVariableType = errors.New("invalid variable type")
+var ErrConfigMissing = errors.New("no config available")
 
 type boundedHashType struct {
 	RolloutHash   float64 `json:"rolloutHash"`

@@ -19,7 +19,9 @@ func TestEventManager_QueueEvent(t *testing.T) {
 	sdkKey, _ := httpConfigMock(200)
 	c, err := NewClient(sdkKey, &Options{})
 	require.NoError(t, err)
-	defer c.Close()
+	defer func(c *Client) {
+		_ = c.Close()
+	}(c)
 
 	_, err = c.Track(User{UserId: "j_test", DeviceModel: "testing"},
 		Event{Target: "customevent", Type_: "event"})
@@ -34,7 +36,9 @@ func TestEventManager_QueueEvent_100_DropEvent(t *testing.T) {
 
 	c, err := NewClient(sdkKey, &Options{MaxEventQueueSize: 100, FlushEventQueueSize: 10})
 	require.NoError(t, err)
-	defer c.Close()
+	defer func(c *Client) {
+		_ = c.Close()
+	}(c)
 
 	errored := false
 	for i := 0; i < 1000; i++ {
@@ -98,7 +102,9 @@ func TestEventManager_AggVariableEvaluatedReason(t *testing.T) {
 		EventFlushIntervalMS:    time.Second,
 	})
 	require.NoError(t, err)
-	defer c.Close()
+	defer func(c *Client) {
+		_ = c.Close()
+	}(c)
 	require.Eventually(t, func() bool {
 		return c.isInitialized && c.hasConfig()
 	}, 1*time.Second, 100*time.Millisecond)
@@ -107,7 +113,7 @@ func TestEventManager_AggVariableEvaluatedReason(t *testing.T) {
 		_, _ = c.Variable(user, "v-key-76", 69)
 	}
 
-	c.FlushEvents()
+	_ = c.FlushEvents()
 	require.Eventually(t, func() bool {
 		fmt.Println(httpmock.GetCallCountInfo())
 		evalReasonsUpdated := len(evalReasons) > 0
@@ -124,7 +130,9 @@ func TestEventManager_QueueEvent_100_Flush(t *testing.T) {
 		EventFlushIntervalMS:    time.Second,
 	})
 	require.NoError(t, err)
-	defer c.Close()
+	defer func(c *Client) {
+		_ = c.Close()
+	}(c)
 	require.Eventually(t, func() bool {
 		return c.isInitialized && c.hasConfig()
 	}, 1*time.Second, 100*time.Millisecond)
