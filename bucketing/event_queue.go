@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var ErrQueueFull = fmt.Errorf("Max queue size reached")
+var ErrQueueFull = fmt.Errorf("max queue size reached")
 
 type aggEventData struct {
 	eventType   string
@@ -39,7 +39,7 @@ type userEventData struct {
 // For Evaluation Events:
 // ["aggVariableEvaluated"]["somevariablekey"]["feature_id"]["variation_id"]["eval reason"] = 1
 // For Defaulted Events:
-// ["aggVariableDefaulted"]["somevariablekey"]["defaulted"]["DEFAULT_REASON"] = 1
+// ["aggVariableDefaulted"]["somevariablekey"]["DEFAULT"]["DEFAULT_REASON"] = 1
 
 type EvalReasonAggMap map[EvaluationReason]int64
 type VariationAggMap map[string]EvalReasonAggMap
