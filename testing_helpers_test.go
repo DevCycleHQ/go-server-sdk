@@ -86,6 +86,11 @@ func httpEventsApiMock() {
 		httpmock.NewStringResponder(201, `{}`))
 }
 
+func httpEventsApiMockWithCallback(callback func(req *http.Request) (*http.Response, error)) {
+	httpmock.RegisterResponder("POST", "https://events.devcycle.com/v1/events/batch",
+		callback)
+}
+
 func httpConfigMock(respcode int) (sdkKey string, responder httpmock.Responder) {
 	sdkKey = generateTestSDKKey()
 	responder = httpCustomConfigMock(sdkKey, respcode, test_config, false)
