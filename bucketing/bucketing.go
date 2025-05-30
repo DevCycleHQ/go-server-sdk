@@ -9,6 +9,23 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
+type EvaluationReason string
+
+const (
+	EvaluationReasonTargetingMatch EvaluationReason = "TARGETING_MATCH"
+	EvaluationReasonSplit          EvaluationReason = "SPLIT"
+	EvaluationReasonDefault        EvaluationReason = "DEFAULT"
+	EvaluationReasonDisabled       EvaluationReason = "DISABLED"
+	EvaluationReasonError          EvaluationReason = "ERROR"
+)
+
+var allEvalReasons = []EvaluationReason{
+	EvaluationReasonTargetingMatch,
+	EvaluationReasonSplit,
+	EvaluationReasonDefault,
+	EvaluationReasonError,
+}
+
 // Max value of an unsigned 32-bit integer, which is what murmurhash returns
 const maxHashValue uint32 = 4294967295
 const baseSeed = 1
@@ -24,14 +41,14 @@ var ErrUserDoesNotQualifyForTargets = errors.New("User does not qualify for any 
 var ErrInvalidVariableType = errors.New("Invalid variable type")
 var ErrConfigMissing = errors.New("No config available")
 
-type boundedHash struct {
+type boundedHashType struct {
 	RolloutHash   float64 `json:"rolloutHash"`
 	BucketingHash float64 `json:"bucketingHash"`
 }
 
-func generateBoundedHashes(bucketingKeyValue, targetId string) boundedHash {
+func generateBoundedHashes(bucketingKeyValue, targetId string) boundedHashType {
 	var targetHash = murmurhashV3(targetId, baseSeed)
-	var bhash = boundedHash{
+	var bhash = boundedHashType{
 		RolloutHash:   generateBoundedHash(bucketingKeyValue+"_rollout", targetHash),
 		BucketingHash: generateBoundedHash(bucketingKeyValue, targetHash),
 	}
@@ -127,40 +144,42 @@ func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64
 	return (currentStage.Percentage + (nextStage.Percentage - currentStage.Percentage)) * currentDatePercentage
 }
 
-func doesUserPassRollout(rollout Rollout, boundedHash float64) bool {
+func isUserInRollout(rollout Rollout, boundedHash float64) bool {
 	var rolloutPercentage = getCurrentRolloutPercentage(rollout, time.Now())
 	return rolloutPercentage != 0 && (boundedHash <= rolloutPercentage)
 }
 
-func evaluateSegmentationForFeature(config *configBody, feature *ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) *Target {
+func evaluateSegmentationForFeature(config *configBody, feature *ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) (t *Target, isRollout bool) {
 	var mergedCustomData = user.CombinedCustomData()
 	for _, target := range feature.Configuration.Targets {
 		passthroughEnabled := !config.Project.Settings.DisablePassthroughRollouts
-		doesUserPassthrough := true
+		rolloutCriteriaMet := true
 		if target.Rollout != nil && passthroughEnabled {
+
 			var bucketingValue = determineUserBucketingValueForTarget(target.BucketingKey, user.UserId, mergedCustomData)
 
 			boundedHash := generateBoundedHashes(bucketingValue, target.Id)
 			rolloutHash := boundedHash.RolloutHash
-			doesUserPassthrough = doesUserPassRollout(*target.Rollout, rolloutHash)
+			rolloutCriteriaMet = isUserInRollout(*target.Rollout, rolloutHash)
+			isRollout = rolloutCriteriaMet
 		}
 		operator := target.Audience.Filters
-		if doesUserPassthrough && operator.Evaluate(config.Audiences, user, clientCustomData) {
-			return target
+		if rolloutCriteriaMet && operator.Evaluate(config.Audiences, user, clientCustomData) {
+			return target, isRollout
 		}
 	}
-	return nil
+	return nil, false
 }
 
 type targetAndHashes struct {
 	Target Target
-	Hashes boundedHash
+	Hashes boundedHashType
 }
 
-func doesUserQualifyForFeature(config *configBody, feature *ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) (targetAndHashes, error) {
-	target := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
+func doesUserQualifyForFeature(config *configBody, feature *ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) (targetAndHashes, bool, error) {
+	target, isRollout := evaluateSegmentationForFeature(config, feature, user, clientCustomData)
 	if target == nil {
-		return targetAndHashes{}, ErrUserDoesNotQualifyForTargets
+		return targetAndHashes{}, isRollout, ErrUserDoesNotQualifyForTargets
 	}
 
 	var mergedCustomData = user.CombinedCustomData()
@@ -170,13 +189,13 @@ func doesUserQualifyForFeature(config *configBody, feature *ConfigFeature, user 
 	rolloutHash := boundedHashes.RolloutHash
 	passthroughEnabled := !config.Project.Settings.DisablePassthroughRollouts
 
-	if target.Rollout != nil && !passthroughEnabled && !doesUserPassRollout(*target.Rollout, rolloutHash) {
-		return targetAndHashes{}, ErrUserRollout
+	if target.Rollout != nil && !passthroughEnabled && !isUserInRollout(*target.Rollout, rolloutHash) {
+		return targetAndHashes{}, true, ErrUserRollout
 	}
 	return targetAndHashes{
 		Target: *target,
 		Hashes: boundedHashes,
-	}, nil
+	}, isRollout, nil
 }
 
 func bucketUserForVariation(feature *ConfigFeature, hashes targetAndHashes) (*Variation, error) {
@@ -203,7 +222,7 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 	variableVariationMap := make(map[string]api.FeatureVariation)
 
 	for _, feature := range config.Features {
-		thash, err := doesUserQualifyForFeature(config, feature, user, clientCustomData)
+		thash, _, err := doesUserQualifyForFeature(config, feature, user, clientCustomData)
 		if err != nil {
 			continue
 		}
@@ -255,7 +274,7 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 }
 
 func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, expectedVariableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (variableType string, variableValue any, err error) {
-	variableType, variableValue, featureId, variationId, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
+	variableType, variableValue, featureId, variationId, evalReason, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
 		eventErr := eventQueue.QueueVariableDefaultedEvent(variableKey, BucketResultErrorToDefaultReason(err))
 		if eventErr != nil {
@@ -273,7 +292,7 @@ func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, 
 		return "", nil, err
 	}
 
-	eventErr := eventQueue.QueueVariableEvaluatedEvent(variableKey, featureId, variationId)
+	eventErr := eventQueue.QueueVariableEvaluatedEvent(variableKey, featureId, variationId, evalReason)
 	if eventErr != nil {
 		util.Warnf("Failed to queue variable evaluated event: %s", eventErr)
 	}
@@ -294,37 +313,40 @@ func isVariableTypeValid(variableType string, expectedVariableType string) bool 
 	return true
 }
 
-func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key string, clientCustomData map[string]interface{}) (variableType string, variableValue any, featureId string, variationId string, err error) {
+func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key string, clientCustomData map[string]interface{}) (variableType string, variableValue any, featureId string, variationId string, evalReason EvaluationReason, err error) {
 	config, err := getConfig(sdkKey)
 	if err != nil {
 		util.Warnf("Variable called before client initialized, returning default value")
-		return "", nil, "", "", ErrConfigMissing
+		return "", nil, "", "", EvaluationReasonError, ErrConfigMissing
 	}
 	variable := config.GetVariableForKey(key)
 	if variable == nil {
 		err = ErrMissingVariable
-		return "", nil, "", "", err
+		return "", nil, "", "", EvaluationReasonDisabled, err
 	}
 	featForVariable := config.GetFeatureForVariableId(variable.Id)
 	if featForVariable == nil {
 		err = ErrMissingFeature
-		return "", nil, "", "", err
+		return "", nil, "", "", EvaluationReasonDisabled, err
 	}
 
-	th, err := doesUserQualifyForFeature(config, featForVariable, user, clientCustomData)
+	targetHashes, isRollout, err := doesUserQualifyForFeature(config, featForVariable, user, clientCustomData)
 	if err != nil {
-		return "", nil, "", "", err
+		return "", nil, "", "", EvaluationReasonDefault, err
 	}
-	variation, err := bucketUserForVariation(featForVariable, th)
+	variation, err := bucketUserForVariation(featForVariable, targetHashes)
 	if err != nil {
-		return "", nil, "", "", err
+		return "", nil, "", "", EvaluationReasonDefault, err
 	}
 	variationVariable := variation.GetVariableById(variable.Id)
 	if variationVariable == nil {
 		err = ErrMissingVariableForVariation
-		return "", nil, "", "", err
+		return "", nil, "", "", EvaluationReasonDisabled, err
 	}
-	return variable.Type, variationVariable.Value, featForVariable.Id, variation.Id, nil
+	if isRollout {
+		return variable.Type, variationVariable.Value, featForVariable.Id, variation.Id, EvaluationReasonSplit, nil
+	}
+	return variable.Type, variationVariable.Value, featForVariable.Id, variation.Id, EvaluationReasonTargetingMatch, nil
 }
 
 func BucketResultErrorToDefaultReason(err error) (defaultReason string) {
