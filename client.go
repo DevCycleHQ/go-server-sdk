@@ -117,19 +117,19 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 
 		err := c.setLBClient(sdkKey, options)
 		if err != nil {
-			return c, fmt.Errorf("Error setting up local bucketing: %w", err)
+			return c, fmt.Errorf("error setting up local bucketing: %w", err)
 		}
 
 		c.eventQueue, err = NewEventManager(options, c.localBucketing, c.cfg, sdkKey)
 
 		if err != nil {
-			return c, fmt.Errorf("Error initializing event queue: %w", err)
+			return c, fmt.Errorf("error initializing event queue: %w", err)
 		}
 
 		c.configManager, err = NewEnvironmentConfigManager(sdkKey, c.localBucketing, c.eventQueue, options, c.cfg)
 
 		if err != nil {
-			return nil, fmt.Errorf("Error initializing config manager: %w", err)
+			return nil, fmt.Errorf("error initializing config manager: %w", err)
 		}
 		if c.DevCycleOptions.ClientEventHandler != nil {
 			go func() {

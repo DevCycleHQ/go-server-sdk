@@ -60,7 +60,7 @@ func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, opti
 func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag, rayId, lastModified string) error {
 	err := bucketing.SetConfig(configJSON, n.sdkKey, eTag, rayId, lastModified, n.eventQueue)
 	if err != nil {
-		return fmt.Errorf("Error parsing config: %w", err)
+		return fmt.Errorf("error parsing config: %w", err)
 	}
 	return nil
 }

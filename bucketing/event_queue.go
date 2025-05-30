@@ -371,7 +371,7 @@ func (eq *EventQueue) reportPayloadSuccess(payloadId string) error {
 	if _, ok := eq.pendingPayloads[payloadId]; ok {
 		delete(eq.pendingPayloads, payloadId)
 	} else {
-		return fmt.Errorf("Failed to find payload: %s to mark as success", payloadId)
+		return fmt.Errorf("failed to find payload: %s to mark as success", payloadId)
 	}
 	return nil
 }
