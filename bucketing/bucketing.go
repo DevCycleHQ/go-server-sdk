@@ -198,17 +198,17 @@ func doesUserQualifyForFeature(config *configBody, feature *ConfigFeature, user 
 	}, isRollout, nil
 }
 
-func bucketUserForVariation(feature *ConfigFeature, hashes targetAndHashes) (*Variation, error) {
-	variationId, err := hashes.Target.DecideTargetVariation(hashes.Hashes.BucketingHash)
+func bucketUserForVariation(feature *ConfigFeature, hashes targetAndHashes) (*Variation, bool, error) {
+	variationId, isRandomDistrib, err := hashes.Target.DecideTargetVariation(hashes.Hashes.BucketingHash)
 	if err != nil {
-		return nil, err
+		return nil, isRandomDistrib, err
 	}
 	for _, v := range feature.Variations {
 		if v.Id == variationId {
-			return v, nil
+			return v, isRandomDistrib, nil
 		}
 	}
-	return nil, ErrMissingVariation
+	return nil, isRandomDistrib, ErrMissingVariation
 }
 
 func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomData map[string]interface{}) (*api.BucketedUserConfig, error) {
@@ -227,7 +227,7 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 			continue
 		}
 
-		variation, err := bucketUserForVariation(feature, thash)
+		variation, _, err := bucketUserForVariation(feature, thash)
 		if err != nil {
 			return nil, err
 		}
@@ -334,7 +334,7 @@ func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key 
 	if err != nil {
 		return "", nil, "", "", EvaluationReasonDefault, err
 	}
-	variation, err := bucketUserForVariation(featForVariable, targetHashes)
+	variation, isRandomDistrib, err := bucketUserForVariation(featForVariable, targetHashes)
 	if err != nil {
 		return "", nil, "", "", EvaluationReasonDefault, err
 	}
@@ -343,7 +343,7 @@ func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key 
 		err = ErrMissingVariableForVariation
 		return "", nil, "", "", EvaluationReasonDisabled, err
 	}
-	if isRollout {
+	if isRollout || isRandomDistrib {
 		return variable.Type, variationVariable.Value, featForVariable.Id, variation.Id, EvaluationReasonSplit, nil
 	}
 	return variable.Type, variationVariable.Value, featForVariable.Id, variation.Id, EvaluationReasonTargetingMatch, nil

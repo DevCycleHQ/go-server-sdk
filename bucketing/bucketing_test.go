@@ -203,7 +203,7 @@ func TestUserHashingBucketing_BucketingDistribution(t *testing.T) {
 	for i := 0; i < 30000; i++ {
 		userid := uuid.New()
 		hash := generateBoundedHashes(userid.String(), testTarget.Id)
-		variation, err := testTarget.DecideTargetVariation(hash.BucketingHash)
+		variation, _, err := testTarget.DecideTargetVariation(hash.BucketingHash)
 		if err != nil {
 			return
 		}
