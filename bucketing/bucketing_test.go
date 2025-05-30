@@ -243,11 +243,11 @@ func TestBucketing_Deterministic_SameUserSameSeed(t *testing.T) {
 	hash := generateBoundedHashes(userId.String(), "fake")
 	hash2 := generateBoundedHashes(userId.String(), "fake")
 	if hash.BucketingHash != hash2.BucketingHash {
-		t.Errorf("Hashes should be the same for the same target id and userid")
+		t.Errorf("hashes should be the same for the same target id and userid")
 	}
 
 	if hash.RolloutHash != hash2.RolloutHash {
-		t.Errorf("Hashes should be the same for the same target id and userid")
+		t.Errorf("hashes should be the same for the same target id and userid")
 	}
 }
 
@@ -256,7 +256,7 @@ func TestBucketing_Deterministic_SameUserDiffSeed(t *testing.T) {
 	hash := generateBoundedHashes(userId.String(), "fake")
 	hash2 := generateBoundedHashes(userId.String(), "fake2")
 	if hash.BucketingHash == hash2.BucketingHash {
-		t.Errorf("Hashes should be different for different target ids")
+		t.Errorf("hashes should be different for different target ids")
 	}
 }
 
@@ -264,7 +264,7 @@ func TestBucketing_Deterministic_RolloutNotEqualBucketing(t *testing.T) {
 	userId := uuid.New()
 	hash := generateBoundedHashes(userId.String(), "fake")
 	if hash.BucketingHash == hash.RolloutHash {
-		t.Errorf("Hashes should be different - rollout should not equal bucketing hash")
+		t.Errorf("hashes should be different - rollout should not equal bucketing hash")
 	}
 }
 
