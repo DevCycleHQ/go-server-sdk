@@ -650,7 +650,7 @@ func (c *Client) performRequest(
 			return attempt <= 5, err
 		}
 		responseBody, err = io.ReadAll(httpResponse.Body)
-		httpResponse.Body.Close()
+		_ = httpResponse.Body.Close()
 
 		if err == nil && httpResponse.StatusCode >= 500 && attempt <= 5 {
 			err = errors.New("5xx error on request")

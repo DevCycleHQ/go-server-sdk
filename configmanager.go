@@ -273,7 +273,9 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 		return err
 	}
 
-	defer resp.Body.Close()
+	defer func(body io.ReadCloser) {
+		_ = body.Close()
+	}(resp.Body)
 
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
