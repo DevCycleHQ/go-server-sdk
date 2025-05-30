@@ -79,12 +79,10 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 						FeatureVars: emptyFeatureVars,
 						ClientDate:  time.Now(),
 					}
-					var metaData map[string]interface{}
-					var evalMetadata map[EvaluationReason]int64
+					metaData := make(map[string]interface{})
+					evalMetadata := make(map[string]int64)
 					if _type == api.EventType_AggVariableDefaulted {
-						metaData = map[string]interface{}{
-							"evalDetails": variation,
-						}
+						metaData["evalDetails"] = variation
 					} else {
 						metaData = map[string]interface{}{
 							"_variation": variation,
@@ -102,15 +100,16 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 					if lastModified != "" {
 						metaData["configLastModified"] = lastModified
 					}
-
-					for reason, count := range evalReason {
-						if count == 0 {
-							continue
+					if _type == api.EventType_AggVariableEvaluated || _type == api.EventType_AggVariableDefaulted {
+						for reason, count := range evalReason {
+							if count == 0 {
+								continue
+							}
+							evalMetadata[string(reason)] = count
+							event.Value += float64(count)
 						}
-						evalMetadata[reason] += count
-						event.Value += float64(count)
+						metaData["eval"] = evalMetadata
 					}
-					metaData["eval"] = evalMetadata
 					event.MetaData = metaData
 					aggregateEvents = append(aggregateEvents, event)
 				}
@@ -522,7 +521,7 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 		if _, ok := defaultReasonAggMap[event.evalDetails][event.evalReason]; !ok {
 			defaultReasonAggMap[event.evalDetails][EvaluationReasonDefault] = 0
 		}
-		featureVariationAggregationMap["defaulted"] = defaultReasonAggMap
+		featureVariationAggregationMap[string(EvaluationReasonDefault)] = defaultReasonAggMap
 	}
 	variableFeatureVariationAggregationMap[eTarget] = featureVariationAggregationMap
 	eq.aggEventQueue[eType] = variableFeatureVariationAggregationMap
