@@ -107,10 +107,11 @@ func TestEventManager_AggVariableEvaluatedReason(t *testing.T) {
 		_, _ = c.Variable(user, "v-key-76", 69)
 	}
 
+	c.FlushEvents()
 	require.Eventually(t, func() bool {
 		fmt.Println(httpmock.GetCallCountInfo())
 		evalReasonsUpdated := len(evalReasons) > 0
-		return httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"] >= 1 && evalReasonsUpdated
+		return httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"] > 0 && evalReasonsUpdated
 	}, 3*time.Second, 100*time.Millisecond)
 }
 
