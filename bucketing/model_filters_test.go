@@ -63,7 +63,6 @@ func TestCheckCustomData(t *testing.T) {
 		}
 
 		require.NoError(t, testFilter.Initialize())
-		require.NoError(t, testFilter.UserFilter.Initialize())
 
 		result := checkCustomData(testFilter, test.data, nil)
 		if result != test.expected {
