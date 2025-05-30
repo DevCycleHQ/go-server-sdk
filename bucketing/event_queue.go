@@ -214,7 +214,7 @@ func (eq *EventQueue) queueAggregateEventInternal(variableKey, featureId, variat
 	}
 
 	if variableKey == "" {
-		return fmt.Errorf("A variable key is required for aggregate events")
+		return fmt.Errorf("a variable key is required for aggregate events")
 	}
 
 	select {
