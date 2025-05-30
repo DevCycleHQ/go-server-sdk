@@ -213,7 +213,7 @@ func main() {
 		err = histogram.RecordValue(duration)
 		histogramLock.Unlock()
 		if err != nil {
-			fmt.Errorf("Error recording histogram value: %v", err)
+			fmt.Errorf("error recording histogram value: %v", err)
 			res.WriteHeader(500)
 		}
 
@@ -253,7 +253,7 @@ func main() {
 		err = histogram.RecordValue(duration)
 		histogramLock.Unlock()
 		if err != nil {
-			fmt.Errorf("Error recording histogram value: %v", err)
+			fmt.Errorf("error recording histogram value: %v", err)
 		}
 	})
 
