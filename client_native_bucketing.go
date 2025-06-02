@@ -135,7 +135,7 @@ func (n *NativeLocalBucketing) QueueEvent(user User, event Event) error {
 	return n.eventQueue.QueueEvent(user, event)
 }
 
-func (n *NativeLocalBucketing) QueueVariableDefaulted(variableKey, defaultReason string) error {
+func (n *NativeLocalBucketing) QueueVariableDefaulted(variableKey string, defaultReason bucketing.DefaultReason) error {
 	return n.eventQueue.QueueVariableDefaultedEvent(variableKey, defaultReason)
 }
 

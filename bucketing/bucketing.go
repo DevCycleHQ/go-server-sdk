@@ -10,6 +10,19 @@ import (
 )
 
 type EvaluationReason string
+type DefaultReason string
+
+const (
+	DefaultReasonMissingConfig               DefaultReason = "MISSING_CONFIG"
+	DefaultReasonMissingVariable             DefaultReason = "MISSING_VARIABLE"
+	DefaultReasonMissingFeature              DefaultReason = "MISSING_FEATURE"
+	DefaultReasonMissingVariation            DefaultReason = "MISSING_VARIATION"
+	DefaultReasonMissingVariableForVariation DefaultReason = "MISSING_VARIABLE_FOR_VARIATION"
+	DefaultReasonUserNotInRollout            DefaultReason = "USER_NOT_IN_ROLLOUT"
+	DefaultReasonUserNotTargeted             DefaultReason = "USER_NOT_TARGETED"
+	DefaultReasonInvalidVariableType         DefaultReason = "INVALID_VARIABLE_TYPE"
+	DefaultReasonUnknown                     DefaultReason = "UNKNOWN"
+)
 
 const (
 	EvaluationReasonTargetingMatch EvaluationReason = "TARGETING_MATCH"
@@ -349,25 +362,25 @@ func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key 
 	return variable.Type, variationVariable.Value, featForVariable.Id, variation.Id, EvaluationReasonTargetingMatch, nil
 }
 
-func BucketResultErrorToDefaultReason(err error) (defaultReason string) {
+func BucketResultErrorToDefaultReason(err error) (defaultReason DefaultReason) {
 	switch err {
 	case ErrConfigMissing:
-		return "MISSING_CONFIG"
+		return DefaultReasonMissingConfig
 	case ErrMissingVariable:
-		return "MISSING_VARIABLE"
+		return DefaultReasonMissingVariable
 	case ErrMissingFeature:
-		return "MISSING_FEATURE"
+		return DefaultReasonMissingFeature
 	case ErrMissingVariation:
-		return "MISSING_VARIATION"
+		return DefaultReasonMissingVariation
 	case ErrMissingVariableForVariation:
-		return "MISSING_VARIABLE_FOR_VARIATION"
+		return DefaultReasonMissingVariableForVariation
 	case ErrUserRollout:
-		return "USER_NOT_IN_ROLLOUT"
+		return DefaultReasonUserNotInRollout
 	case ErrUserDoesNotQualifyForTargets:
-		return "USER_NOT_TARGETED"
+		return DefaultReasonUserNotTargeted
 	case ErrInvalidVariableType:
-		return "INVALID_VARIABLE_TYPE"
+		return DefaultReasonInvalidVariableType
 	default:
-		return "Unknown"
+		return DefaultReasonUnknown
 	}
 }
