@@ -39,7 +39,7 @@ type userEventData struct {
 // For Evaluation Events:
 // ["aggVariableEvaluated"]["somevariablekey"]["feature_id"]["variation_id"]["eval reason"] = 1
 // For Defaulted Events:
-// ["aggVariableDefaulted"]["somevariablekey"]["DEFAULT"]["DEFAULT_REASON"] = 1
+// ["aggVariableDefaulted"]["somevariablekey"]["DEFAULT"]["DEFAULT"]["DEFAULT_REASON"] = 1
 
 type EvalReasonAggMap map[EvaluationReason]int64
 type VariationAggMap map[string]EvalReasonAggMap
