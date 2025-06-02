@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/devcyclehq/go-server-sdk/v2/bucketing"
 	"io"
 	"net/http"
 	"os"
@@ -19,7 +20,7 @@ type EventFlushCallback func(payloads map[string]FlushPayload) (*FlushResult, er
 
 type InternalEventQueue interface {
 	QueueEvent(user User, event Event) error
-	QueueVariableDefaulted(variableKey, defaultReason string) error
+	QueueVariableDefaulted(variableKey string, defaultReason bucketing.DefaultReason) error
 	FlushEventQueue(EventFlushCallback) error
 	UserQueueLength() (int, error)
 	GetUUID() string
@@ -92,11 +93,11 @@ func NewEventManager(options *Options, localBucketing InternalEventQueue, cfg *H
 
 func (e *EventManager) QueueEvent(user User, event Event) error {
 	if e.closed {
-		return fmt.Errorf("DevCycle client was closed, no more events can be tracked.")
+		return fmt.Errorf("devcycle client was closed, no more events can be tracked.")
 	}
 	queueSize, err := e.internalQueue.UserQueueLength()
 	if err != nil {
-		return fmt.Errorf("Failed to check queue size, dropping event: %w", err)
+		return fmt.Errorf("failed to check queue size, dropping event: %w", err)
 	}
 
 	if queueSize >= e.options.FlushEventQueueSize {
@@ -113,7 +114,7 @@ func (e *EventManager) QueueEvent(user User, event Event) error {
 	return err
 }
 
-func (e *EventManager) QueueVariableDefaultedEvent(variableKey string, defaultReason string) error {
+func (e *EventManager) QueueVariableDefaultedEvent(variableKey string, defaultReason bucketing.DefaultReason) error {
 	return e.internalQueue.QueueVariableDefaulted(variableKey, defaultReason)
 }
 

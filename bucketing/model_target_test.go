@@ -82,7 +82,7 @@ func TestAudience_Parsing(t *testing.T) {
 		Id: "2d61e8001089444e9270bc316c294828",
 	}, audience)
 
-	filters := audience.NoIdAudience.Filters.Filters
+	filters := audience.Filters.Filters
 
 	customDataFilter := filters[0].(*CustomDataFilter)
 	require.Equal(t, "user", customDataFilter.GetType())

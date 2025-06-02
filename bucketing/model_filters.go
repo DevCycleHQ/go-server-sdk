@@ -66,7 +66,7 @@ func (m *MixedFilters) UnmarshalJSON(data []byte) error {
 			var operator *AudienceOperator
 			err = json.Unmarshal(rawItem, &operator)
 			if err != nil {
-				return fmt.Errorf("Error unmarshalling filter: %w", err)
+				return fmt.Errorf("error unmarshalling filter: %w", err)
 			}
 			filters[index] = operator
 			continue
@@ -93,12 +93,12 @@ func (m *MixedFilters) UnmarshalJSON(data []byte) error {
 
 		err = json.Unmarshal(rawItem, &filter)
 		if err != nil {
-			return fmt.Errorf("Error unmarshalling filter: %w", err)
+			return fmt.Errorf("error unmarshalling filter: %w", err)
 		}
 
 		if filter, ok := filter.(InitializedFilter); ok {
 			if err := filter.Initialize(); err != nil {
-				return fmt.Errorf("Error initializing filter: %w", err)
+				return fmt.Errorf("error initializing filter: %w", err)
 			}
 		}
 
@@ -165,7 +165,7 @@ func (u *UserFilter) compileValues() error {
 			if val, ok := value.(bool); ok {
 				boolValues = append(boolValues, val)
 			} else {
-				return fmt.Errorf("Filter values must be all of the same type. Expected: bool, got: %T %#v\n", value, value)
+				return fmt.Errorf("filter values must be all of the same type. Expected: bool, got: %T %#v\n", value, value)
 			}
 		}
 		u.CompiledBoolVals = boolValues
@@ -175,7 +175,7 @@ func (u *UserFilter) compileValues() error {
 			if val, ok := value.(string); ok {
 				stringValues = append(stringValues, val)
 			} else {
-				return fmt.Errorf("Filter values must be all of the same type. Expected: string, got: %T %#v\n", value, value)
+				return fmt.Errorf("filter values must be all of the same type. Expected: string, got: %T %#v\n", value, value)
 			}
 		}
 		u.CompiledStringVals = stringValues
@@ -185,12 +185,12 @@ func (u *UserFilter) compileValues() error {
 			if val, ok := value.(float64); ok {
 				numValues = append(numValues, val)
 			} else {
-				return fmt.Errorf("Filter values must be all of the same type. Expected: number, got: %T %#v\n", value, value)
+				return fmt.Errorf("filter values must be all of the same type. Expected: number, got: %T %#v\n", value, value)
 			}
 		}
 		u.CompiledNumVals = numValues
 	default:
-		return fmt.Errorf("Filter values must be of type bool, string, or float64. Got: %T %#v\n", firstValue, firstValue)
+		return fmt.Errorf("filter values must be of type bool, string, or float64. Got: %T %#v\n", firstValue, firstValue)
 	}
 
 	return nil

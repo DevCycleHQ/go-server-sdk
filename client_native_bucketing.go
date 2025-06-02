@@ -60,7 +60,7 @@ func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, opti
 func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag, rayId, lastModified string) error {
 	err := bucketing.SetConfig(configJSON, n.sdkKey, eTag, rayId, lastModified, n.eventQueue)
 	if err != nil {
-		return fmt.Errorf("Error parsing config: %w", err)
+		return fmt.Errorf("error parsing config: %w", err)
 	}
 	return nil
 }
@@ -135,7 +135,7 @@ func (n *NativeLocalBucketing) QueueEvent(user User, event Event) error {
 	return n.eventQueue.QueueEvent(user, event)
 }
 
-func (n *NativeLocalBucketing) QueueVariableDefaulted(variableKey, defaultReason string) error {
+func (n *NativeLocalBucketing) QueueVariableDefaulted(variableKey string, defaultReason bucketing.DefaultReason) error {
 	return n.eventQueue.QueueVariableDefaultedEvent(variableKey, defaultReason)
 }
 
@@ -146,7 +146,7 @@ func (n *NativeLocalBucketing) UserQueueLength() (int, error) {
 func (n *NativeLocalBucketing) FlushEventQueue(callback EventFlushCallback) error {
 	payloads, err := n.eventQueue.FlushEventQueue(n.clientUUID, n.GetETag(), n.GetRayId(), n.GetLastModified())
 	if err != nil {
-		return fmt.Errorf("Error flushing event queue: %w", err)
+		return fmt.Errorf("error flushing event queue: %w", err)
 	}
 
 	result, err := callback(payloads)
