@@ -18,7 +18,7 @@ func (t *Target) DecideTargetVariation(boundedHash float64) (string, error) {
 
 	for _, d := range t.Distribution {
 		distributionIndex += d.Percentage
-		if boundedHash >= previousDistributionIndex && boundedHash < distributionIndex {
+		if boundedHash >= previousDistributionIndex && (boundedHash < distributionIndex || (distributionIndex == 1 && boundedHash == 1)) {
 			return d.Variation, nil
 		}
 	}
