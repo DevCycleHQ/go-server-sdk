@@ -8,6 +8,92 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestBoundedHashLimits(t *testing.T) {
+
+	testCases := []struct {
+		name              string
+		expectedVariation string
+		target            Target
+	}{
+		{
+			name:              "Random Distribution",
+			expectedVariation: "",
+			target: Target{
+				Id: "target",
+				Audience: &Audience{
+					NoIdAudience: NoIdAudience{
+						Filters: &AudienceOperator{
+							Operator: "and",
+						},
+					},
+					Id: "id",
+				},
+				Distribution: []TargetDistribution{
+					{
+						Variation:  "var1",
+						Percentage: 0.2555,
+					},
+					{
+						Variation:  "var2",
+						Percentage: 0.4445,
+					},
+					{
+						Variation:  "var3",
+						Percentage: 0.1,
+					},
+					{
+						Variation:  "var4",
+						Percentage: 0.2,
+					},
+				},
+			},
+		},
+		{
+			name:              "Single Distribution",
+			expectedVariation: "var1",
+			target: Target{
+				Id: "target",
+				Audience: &Audience{
+					NoIdAudience: NoIdAudience{
+						Filters: &AudienceOperator{
+							Operator: "and",
+						},
+					},
+					Id: "id",
+				},
+				Distribution: []TargetDistribution{
+					{
+						Variation:  "var1",
+						Percentage: 1,
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			variation, err := tc.target.DecideTargetVariation(0.2555)
+			require.NoError(t, err)
+			if tc.expectedVariation != "" {
+				require.Equal(t, tc.expectedVariation, variation)
+			}
+
+			// Test edge cases
+			variation, err = tc.target.DecideTargetVariation(0)
+			require.NoError(t, err)
+			if tc.expectedVariation != "" {
+				require.Equal(t, tc.expectedVariation, variation)
+			}
+
+			variation, err = tc.target.DecideTargetVariation(1)
+			require.NoError(t, err)
+			if tc.expectedVariation != "" {
+				require.Equal(t, tc.expectedVariation, variation)
+			}
+		})
+	}
+}
+
 // A test that parses an Audience from JSON stored in testdata/audience.json
 func TestAudience_Parsing(t *testing.T) {
 	jsonAudience, err := os.ReadFile("testdata/audience.json")
@@ -82,7 +168,7 @@ func TestAudience_Parsing(t *testing.T) {
 		Id: "2d61e8001089444e9270bc316c294828",
 	}, audience)
 
-	filters := audience.NoIdAudience.Filters.Filters
+	filters := audience.Filters.Filters
 
 	customDataFilter := filters[0].(*CustomDataFilter)
 	require.Equal(t, "user", customDataFilter.GetType())
