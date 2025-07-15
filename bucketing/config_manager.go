@@ -52,14 +52,17 @@ func GetRawConfig(sdkKey string) []byte {
 }
 
 func SetConfig(rawJSON []byte, sdkKey, etag, rayId, lastModified string, eventQueue ...*EventQueue) error {
-	configMutex.Lock()
-	defer configMutex.Unlock()
 	config, err := newConfig(rawJSON, etag, rayId, lastModified)
 	if err != nil {
 		return err
 	}
+
+	configMutex.Lock()
 	internalConfigs[sdkKey] = config
 	internalRawConfigs[sdkKey] = rawJSON
+	configMutex.Unlock()
+
+	// Call MergeAggEventQueueKeys outside of the configMutex to avoid deadlock
 	if len(eventQueue) > 0 {
 		eventQueue[0].MergeAggEventQueueKeys(config)
 	}

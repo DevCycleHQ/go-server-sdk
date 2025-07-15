@@ -124,7 +124,7 @@ type EventQueue struct {
 	userEventQueue      UserEventQueue
 	userEventQueueCount int
 	aggEventQueue       AggregateEventQueue
-	stateMutex          *sync.RWMutex
+	queueAccess         *sync.RWMutex
 	httpClient          *http.Client
 	pendingPayloads     map[string]api.FlushPayload
 	done                func()
@@ -149,7 +149,7 @@ func NewEventQueue(sdkKey string, options *api.EventQueueOptions, platformData *
 		userEventQueueRaw: make(chan userEventData, options.MaxEventQueueSize),
 		userEventQueue:    make(map[string]api.UserEventsBatchRecord),
 		aggEventQueue:     make(AggregateEventQueue),
-		stateMutex:        &sync.RWMutex{},
+		queueAccess:       &sync.RWMutex{},
 		httpClient: &http.Client{
 			// Set an explicit timeout so that we don't wait forever on a request
 			// Use a separate hardcoded timeout here because event requests should not be blocking.
@@ -168,8 +168,8 @@ func NewEventQueue(sdkKey string, options *api.EventQueueOptions, platformData *
 }
 
 func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
-	eq.stateMutex.Lock()
-	defer eq.stateMutex.Unlock()
+	eq.queueAccess.Lock()
+	defer eq.queueAccess.Unlock()
 
 	if eq.aggEventQueue == nil {
 		eq.aggEventQueue = make(AggregateEventQueue)
@@ -253,8 +253,8 @@ func (eq *EventQueue) QueueVariableDefaultedEvent(variableKey, defaultReason str
 }
 
 func (eq *EventQueue) FlushEventQueue(clientUUID, configEtag, rayId, lastModified string) (map[string]api.FlushPayload, error) {
-	eq.stateMutex.Lock()
-	defer eq.stateMutex.Unlock()
+	eq.queueAccess.Lock()
+	defer eq.queueAccess.Unlock()
 
 	var records []api.UserEventsBatchRecord
 
@@ -294,8 +294,8 @@ func (eq *EventQueue) FlushEventQueue(clientUUID, configEtag, rayId, lastModifie
 }
 
 func (eq *EventQueue) HandleFlushResults(successPayloads []string, failurePayloads []string, failureWithRetryPayloads []string) {
-	eq.stateMutex.Lock()
-	defer eq.stateMutex.Unlock()
+	eq.queueAccess.Lock()
+	defer eq.queueAccess.Unlock()
 
 	var reported int32
 
@@ -335,14 +335,14 @@ func (eq *EventQueue) Close() (err error) {
 }
 
 func (eq *EventQueue) aggQueueLength() int {
-	eq.stateMutex.RLock()
-	defer eq.stateMutex.RUnlock()
+	eq.queueAccess.RLock()
+	defer eq.queueAccess.RUnlock()
 	return len(eq.aggEventQueue)
 }
 
 func (eq *EventQueue) UserQueueLength() int {
-	eq.stateMutex.RLock()
-	defer eq.stateMutex.RUnlock()
+	eq.queueAccess.RLock()
+	defer eq.queueAccess.RUnlock()
 	return eq.userEventQueueCount
 }
 
@@ -371,7 +371,7 @@ func (eq *EventQueue) reportPayloadFailure(payloadId string, retryable bool) err
 			delete(eq.pendingPayloads, payloadId)
 		}
 	} else {
-		return fmt.Errorf("Failed to find payload: %s, retryable: %v", payloadId, retryable)
+		return fmt.Errorf("failed to find payload: %s, retryable: %v", payloadId, retryable)
 	}
 	return nil
 }
@@ -414,14 +414,13 @@ func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
 			}
 		}
 	}()
-	eq.stateMutex.Lock()
-	defer eq.stateMutex.Unlock()
 
-	// TODO: provide platform data
+	// Get user data and custom data without holding the queue lock
 	popU := event.user.GetPopulatedUser(eq.platformData)
 	ccd := GetClientCustomData(eq.sdkKey)
 	popU.MergeClientCustomData(ccd)
 
+	// Generate bucketed config without holding the queue lock to avoid deadlock
 	bucketedConfig, err := GenerateBucketedConfig(eq.sdkKey, popU, ccd)
 	if err != nil {
 		return err
@@ -436,6 +435,10 @@ func (eq *EventQueue) processUserEvent(event userEventData) (err error) {
 		event.event.Type_ = api.EventType_CustomEvent
 		event.event.UserId = event.user.UserId
 	}
+
+	// Only acquire the queue lock for the final queue operations
+	eq.queueAccess.Lock()
+	defer eq.queueAccess.Unlock()
 
 	if _, ok := eq.userEventQueue[popU.UserId]; ok {
 		records := eq.userEventQueue[popU.UserId]
@@ -463,8 +466,8 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 		}
 	}()
 
-	eq.stateMutex.Lock()
-	defer eq.stateMutex.Unlock()
+	eq.queueAccess.Lock()
+	defer eq.queueAccess.Unlock()
 	eType := event.eventType
 	eTarget := event.variableKey
 

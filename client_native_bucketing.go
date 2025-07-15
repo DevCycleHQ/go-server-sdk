@@ -146,7 +146,7 @@ func (n *NativeLocalBucketing) UserQueueLength() (int, error) {
 func (n *NativeLocalBucketing) FlushEventQueue(callback EventFlushCallback) error {
 	payloads, err := n.eventQueue.FlushEventQueue(n.clientUUID, n.GetETag(), n.GetRayId(), n.GetLastModified())
 	if err != nil {
-		return fmt.Errorf("Error flushing event queue: %w", err)
+		return fmt.Errorf("error flushing event queue, will retry: %w", err)
 	}
 
 	result, err := callback(payloads)
