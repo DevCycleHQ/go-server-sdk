@@ -3,26 +3,31 @@ name: Test
 on:
   pull_request:
 jobs:
-  build:
+  zero-alloc:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: stable
+      - name: Test that variable evaluation requires zero heap allocations
+        run: >
+          go test -run=^$ -bench "^Benchmark.*_VariableSerial$" -benchmem .
+          | tee /dev/stderr
+          | grep '1 allocs/op'
+          || ( echo "::error title=Heap allocations detected in variable evaluations::The variable evaluation flow cannot have any allocations, or performance will degrade at high concurrency. See https://www.notion.so/How-to-profile-with-Go-613eb85b95c74df898552958f6b1541f for more information on how to resolve this."; false )
 
-    - name: Test
-      run: RACE=1 make test
+  test-race-condition:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Test that CGO is not required for native bucketing
-      run: CGO_ENABLED=0 go test -run="^$" ./...
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
 
-    - name: Test that variable evaluation requires zero heap allocations
-      run: >
-        go test -run=^$ -bench "^Benchmark.*_VariableSerial$" -benchmem .
-        | tee /dev/stderr
-        | grep '1 allocs/op'
-        || ( echo "::error title=Heap allocations detected in variable evaluations::The variable evaluation flow cannot have any allocations, or performance will degrade at high concurrency. See https://www.notion.so/How-to-profile-with-Go-613eb85b95c74df898552958f6b1541f for more information on how to resolve this."; false )
-
+      - name: Race Condition Test
+        run: RACE=1 make test

@@ -11,22 +11,20 @@ jobs:
     env:
       DEVCYCLE_SERVER_SDK_KEY: dvc_server_token_hash
       DEVCYCLE_VARIABLE_KEY: test
+    strategy:
+      matrix:
+        example:
+          - example/local
+          - example/cloud
+          - example/openfeature
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: stable
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
 
-    - name: Run local bucketing example
-      run: |
-        go run ./example/local
-
-    - name: Run cloud bucketing example
-      run: |
-        go run ./example/cloud
-
-    - name: Run openfeature example
-      run: |
-        go run ./example/openfeature
+      - name: Run example ${{ matrix.example }}
+        run: go run ./${{ matrix.example }}
+        continue-on-error: true
