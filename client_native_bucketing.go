@@ -104,6 +104,10 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 			Type_: variableType,
 			Value: nil,
 		},
+		Eval: api.EvalDetails{
+			Reason:  api.EvaluationReasonDefault,
+			Details: string(api.DefaultReasonInvalidVariableType),
+		},
 		DefaultValue: nil,
 		IsDefaulted:  true,
 	}
@@ -112,7 +116,7 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 	resultVariableType, resultValue, evalReason, err := bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
 
 	if err != nil {
-		defaultVar.DefaultReason = bucketing.BucketResultErrorToDefaultReason(err)
+		defaultVar.Eval.Details = string(bucketing.BucketResultErrorToDefaultReason(err))
 		return defaultVar, nil
 	}
 
@@ -123,7 +127,10 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 			Value: resultValue,
 		},
 		IsDefaulted: false,
-		EvalReason:  evalReason,
+		Eval: api.EvalDetails{
+			Reason:   evalReason,
+			TargetId: "",
+		},
 	}, nil
 }
 

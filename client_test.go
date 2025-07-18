@@ -195,7 +195,9 @@ func TestClient_VariableLocal(t *testing.T) {
 		},
 		DefaultValue: true,
 		IsDefaulted:  false,
-		EvalReason:   api.EvaluationReasonSplit,
+		Eval: api.EvalDetails{
+			Reason: api.EvaluationReasonSplit,
+		},
 	}
 
 	if !reflect.DeepEqual(expected, variable) {
@@ -246,7 +248,9 @@ func TestClient_VariableLocal_UserWithCustomData(t *testing.T) {
 		},
 		DefaultValue: true,
 		IsDefaulted:  false,
-		EvalReason:   api.EvaluationReasonSplit,
+		Eval: api.EvalDetails{
+			Reason: api.EvaluationReasonSplit,
+		},
 	}
 	if !reflect.DeepEqual(expected, variable) {
 		fmt.Println("got", variable)
