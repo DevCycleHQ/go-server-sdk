@@ -198,7 +198,6 @@ func _checkBooleanFilter(b bool, filter *UserFilter) bool {
 	operator := filter.GetComparator()
 	values := filter.CompiledBoolVals
 
-	// Convert the below to a switch statement if more operators are added
 
 	switch operator {
 	case "contain", "=":
