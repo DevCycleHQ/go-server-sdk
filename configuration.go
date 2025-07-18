@@ -39,6 +39,7 @@ type Options struct {
 	ClientEventHandler        chan api.ClientEvent
 	BucketingAPIURI           string
 	Logger                    util.Logger
+	EvalHooks                 []*EvalHook
 	AdvancedOptions
 }
 

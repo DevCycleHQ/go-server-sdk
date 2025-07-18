@@ -56,6 +56,7 @@ type Client struct {
 	// Set to true when the client has been closed.
 	isClosed                   bool
 	internalClientEventChannel chan api.ClientEvent
+	evalHookRunner             *EvalHookRunner
 }
 
 type LocalBucketing interface {
@@ -105,6 +106,8 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 		c.platformData = GeneratePlatformData()
 	}
 	c.internalClientEventChannel = make(chan api.ClientEvent, 1)
+
+	c.evalHookRunner = NewEvalHookRunner(c.DevCycleOptions.EvalHooks)
 
 	if c.DevCycleOptions.Logger != nil {
 		util.SetLogger(c.DevCycleOptions.Logger)
@@ -297,6 +300,44 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 		}
 	}()
 
+	hooks := c.evalHookRunner.hooks
+
+	// Create a default hook context before any evaluation
+	if len(hooks) > 0 {
+		hookContext := &HookContext{
+			User:         userdata,
+			Key:          key,
+			DefaultValue: defaultValue,
+		}
+		// Run before hooks and catch any errors
+		var hookError error
+		if len(hooks) > 0 {
+			hookError = c.evalHookRunner.RunBeforeHooks(hooks, hookContext)
+		}
+
+		variable, err = c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, variable)
+
+		hookContext.VariableDetails = variable
+		if hookError == nil {
+			hookError = c.evalHookRunner.RunAfterHooks(hooks, hookContext, variable)
+		}
+
+		// Always run onFinally hooks
+		c.evalHookRunner.RunOnFinallyHooks(hooks, hookContext, variable)
+		if hookError != nil {
+			c.evalHookRunner.RunErrorHooks(hooks, hookContext, hookError)
+		} else if err != nil {
+			c.evalHookRunner.RunErrorHooks(hooks, hookContext, err)
+		}
+	} else {
+		return c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, variable)
+	}
+
+	return variable, nil
+}
+
+func (c *Client) evaluateVariable(userdata User, key string, variableType string, defaultValue interface{}, convertedDefaultValue interface{}, variable Variable) (Variable, error) {
+	// Perform variable evaluation
 	if c.IsLocalBucketing() {
 		bucketedVariable, err := c.localBucketing.Variable(userdata, key, variableType)
 
@@ -314,6 +355,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 				)
 			}
 		}
+
 		return variable, err
 	}
 
@@ -336,7 +378,6 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 	postBody = &populatedUser
 
 	r, body, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
-
 	if err != nil {
 		return variable, err
 	}
@@ -360,6 +401,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 		}
 	}
 
+	// Handle error response
 	var v ErrorResponse
 	err = decode(&v, body, r.Header.Get("Content-Type"))
 	if err != nil {
@@ -696,6 +738,14 @@ func (c *Client) initialized() bool {
 
 func (c *Client) closed() bool {
 	return c.isClosed
+}
+
+func (c *Client) AddHook(hook *EvalHook) {
+	c.evalHookRunner.AddHook(hook)
+}
+
+func (c *Client) ClearHooks() {
+	c.evalHookRunner.ClearHooks()
 }
 
 func exponentialBackoff(attempt int) float64 {
