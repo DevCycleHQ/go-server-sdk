@@ -315,7 +315,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 			hookError = c.evalHookRunner.RunBeforeHooks(hooks, hookContext)
 		}
 
-		variable, err = c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, &variable)
+		variable, err = c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, variable)
 
 		hookContext.VariableDetails = variable
 		if hookError == nil {
@@ -330,13 +330,13 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 			c.evalHookRunner.RunErrorHooks(hooks, hookContext, err)
 		}
 	} else {
-		return c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, &variable)
+		return c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, variable)
 	}
 
 	return variable, nil
 }
 
-func (c *Client) evaluateVariable(userdata User, key string, variableType string, defaultValue interface{}, convertedDefaultValue interface{}, variable *Variable) (Variable, error) {
+func (c *Client) evaluateVariable(userdata User, key string, variableType string, defaultValue interface{}, convertedDefaultValue interface{}, variable Variable) (Variable, error) {
 	// Perform variable evaluation
 	if c.IsLocalBucketing() {
 		bucketedVariable, err := c.localBucketing.Variable(userdata, key, variableType)
@@ -356,7 +356,7 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 			}
 		}
 
-		return *variable, err
+		return variable, err
 	}
 
 	populatedUser := userdata.GetPopulatedUser(c.platformData)
@@ -379,7 +379,7 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 
 	r, body, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
 	if err != nil {
-		return *variable, err
+		return variable, err
 	}
 
 	if r.StatusCode < 300 {
@@ -397,15 +397,19 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 				)
 			}
 
-			return *variable, err
+			return variable, err
 		}
 	}
 
+	// Handle error response
 	var v ErrorResponse
 	err = decode(&v, body, r.Header.Get("Content-Type"))
+	if err != nil {
+		util.Warnf("Error decoding response body %s", err)
+		return variable, nil
+	}
 	util.Warnf(v.Message)
-
-	return *variable, err
+	return variable, nil
 }
 
 func (c *Client) AllVariables(user User) (map[string]ReadOnlyVariable, error) {
