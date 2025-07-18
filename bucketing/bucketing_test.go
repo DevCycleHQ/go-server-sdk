@@ -29,12 +29,12 @@ var (
 type testconfig struct {
 	description    string
 	configBody     []byte
-	expectedReason EvaluationReason
+	expectedReason api.EvaluationReason
 }
 
 var test_configs = []testconfig{
-	{configBody: test_config, description: "Passthrough Enabled", expectedReason: EvaluationReasonSplit},
-	{configBody: test_config_disable_passthrough, description: "Passthrough Disabled", expectedReason: EvaluationReasonTargetingMatch},
+	{configBody: test_config, description: "Passthrough Enabled", expectedReason: api.EvaluationReasonSplit},
+	{configBody: test_config_disable_passthrough, description: "Passthrough Disabled", expectedReason: api.EvaluationReasonTargetingMatch},
 }
 
 // Bucketing puts the user in the target for the first audience they match

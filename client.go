@@ -305,6 +305,8 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 			variable.Type_ = bucketedVariable.Type_
 			variable.Value = bucketedVariable.Value
 			variable.IsDefaulted = false
+			variable.DefaultReason = bucketedVariable.DefaultReason
+			variable.EvalReason = bucketedVariable.EvalReason
 		} else {
 			if !sameTypeAsDefault && bucketedVariable.Value != nil {
 				util.Warnf("Type mismatch for variable %s. Expected type %s, got %s",
@@ -313,6 +315,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 					reflect.TypeOf(bucketedVariable.Value).String(),
 				)
 			}
+			variable.DefaultReason = api.DefaultReasonInvalidVariableType
 		}
 		return variable, err
 	}
