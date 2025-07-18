@@ -11,5 +11,5 @@ type HookContext struct {
 	// DefaultValue is the default value provided for the variable
 	DefaultValue interface{}
 	// VariableDetails is the variable that gets evaluated
-	VariableDetails *api.Variable
+	VariableDetails api.Variable
 }

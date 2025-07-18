@@ -350,7 +350,7 @@ func TestClientWithHooksCloud(t *testing.T) {
 			errorCalled = true
 			assert.Equal(t, "test-key", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
-			assert.Equal(t, "default", context.DefaultValue)	
+			assert.Equal(t, "default", context.DefaultValue)
 			// This should be called when before hook fails
 			return nil
 		}

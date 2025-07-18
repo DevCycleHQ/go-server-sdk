@@ -299,45 +299,39 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 			util.Errorf("%v", err)
 		}
 	}()
-	
+
 	hooks := c.evalHookRunner.hooks
 
 	// Create a default hook context before any evaluation
 	if len(hooks) > 0 {
 		hookContext := &HookContext{
-			User:            userdata,
-			Key:             key,
-			DefaultValue:    defaultValue,
-			VariableDetails: &variable,
+			User:         userdata,
+			Key:          key,
+			DefaultValue: defaultValue,
 		}
-			// Run before hooks and catch any errors
-		var beforeHookError error
+		// Run before hooks and catch any errors
+		var hookError error
 		if len(hooks) > 0 {
-			beforeHookError = c.evalHookRunner.RunBeforeHooks(hooks, hookContext)
+			hookError = c.evalHookRunner.RunBeforeHooks(hooks, hookContext)
 		}
 
 		variable, err = c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, &variable)
 
-		var afterHookError error
-		// Run after hooks only if no before hook error
-		if beforeHookError == nil {
-			afterHookError = c.evalHookRunner.RunAfterHooks(hooks, hookContext, &variable)
-
+		hookContext.VariableDetails = variable
+		if hookError == nil {
+			hookError = c.evalHookRunner.RunAfterHooks(hooks, hookContext, variable)
 		}
 
 		// Always run onFinally hooks
-		c.evalHookRunner.RunOnFinallyHooks(hooks, hookContext, &variable)
-		if beforeHookError != nil {
-			c.evalHookRunner.RunErrorHooks(hooks, hookContext, beforeHookError)
-		} else if afterHookError != nil {
-			c.evalHookRunner.RunErrorHooks(hooks, hookContext, afterHookError)
+		c.evalHookRunner.RunOnFinallyHooks(hooks, hookContext, variable)
+		if hookError != nil {
+			c.evalHookRunner.RunErrorHooks(hooks, hookContext, hookError)
 		} else if err != nil {
 			c.evalHookRunner.RunErrorHooks(hooks, hookContext, err)
 		}
 	} else {
 		return c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, &variable)
 	}
-	
 
 	return variable, nil
 }
@@ -384,6 +378,9 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 	postBody = &populatedUser
 
 	r, body, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
+	if err != nil {
+		return *variable, err
+	}
 
 	if r.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
@@ -408,7 +405,7 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 	err = decode(&v, body, r.Header.Get("Content-Type"))
 	util.Warnf(v.Message)
 
-	return *variable, nil
+	return *variable, err
 }
 
 func (c *Client) AllVariables(user User) (map[string]ReadOnlyVariable, error) {
@@ -739,11 +736,11 @@ func (c *Client) closed() bool {
 	return c.isClosed
 }
 
-func (c *Client) addHook(hook *EvalHook) {
+func (c *Client) AddHook(hook *EvalHook) {
 	c.evalHookRunner.AddHook(hook)
 }
 
-func (c *Client) clearHooks() {
+func (c *Client) ClearHooks() {
 	c.evalHookRunner.ClearHooks()
 }
 
