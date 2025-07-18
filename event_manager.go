@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/devcyclehq/go-server-sdk/v2/api"
-	"github.com/devcyclehq/go-server-sdk/v2/bucketing"
 	"io"
 	"net/http"
 	"os"
@@ -20,7 +19,7 @@ type EventFlushCallback func(payloads map[string]FlushPayload) (*FlushResult, er
 
 type InternalEventQueue interface {
 	QueueEvent(user User, event Event) error
-	QueueVariableDefaulted(variableKey string, defaultReason bucketing.DefaultReason) error
+	QueueVariableDefaulted(variableKey string, defaultReason api.DefaultReason) error
 	FlushEventQueue(EventFlushCallback) error
 	UserQueueLength() (int, error)
 	GetUUID() string
@@ -114,7 +113,7 @@ func (e *EventManager) QueueEvent(user User, event Event) error {
 	return err
 }
 
-func (e *EventManager) QueueVariableDefaultedEvent(variableKey string, defaultReason bucketing.DefaultReason) error {
+func (e *EventManager) QueueVariableDefaultedEvent(variableKey string, defaultReason api.DefaultReason) error {
 	return e.internalQueue.QueueVariableDefaulted(variableKey, defaultReason)
 }
 

@@ -23,6 +23,9 @@ type Variable struct {
 	DefaultValue interface{} `json:"defaultValue"`
 	// Identifies if variable was returned with the default value
 	IsDefaulted bool `json:"isDefaulted"`
+
+	EvaluationReason EvaluationReason `json:"evaluationReason"`
+	DefaultReason    DefaultReason    `json:"defaultReason"`
 }
 
 type ReadOnlyVariable struct {

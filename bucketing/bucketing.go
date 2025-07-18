@@ -9,34 +9,11 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/util"
 )
 
-type EvaluationReason string
-type DefaultReason string
-
-const (
-	DefaultReasonMissingConfig               DefaultReason = "MISSING_CONFIG"
-	DefaultReasonMissingVariable             DefaultReason = "MISSING_VARIABLE"
-	DefaultReasonMissingFeature              DefaultReason = "MISSING_FEATURE"
-	DefaultReasonMissingVariation            DefaultReason = "MISSING_VARIATION"
-	DefaultReasonMissingVariableForVariation DefaultReason = "MISSING_VARIABLE_FOR_VARIATION"
-	DefaultReasonUserNotInRollout            DefaultReason = "USER_NOT_IN_ROLLOUT"
-	DefaultReasonUserNotTargeted             DefaultReason = "USER_NOT_TARGETED"
-	DefaultReasonInvalidVariableType         DefaultReason = "INVALID_VARIABLE_TYPE"
-	DefaultReasonUnknown                     DefaultReason = "UNKNOWN"
-)
-
-const (
-	EvaluationReasonTargetingMatch EvaluationReason = "TARGETING_MATCH"
-	EvaluationReasonSplit          EvaluationReason = "SPLIT"
-	EvaluationReasonDefault        EvaluationReason = "DEFAULT"
-	EvaluationReasonDisabled       EvaluationReason = "DISABLED"
-	EvaluationReasonError          EvaluationReason = "ERROR"
-)
-
-var allEvalReasons = []EvaluationReason{
-	EvaluationReasonTargetingMatch,
-	EvaluationReasonSplit,
-	EvaluationReasonDefault,
-	EvaluationReasonError,
+var allEvalReasons = []api.EvaluationReason{
+	api.EvaluationReasonTargetingMatch,
+	api.EvaluationReasonSplit,
+	api.EvaluationReasonDefault,
+	api.EvaluationReasonError,
 }
 
 // Max value of an unsigned 32-bit integer, which is what murmurhash returns
@@ -326,61 +303,61 @@ func isVariableTypeValid(variableType string, expectedVariableType string) bool 
 	return true
 }
 
-func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key string, clientCustomData map[string]interface{}) (variableType string, variableValue any, featureId string, variationId string, evalReason EvaluationReason, err error) {
+func generateBucketedVariableForUser(sdkKey string, user api.PopulatedUser, key string, clientCustomData map[string]interface{}) (variableType string, variableValue any, featureId string, variationId string, evalReason api.EvaluationReason, err error) {
 	config, err := getConfig(sdkKey)
 	if err != nil {
 		util.Warnf("Variable called before client initialized, returning default value")
-		return "", nil, "", "", EvaluationReasonError, ErrConfigMissing
+		return "", nil, "", "", api.EvaluationReasonError, ErrConfigMissing
 	}
 	variable := config.GetVariableForKey(key)
 	if variable == nil {
 		err = ErrMissingVariable
-		return "", nil, "", "", EvaluationReasonDisabled, err
+		return "", nil, "", "", api.EvaluationReasonDisabled, err
 	}
 	featForVariable := config.GetFeatureForVariableId(variable.Id)
 	if featForVariable == nil {
 		err = ErrMissingFeature
-		return "", nil, "", "", EvaluationReasonDisabled, err
+		return "", nil, "", "", api.EvaluationReasonDisabled, err
 	}
 
 	targetHashes, isRollout, err := doesUserQualifyForFeature(config, featForVariable, user, clientCustomData)
 	if err != nil {
-		return "", nil, "", "", EvaluationReasonDefault, err
+		return "", nil, "", "", api.EvaluationReasonDefault, err
 	}
 	variation, isRandomDistrib, err := bucketUserForVariation(featForVariable, targetHashes)
 	if err != nil {
-		return "", nil, "", "", EvaluationReasonDefault, err
+		return "", nil, "", "", api.EvaluationReasonDefault, err
 	}
 	variationVariable := variation.GetVariableById(variable.Id)
 	if variationVariable == nil {
 		err = ErrMissingVariableForVariation
-		return "", nil, "", "", EvaluationReasonDisabled, err
+		return "", nil, "", "", api.EvaluationReasonDisabled, err
 	}
 	if isRollout || isRandomDistrib {
-		return variable.Type, variationVariable.Value, featForVariable.Id, variation.Id, EvaluationReasonSplit, nil
+		return variable.Type, variationVariable.Value, featForVariable.Id, variation.Id, api.EvaluationReasonSplit, nil
 	}
-	return variable.Type, variationVariable.Value, featForVariable.Id, variation.Id, EvaluationReasonTargetingMatch, nil
+	return variable.Type, variationVariable.Value, featForVariable.Id, variation.Id, api.EvaluationReasonTargetingMatch, nil
 }
 
-func BucketResultErrorToDefaultReason(err error) (defaultReason DefaultReason) {
+func BucketResultErrorToDefaultReason(err error) (defaultReason api.DefaultReason) {
 	switch err {
 	case ErrConfigMissing:
-		return DefaultReasonMissingConfig
+		return api.DefaultReasonMissingConfig
 	case ErrMissingVariable:
-		return DefaultReasonMissingVariable
+		return api.DefaultReasonMissingVariable
 	case ErrMissingFeature:
-		return DefaultReasonMissingFeature
+		return api.DefaultReasonMissingFeature
 	case ErrMissingVariation:
-		return DefaultReasonMissingVariation
+		return api.DefaultReasonMissingVariation
 	case ErrMissingVariableForVariation:
-		return DefaultReasonMissingVariableForVariation
+		return api.DefaultReasonMissingVariableForVariation
 	case ErrUserRollout:
-		return DefaultReasonUserNotInRollout
+		return api.DefaultReasonUserNotInRollout
 	case ErrUserDoesNotQualifyForTargets:
-		return DefaultReasonUserNotTargeted
+		return api.DefaultReasonUserNotTargeted
 	case ErrInvalidVariableType:
-		return DefaultReasonInvalidVariableType
+		return api.DefaultReasonInvalidVariableType
 	default:
-		return DefaultReasonUnknown
+		return api.DefaultReasonUnknown
 	}
 }
