@@ -13,6 +13,7 @@ const (
 	DefaultReasonUserNotTargeted             DefaultReason = "USER_NOT_TARGETED"
 	DefaultReasonInvalidVariableType         DefaultReason = "INVALID_VARIABLE_TYPE"
 	DefaultReasonUnknown                     DefaultReason = "UNKNOWN"
+	DefaultReasonNotDefaulted                DefaultReason = ""
 )
 
 const (
