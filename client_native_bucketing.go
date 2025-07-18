@@ -109,8 +109,10 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 	}
 	clientCustomData := bucketing.GetClientCustomData(n.sdkKey)
 	populatedUser := user.GetPopulatedUserWithTime(n.platformData, DEFAULT_USER_TIME)
-	resultVariableType, resultValue, err := bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
+	resultVariableType, resultValue, evalReason, err := bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
+
 	if err != nil {
+		defaultVar.DefaultReason = bucketing.BucketResultErrorToDefaultReason(err)
 		return defaultVar, nil
 	}
 
@@ -121,6 +123,7 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 			Value: resultValue,
 		},
 		IsDefaulted: false,
+		EvalReason:  evalReason,
 	}, nil
 }
 

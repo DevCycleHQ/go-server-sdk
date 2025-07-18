@@ -129,7 +129,7 @@ func TestEventQueue_AddToAggQueue(t *testing.T) {
 	require.NoError(t, err)
 	eq, err := NewEventQueue("dvc_server_token_hash", &api.EventQueueOptions{FlushEventsInterval: time.Hour}, (&api.PlatformData{}).Default())
 	require.NoError(t, err)
-	err = eq.QueueVariableEvaluatedEvent("somevariablekey", "featureId", "variationId", EvaluationReasonTargetingMatch)
+	err = eq.QueueVariableEvaluatedEvent("somevariablekey", "featureId", "variationId", api.EvaluationReasonTargetingMatch)
 	require.NoError(t, err)
 	require.Eventually(t, func() bool { return eq.aggQueueLength() == 1 }, 10*time.Second, time.Millisecond)
 }
