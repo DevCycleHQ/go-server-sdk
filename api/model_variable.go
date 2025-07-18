@@ -19,10 +19,16 @@ type BaseVariable struct {
 
 type Variable struct {
 	BaseVariable
-	// Default variable value can be a string, number, boolean, or JSON
+
 	DefaultValue interface{} `json:"defaultValue"`
-	// Identifies if variable was returned with the default value
-	IsDefaulted bool `json:"isDefaulted"`
+	IsDefaulted  bool        `json:"isDefaulted"`
+	Eval         EvalDetails `json:"eval"`
+}
+
+type EvalDetails struct {
+	Reason   EvaluationReason `json:"reason"`
+	Details  string           `json:"details"`
+	TargetId string           `json:"targetId"`
 }
 
 type ReadOnlyVariable struct {

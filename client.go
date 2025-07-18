@@ -117,19 +117,19 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 
 		err := c.setLBClient(sdkKey, options)
 		if err != nil {
-			return c, fmt.Errorf("Error setting up local bucketing: %w", err)
+			return c, fmt.Errorf("error setting up local bucketing: %w", err)
 		}
 
 		c.eventQueue, err = NewEventManager(options, c.localBucketing, c.cfg, sdkKey)
 
 		if err != nil {
-			return c, fmt.Errorf("Error initializing event queue: %w", err)
+			return c, fmt.Errorf("error initializing event queue: %w", err)
 		}
 
 		c.configManager, err = NewEnvironmentConfigManager(sdkKey, c.localBucketing, c.eventQueue, options, c.cfg)
 
 		if err != nil {
-			return nil, fmt.Errorf("Error initializing config manager: %w", err)
+			return nil, fmt.Errorf("error initializing config manager: %w", err)
 		}
 		if c.DevCycleOptions.ClientEventHandler != nil {
 			go func() {
@@ -346,6 +346,7 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 			variable.Type_ = bucketedVariable.Type_
 			variable.Value = bucketedVariable.Value
 			variable.IsDefaulted = false
+			variable.Eval = bucketedVariable.Eval
 		} else {
 			if !sameTypeAsDefault && bucketedVariable.Value != nil {
 				util.Warnf("Type mismatch for variable %s. Expected type %s, got %s",
@@ -354,6 +355,7 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 					reflect.TypeOf(bucketedVariable.Value).String(),
 				)
 			}
+			variable.Eval.Details = string(api.DefaultReasonInvalidVariableType)
 		}
 
 		return variable, err
@@ -631,7 +633,7 @@ func (c *Client) performRequest(
 			return attempt <= 5, err
 		}
 		responseBody, err = io.ReadAll(httpResponse.Body)
-		httpResponse.Body.Close()
+		_ = httpResponse.Body.Close()
 
 		if err == nil && httpResponse.StatusCode >= 500 && attempt <= 5 {
 			err = errors.New("5xx error on request")

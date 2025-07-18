@@ -45,7 +45,7 @@ func newConfig(configJSON []byte, etag, rayId, lastModified string) (*configBody
 		return nil, err
 	}
 	if err := validate.Struct(config); err != nil {
-		return nil, fmt.Errorf("Config validation failed: %w", err)
+		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
 	if config.Audiences == nil {
 		config.Audiences = make(map[string]NoIdAudience)
