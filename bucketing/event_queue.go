@@ -23,7 +23,7 @@ type aggEventData struct {
 	featureId   string
 	variationId string
 	evalDetails string
-	evalReason  EvaluationReason
+	evalReason  api.EvaluationReason
 }
 
 type userEventData struct {
@@ -41,7 +41,7 @@ type userEventData struct {
 // For Defaulted Events:
 // ["aggVariableDefaulted"]["somevariablekey"]["DEFAULT"]["DEFAULT"]["DEFAULT_REASON"] = 1
 
-type EvalReasonAggMap map[EvaluationReason]int64
+type EvalReasonAggMap map[api.EvaluationReason]int64
 type VariationAggMap map[string]EvalReasonAggMap
 type FeatureAggMap map[string]VariationAggMap
 type VariableAggMap map[string]FeatureAggMap
@@ -207,7 +207,7 @@ func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
 	}
 }
 
-func (eq *EventQueue) queueAggregateEventInternal(variableKey, featureId, variationId, eventType string, evalReason EvaluationReason, evalDetails string) error {
+func (eq *EventQueue) queueAggregateEventInternal(variableKey, featureId, variationId, eventType string, evalReason api.EvaluationReason, evalDetails string) error {
 	if eq.options != nil && eq.options.IsEventLoggingDisabled(eventType) {
 		return nil
 	}
@@ -248,7 +248,7 @@ func (eq *EventQueue) QueueEvent(user api.User, event api.Event) error {
 	return nil
 }
 
-func (eq *EventQueue) QueueVariableEvaluatedEvent(variableKey, featureId, variationId string, evalReason EvaluationReason) error {
+func (eq *EventQueue) QueueVariableEvaluatedEvent(variableKey, featureId, variationId string, evalReason api.EvaluationReason) error {
 	if eq.options.DisableAutomaticEventLogging {
 		return nil
 	}
@@ -256,12 +256,12 @@ func (eq *EventQueue) QueueVariableEvaluatedEvent(variableKey, featureId, variat
 	return eq.queueAggregateEventInternal(variableKey, featureId, variationId, api.EventType_AggVariableEvaluated, evalReason, "")
 }
 
-func (eq *EventQueue) QueueVariableDefaultedEvent(variableKey string, defaultReason DefaultReason) error {
+func (eq *EventQueue) QueueVariableDefaultedEvent(variableKey string, defaultReason api.DefaultReason) error {
 	if eq.options.DisableAutomaticEventLogging {
 		return nil
 	}
 
-	return eq.queueAggregateEventInternal(variableKey, "", "", api.EventType_AggVariableDefaulted, EvaluationReasonDefault, string(defaultReason))
+	return eq.queueAggregateEventInternal(variableKey, "", "", api.EventType_AggVariableDefaulted, api.EvaluationReasonDefault, string(defaultReason))
 }
 
 func (eq *EventQueue) FlushEventQueue(clientUUID, configEtag, rayId, lastModified string) (map[string]api.FlushPayload, error) {
@@ -513,22 +513,22 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 		featureVariationAggregationMap[event.featureId] = variationAggMap
 	} else {
 		defaultReasonAggMap := make(VariationAggMap)
-		if existingVariationAggMap, ok := featureVariationAggregationMap[string(EvaluationReasonDefault)]; ok {
+		if existingVariationAggMap, ok := featureVariationAggregationMap[string(api.EvaluationReasonDefault)]; ok {
 			defaultReasonAggMap = existingVariationAggMap
 		}
 		// Default events have no variation; only a static default flag to then aggregate by default reason.
 		// To make the aggregation mapping consistent later on when re-aggregating - it will result in a double aggregation of `[default][default][reason]` intentionally.
-		if _, ok := defaultReasonAggMap[string(EvaluationReasonDefault)]; !ok {
-			defaultReasonAggMap[string(EvaluationReasonDefault)] = make(EvalReasonAggMap)
+		if _, ok := defaultReasonAggMap[string(api.EvaluationReasonDefault)]; !ok {
+			defaultReasonAggMap[string(api.EvaluationReasonDefault)] = make(EvalReasonAggMap)
 		}
-		defaultReasons := defaultReasonAggMap[string(EvaluationReasonDefault)]
-		_defaultDetails := EvaluationReason(event.evalDetails)
+		defaultReasons := defaultReasonAggMap[string(api.EvaluationReasonDefault)]
+		_defaultDetails := api.EvaluationReason(event.evalDetails)
 		if _, ok := defaultReasons[_defaultDetails]; !ok {
 			defaultReasons[_defaultDetails] = 0
 		}
 		defaultReasons[_defaultDetails]++
-		defaultReasonAggMap[string(EvaluationReasonDefault)] = defaultReasons
-		featureVariationAggregationMap[string(EvaluationReasonDefault)] = defaultReasonAggMap
+		defaultReasonAggMap[string(api.EvaluationReasonDefault)] = defaultReasons
+		featureVariationAggregationMap[string(api.EvaluationReasonDefault)] = defaultReasonAggMap
 	}
 	variableFeatureVariationAggregationMap[eTarget] = featureVariationAggregationMap
 	eq.aggEventQueue[eType] = variableFeatureVariationAggregationMap
