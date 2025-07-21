@@ -11,6 +11,7 @@ import (
 )
 
 const DEVCYCLE_USER_ID_KEY = "userId"
+const DEVCYCLE_USER_ID_UNDERSCORE_KEY = "user_id"
 
 // DevCycleProvider implements the FeatureProvider interface and provides functions for evaluating flags
 type DevCycleProvider struct {
@@ -383,12 +384,27 @@ func createUserFromEvaluationContext(evalCtx openfeature.EvaluationContext) (Use
 
 func createUserFromFlattenedContext(evalCtx openfeature.FlattenedContext) (User, error) {
 	userId := ""
+	userIdSource := ""
+	
+	// Priority: targetingKey -> user_id -> userId
 	_, exists := evalCtx[openfeature.TargetingKey]
 	if exists {
 		if targetingKey, ok := evalCtx[openfeature.TargetingKey].(string); ok {
 			userId = targetingKey
+			userIdSource = openfeature.TargetingKey
 		} else {
 			return User{}, errors.New("targetingKey must be a string")
+		}
+	}
+	if userId == "" {
+		_, exists = evalCtx[DEVCYCLE_USER_ID_UNDERSCORE_KEY]
+		if exists {
+			if userIdValue, ok := evalCtx[DEVCYCLE_USER_ID_UNDERSCORE_KEY].(string); ok {
+				userId = userIdValue
+				userIdSource = DEVCYCLE_USER_ID_UNDERSCORE_KEY
+			} else {
+				return User{}, errors.New("user_id must be a string")
+			}
 		}
 	}
 	if userId == "" {
@@ -396,6 +412,7 @@ func createUserFromFlattenedContext(evalCtx openfeature.FlattenedContext) (User,
 		if exists {
 			if userIdValue, ok := evalCtx[DEVCYCLE_USER_ID_KEY].(string); ok {
 				userId = userIdValue
+				userIdSource = DEVCYCLE_USER_ID_KEY
 			} else {
 				return User{}, errors.New("userId must be a string")
 			}
@@ -403,7 +420,7 @@ func createUserFromFlattenedContext(evalCtx openfeature.FlattenedContext) (User,
 	}
 
 	if userId == "" {
-		return User{}, errors.New("targetingKey or userId must be provided")
+		return User{}, errors.New("targetingKey, user_id, or userId must be provided")
 	}
 	user := User{
 		UserId: userId,
@@ -430,8 +447,14 @@ func createUserFromFlattenedContext(evalCtx openfeature.FlattenedContext) (User,
 				user.AppBuild = value
 			} else if key == "deviceModel" {
 				user.DeviceModel = value
-			} else if key == openfeature.TargetingKey || key == DEVCYCLE_USER_ID_KEY {
-				// Ignore, already handled
+			} else if key == openfeature.TargetingKey || (key == DEVCYCLE_USER_ID_KEY && userIdSource == DEVCYCLE_USER_ID_KEY) || (key == DEVCYCLE_USER_ID_UNDERSCORE_KEY && userIdSource == DEVCYCLE_USER_ID_UNDERSCORE_KEY) {
+				// Ignore, already handled or used as user ID
+			} else if key == DEVCYCLE_USER_ID_UNDERSCORE_KEY && userIdSource != DEVCYCLE_USER_ID_UNDERSCORE_KEY {
+				// Include user_id in custom data if it wasn't used as the user ID
+				setCustomDataValue(customData, key, value)
+			} else if key == DEVCYCLE_USER_ID_KEY && userIdSource != DEVCYCLE_USER_ID_KEY {
+				// Include userId in custom data if it wasn't used as the user ID
+				setCustomDataValue(customData, key, value)
 			} else {
 				// Store all other string keys in custom data
 				setCustomDataValue(customData, key, value)
@@ -450,7 +473,10 @@ func createUserFromFlattenedContext(evalCtx openfeature.FlattenedContext) (User,
 		default:
 			// Store unknown non-string keys if they are an acceptable type
 			// setCustomDataValue enforces the supported types
-			setCustomDataValue(customData, key, value)
+			// Exclude user ID keys that were used as the source of user ID
+			if !(key == openfeature.TargetingKey || (key == DEVCYCLE_USER_ID_KEY && userIdSource == DEVCYCLE_USER_ID_KEY) || (key == DEVCYCLE_USER_ID_UNDERSCORE_KEY && userIdSource == DEVCYCLE_USER_ID_UNDERSCORE_KEY)) {
+				setCustomDataValue(customData, key, value)
+			}
 		}
 	}
 

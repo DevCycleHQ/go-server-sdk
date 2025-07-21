@@ -54,6 +54,10 @@ func TestOFcreateUserFromFlattenedContext_SimpleUser(t *testing.T) {
 	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"targetingKey": "1234", "userId": "5678"})
 	require.NoError(t, err)
 	require.Equal(t, "1234", user.UserId)
+
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"user_id": "1234"})
+	require.NoError(t, err)
+	require.Equal(t, "1234", user.UserId)
 }
 
 func TestOFcreateUserFromFlattenedContext_AllUserProperties(t *testing.T) {
@@ -92,6 +96,93 @@ func TestOFcreateUserFromFlattenedContext_InvalidDataType(t *testing.T) {
 
 	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"userId": 5678})
 	require.EqualError(t, err, "userId must be a string")
+
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"user_id": 5678})
+	require.EqualError(t, err, "user_id must be a string")
+}
+
+func TestOFcreateUserFromFlattenedContext_UserIdPriority(t *testing.T) {
+	// Test priority: targetingKey -> user_id -> userId
+	
+	// Only userId
+	user, err := createUserFromFlattenedContext(openfeature.FlattenedContext{"userId": "userId_value"})
+	require.NoError(t, err)
+	require.Equal(t, "userId_value", user.UserId)
+
+	// Only user_id
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"user_id": "user_id_value"})
+	require.NoError(t, err)
+	require.Equal(t, "user_id_value", user.UserId)
+
+	// user_id takes priority over userId
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"user_id": "user_id_value", "userId": "userId_value"})
+	require.NoError(t, err)
+	require.Equal(t, "user_id_value", user.UserId)
+
+	// targetingKey takes priority over user_id
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"targetingKey": "targeting_value", "user_id": "user_id_value"})
+	require.NoError(t, err)
+	require.Equal(t, "targeting_value", user.UserId)
+
+	// targetingKey takes priority over userId
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"targetingKey": "targeting_value", "userId": "userId_value"})
+	require.NoError(t, err)
+	require.Equal(t, "targeting_value", user.UserId)
+
+	// targetingKey takes priority over both user_id and userId
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"targetingKey": "targeting_value", "user_id": "user_id_value", "userId": "userId_value"})
+	require.NoError(t, err)
+	require.Equal(t, "targeting_value", user.UserId)
+}
+
+func TestOFcreateUserFromFlattenedContext_UserIdCustomDataHandling(t *testing.T) {
+	// Test that user_id is excluded from custom data when used as user ID
+	user, err := createUserFromFlattenedContext(openfeature.FlattenedContext{
+		"user_id": "user_id_value",
+		"other_field": "other_value",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "user_id_value", user.UserId)
+	require.Equal(t, map[string]interface{}{"other_field": "other_value"}, user.CustomData)
+
+	// Test that user_id is included in custom data when NOT used as user ID (targetingKey has priority)
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{
+		"targetingKey": "targeting_value",
+		"user_id": "user_id_value",
+		"other_field": "other_value",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "targeting_value", user.UserId)
+	require.Equal(t, map[string]interface{}{"user_id": "user_id_value", "other_field": "other_value"}, user.CustomData)
+
+	// Test that userId is excluded from custom data when used as user ID
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{
+		"userId": "userId_value",
+		"other_field": "other_value",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "userId_value", user.UserId)
+	require.Equal(t, map[string]interface{}{"other_field": "other_value"}, user.CustomData)
+
+	// Test that userId is included in custom data when NOT used as user ID (user_id has priority)
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{
+		"user_id": "user_id_value",
+		"userId": "userId_value",
+		"other_field": "other_value",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "user_id_value", user.UserId)
+	require.Equal(t, map[string]interface{}{"userId": "userId_value", "other_field": "other_value"}, user.CustomData)
+
+	// Test non-string user_id values are included in custom data
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{
+		"targetingKey": "targeting_value",
+		"user_id": 12345, // non-string user_id
+		"other_field": "other_value",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "targeting_value", user.UserId)
+	require.Equal(t, map[string]interface{}{"user_id": float64(12345), "other_field": "other_value"}, user.CustomData)
 }
 
 func TestOFcreateUserFromFlattenedContext_CustomData(t *testing.T) {
@@ -108,7 +199,6 @@ func TestOFcreateUserFromFlattenedContext_CustomDataUnknownProperties(t *testing
 	user, err := createUserFromFlattenedContext(openfeature.FlattenedContext(testCustomData))
 	require.NoError(t, err)
 	delete(testCustomData, openfeature.TargetingKey)
-	delete(testCustomData, "user_id")
 	require.Equal(t, testCustomData, user.CustomData)
 }
 
@@ -198,7 +288,7 @@ func TestOFBooleanEvaluation_BadUserData(t *testing.T) {
 
 	require.False(t, resolutionDetail.Value)
 	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
-	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey, user_id, or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
 }
 
 func TestOFBooleanEvaluation_TargetMatch(t *testing.T) {
@@ -251,7 +341,7 @@ func TestOFStringEvaluation_BadUserData(t *testing.T) {
 
 	require.Equal(t, "default", resolutionDetail.Value)
 	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
-	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey, user_id, or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
 }
 
 func TestOFStringEvaluation_TargetMatch(t *testing.T) {
@@ -303,7 +393,7 @@ func TestOFFloatEvaluation_BadUserData(t *testing.T) {
 
 	require.Equal(t, 1.23, resolutionDetail.Value)
 	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
-	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey, user_id, or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
 }
 
 func TestOFFloatEvaluation_TargetMatch(t *testing.T) {
@@ -361,7 +451,7 @@ func TestOFIntEvaluation_BadUserData(t *testing.T) {
 
 	require.Equal(t, int64(123), resolutionDetail.Value)
 	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
-	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey, user_id, or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
 }
 
 func TestOFIntEvaluation_TargetMatch(t *testing.T) {
@@ -426,7 +516,7 @@ func TestOFObjectEvaluation_BadUserData(t *testing.T) {
 
 	require.Equal(t, defaultValue, resolutionDetail.Value)
 	require.Equal(t, openfeature.ErrorReason, resolutionDetail.ProviderResolutionDetail.Reason)
-	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
+	require.Equal(t, openfeature.NewInvalidContextResolutionError("targetingKey, user_id, or userId must be provided"), resolutionDetail.ProviderResolutionDetail.ResolutionError)
 }
 
 func TestOFObjectEvaluation_TargetMatch(t *testing.T) {
