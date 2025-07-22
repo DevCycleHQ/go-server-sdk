@@ -385,41 +385,48 @@ func createUserFromEvaluationContext(evalCtx openfeature.EvaluationContext) (Use
 func createUserFromFlattenedContext(evalCtx openfeature.FlattenedContext) (User, error) {
 	userId := ""
 	userIdSource := ""
+	var firstInvalidSource string
 	
 	// Priority: targetingKey -> user_id -> userId
-	_, exists := evalCtx[openfeature.TargetingKey]
-	if exists {
-		if targetingKey, ok := evalCtx[openfeature.TargetingKey].(string); ok {
+	// Try targetingKey first
+	if targetingKeyValue, exists := evalCtx[openfeature.TargetingKey]; exists {
+		if targetingKey, ok := targetingKeyValue.(string); ok {
 			userId = targetingKey
 			userIdSource = openfeature.TargetingKey
-		} else {
-			return User{}, errors.New("targetingKey must be a string")
+		} else if firstInvalidSource == "" {
+			firstInvalidSource = "targetingKey must be a string"
 		}
 	}
+	
+	// Try user_id if targetingKey didn't work
 	if userId == "" {
-		_, exists = evalCtx[DEVCYCLE_USER_ID_UNDERSCORE_KEY]
-		if exists {
-			if userIdValue, ok := evalCtx[DEVCYCLE_USER_ID_UNDERSCORE_KEY].(string); ok {
-				userId = userIdValue
+		if userIdValue, exists := evalCtx[DEVCYCLE_USER_ID_UNDERSCORE_KEY]; exists {
+			if userIdStr, ok := userIdValue.(string); ok {
+				userId = userIdStr
 				userIdSource = DEVCYCLE_USER_ID_UNDERSCORE_KEY
-			} else {
-				return User{}, errors.New("user_id must be a string")
+			} else if firstInvalidSource == "" {
+				firstInvalidSource = "user_id must be a string"
 			}
 		}
 	}
+	
+	// Try userId if user_id didn't work
 	if userId == "" {
-		_, exists = evalCtx[DEVCYCLE_USER_ID_KEY]
-		if exists {
-			if userIdValue, ok := evalCtx[DEVCYCLE_USER_ID_KEY].(string); ok {
-				userId = userIdValue
+		if userIdValue, exists := evalCtx[DEVCYCLE_USER_ID_KEY]; exists {
+			if userIdStr, ok := userIdValue.(string); ok {
+				userId = userIdStr
 				userIdSource = DEVCYCLE_USER_ID_KEY
-			} else {
-				return User{}, errors.New("userId must be a string")
+			} else if firstInvalidSource == "" {
+				firstInvalidSource = "userId must be a string"
 			}
 		}
 	}
 
 	if userId == "" {
+		// If we found invalid sources, return error for the highest priority one
+		if firstInvalidSource != "" {
+			return User{}, errors.New(firstInvalidSource)
+		}
 		return User{}, errors.New("targetingKey, user_id, or userId must be provided")
 	}
 	user := User{
