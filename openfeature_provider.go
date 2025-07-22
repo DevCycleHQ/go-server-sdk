@@ -11,6 +11,7 @@ import (
 )
 
 const DEVCYCLE_USER_ID_KEY = "userId"
+const DEVCYCLE_USER_ID_UNDERSCORE_KEY = "user_id"
 
 // DevCycleProvider implements the FeatureProvider interface and provides functions for evaluating flags
 type DevCycleProvider struct {
@@ -383,27 +384,46 @@ func createUserFromEvaluationContext(evalCtx openfeature.EvaluationContext) (Use
 
 func createUserFromFlattenedContext(evalCtx openfeature.FlattenedContext) (User, error) {
 	userId := ""
-	_, exists := evalCtx[openfeature.TargetingKey]
-	if exists {
-		if targetingKey, ok := evalCtx[openfeature.TargetingKey].(string); ok {
+	var firstInvalidSource string
+	
+	// Priority: targetingKey -> user_id -> userId
+	// Try targetingKey first
+	if targetingKeyValue, exists := evalCtx[openfeature.TargetingKey]; exists {
+		if targetingKey, ok := targetingKeyValue.(string); ok {
 			userId = targetingKey
-		} else {
-			return User{}, errors.New("targetingKey must be a string")
+		} else if firstInvalidSource == "" {
+			firstInvalidSource = "targetingKey must be a string"
 		}
 	}
+	
+	// Try user_id if targetingKey didn't work
 	if userId == "" {
-		_, exists = evalCtx[DEVCYCLE_USER_ID_KEY]
-		if exists {
-			if userIdValue, ok := evalCtx[DEVCYCLE_USER_ID_KEY].(string); ok {
-				userId = userIdValue
-			} else {
-				return User{}, errors.New("userId must be a string")
+		if userIdValue, exists := evalCtx[DEVCYCLE_USER_ID_UNDERSCORE_KEY]; exists {
+			if userIdStr, ok := userIdValue.(string); ok {
+				userId = userIdStr
+			} else if firstInvalidSource == "" {
+				firstInvalidSource = "user_id must be a string"
+			}
+		}
+	}
+	
+	// Try userId if user_id didn't work
+	if userId == "" {
+		if userIdValue, exists := evalCtx[DEVCYCLE_USER_ID_KEY]; exists {
+			if userIdStr, ok := userIdValue.(string); ok {
+				userId = userIdStr
+			} else if firstInvalidSource == "" {
+				firstInvalidSource = "userId must be a string"
 			}
 		}
 	}
 
 	if userId == "" {
-		return User{}, errors.New("targetingKey or userId must be provided")
+		// If we found invalid sources, return error for the highest priority one
+		if firstInvalidSource != "" {
+			return User{}, errors.New(firstInvalidSource)
+		}
+		return User{}, errors.New("targetingKey, user_id, or userId must be provided")
 	}
 	user := User{
 		UserId: userId,
@@ -430,8 +450,8 @@ func createUserFromFlattenedContext(evalCtx openfeature.FlattenedContext) (User,
 				user.AppBuild = value
 			} else if key == "deviceModel" {
 				user.DeviceModel = value
-			} else if key == openfeature.TargetingKey || key == DEVCYCLE_USER_ID_KEY {
-				// Ignore, already handled
+			} else if key == openfeature.TargetingKey || key == DEVCYCLE_USER_ID_KEY || key == DEVCYCLE_USER_ID_UNDERSCORE_KEY {
+				// Always skip the three userId sources
 			} else {
 				// Store all other string keys in custom data
 				setCustomDataValue(customData, key, value)
@@ -450,7 +470,10 @@ func createUserFromFlattenedContext(evalCtx openfeature.FlattenedContext) (User,
 		default:
 			// Store unknown non-string keys if they are an acceptable type
 			// setCustomDataValue enforces the supported types
-			setCustomDataValue(customData, key, value)
+			// Always exclude the three userId sources
+			if !(key == openfeature.TargetingKey || key == DEVCYCLE_USER_ID_KEY || key == DEVCYCLE_USER_ID_UNDERSCORE_KEY) {
+				setCustomDataValue(customData, key, value)
+			}
 		}
 	}
 
