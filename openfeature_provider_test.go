@@ -92,13 +92,18 @@ func TestOFcreateUserFromFlattenedContext_InvalidDataType(t *testing.T) {
 	require.Empty(t, user.Email)
 
 	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"targetingKey": 1234, "userId": "5678"})
-	require.EqualError(t, err, "targetingKey must be a string")
+	require.NoError(t, err)
+	require.Equal(t, "5678", user.UserId)
 
 	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"userId": 5678})
 	require.EqualError(t, err, "userId must be a string")
 
 	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"user_id": 5678})
 	require.EqualError(t, err, "user_id must be a string")
+
+	// Test that when all sources are invalid, it returns the highest priority error
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"targetingKey": 1234, "user_id": 5678, "userId": 9999})
+	require.EqualError(t, err, "targetingKey must be a string")
 }
 
 func TestOFcreateUserFromFlattenedContext_UserIdPriority(t *testing.T) {
@@ -145,7 +150,7 @@ func TestOFcreateUserFromFlattenedContext_UserIdCustomDataHandling(t *testing.T)
 	require.Equal(t, "user_id_value", user.UserId)
 	require.Equal(t, map[string]interface{}{"other_field": "other_value"}, user.CustomData)
 
-	// Test that user_id is included in custom data when NOT used as user ID (targetingKey has priority)
+	// Test that user_id is excluded from custom data (always skipped)
 	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{
 		"targetingKey": "targeting_value",
 		"user_id": "user_id_value",
@@ -153,7 +158,7 @@ func TestOFcreateUserFromFlattenedContext_UserIdCustomDataHandling(t *testing.T)
 	})
 	require.NoError(t, err)
 	require.Equal(t, "targeting_value", user.UserId)
-	require.Equal(t, map[string]interface{}{"user_id": "user_id_value", "other_field": "other_value"}, user.CustomData)
+	require.Equal(t, map[string]interface{}{"other_field": "other_value"}, user.CustomData)
 
 	// Test that userId is excluded from custom data when used as user ID
 	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{
@@ -164,7 +169,7 @@ func TestOFcreateUserFromFlattenedContext_UserIdCustomDataHandling(t *testing.T)
 	require.Equal(t, "userId_value", user.UserId)
 	require.Equal(t, map[string]interface{}{"other_field": "other_value"}, user.CustomData)
 
-	// Test that userId is included in custom data when NOT used as user ID (user_id has priority)
+	// Test that userId is excluded from custom data (always skipped)
 	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{
 		"user_id": "user_id_value",
 		"userId": "userId_value",
@@ -172,9 +177,9 @@ func TestOFcreateUserFromFlattenedContext_UserIdCustomDataHandling(t *testing.T)
 	})
 	require.NoError(t, err)
 	require.Equal(t, "user_id_value", user.UserId)
-	require.Equal(t, map[string]interface{}{"userId": "userId_value", "other_field": "other_value"}, user.CustomData)
+	require.Equal(t, map[string]interface{}{"other_field": "other_value"}, user.CustomData)
 
-	// Test non-string user_id values are included in custom data
+	// Test non-string user_id values are excluded from custom data (always skipped)
 	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{
 		"targetingKey": "targeting_value",
 		"user_id": 12345, // non-string user_id
@@ -182,7 +187,7 @@ func TestOFcreateUserFromFlattenedContext_UserIdCustomDataHandling(t *testing.T)
 	})
 	require.NoError(t, err)
 	require.Equal(t, "targeting_value", user.UserId)
-	require.Equal(t, map[string]interface{}{"user_id": float64(12345), "other_field": "other_value"}, user.CustomData)
+	require.Equal(t, map[string]interface{}{"other_field": "other_value"}, user.CustomData)
 }
 
 func TestOFcreateUserFromFlattenedContext_CustomData(t *testing.T) {
