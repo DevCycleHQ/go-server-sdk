@@ -100,8 +100,41 @@ func TestOFcreateUserFromFlattenedContext_InvalidDataType(t *testing.T) {
 
 	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"user_id": 5678})
 	require.EqualError(t, err, "user_id must be a string")
+}
 
-	// Test that when all sources are invalid, it returns the highest priority error
+func TestOFcreateUserFromFlattenedContext_InvalidSourceErrorHandling(t *testing.T) {
+	// Test when only targetingKey is invalid but user_id is valid (should succeed)
+	user, err := createUserFromFlattenedContext(openfeature.FlattenedContext{"targetingKey": 1234, "user_id": "valid_user_id"})
+	require.NoError(t, err)
+	require.Equal(t, "valid_user_id", user.UserId)
+
+	// Test when only targetingKey is invalid but userId is valid (should succeed)
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"targetingKey": 1234, "userId": "valid_userId"})
+	require.NoError(t, err)
+	require.Equal(t, "valid_userId", user.UserId)
+
+	// Test when targetingKey and user_id are invalid but userId is valid (should succeed)
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"targetingKey": 1234, "user_id": 5678, "userId": "valid_userId"})
+	require.NoError(t, err)
+	require.Equal(t, "valid_userId", user.UserId)
+
+	// Test when only user_id is invalid (should return user_id error)
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"user_id": 5678})
+	require.EqualError(t, err, "user_id must be a string")
+
+	// Test when only userId is invalid (should return userId error)
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"userId": 9999})
+	require.EqualError(t, err, "userId must be a string")
+
+	// Test when user_id and userId are invalid (should return user_id error - higher priority)
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"user_id": 5678, "userId": 9999})
+	require.EqualError(t, err, "user_id must be a string")
+
+	// Test when targetingKey and userId are invalid (should return targetingKey error - highest priority)
+	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"targetingKey": 1234, "userId": 9999})
+	require.EqualError(t, err, "targetingKey must be a string")
+
+	// Test when all sources are invalid (should return targetingKey error - highest priority)
 	user, err = createUserFromFlattenedContext(openfeature.FlattenedContext{"targetingKey": 1234, "user_id": 5678, "userId": 9999})
 	require.EqualError(t, err, "targetingKey must be a string")
 }
