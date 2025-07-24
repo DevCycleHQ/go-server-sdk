@@ -39,6 +39,7 @@ type EnvironmentConfigManager struct {
 	InternalClientEvents chan api.ClientEvent
 	eventManager         *EventManager
 	pollingMutex         sync.Mutex
+	configMetadata       *api.ConfigMetadata
 }
 
 type configPollingManager struct {
@@ -388,6 +389,29 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 		configUpdatedEvent.Error = err
 		return err
 	}
+
+	// Extract and store config metadata
+	e.configMetadata = &api.ConfigMetadata{
+		ConfigETag:         eTag,
+		ConfigLastModified: lastModified,
+	}
+
+	// Extract project and environment metadata from minimal config
+	if e.minimalConfig != nil {
+		if e.minimalConfig.Project != nil {
+			e.configMetadata.Project = &api.ProjectMetadata{
+				Id:  e.minimalConfig.Project.Id,
+				Key: e.minimalConfig.Project.Key,
+			}
+		}
+		if e.minimalConfig.Environment != nil {
+			e.configMetadata.Environment = &api.EnvironmentMetadata{
+				Id:  e.minimalConfig.Environment.Id,
+				Key: e.minimalConfig.Environment.Key,
+			}
+		}
+	}
+
 	if e.minimalConfig != nil && e.minimalConfig.SSE != nil {
 		sseUrl := fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path)
 		if e.sseManager != nil {
@@ -422,6 +446,11 @@ func (e *EnvironmentConfigManager) GetETag() string {
 
 func (e *EnvironmentConfigManager) GetLastModified() string {
 	return e.localBucketing.GetLastModified()
+}
+
+// GetConfigMetadata returns the current configuration metadata
+func (e *EnvironmentConfigManager) GetConfigMetadata() *api.ConfigMetadata {
+	return e.configMetadata
 }
 
 func (e *EnvironmentConfigManager) Close() {
