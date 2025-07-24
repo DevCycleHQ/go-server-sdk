@@ -1,7 +1,9 @@
 package api
 
 type MinimalConfig struct {
-	SSE *SSEHost `json:"sse,omitempty"`
+	SSE        *SSEHost     `json:"sse,omitempty"`
+	Project    *Project     `json:"project,omitempty"`
+	Environment *Environment `json:"environment,omitempty"`
 }
 
 type SSEHost struct {

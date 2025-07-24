@@ -308,6 +308,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 			User:         userdata,
 			Key:          key,
 			DefaultValue: defaultValue,
+			Metadata:     c.GetMetadata(),
 		}
 		// Run before hooks and catch any errors
 		var hookError error
@@ -586,6 +587,15 @@ func (c *Client) Close() (err error) {
 
 func (c *Client) EventQueueMetrics() (int32, int32, int32) {
 	return c.eventQueue.Metrics()
+}
+
+// GetMetadata returns the current configuration metadata
+// Returns nil for cloud SDK (which doesn't manage local config)
+func (c *Client) GetMetadata() *api.ConfigMetadata {
+	if c.IsLocalBucketing() {
+		return c.configManager.GetConfigMetadata()
+	}
+	return nil
 }
 
 func (c *Client) hasConfig() bool {
