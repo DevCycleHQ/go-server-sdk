@@ -13,25 +13,68 @@ import (
 func main() {
 	sdkKey := os.Getenv("DEVCYCLE_SERVER_SDK_KEY")
 
-	// Create hooks
+	// Create hooks that demonstrate metadata access
 	beforeHook := func(context *devcycle.HookContext) error {
 		fmt.Printf("Before hook: Evaluating variable '%s' for user '%s'\n", context.Key, context.User.UserId)
+
+		// Print config metadata if available
+		if context.Metadata != nil {
+			fmt.Printf("  Config ETag: %s\n", context.Metadata.ConfigETag)
+			fmt.Printf("  Config Last Modified: %s\n", context.Metadata.ConfigLastModified)
+
+			if context.Metadata.Project != nil {
+				fmt.Printf("  Project: %s (ID: %s)\n", context.Metadata.Project.Key, context.Metadata.Project.Id)
+			}
+
+			if context.Metadata.Environment != nil {
+				fmt.Printf("  Environment: %s (ID: %s)\n", context.Metadata.Environment.Key, context.Metadata.Environment.Id)
+			}
+		} else {
+			fmt.Printf("  Config metadata not available (config not loaded)\n")
+		}
+
 		return nil
 	}
 
 	afterHook := func(context *devcycle.HookContext, variable *api.Variable) error {
-		fmt.Printf("After hook: Variable '%s' evaluated to %v (defaulted: %t)\n", 
+		fmt.Printf("After hook: Variable '%s' evaluated to %v (defaulted: %t)\n",
 			context.Key, context.VariableDetails.Value, context.VariableDetails.IsDefaulted)
+
+		// Show metadata in after hook as well
+		if context.Metadata != nil {
+			fmt.Printf("  Evaluated in project: %s\n", context.Metadata.Project.Key)
+			fmt.Printf("  Evaluated in environment: %s\n", context.Metadata.Environment.Key)
+		} else {
+			fmt.Printf("  Config metadata not available (config not loaded)\n")
+		}
+
 		return nil
 	}
 
 	onFinallyHook := func(context *devcycle.HookContext, variable *api.Variable) error {
 		fmt.Printf("OnFinally hook: Completed evaluation of variable '%s'\n", context.Key)
+
+		if context.Metadata != nil {
+			fmt.Printf("  Evaluated in project: %s\n", context.Metadata.Project.Key)
+			fmt.Printf("  Evaluated in environment: %s\n", context.Metadata.Environment.Key)
+		} else {
+			fmt.Printf("  Config metadata not available (config not loaded)\n")
+		}
+
 		return nil
 	}
 
 	errorHook := func(context *devcycle.HookContext, evalError error) error {
-		fmt.Printf("Error hook: Error occurred during evaluation of variable '%s'\n", context.Key)
+		fmt.Printf("Error hook: Error occurred during evaluation of variable '%s': %v\n", context.Key, evalError)
+
+		// Metadata is still available in error hooks for debugging
+		if context.Metadata != nil {
+			fmt.Printf("  Error occurred in project: %s, environment: %s\n",
+				context.Metadata.Project.Key, context.Metadata.Environment.Key)
+		} else {
+			fmt.Printf("  Config metadata not available (config not loaded)\n")
+		}
+
 		return nil
 	}
 
@@ -43,7 +86,7 @@ func main() {
 		EventFlushIntervalMS:    0,
 		ConfigPollingIntervalMS: 10 * time.Second,
 		RequestTimeout:          10 * time.Second,
-		EvalHooks:              []*devcycle.EvalHook{evalHook},
+		EvalHooks:               []*devcycle.EvalHook{evalHook},
 	}
 
 	client, err := devcycle.NewClient(sdkKey, &dvcOptions)
@@ -54,17 +97,36 @@ func main() {
 	// Wait for client to initialize
 	time.Sleep(10 * time.Second)
 
+	// Print overall config metadata
+	fmt.Println("=== Config Metadata Information ===")
+	metadata := client.GetMetadata()
+	if metadata != nil {
+		fmt.Printf("Config ETag: %s\n", metadata.ConfigETag)
+		fmt.Printf("Config Last Modified: %s\n", metadata.ConfigLastModified)
+
+		if metadata.Project != nil {
+			fmt.Printf("Project: %s (ID: %s)\n", metadata.Project.Key, metadata.Project.Id)
+		}
+
+		if metadata.Environment != nil {
+			fmt.Printf("Environment: %s (ID: %s)\n", metadata.Environment.Key, metadata.Environment.Id)
+		}
+	} else {
+		fmt.Println("Config metadata not available (cloud SDK or config not loaded)")
+	}
+	fmt.Println()
+
 	user := devcycle.User{UserId: "test", CustomData: map[string]interface{}{"a0_organization": "org_tPyJN5dvNNirKar7"}}
 	variableKey := "enable-dark-mode"
 
 	fmt.Println("=== Testing Variable Evaluation with Hooks ===")
-	
+
 	// Test variable evaluation
 	variable, err := client.Variable(user, variableKey, false)
 	if err != nil {
 		log.Printf("Error getting variable %v: %v", variableKey, err)
 	} else {
-		fmt.Printf("Final result: variable %v: value=%v (%v) defaulted=%t\n", 
+		fmt.Printf("Final result: variable %v: value=%v (%v) defaulted=%t\n",
 			variable.Key, variable.Value, variable.Type_, variable.IsDefaulted)
 	}
 
@@ -74,9 +136,9 @@ func main() {
 	if err != nil {
 		log.Printf("Error getting missing variable: %v", err)
 	} else {
-		fmt.Printf("Missing variable result: variable %v: value=%v (%v) defaulted=%t\n", 
+		fmt.Printf("Missing variable result: variable %v: value=%v (%v) defaulted=%t\n",
 			missingVariable.Key, missingVariable.Value, missingVariable.Type_, missingVariable.IsDefaulted)
 	}
 
 	client.Close()
-} 
+}
