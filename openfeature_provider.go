@@ -385,7 +385,7 @@ func createUserFromEvaluationContext(evalCtx openfeature.EvaluationContext) (Use
 func createUserFromFlattenedContext(evalCtx openfeature.FlattenedContext) (User, error) {
 	userId := ""
 	var firstInvalidSource string
-	
+
 	// Priority: targetingKey -> user_id -> userId
 	// Try targetingKey first
 	if targetingKeyValue, exists := evalCtx[openfeature.TargetingKey]; exists {
@@ -395,7 +395,7 @@ func createUserFromFlattenedContext(evalCtx openfeature.FlattenedContext) (User,
 			firstInvalidSource = "targetingKey must be a string"
 		}
 	}
-	
+
 	// Try user_id if targetingKey didn't work
 	if userId == "" {
 		if userIdValue, exists := evalCtx[DEVCYCLE_USER_ID_UNDERSCORE_KEY]; exists {
@@ -406,7 +406,7 @@ func createUserFromFlattenedContext(evalCtx openfeature.FlattenedContext) (User,
 			}
 		}
 	}
-	
+
 	// Try userId if user_id didn't work
 	if userId == "" {
 		if userIdValue, exists := evalCtx[DEVCYCLE_USER_ID_KEY]; exists {
