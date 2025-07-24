@@ -40,7 +40,6 @@ type EnvironmentConfigManager struct {
 	eventManager         *EventManager
 	pollingMutex         sync.Mutex
 	configMetadata       *api.ConfigMetadata
-	metadataMutex        sync.RWMutex
 }
 
 type configPollingManager struct {
@@ -392,7 +391,6 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 	}
 	
 	// Extract and store config metadata
-	e.metadataMutex.Lock()
 	e.configMetadata = &api.ConfigMetadata{
 		ConfigETag:         eTag,
 		ConfigLastModified: lastModified,
@@ -413,7 +411,6 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 			}
 		}
 	}
-	e.metadataMutex.Unlock()
 	
 	if e.minimalConfig != nil && e.minimalConfig.SSE != nil {
 		sseUrl := fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path)
@@ -453,8 +450,6 @@ func (e *EnvironmentConfigManager) GetLastModified() string {
 
 // GetConfigMetadata returns the current configuration metadata
 func (e *EnvironmentConfigManager) GetConfigMetadata() *api.ConfigMetadata {
-	e.metadataMutex.RLock()
-	defer e.metadataMutex.RUnlock()
 	return e.configMetadata
 }
 
