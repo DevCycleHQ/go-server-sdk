@@ -15,14 +15,15 @@ import (
 	"github.com/google/uuid"
 )
 
-var ErrQueueFull = fmt.Errorf("Max queue size reached")
+var ErrQueueFull = fmt.Errorf("max queue size reached")
 
 type aggEventData struct {
-	eventType     string
-	variableKey   string
-	featureId     string
-	variationId   string
-	defaultReason string
+	eventType   string
+	variableKey string
+	featureId   string
+	variationId string
+	evalDetails string
+	evalReason  api.EvaluationReason
 }
 
 type userEventData struct {
@@ -34,12 +35,14 @@ type userEventData struct {
 // map event type -> event target
 // map event target -> feature id
 // map feature id -> variation id
+// map variation -> eval reason count
 // For Evaluation Events:
-// ["aggVariableEvaluated"]["somevariablekey"]["feature_id"]["variation_id"] = 1
+// ["aggVariableEvaluated"]["somevariablekey"]["feature_id"]["variation_id"]["eval reason"] = 1
 // For Defaulted Events:
-// ["aggVariableDefaulted"]["somevariablekey"]["defaulted"][DEFAULT_REASON] = 1
+// ["aggVariableDefaulted"]["somevariablekey"]["DEFAULT"]["DEFAULT"]["DEFAULT_REASON"] = 1
 
-type VariationAggMap map[string]int64
+type EvalReasonAggMap map[api.EvaluationReason]int64
+type VariationAggMap map[string]EvalReasonAggMap
 type FeatureAggMap map[string]VariationAggMap
 type VariableAggMap map[string]FeatureAggMap
 type AggregateEventQueue map[string]VariableAggMap
@@ -68,22 +71,24 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 			// feature is feature id for evaluation events, or the string "defaulted" for default events
 			for feature, _variationAggMap := range featureAggMap {
 				// variation is variation id for evaluation events, or the "default reason" for default events
-				for variation, count := range _variationAggMap {
-					if count == 0 {
-						continue
+				for variation, evalReason := range _variationAggMap {
+					event := api.Event{
+						Type_:       _type,
+						Target:      variableKey,
+						UserId:      userId,
+						FeatureVars: emptyFeatureVars,
+						ClientDate:  time.Now(),
 					}
-					var metaData map[string]interface{}
+					metaData := make(map[string]interface{})
+					evalMetadata := make(map[string]int64)
 					if _type == api.EventType_AggVariableDefaulted {
-						metaData = map[string]interface{}{
-							"defaultReason": variation,
-						}
+						metaData["evalDetails"] = variation
 					} else {
 						metaData = map[string]interface{}{
 							"_variation": variation,
 							"_feature":   feature,
 						}
 					}
-
 					metaData["clientUUID"] = clientUUID
 					if configEtag != "" {
 						metaData["configEtag"] = configEtag
@@ -94,16 +99,17 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 					if lastModified != "" {
 						metaData["configLastModified"] = lastModified
 					}
-
-					event := api.Event{
-						Type_:       _type,
-						Target:      variableKey,
-						Value:       float64(count),
-						UserId:      userId,
-						MetaData:    metaData,
-						FeatureVars: emptyFeatureVars,
-						ClientDate:  time.Now(),
+					if _type == api.EventType_AggVariableEvaluated || _type == api.EventType_AggVariableDefaulted {
+						for reason, count := range evalReason {
+							if count == 0 {
+								continue
+							}
+							evalMetadata[string(reason)] = count
+							event.Value += float64(count)
+						}
+						metaData["eval"] = evalMetadata
 					}
+					event.MetaData = metaData
 					aggregateEvents = append(aggregateEvents, event)
 				}
 			}
@@ -188,7 +194,12 @@ func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
 				}
 				for _, variation := range feature.Variations {
 					if _, ok := eq.aggEventQueue[target][variable.Key][feature.Key][variation.Key]; !ok {
-						eq.aggEventQueue[target][variable.Key][feature.Key][variation.Key] = 0
+						eq.aggEventQueue[target][variable.Key][feature.Key][variation.Key] = make(EvalReasonAggMap)
+					}
+					for _, reason := range allEvalReasons {
+						if _, ok := eq.aggEventQueue[target][variable.Key][feature.Key][variation.Key][reason]; !ok {
+							eq.aggEventQueue[target][variable.Key][feature.Key][variation.Key][reason] = 0
+						}
 					}
 				}
 			}
@@ -196,22 +207,23 @@ func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
 	}
 }
 
-func (eq *EventQueue) queueAggregateEventInternal(variableKey, featureId, variationId, eventType string, defaultReason string) error {
+func (eq *EventQueue) queueAggregateEventInternal(variableKey, featureId, variationId, eventType string, evalReason api.EvaluationReason, evalDetails string) error {
 	if eq.options != nil && eq.options.IsEventLoggingDisabled(eventType) {
 		return nil
 	}
 
 	if variableKey == "" {
-		return fmt.Errorf("A variable key is required for aggregate events")
+		return fmt.Errorf("a variable key is required for aggregate events")
 	}
 
 	select {
 	case eq.aggEventQueueRaw <- aggEventData{
-		eventType:     eventType,
-		variableKey:   variableKey,
-		featureId:     featureId,
-		variationId:   variationId,
-		defaultReason: defaultReason,
+		eventType:   eventType,
+		variableKey: variableKey,
+		featureId:   featureId,
+		variationId: variationId,
+		evalReason:  evalReason,
+		evalDetails: evalDetails,
 	}:
 	default:
 		eq.eventsDropped.Add(1)
@@ -236,20 +248,20 @@ func (eq *EventQueue) QueueEvent(user api.User, event api.Event) error {
 	return nil
 }
 
-func (eq *EventQueue) QueueVariableEvaluatedEvent(variableKey, featureId, variationId string) error {
+func (eq *EventQueue) QueueVariableEvaluatedEvent(variableKey, featureId, variationId string, evalReason api.EvaluationReason) error {
 	if eq.options.DisableAutomaticEventLogging {
 		return nil
 	}
 
-	return eq.queueAggregateEventInternal(variableKey, featureId, variationId, api.EventType_AggVariableEvaluated, "")
+	return eq.queueAggregateEventInternal(variableKey, featureId, variationId, api.EventType_AggVariableEvaluated, evalReason, "")
 }
 
-func (eq *EventQueue) QueueVariableDefaultedEvent(variableKey, defaultReason string) error {
+func (eq *EventQueue) QueueVariableDefaultedEvent(variableKey string, defaultReason api.DefaultReason) error {
 	if eq.options.DisableAutomaticEventLogging {
 		return nil
 	}
 
-	return eq.queueAggregateEventInternal(variableKey, "", "", api.EventType_AggVariableDefaulted, defaultReason)
+	return eq.queueAggregateEventInternal(variableKey, "", "", api.EventType_AggVariableDefaulted, api.EvaluationReasonDefault, string(defaultReason))
 }
 
 func (eq *EventQueue) FlushEventQueue(clientUUID, configEtag, rayId, lastModified string) (map[string]api.FlushPayload, error) {
@@ -358,7 +370,7 @@ func (eq *EventQueue) reportPayloadSuccess(payloadId string) error {
 	if _, ok := eq.pendingPayloads[payloadId]; ok {
 		delete(eq.pendingPayloads, payloadId)
 	} else {
-		return fmt.Errorf("Failed to find payload: %s to mark as success", payloadId)
+		return fmt.Errorf("failed to find payload: %s to mark as success", payloadId)
 	}
 	return nil
 }
@@ -489,15 +501,34 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 		if existingVariationAggMap, ok := featureVariationAggregationMap[event.featureId]; ok {
 			variationAggMap = existingVariationAggMap
 		}
-		variationAggMap[event.variationId]++
+		if _, ok := variationAggMap[event.variationId]; !ok {
+			variationAggMap[event.variationId] = make(EvalReasonAggMap)
+		}
+		evalReasons := variationAggMap[event.variationId]
+		if _, ok := evalReasons[event.evalReason]; !ok {
+			evalReasons[event.evalReason] = 0
+		}
+		evalReasons[event.evalReason]++
+		variationAggMap[event.variationId] = evalReasons
 		featureVariationAggregationMap[event.featureId] = variationAggMap
 	} else {
 		defaultReasonAggMap := make(VariationAggMap)
-		if existingVariationAggMap, ok := featureVariationAggregationMap["defaulted"]; ok {
+		if existingVariationAggMap, ok := featureVariationAggregationMap[string(api.EvaluationReasonDefault)]; ok {
 			defaultReasonAggMap = existingVariationAggMap
 		}
-		defaultReasonAggMap[event.defaultReason]++
-		featureVariationAggregationMap["defaulted"] = defaultReasonAggMap
+		// Default events have no variation; only a static default flag to then aggregate by default reason.
+		// To make the aggregation mapping consistent later on when re-aggregating - it will result in a double aggregation of `[default][default][reason]` intentionally.
+		if _, ok := defaultReasonAggMap[string(api.EvaluationReasonDefault)]; !ok {
+			defaultReasonAggMap[string(api.EvaluationReasonDefault)] = make(EvalReasonAggMap)
+		}
+		defaultReasons := defaultReasonAggMap[string(api.EvaluationReasonDefault)]
+		_defaultDetails := api.EvaluationReason(event.evalDetails)
+		if _, ok := defaultReasons[_defaultDetails]; !ok {
+			defaultReasons[_defaultDetails] = 0
+		}
+		defaultReasons[_defaultDetails]++
+		defaultReasonAggMap[string(api.EvaluationReasonDefault)] = defaultReasons
+		featureVariationAggregationMap[string(api.EvaluationReasonDefault)] = defaultReasonAggMap
 	}
 	variableFeatureVariationAggregationMap[eTarget] = featureVariationAggregationMap
 	eq.aggEventQueue[eType] = variableFeatureVariationAggregationMap

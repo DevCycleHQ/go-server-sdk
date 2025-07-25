@@ -60,7 +60,7 @@ func NewNativeLocalBucketing(sdkKey string, platformData *api.PlatformData, opti
 func (n *NativeLocalBucketing) StoreConfig(configJSON []byte, eTag, rayId, lastModified string) error {
 	err := bucketing.SetConfig(configJSON, n.sdkKey, eTag, rayId, lastModified, n.eventQueue)
 	if err != nil {
-		return fmt.Errorf("Error parsing config: %w", err)
+		return fmt.Errorf("error parsing config: %w", err)
 	}
 	return nil
 }
@@ -104,13 +104,19 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 			Type_: variableType,
 			Value: nil,
 		},
+		Eval: api.EvalDetails{
+			Reason:  api.EvaluationReasonDefault,
+			Details: string(api.DefaultReasonInvalidVariableType),
+		},
 		DefaultValue: nil,
 		IsDefaulted:  true,
 	}
 	clientCustomData := bucketing.GetClientCustomData(n.sdkKey)
 	populatedUser := user.GetPopulatedUserWithTime(n.platformData, DEFAULT_USER_TIME)
-	resultVariableType, resultValue, err := bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
+	resultVariableType, resultValue, evalReason, err := bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
+
 	if err != nil {
+		defaultVar.Eval.Details = string(bucketing.BucketResultErrorToDefaultReason(err))
 		return defaultVar, nil
 	}
 
@@ -121,6 +127,10 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 			Value: resultValue,
 		},
 		IsDefaulted: false,
+		Eval: api.EvalDetails{
+			Reason:   evalReason,
+			TargetId: "",
+		},
 	}, nil
 }
 
@@ -135,7 +145,7 @@ func (n *NativeLocalBucketing) QueueEvent(user User, event Event) error {
 	return n.eventQueue.QueueEvent(user, event)
 }
 
-func (n *NativeLocalBucketing) QueueVariableDefaulted(variableKey, defaultReason string) error {
+func (n *NativeLocalBucketing) QueueVariableDefaulted(variableKey string, defaultReason api.DefaultReason) error {
 	return n.eventQueue.QueueVariableDefaultedEvent(variableKey, defaultReason)
 }
 
