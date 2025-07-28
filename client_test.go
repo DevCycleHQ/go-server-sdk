@@ -2,10 +2,6 @@ package devcycle
 
 import (
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/api"
-	"github.com/devcyclehq/go-server-sdk/v2/util"
-	"github.com/jarcoal/httpmock"
-	"github.com/stretchr/testify/require"
 	"io"
 	"log"
 	"net/http"
@@ -15,6 +11,11 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"github.com/jarcoal/httpmock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClient_AllFeatures_Local(t *testing.T) {

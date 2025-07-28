@@ -20,6 +20,13 @@ type AdvancedOptions struct {
 	OverrideMaxSSEPolling time.Duration
 }
 
+type ConfigMetadata struct {
+	ConfigETag         string                  `json:"configETag,omitempty"`
+	ConfigLastModified string                  `json:"configLastModified,omitempty"`
+	Project            api.ProjectMetadata     `json:"project,omitempty"`
+	Environment        api.EnvironmentMetadata `json:"environment,omitempty"`
+}
+
 type Options struct {
 	EnableEdgeDB                 bool          `json:"enableEdgeDb,omitempty"`
 	EnableCloudBucketing         bool          `json:"enableCloudBucketing,omitempty"`
@@ -41,6 +48,8 @@ type Options struct {
 	Logger                    util.Logger
 	EvalHooks                 []*EvalHook
 	AdvancedOptions
+
+	configMetadata ConfigMetadata
 }
 
 func (o *Options) eventQueueOptions() *EventQueueOptions {

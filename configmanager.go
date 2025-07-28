@@ -206,6 +206,26 @@ func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) {
 }
 
 func (e *EnvironmentConfigManager) initialFetch() error {
+	configMetadata := ConfigMetadata{
+		ConfigETag:         e.localBucketing.GetETag(),
+		ConfigLastModified: e.localBucketing.GetLastModified(),
+	}
+
+	if e.minimalConfig != nil && e.minimalConfig.Project != nil {
+		configMetadata.Project = api.ProjectMetadata{
+			Id:  e.minimalConfig.Project.Id,
+			Key: e.minimalConfig.Project.Key,
+		}
+	}
+
+	if e.minimalConfig != nil && e.minimalConfig.Environment != nil {
+		configMetadata.Environment = api.EnvironmentMetadata{
+			Id:  e.minimalConfig.Environment.Id,
+			Key: e.minimalConfig.Environment.Key,
+		}
+	}
+
+	e.options.configMetadata = configMetadata
 
 	return e.fetchConfig(CONFIG_RETRIES)
 }
@@ -388,12 +408,28 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 		configUpdatedEvent.Error = err
 		return err
 	}
+
 	if e.minimalConfig != nil && e.minimalConfig.SSE != nil {
 		sseUrl := fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path)
 		if e.sseManager != nil {
 			configUpdatedEvent.EventData.(map[string]string)["sseUrl"] = sseUrl
 		}
 	}
+	if e.minimalConfig != nil && e.minimalConfig.Project != nil && e.minimalConfig.Environment != nil {
+		e.options.configMetadata = ConfigMetadata{
+			ConfigETag:         eTag,
+			ConfigLastModified: lastModified,
+			Project: api.ProjectMetadata{
+				Id:  e.minimalConfig.Project.Id,
+				Key: e.minimalConfig.Project.Key,
+			},
+			Environment: api.EnvironmentMetadata{
+				Id:  e.minimalConfig.Environment.Id,
+				Key: e.minimalConfig.Environment.Key,
+			},
+		}
+	}
+
 	return nil
 }
 

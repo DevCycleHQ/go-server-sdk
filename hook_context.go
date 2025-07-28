@@ -12,4 +12,6 @@ type HookContext struct {
 	DefaultValue interface{}
 	// VariableDetails is the variable that gets evaluated
 	VariableDetails api.Variable
+	// Metadata contains configuration metadata (empty for cloud SDK and when not initialized)
+	Metadata ConfigMetadata
 }

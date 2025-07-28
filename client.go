@@ -304,10 +304,12 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 
 	// Create a default hook context before any evaluation
 	if len(hooks) > 0 {
+
 		hookContext := &HookContext{
 			User:         userdata,
 			Key:          key,
 			DefaultValue: defaultValue,
+			Metadata:     c.DevCycleOptions.configMetadata,
 		}
 		// Run before hooks and catch any errors
 		var hookError error
@@ -586,6 +588,25 @@ func (c *Client) Close() (err error) {
 
 func (c *Client) EventQueueMetrics() (int32, int32, int32) {
 	return c.eventQueue.Metrics()
+}
+
+// GetMetadata returns the current configuration metadata
+// Returns error for cloud SDK or when config is not available
+func (c *Client) GetMetadata() (ConfigMetadata, error) {
+	if !c.IsLocalBucketing() {
+		return ConfigMetadata{}, fmt.Errorf("config metadata not available for cloud SDK")
+	}
+
+	if c.DevCycleOptions.configMetadata == (ConfigMetadata{}) {
+		return ConfigMetadata{}, fmt.Errorf("config metadata not available - config not loaded")
+	}
+
+	return ConfigMetadata{
+		ConfigETag:         c.DevCycleOptions.configMetadata.ConfigETag,
+		ConfigLastModified: c.DevCycleOptions.configMetadata.ConfigLastModified,
+		Project:            c.DevCycleOptions.configMetadata.Project,
+		Environment:        c.DevCycleOptions.configMetadata.Environment,
+	}, nil
 }
 
 func (c *Client) hasConfig() bool {
