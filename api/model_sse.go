@@ -1,13 +1,11 @@
 package api
 
 type MinimalConfig struct {
-	SSE                 *SSEHost             `json:"sse,omitempty"`
-	Project             *Project             `json:"project,omitempty"`
-	Environment         *Environment         `json:"environment,omitempty"`
-	ConfigETag          string               `json:"configETag,omitempty"`
-	ConfigLastModified  string               `json:"configLastModified,omitempty"`
-	ProjectMetadata     *ProjectMetadata     `json:"projectMetadata,omitempty"`
-	EnvironmentMetadata *EnvironmentMetadata `json:"environmentMetadata,omitempty"`
+	SSE                *SSEHost     `json:"sse,omitempty"`
+	Project            *Project     `json:"project,omitempty"`
+	Environment        *Environment `json:"environment,omitempty"`
+	ConfigETag         string       `json:"configETag,omitempty"`
+	ConfigLastModified string       `json:"configLastModified,omitempty"`
 }
 
 type SSEHost struct {
