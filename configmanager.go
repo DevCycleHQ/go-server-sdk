@@ -212,14 +212,14 @@ func (e *EnvironmentConfigManager) initialFetch() error {
 	}
 
 	if e.minimalConfig != nil && e.minimalConfig.Project != nil {
-		configMetadata.Project = &api.ProjectMetadata{
+		configMetadata.Project = api.ProjectMetadata{
 			Id:  e.minimalConfig.Project.Id,
 			Key: e.minimalConfig.Project.Key,
 		}
 	}
 
 	if e.minimalConfig != nil && e.minimalConfig.Environment != nil {
-		configMetadata.Environment = &api.EnvironmentMetadata{
+		configMetadata.Environment = api.EnvironmentMetadata{
 			Id:  e.minimalConfig.Environment.Id,
 			Key: e.minimalConfig.Environment.Key,
 		}
@@ -415,18 +415,21 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 			configUpdatedEvent.EventData.(map[string]string)["sseUrl"] = sseUrl
 		}
 	}
-	e.options.configMetadata = ConfigMetadata{
-		ConfigETag:         eTag,
-		ConfigLastModified: lastModified,
-		Project: &api.ProjectMetadata{
-			Id:  e.minimalConfig.Project.Id,
-			Key: e.minimalConfig.Project.Key,
-		},
-		Environment: &api.EnvironmentMetadata{
-			Id:  e.minimalConfig.Environment.Id,
-			Key: e.minimalConfig.Environment.Key,
-		},
+	if e.minimalConfig != nil && e.minimalConfig.Project != nil && e.minimalConfig.Environment != nil {
+		e.options.configMetadata = ConfigMetadata{
+			ConfigETag:         eTag,
+			ConfigLastModified: lastModified,
+			Project: api.ProjectMetadata{
+				Id:  e.minimalConfig.Project.Id,
+				Key: e.minimalConfig.Project.Key,
+			},
+			Environment: api.EnvironmentMetadata{
+				Id:  e.minimalConfig.Environment.Id,
+				Key: e.minimalConfig.Environment.Key,
+			},
+		}
 	}
+
 	return nil
 }
 

@@ -25,11 +25,11 @@ func main() {
 			fmt.Printf("  Config ETag: %s\n", context.Metadata.ConfigETag)
 			fmt.Printf("  Config Last Modified: %s\n", context.Metadata.ConfigLastModified)
 
-			if context.Metadata.Project != nil {
+			if context.Metadata.Project != (api.ProjectMetadata{}) {
 				fmt.Printf("  Project: %s (ID: %s)\n", context.Metadata.Project.Key, context.Metadata.Project.Id)
 			}
 
-			if context.Metadata.Environment != nil {
+			if context.Metadata.Environment != (api.EnvironmentMetadata{}) {
 				fmt.Printf("  Environment: %s (ID: %s)\n", context.Metadata.Environment.Key, context.Metadata.Environment.Id)
 			}
 		} else {
@@ -108,11 +108,11 @@ func main() {
 		fmt.Printf("Config ETag: %s\n", metadata.ConfigETag)
 		fmt.Printf("Config Last Modified: %s\n", metadata.ConfigLastModified)
 
-		if metadata.Project != nil {
+		if metadata.Project != (api.ProjectMetadata{}) {
 			fmt.Printf("Project: %s (ID: %s)\n", metadata.Project.Key, metadata.Project.Id)
 		}
 
-		if metadata.Environment != nil {
+		if metadata.Environment != (api.EnvironmentMetadata{}) {
 			fmt.Printf("Environment: %s (ID: %s)\n", metadata.Environment.Key, metadata.Environment.Id)
 		}
 	}

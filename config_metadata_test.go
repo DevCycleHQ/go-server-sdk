@@ -13,9 +13,6 @@ import (
 )
 
 func TestConfigMetadata_ExtractionAndStorage(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-
 	// Parse the existing test config and modify project/environment
 	var configMap map[string]interface{}
 	err := json.Unmarshal([]byte(test_config), &configMap)
@@ -75,9 +72,6 @@ func TestConfigMetadata_ExtractionAndStorage(t *testing.T) {
 }
 
 func TestConfigMetadata_CloudSDKReturnsNil(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-
 	// Mock bucketing API for cloud SDK
 	httpmock.RegisterResponder("POST", "https://bucketing-api.devcycle.com/v1/variables/test-variable",
 		func(req *http.Request) (*http.Response, error) {
@@ -117,9 +111,6 @@ func TestConfigMetadata_CloudSDKReturnsNil(t *testing.T) {
 }
 
 func TestConfigMetadata_AvailableInAllHooks(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-
 	// Parse the existing test config and modify project/environment
 	var configMap map[string]interface{}
 	err := json.Unmarshal([]byte(test_config), &configMap)
@@ -213,9 +204,6 @@ func TestConfigMetadata_AvailableInAllHooks(t *testing.T) {
 }
 
 func TestConfigMetadata_AvailableInErrorHook(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-
 	// Parse the existing test config and modify project/environment
 	var configMap map[string]interface{}
 	err := json.Unmarshal([]byte(test_config), &configMap)
@@ -306,9 +294,6 @@ func TestConfigMetadata_AvailableInErrorHook(t *testing.T) {
 }
 
 func TestConfigMetadata_NullSafetyDuringInitialization(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-
 	sdkKey, _ := httpConfigMock(500)
 
 	// Mock events endpoint

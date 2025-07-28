@@ -309,6 +309,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 			User:         userdata,
 			Key:          key,
 			DefaultValue: defaultValue,
+			Metadata:     c.DevCycleOptions.configMetadata,
 		}
 		// Run before hooks and catch any errors
 		var hookError error
@@ -596,17 +597,15 @@ func (c *Client) GetMetadata() (ConfigMetadata, error) {
 		return ConfigMetadata{}, fmt.Errorf("config metadata not available for cloud SDK")
 	}
 
+	if c.DevCycleOptions.configMetadata == (ConfigMetadata{}) {
+		return ConfigMetadata{}, fmt.Errorf("config metadata not available - config not loaded")
+	}
+
 	return ConfigMetadata{
 		ConfigETag:         c.DevCycleOptions.configMetadata.ConfigETag,
 		ConfigLastModified: c.DevCycleOptions.configMetadata.ConfigLastModified,
-		Project: &api.ProjectMetadata{
-			Id:  c.DevCycleOptions.configMetadata.Project.Id,
-			Key: c.DevCycleOptions.configMetadata.Project.Key,
-		},
-		Environment: &api.EnvironmentMetadata{
-			Id:  c.DevCycleOptions.configMetadata.Environment.Id,
-			Key: c.DevCycleOptions.configMetadata.Environment.Key,
-		},
+		Project:            c.DevCycleOptions.configMetadata.Project,
+		Environment:        c.DevCycleOptions.configMetadata.Environment,
 	}, nil
 }
 
@@ -889,11 +888,4 @@ func (e GenericError) Body() []byte {
 // Model returns the unpacked model of the error
 func (e GenericError) Model() interface{} {
 	return e.model
-}
-
-type ConfigMetadata struct {
-	ConfigETag         string                   `json:"configETag,omitempty"`
-	ConfigLastModified string                   `json:"configLastModified,omitempty"`
-	Project            *api.ProjectMetadata     `json:"project,omitempty"`
-	Environment        *api.EnvironmentMetadata `json:"environment,omitempty"`
 }
