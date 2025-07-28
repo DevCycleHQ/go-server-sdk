@@ -10,6 +10,9 @@ import (
 	"github.com/devcyclehq/go-server-sdk/v2/api"
 )
 
+// Define ConfigMetadata type for easier comparison
+type ConfigMetadata = devcycle.ConfigMetadata
+
 func main() {
 	sdkKey := os.Getenv("DEVCYCLE_SERVER_SDK_KEY")
 
@@ -18,7 +21,7 @@ func main() {
 		fmt.Printf("Before hook: Evaluating variable '%s' for user '%s'\n", context.Key, context.User.UserId)
 
 		// Print config metadata if available
-		if context.Metadata != nil {
+		if context.Metadata != (ConfigMetadata{}) {
 			fmt.Printf("  Config ETag: %s\n", context.Metadata.ConfigETag)
 			fmt.Printf("  Config Last Modified: %s\n", context.Metadata.ConfigLastModified)
 
@@ -41,7 +44,7 @@ func main() {
 			context.Key, context.VariableDetails.Value, context.VariableDetails.IsDefaulted)
 
 		// Show metadata in after hook as well
-		if context.Metadata != nil {
+		if context.Metadata != (ConfigMetadata{}) {
 			fmt.Printf("  Evaluated in project: %s\n", context.Metadata.Project.Key)
 			fmt.Printf("  Evaluated in environment: %s\n", context.Metadata.Environment.Key)
 		} else {
@@ -54,7 +57,7 @@ func main() {
 	onFinallyHook := func(context *devcycle.HookContext, variable *api.Variable) error {
 		fmt.Printf("OnFinally hook: Completed evaluation of variable '%s'\n", context.Key)
 
-		if context.Metadata != nil {
+		if context.Metadata != (ConfigMetadata{}) {
 			fmt.Printf("  Evaluated in project: %s\n", context.Metadata.Project.Key)
 			fmt.Printf("  Evaluated in environment: %s\n", context.Metadata.Environment.Key)
 		} else {
@@ -68,7 +71,7 @@ func main() {
 		fmt.Printf("Error hook: Error occurred during evaluation of variable '%s': %v\n", context.Key, evalError)
 
 		// Metadata is still available in error hooks for debugging
-		if context.Metadata != nil {
+		if context.Metadata != (ConfigMetadata{}) {
 			fmt.Printf("  Error occurred in project: %s, environment: %s\n",
 				context.Metadata.Project.Key, context.Metadata.Environment.Key)
 		} else {
@@ -83,7 +86,6 @@ func main() {
 
 	// Create client options with hooks
 	dvcOptions := devcycle.Options{
-		EventFlushIntervalMS:    0,
 		ConfigPollingIntervalMS: 10 * time.Second,
 		RequestTimeout:          10 * time.Second,
 		EvalHooks:               []*devcycle.EvalHook{evalHook},
@@ -99,8 +101,10 @@ func main() {
 
 	// Print overall config metadata
 	fmt.Println("=== Config Metadata Information ===")
-	metadata := client.GetMetadata()
-	if metadata != nil {
+	metadata, err := client.GetMetadata()
+	if err != nil {
+		fmt.Printf("Config metadata not available: %v\n", err)
+	} else {
 		fmt.Printf("Config ETag: %s\n", metadata.ConfigETag)
 		fmt.Printf("Config Last Modified: %s\n", metadata.ConfigLastModified)
 
@@ -111,8 +115,6 @@ func main() {
 		if metadata.Environment != nil {
 			fmt.Printf("Environment: %s (ID: %s)\n", metadata.Environment.Key, metadata.Environment.Id)
 		}
-	} else {
-		fmt.Println("Config metadata not available (cloud SDK or config not loaded)")
 	}
 	fmt.Println()
 

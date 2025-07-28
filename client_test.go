@@ -2,10 +2,6 @@ package devcycle
 
 import (
 	"fmt"
-	"github.com/devcyclehq/go-server-sdk/v2/api"
-	"github.com/devcyclehq/go-server-sdk/v2/util"
-	"github.com/jarcoal/httpmock"
-	"github.com/stretchr/testify/require"
 	"io"
 	"log"
 	"net/http"
@@ -15,6 +11,11 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/devcyclehq/go-server-sdk/v2/api"
+	"github.com/devcyclehq/go-server-sdk/v2/util"
+	"github.com/jarcoal/httpmock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClient_AllFeatures_Local(t *testing.T) {
@@ -542,6 +543,153 @@ func BenchmarkClient_VariableParallel(b *testing.B) {
 	}
 
 	client, err := NewClient(sdkKey, options)
+	if err != nil {
+		b.Errorf("Failed to initialize client: %v", err)
+	}
+
+	user := User{UserId: "dontcare"}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	setConfigCount := atomic.Uint64{}
+	configCounter := atomic.Uint64{}
+
+	errors := make(chan error, b.N)
+
+	var opNanos atomic.Int64
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			start := time.Now()
+			variable, err := client.Variable(user, test_large_config_variable, false)
+			duration := time.Since(start)
+			opNanos.Add(duration.Nanoseconds())
+
+			if err != nil {
+				errors <- fmt.Errorf("Failed to retrieve variable: %v", err)
+			}
+			if benchmarkEnableConfigUpdates && configCounter.Add(1)%10000 == 0 {
+				go func() {
+					err = client.configManager.setConfig([]byte(test_large_config), "", "", "")
+					setConfigCount.Add(1)
+				}()
+			}
+			if variable.IsDefaulted {
+				errors <- fmt.Errorf("Expected variable to return a value")
+			}
+		}
+	})
+
+	select {
+	case err := <-errors:
+		b.Error(err)
+	default:
+	}
+	b.ReportMetric(float64(setConfigCount.Load()), "reconfigs")
+	b.ReportMetric(float64(opNanos.Load())/float64(b.N), "ns")
+	eventsFlushed, eventsReported, eventsDropped := client.eventQueue.Metrics()
+	b.ReportMetric(float64(eventsFlushed), "eventsFlushed")
+	b.ReportMetric(float64(eventsReported), "eventsReported")
+	b.ReportMetric(float64(eventsDropped), "eventsDropped")
+}
+
+func BenchmarkClient_VariableSerial_WithMetadata(b *testing.B) {
+	util.SetLogger(util.DiscardLogger{})
+
+	sdkKey := generateTestSDKKey()
+	httpCustomConfigMock(sdkKey, 200, test_large_config, false)
+
+	if benchmarkDisableLogs {
+		log.SetOutput(io.Discard)
+	}
+	events := make(chan api.ClientEvent, 10)
+	options := &Options{
+		EnableCloudBucketing:         false,
+		DisableAutomaticEventLogging: true,
+		DisableCustomEventLogging:    true,
+		DisableRealtimeUpdates:       true,
+		ConfigPollingIntervalMS:      time.Minute,
+		EventFlushIntervalMS:         time.Minute,
+		ClientEventHandler:           events,
+	}
+
+	if benchmarkEnableEvents {
+		options.DisableAutomaticEventLogging = false
+		options.DisableCustomEventLogging = false
+		options.EventFlushIntervalMS = 0
+	}
+
+	client, err := NewClient(sdkKey, options)
+	client.AddHook(NewEvalHook(func(context *HookContext) error {
+		metadata, err := client.GetMetadata()
+		if err != nil {
+			return err
+		}
+		context.Metadata = metadata
+		return nil
+	}, nil, nil, nil))
+	if err != nil {
+		b.Errorf("Failed to initialize client: %v", err)
+	}
+
+	for {
+		event := <-events
+		if event.EventType == api.ClientEventType_Initialized {
+			break
+		}
+	}
+
+	user := User{UserId: "dontcare"}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		variable, err := client.Variable(user, test_large_config_variable, false)
+		if err != nil {
+			b.Errorf("Failed to retrieve variable: %v", err)
+		}
+		if variable.IsDefaulted {
+			b.Fatal("Expected variable to return a value")
+		}
+	}
+}
+
+func BenchmarkClient_VariableParallel_WithMetadata(b *testing.B) {
+	util.SetLogger(util.DiscardLogger{})
+
+	sdkKey := generateTestSDKKey()
+	httpCustomConfigMock(sdkKey, 200, test_large_config, false)
+
+	if benchmarkDisableLogs {
+		log.SetOutput(io.Discard)
+	}
+
+	options := &Options{
+		EnableCloudBucketing:         false,
+		DisableAutomaticEventLogging: true,
+		DisableCustomEventLogging:    true,
+		DisableRealtimeUpdates:       true,
+		ConfigPollingIntervalMS:      time.Minute,
+		EventFlushIntervalMS:         time.Minute,
+	}
+	if benchmarkEnableEvents {
+		util.Infof("Enabling event logging")
+		options.DisableAutomaticEventLogging = false
+		options.DisableCustomEventLogging = false
+		options.EventFlushIntervalMS = time.Millisecond * 500
+	}
+
+	client, err := NewClient(sdkKey, options)
+	client.AddHook(NewEvalHook(func(context *HookContext) error {
+		metadata, err := client.GetMetadata()
+		if err != nil {
+			return err
+		}
+		context.Metadata = metadata
+		return nil
+	}, nil, nil, nil))
 	if err != nil {
 		b.Errorf("Failed to initialize client: %v", err)
 	}

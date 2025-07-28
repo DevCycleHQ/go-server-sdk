@@ -41,6 +41,8 @@ type Options struct {
 	Logger                    util.Logger
 	EvalHooks                 []*EvalHook
 	AdvancedOptions
+
+	configMetadata api.MinimalConfig `json:"configMetadata,omitempty"`
 }
 
 func (o *Options) eventQueueOptions() *EventQueueOptions {

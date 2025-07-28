@@ -30,18 +30,13 @@ func TestConfigMetadata_ExtractionAndStorage(t *testing.T) {
 	modifiedConfig, _ := json.Marshal(configMap)
 	sdkKey := generateTestSDKKey()
 
-	// Register custom config mock with specific headers
-	responder := func(req *http.Request) (*http.Response, error) {
-		resp := httpmock.NewBytesResponse(200, modifiedConfig)
-		resp.Header.Set("ETag", "test-etag-123")
-		resp.Header.Set("Last-Modified", "Wed, 21 Oct 2015 07:28:00 GMT")
-		resp.Header.Set("Cf-Ray", "test-ray-123")
-		resp.Header.Set("Content-Type", "application/json")
-		return resp, nil
+	// Use httpCustomConfigMock with custom headers
+	headers := map[string]string{
+		"ETag":          "test-etag-123",
+		"Last-Modified": "Wed, 21 Oct 2015 07:28:00 GMT",
+		"Cf-Ray":        "test-ray-123",
 	}
-
-	const CONFIG_URL_FORMAT = "https://config-cdn.devcycle.com/config/v2/server/%s.json"
-	httpmock.RegisterResponder("GET", fmt.Sprintf(CONFIG_URL_FORMAT, sdkKey), responder)
+	httpCustomConfigMock(sdkKey, 200, string(modifiedConfig), false, headers)
 
 	// Mock events endpoint
 	httpEventsApiMock()
@@ -61,8 +56,8 @@ func TestConfigMetadata_ExtractionAndStorage(t *testing.T) {
 	time.Sleep(time.Millisecond * 500)
 
 	// Test that metadata is available
-	metadata := client.GetMetadata()
-	require.NotNil(t, metadata, "Expected metadata to be available")
+	metadata, err := client.GetMetadata()
+	require.NoError(t, err, "Expected metadata to be available")
 
 	// Test ETag and LastModified
 	require.Equal(t, "test-etag-123", metadata.ConfigETag)
@@ -109,13 +104,16 @@ func TestConfigMetadata_CloudSDKReturnsNil(t *testing.T) {
 		DisableCustomEventLogging:    true,
 	}
 
-	client, err := NewClient(generateTestSDKKey(), options)
+	sdkKey, _ := httpConfigMock(200)
+
+	client, err := NewClient(sdkKey, options)
 	require.NoError(t, err)
 	defer client.Close()
 
-	// Test that metadata is nil for cloud SDK
-	metadata := client.GetMetadata()
-	require.Nil(t, metadata, "Expected metadata to be nil for cloud SDK")
+	// Test that metadata returns error for cloud SDK
+	_, err = client.GetMetadata()
+	require.Error(t, err, "Expected error for cloud SDK")
+	require.Contains(t, err.Error(), "cloud SDK", "Expected cloud SDK error message")
 }
 
 func TestConfigMetadata_AvailableInAllHooks(t *testing.T) {
@@ -136,24 +134,19 @@ func TestConfigMetadata_AvailableInAllHooks(t *testing.T) {
 	modifiedConfig, _ := json.Marshal(configMap)
 	sdkKey := generateTestSDKKey()
 
-	// Register custom config mock with specific headers
-	responder := func(req *http.Request) (*http.Response, error) {
-		resp := httpmock.NewBytesResponse(200, modifiedConfig)
-		resp.Header.Set("ETag", "hook-etag-456")
-		resp.Header.Set("Last-Modified", "Thu, 22 Oct 2015 08:30:00 GMT")
-		resp.Header.Set("Cf-Ray", "hook-ray-456")
-		resp.Header.Set("Content-Type", "application/json")
-		return resp, nil
+	// Use httpCustomConfigMock with custom headers
+	headers := map[string]string{
+		"ETag":          "hook-etag-456",
+		"Last-Modified": "Thu, 22 Oct 2015 08:30:00 GMT",
+		"Cf-Ray":        "hook-ray-456",
 	}
-
-	const CONFIG_URL_FORMAT = "https://config-cdn.devcycle.com/config/v2/server/%s.json"
-	httpmock.RegisterResponder("GET", fmt.Sprintf(CONFIG_URL_FORMAT, sdkKey), responder)
+	httpCustomConfigMock(sdkKey, 200, string(modifiedConfig), false, headers)
 
 	// Mock events endpoint
 	httpEventsApiMock()
 
 	// Track hook calls and metadata
-	var beforeMetadata, afterMetadata, finallyMetadata *api.ConfigMetadata
+	var beforeMetadata, afterMetadata, finallyMetadata ConfigMetadata
 	var hookCallCount int
 
 	// Create hooks that capture metadata
@@ -237,24 +230,19 @@ func TestConfigMetadata_AvailableInErrorHook(t *testing.T) {
 	modifiedConfig, _ := json.Marshal(configMap)
 	sdkKey := generateTestSDKKey()
 
-	// Register custom config mock with specific headers
-	responder := func(req *http.Request) (*http.Response, error) {
-		resp := httpmock.NewBytesResponse(200, modifiedConfig)
-		resp.Header.Set("ETag", "error-etag-789")
-		resp.Header.Set("Last-Modified", "Fri, 23 Oct 2015 09:45:00 GMT")
-		resp.Header.Set("Cf-Ray", "error-ray-789")
-		resp.Header.Set("Content-Type", "application/json")
-		return resp, nil
+	// Use httpCustomConfigMock with custom headers
+	headers := map[string]string{
+		"ETag":          "error-etag-789",
+		"Last-Modified": "Fri, 23 Oct 2015 09:45:00 GMT",
+		"Cf-Ray":        "error-ray-789",
 	}
-
-	const CONFIG_URL_FORMAT = "https://config-cdn.devcycle.com/config/v2/server/%s.json"
-	httpmock.RegisterResponder("GET", fmt.Sprintf(CONFIG_URL_FORMAT, sdkKey), responder)
+	httpCustomConfigMock(sdkKey, 200, string(modifiedConfig), false, headers)
 
 	// Mock events endpoint
 	httpEventsApiMock()
 
 	// Track error hook metadata
-	var errorMetadata *api.ConfigMetadata
+	var errorMetadata ConfigMetadata
 	var errorHookCalled bool
 
 	// Create hooks that capture metadata - make before hook fail
@@ -321,11 +309,7 @@ func TestConfigMetadata_NullSafetyDuringInitialization(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
-	sdkKey := generateTestSDKKey()
-
-	// Register responder that returns error (500) to simulate failed config load
-	httpmock.RegisterResponder("GET", fmt.Sprintf("https://config-cdn.devcycle.com/config/v2/server/%s.json", sdkKey),
-		httpmock.NewStringResponder(500, "Internal Server Error"))
+	sdkKey, _ := httpConfigMock(500)
 
 	// Mock events endpoint
 	httpEventsApiMock()
@@ -344,12 +328,13 @@ func TestConfigMetadata_NullSafetyDuringInitialization(t *testing.T) {
 	// Wait a bit for the failed config load attempt
 	time.Sleep(time.Millisecond * 100)
 
-	// Test that metadata is nil during initialization failure
-	metadata := client.GetMetadata()
-	require.Nil(t, metadata, "Expected metadata to be nil during initialization")
+	// Test that metadata returns error during initialization failure
+	_, err = client.GetMetadata()
+	require.Error(t, err, "Expected error during initialization failure")
+	require.Contains(t, err.Error(), "config not loaded", "Expected config not loaded error")
 
 	// Test that hooks still work with nil metadata
-	var hookMetadata *api.ConfigMetadata
+	var hookMetadata ConfigMetadata
 	beforeHook := func(context *HookContext) error {
 		hookMetadata = context.Metadata
 		return nil
@@ -361,12 +346,12 @@ func TestConfigMetadata_NullSafetyDuringInitialization(t *testing.T) {
 	user := User{UserId: "test-user"}
 	_, _ = client.Variable(user, "test-variable", "default-value")
 
-	// Verify hook received nil metadata gracefully
-	require.Nil(t, hookMetadata, "Expected nil metadata in hook during initialization")
+	// Verify hook received empty metadata gracefully
+	require.Equal(t, ConfigMetadata{}, hookMetadata, "Expected empty metadata in hook during initialization")
 }
 
 // Helper function to validate metadata in hooks
-func validateHookMetadata(t *testing.T, metadata *api.ConfigMetadata, hookType string) {
+func validateHookMetadata(t *testing.T, metadata ConfigMetadata, hookType string) {
 	require.Equal(t, "hook-etag-456", metadata.ConfigETag, "ETag in %s", hookType)
 	require.Equal(t, "Thu, 22 Oct 2015 08:30:00 GMT", metadata.ConfigLastModified, "LastModified in %s", hookType)
 

@@ -304,11 +304,11 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 
 	// Create a default hook context before any evaluation
 	if len(hooks) > 0 {
+
 		hookContext := &HookContext{
 			User:         userdata,
 			Key:          key,
 			DefaultValue: defaultValue,
-			Metadata:     c.GetMetadata(),
 		}
 		// Run before hooks and catch any errors
 		var hookError error
@@ -590,12 +590,23 @@ func (c *Client) EventQueueMetrics() (int32, int32, int32) {
 }
 
 // GetMetadata returns the current configuration metadata
-// Returns nil for cloud SDK (which doesn't manage local config)
-func (c *Client) GetMetadata() *api.ConfigMetadata {
-	if c.IsLocalBucketing() {
-		return c.configManager.GetConfigMetadata()
+// Returns error for cloud SDK or when config is not available
+func (c *Client) GetMetadata() (ConfigMetadata, error) {
+	if !c.IsLocalBucketing() {
+		return ConfigMetadata{}, fmt.Errorf("config metadata not available for cloud SDK")
 	}
-	return nil
+
+	metadata := c.DevCycleOptions.configMetadata
+	if metadata.ConfigETag == "" && metadata.ConfigLastModified == "" {
+		return ConfigMetadata{}, fmt.Errorf("config metadata not available - config not loaded")
+	}
+
+	return ConfigMetadata{
+		ConfigETag:         metadata.ConfigETag,
+		ConfigLastModified: metadata.ConfigLastModified,
+		Project:            metadata.ProjectMetadata,
+		Environment:        metadata.EnvironmentMetadata,
+	}, nil
 }
 
 func (c *Client) hasConfig() bool {
@@ -877,4 +888,11 @@ func (e GenericError) Body() []byte {
 // Model returns the unpacked model of the error
 func (e GenericError) Model() interface{} {
 	return e.model
+}
+
+type ConfigMetadata struct {
+	ConfigETag         string                   `json:"configETag,omitempty"`
+	ConfigLastModified string                   `json:"configLastModified,omitempty"`
+	Project            *api.ProjectMetadata     `json:"project,omitempty"`
+	Environment        *api.EnvironmentMetadata `json:"environment,omitempty"`
 }

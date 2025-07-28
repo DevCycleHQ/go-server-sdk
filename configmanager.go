@@ -39,7 +39,6 @@ type EnvironmentConfigManager struct {
 	InternalClientEvents chan api.ClientEvent
 	eventManager         *EventManager
 	pollingMutex         sync.Mutex
-	configMetadata       *api.ConfigMetadata
 }
 
 type configPollingManager struct {
@@ -207,6 +206,28 @@ func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) {
 }
 
 func (e *EnvironmentConfigManager) initialFetch() error {
+	// Initialize empty metadata before config is loaded
+	configMetadata := api.MinimalConfig{
+		ConfigETag:         e.localBucketing.GetETag(),
+		ConfigLastModified: e.localBucketing.GetLastModified(),
+	}
+
+	// Only populate project/environment metadata if minimalConfig is available
+	if e.minimalConfig != nil && e.minimalConfig.Project != nil {
+		configMetadata.ProjectMetadata = &api.ProjectMetadata{
+			Id:  e.minimalConfig.Project.Id,
+			Key: e.minimalConfig.Project.Key,
+		}
+	}
+
+	if e.minimalConfig != nil && e.minimalConfig.Environment != nil {
+		configMetadata.EnvironmentMetadata = &api.EnvironmentMetadata{
+			Id:  e.minimalConfig.Environment.Id,
+			Key: e.minimalConfig.Environment.Key,
+		}
+	}
+
+	e.options.configMetadata = configMetadata
 
 	return e.fetchConfig(CONFIG_RETRIES)
 }
@@ -390,33 +411,23 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 		return err
 	}
 
-	// Extract and store config metadata
-	e.configMetadata = &api.ConfigMetadata{
-		ConfigETag:         eTag,
-		ConfigLastModified: lastModified,
-	}
-
-	// Extract project and environment metadata from minimal config
-	if e.minimalConfig != nil {
-		if e.minimalConfig.Project != nil {
-			e.configMetadata.Project = &api.ProjectMetadata{
-				Id:  e.minimalConfig.Project.Id,
-				Key: e.minimalConfig.Project.Key,
-			}
-		}
-		if e.minimalConfig.Environment != nil {
-			e.configMetadata.Environment = &api.EnvironmentMetadata{
-				Id:  e.minimalConfig.Environment.Id,
-				Key: e.minimalConfig.Environment.Key,
-			}
-		}
-	}
-
 	if e.minimalConfig != nil && e.minimalConfig.SSE != nil {
 		sseUrl := fmt.Sprintf("%s%s", e.minimalConfig.SSE.Hostname, e.minimalConfig.SSE.Path)
 		if e.sseManager != nil {
 			configUpdatedEvent.EventData.(map[string]string)["sseUrl"] = sseUrl
 		}
+	}
+	e.options.configMetadata = api.MinimalConfig{
+		ConfigETag:         eTag,
+		ConfigLastModified: lastModified,
+		ProjectMetadata: &api.ProjectMetadata{
+			Id:  e.minimalConfig.Project.Id,
+			Key: e.minimalConfig.Project.Key,
+		},
+		EnvironmentMetadata: &api.EnvironmentMetadata{
+			Id:  e.minimalConfig.Environment.Id,
+			Key: e.minimalConfig.Environment.Key,
+		},
 	}
 	return nil
 }
@@ -446,11 +457,6 @@ func (e *EnvironmentConfigManager) GetETag() string {
 
 func (e *EnvironmentConfigManager) GetLastModified() string {
 	return e.localBucketing.GetLastModified()
-}
-
-// GetConfigMetadata returns the current configuration metadata
-func (e *EnvironmentConfigManager) GetConfigMetadata() *api.ConfigMetadata {
-	return e.configMetadata
 }
 
 func (e *EnvironmentConfigManager) Close() {
