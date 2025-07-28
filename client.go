@@ -596,16 +596,17 @@ func (c *Client) GetMetadata() (ConfigMetadata, error) {
 		return ConfigMetadata{}, fmt.Errorf("config metadata not available for cloud SDK")
 	}
 
-	metadata := c.DevCycleOptions.configMetadata
-	if metadata.ConfigETag == "" && metadata.ConfigLastModified == "" {
-		return ConfigMetadata{}, fmt.Errorf("config metadata not available - config not loaded")
-	}
-
 	return ConfigMetadata{
-		ConfigETag:         metadata.ConfigETag,
-		ConfigLastModified: metadata.ConfigLastModified,
-		Project:            metadata.ProjectMetadata,
-		Environment:        metadata.EnvironmentMetadata,
+		ConfigETag:         c.DevCycleOptions.configMetadata.ConfigETag,
+		ConfigLastModified: c.DevCycleOptions.configMetadata.ConfigLastModified,
+		Project: &api.ProjectMetadata{
+			Id:  c.DevCycleOptions.configMetadata.Project.Id,
+			Key: c.DevCycleOptions.configMetadata.Project.Key,
+		},
+		Environment: &api.EnvironmentMetadata{
+			Id:  c.DevCycleOptions.configMetadata.Environment.Id,
+			Key: c.DevCycleOptions.configMetadata.Environment.Key,
+		},
 	}, nil
 }
 

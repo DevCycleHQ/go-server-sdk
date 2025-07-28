@@ -42,7 +42,7 @@ type Options struct {
 	EvalHooks                 []*EvalHook
 	AdvancedOptions
 
-	configMetadata api.MinimalConfig `json:"configMetadata,omitempty"`
+	configMetadata ConfigMetadata
 }
 
 func (o *Options) eventQueueOptions() *EventQueueOptions {

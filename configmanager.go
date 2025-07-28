@@ -206,22 +206,20 @@ func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) {
 }
 
 func (e *EnvironmentConfigManager) initialFetch() error {
-	// Initialize empty metadata before config is loaded
-	configMetadata := api.MinimalConfig{
+	configMetadata := ConfigMetadata{
 		ConfigETag:         e.localBucketing.GetETag(),
 		ConfigLastModified: e.localBucketing.GetLastModified(),
 	}
 
-	// Only populate project/environment metadata if minimalConfig is available
 	if e.minimalConfig != nil && e.minimalConfig.Project != nil {
-		configMetadata.ProjectMetadata = &api.ProjectMetadata{
+		configMetadata.Project = &api.ProjectMetadata{
 			Id:  e.minimalConfig.Project.Id,
 			Key: e.minimalConfig.Project.Key,
 		}
 	}
 
 	if e.minimalConfig != nil && e.minimalConfig.Environment != nil {
-		configMetadata.EnvironmentMetadata = &api.EnvironmentMetadata{
+		configMetadata.Environment = &api.EnvironmentMetadata{
 			Id:  e.minimalConfig.Environment.Id,
 			Key: e.minimalConfig.Environment.Key,
 		}
@@ -417,14 +415,14 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 			configUpdatedEvent.EventData.(map[string]string)["sseUrl"] = sseUrl
 		}
 	}
-	e.options.configMetadata = api.MinimalConfig{
+	e.options.configMetadata = ConfigMetadata{
 		ConfigETag:         eTag,
 		ConfigLastModified: lastModified,
-		ProjectMetadata: &api.ProjectMetadata{
+		Project: &api.ProjectMetadata{
 			Id:  e.minimalConfig.Project.Id,
 			Key: e.minimalConfig.Project.Key,
 		},
-		EnvironmentMetadata: &api.EnvironmentMetadata{
+		Environment: &api.EnvironmentMetadata{
 			Id:  e.minimalConfig.Environment.Id,
 			Key: e.minimalConfig.Environment.Key,
 		},
