@@ -602,10 +602,8 @@ func (c *Client) GetMetadata() (ConfigMetadata, error) {
 	}
 
 	return ConfigMetadata{
-		ConfigETag:         c.DevCycleOptions.configMetadata.ConfigETag,
-		ConfigLastModified: c.DevCycleOptions.configMetadata.ConfigLastModified,
-		Project:            c.DevCycleOptions.configMetadata.Project,
-		Environment:        c.DevCycleOptions.configMetadata.Environment,
+		Project:     c.DevCycleOptions.configMetadata.Project,
+		Environment: c.DevCycleOptions.configMetadata.Environment,
 	}, nil
 }
 

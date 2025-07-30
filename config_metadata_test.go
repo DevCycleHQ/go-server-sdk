@@ -57,9 +57,6 @@ func TestConfigMetadata_ExtractionAndStorage(t *testing.T) {
 	require.NoError(t, err, "Expected metadata to be available")
 
 	// Test ETag and LastModified
-	require.Equal(t, "test-etag-123", metadata.ConfigETag)
-	require.Equal(t, "Wed, 21 Oct 2015 07:28:00 GMT", metadata.ConfigLastModified)
-
 	// Test Project metadata
 	require.NotNil(t, metadata.Project, "Expected project metadata to be available")
 	require.Equal(t, "project-123", metadata.Project.Id)
@@ -283,9 +280,6 @@ func TestConfigMetadata_AvailableInErrorHook(t *testing.T) {
 	// Test metadata in error hook
 	require.NotNil(t, errorMetadata, "Expected metadata in error hook")
 
-	// Validate the specific error hook metadata values
-	require.Equal(t, "error-etag-789", errorMetadata.ConfigETag)
-
 	require.NotNil(t, errorMetadata.Project, "Expected project metadata in error hook")
 	require.Equal(t, "error-project-123", errorMetadata.Project.Id)
 
@@ -337,9 +331,6 @@ func TestConfigMetadata_NullSafetyDuringInitialization(t *testing.T) {
 
 // Helper function to validate metadata in hooks
 func validateHookMetadata(t *testing.T, metadata ConfigMetadata, hookType string) {
-	require.Equal(t, "hook-etag-456", metadata.ConfigETag, "ETag in %s", hookType)
-	require.Equal(t, "Thu, 22 Oct 2015 08:30:00 GMT", metadata.ConfigLastModified, "LastModified in %s", hookType)
-
 	require.NotNil(t, metadata.Project, "Project metadata in %s", hookType)
 	require.Equal(t, "hook-project-123", metadata.Project.Id, "Project ID in %s", hookType)
 	require.Equal(t, "hook-project", metadata.Project.Key, "Project key in %s", hookType)

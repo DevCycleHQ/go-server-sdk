@@ -206,10 +206,7 @@ func (e *EnvironmentConfigManager) StartPolling(interval time.Duration) {
 }
 
 func (e *EnvironmentConfigManager) initialFetch() error {
-	configMetadata := ConfigMetadata{
-		ConfigETag:         e.localBucketing.GetETag(),
-		ConfigLastModified: e.localBucketing.GetLastModified(),
-	}
+	configMetadata := ConfigMetadata{}
 
 	if e.minimalConfig != nil && e.minimalConfig.Project != nil {
 		configMetadata.Project = api.ProjectMetadata{
@@ -417,8 +414,6 @@ func (e *EnvironmentConfigManager) setConfig(config []byte, eTag, rayId, lastMod
 	}
 	if e.minimalConfig != nil && e.minimalConfig.Project != nil && e.minimalConfig.Environment != nil {
 		e.options.configMetadata = ConfigMetadata{
-			ConfigETag:         eTag,
-			ConfigLastModified: lastModified,
 			Project: api.ProjectMetadata{
 				Id:  e.minimalConfig.Project.Id,
 				Key: e.minimalConfig.Project.Key,
