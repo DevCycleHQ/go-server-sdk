@@ -344,20 +344,26 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 		bucketedVariable, err := c.localBucketing.Variable(userdata, key, variableType)
 
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
+		// if we have a value from the bucketed config and its the same type as the default value or the default value is nil, we can use the value
 		if bucketedVariable.Value != nil && (sameTypeAsDefault || defaultValue == nil) {
 			variable.Type_ = bucketedVariable.Type_
 			variable.Value = bucketedVariable.Value
 			variable.IsDefaulted = false
 			variable.Eval = bucketedVariable.Eval
 		} else {
+			// if the value is not the same type as the default value, we need to return an error
 			if !sameTypeAsDefault && bucketedVariable.Value != nil {
 				util.Warnf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
 					reflect.TypeOf(bucketedVariable.Value).String(),
 				)
+				variable.Eval.Details = string(api.DefaultReasonInvalidVariableType)
+			} else {
+				// default the variable to the default value
+				variable.Eval.Details = string(api.DefaultReasonMissingConfig)
+				variable.Eval.Reason = api.EvaluationReasonDefault
 			}
-			variable.Eval.Details = string(api.DefaultReasonInvalidVariableType)
 		}
 
 		return variable, err

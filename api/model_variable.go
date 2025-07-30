@@ -28,7 +28,7 @@ type Variable struct {
 type EvalDetails struct {
 	Reason   EvaluationReason `json:"reason"`
 	Details  string           `json:"details"`
-	TargetId string           `json:"targetId"`
+	TargetId string           `json:"target_id,omitempty"`
 }
 
 type ReadOnlyVariable struct {

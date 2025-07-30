@@ -22,9 +22,10 @@ type aggEventData struct {
 	variableKey string
 	featureId   string
 	variationId string
-	evalDetails string
-	evalReason  api.EvaluationReason
+	eval        eventEval
 }
+
+type eventEval map[api.EvaluationReason]int64 // map eval reason -> count
 
 type userEventData struct {
 	event *api.Event
@@ -216,14 +217,20 @@ func (eq *EventQueue) queueAggregateEventInternal(variableKey, featureId, variat
 		return fmt.Errorf("a variable key is required for aggregate events")
 	}
 
+	eval := make(eventEval)
+	if eventType == api.EventType_AggVariableDefaulted {
+		eval[api.EvaluationReason(evalDetails)] = 1
+	} else {
+		eval[evalReason] = 1
+	}
+
 	select {
 	case eq.aggEventQueueRaw <- aggEventData{
 		eventType:   eventType,
 		variableKey: variableKey,
 		featureId:   featureId,
 		variationId: variationId,
-		evalReason:  evalReason,
-		evalDetails: evalDetails,
+		eval:        eval,
 	}:
 	default:
 		eq.eventsDropped.Add(1)
@@ -505,10 +512,12 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 			variationAggMap[event.variationId] = make(EvalReasonAggMap)
 		}
 		evalReasons := variationAggMap[event.variationId]
-		if _, ok := evalReasons[event.evalReason]; !ok {
-			evalReasons[event.evalReason] = 0
+		for reason, count := range event.eval {
+			if _, ok := evalReasons[reason]; !ok {
+				evalReasons[reason] = 0
+			}
+			evalReasons[reason] += count
 		}
-		evalReasons[event.evalReason]++
 		variationAggMap[event.variationId] = evalReasons
 		featureVariationAggregationMap[event.featureId] = variationAggMap
 	} else {
@@ -522,11 +531,12 @@ func (eq *EventQueue) processAggregateEvent(event aggEventData) (err error) {
 			defaultReasonAggMap[string(api.EvaluationReasonDefault)] = make(EvalReasonAggMap)
 		}
 		defaultReasons := defaultReasonAggMap[string(api.EvaluationReasonDefault)]
-		_defaultDetails := api.EvaluationReason(event.evalDetails)
-		if _, ok := defaultReasons[_defaultDetails]; !ok {
-			defaultReasons[_defaultDetails] = 0
+		for reason, count := range event.eval {
+			if _, ok := defaultReasons[reason]; !ok {
+				defaultReasons[reason] = 0
+			}
+			defaultReasons[reason] += count
 		}
-		defaultReasons[_defaultDetails]++
 		defaultReasonAggMap[string(api.EvaluationReasonDefault)] = defaultReasons
 		featureVariationAggregationMap[string(api.EvaluationReasonDefault)] = defaultReasonAggMap
 	}

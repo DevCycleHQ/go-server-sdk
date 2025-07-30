@@ -106,14 +106,14 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 		},
 		Eval: api.EvalDetails{
 			Reason:  api.EvaluationReasonDefault,
-			Details: string(api.DefaultReasonInvalidVariableType),
+			Details: string(api.DefaultReasonMissingConfig),
 		},
 		DefaultValue: nil,
 		IsDefaulted:  true,
 	}
 	clientCustomData := bucketing.GetClientCustomData(n.sdkKey)
 	populatedUser := user.GetPopulatedUserWithTime(n.platformData, DEFAULT_USER_TIME)
-	resultVariableType, resultValue, evalReason, err := bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
+	resultVariableType, resultValue, evalReason, evalDetails, err := bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
 
 	if err != nil {
 		defaultVar.Eval.Details = string(bucketing.BucketResultErrorToDefaultReason(err))
@@ -128,8 +128,8 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 		},
 		IsDefaulted: false,
 		Eval: api.EvalDetails{
-			Reason:   evalReason,
-			TargetId: "",
+			Reason:  evalReason,
+			Details: evalDetails,
 		},
 	}, nil
 }

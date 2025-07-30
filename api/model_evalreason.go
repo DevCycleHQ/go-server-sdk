@@ -4,15 +4,15 @@ type EvaluationReason string
 type DefaultReason string
 
 const (
-	DefaultReasonMissingConfig               DefaultReason = "MISSING_CONFIG"
-	DefaultReasonMissingVariable             DefaultReason = "MISSING_VARIABLE"
-	DefaultReasonMissingFeature              DefaultReason = "MISSING_FEATURE"
-	DefaultReasonMissingVariation            DefaultReason = "MISSING_VARIATION"
-	DefaultReasonMissingVariableForVariation DefaultReason = "MISSING_VARIABLE_FOR_VARIATION"
-	DefaultReasonUserNotInRollout            DefaultReason = "USER_NOT_IN_ROLLOUT"
-	DefaultReasonUserNotTargeted             DefaultReason = "USER_NOT_TARGETED"
-	DefaultReasonInvalidVariableType         DefaultReason = "INVALID_VARIABLE_TYPE"
-	DefaultReasonUnknown                     DefaultReason = "UNKNOWN"
+	DefaultReasonMissingConfig               DefaultReason = "Missing Config"
+	DefaultReasonMissingVariable             DefaultReason = "Missing Variable"
+	DefaultReasonMissingFeature              DefaultReason = "Missing Feature"
+	DefaultReasonMissingVariation            DefaultReason = "Missing Variation"
+	DefaultReasonMissingVariableForVariation DefaultReason = "Missing Variable for Variation"
+	DefaultReasonUserNotInRollout            DefaultReason = "User Not in Rollout"
+	DefaultReasonUserNotTargeted             DefaultReason = "User Not Targeted"
+	DefaultReasonInvalidVariableType         DefaultReason = "Invalid Variable Type"
+	DefaultReasonUnknown                     DefaultReason = "Unknown"
 	DefaultReasonNotDefaulted                DefaultReason = ""
 )
 

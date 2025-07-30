@@ -263,14 +263,14 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 	}, nil
 }
 
-func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, expectedVariableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (variableType string, variableValue any, evalReason api.EvaluationReason, err error) {
+func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, expectedVariableType string, eventQueue *EventQueue, clientCustomData map[string]interface{}) (variableType string, variableValue any, evalReason api.EvaluationReason, evalDetails string, err error) {
 	variableType, variableValue, featureId, variationId, evalReason, err := generateBucketedVariableForUser(sdkKey, user, variableKey, clientCustomData)
 	if err != nil {
 		eventErr := eventQueue.QueueVariableDefaultedEvent(variableKey, BucketResultErrorToDefaultReason(err))
 		if eventErr != nil {
 			util.Warnf("Failed to queue variable defaulted event: %s", eventErr)
 		}
-		return "", nil, evalReason, err
+		return "", nil, evalReason, string(BucketResultErrorToDefaultReason(err)), err
 	}
 
 	if !isVariableTypeValid(variableType, expectedVariableType) && expectedVariableType != "" {
@@ -279,7 +279,7 @@ func VariableForUser(sdkKey string, user api.PopulatedUser, variableKey string, 
 		if eventErr != nil {
 			util.Warnf("Failed to queue variable defaulted event: %s", eventErr)
 		}
-		return "", nil, evalReason, err
+		return "", nil, evalReason, string(BucketResultErrorToDefaultReason(err)), err
 	}
 
 	eventErr := eventQueue.QueueVariableEvaluatedEvent(variableKey, featureId, variationId, evalReason)
