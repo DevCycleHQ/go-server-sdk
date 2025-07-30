@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: DevCycleHQ/test-harness@main
         env:
-          SDK_CAPABILITIES: '["cloud","edgeDB","clientCustomData","multithreading","defaultReason","etagReporting","lastModifiedHeader","sdkConfigEvent","clientUUID","v2Config", "evalReasons", "cloudEvalReasons"]'
+          SDK_CAPABILITIES: '["cloud","edgeDB","clientCustomData","multithreading","defaultReason","etagReporting","lastModifiedHeader","sdkConfigEvent","clientUUID","v2Config", "evalReason", "cloudEvalReason", "eventEvalReason"]'
         with:
           sdks-to-test: '["go"]'
           sdk-github-sha: ${{github.event.pull_request.head.sha}}
