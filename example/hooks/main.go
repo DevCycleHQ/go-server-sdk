@@ -22,9 +22,6 @@ func main() {
 
 		// Print config metadata if available
 		if context.Metadata != (ConfigMetadata{}) {
-			fmt.Printf("  Config ETag: %s\n", context.Metadata.ConfigETag)
-			fmt.Printf("  Config Last Modified: %s\n", context.Metadata.ConfigLastModified)
-
 			if context.Metadata.Project != (api.ProjectMetadata{}) {
 				fmt.Printf("  Project: %s (ID: %s)\n", context.Metadata.Project.Key, context.Metadata.Project.Id)
 			}
@@ -105,9 +102,6 @@ func main() {
 	if err != nil {
 		fmt.Printf("Config metadata not available: %v\n", err)
 	} else {
-		fmt.Printf("Config ETag: %s\n", metadata.ConfigETag)
-		fmt.Printf("Config Last Modified: %s\n", metadata.ConfigLastModified)
-
 		if metadata.Project != (api.ProjectMetadata{}) {
 			fmt.Printf("Project: %s (ID: %s)\n", metadata.Project.Key, metadata.Project.Id)
 		}

@@ -21,10 +21,8 @@ type AdvancedOptions struct {
 }
 
 type ConfigMetadata struct {
-	ConfigETag         string                  `json:"configETag,omitempty"`
-	ConfigLastModified string                  `json:"configLastModified,omitempty"`
-	Project            api.ProjectMetadata     `json:"project,omitempty"`
-	Environment        api.EnvironmentMetadata `json:"environment,omitempty"`
+	Project     api.ProjectMetadata     `json:"project,omitempty"`
+	Environment api.EnvironmentMetadata `json:"environment,omitempty"`
 }
 
 type Options struct {
