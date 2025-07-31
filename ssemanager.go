@@ -44,7 +44,7 @@ func (m *sseMessage) LastModifiedDuration() time.Duration {
 
 func newSSEManager(configManager *EnvironmentConfigManager, options *Options, cfg *HTTPConfiguration) (*SSEManager, error) {
 	if options == nil {
-		return nil, fmt.Errorf("SSE - Options cannot be nil")
+		return nil, fmt.Errorf("sse - options cannot be nil")
 	}
 	sseManager := &SSEManager{
 		configManager: configManager,

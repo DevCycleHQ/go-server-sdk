@@ -72,20 +72,20 @@ func TestBoundedHashLimits(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			variation, err := tc.target.DecideTargetVariation(0.2555)
+			variation, _, err := tc.target.DecideTargetVariation(0.2555)
 			require.NoError(t, err)
 			if tc.expectedVariation != "" {
 				require.Equal(t, tc.expectedVariation, variation)
 			}
 
 			// Test edge cases
-			variation, err = tc.target.DecideTargetVariation(0)
+			variation, _, err = tc.target.DecideTargetVariation(0)
 			require.NoError(t, err)
 			if tc.expectedVariation != "" {
 				require.Equal(t, tc.expectedVariation, variation)
 			}
 
-			variation, err = tc.target.DecideTargetVariation(1)
+			variation, _, err = tc.target.DecideTargetVariation(1)
 			require.NoError(t, err)
 			if tc.expectedVariation != "" {
 				require.Equal(t, tc.expectedVariation, variation)

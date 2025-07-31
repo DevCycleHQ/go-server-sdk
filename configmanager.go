@@ -273,7 +273,9 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 		return err
 	}
 
-	defer resp.Body.Close()
+	defer func(body io.ReadCloser) {
+		_ = body.Close()
+	}(resp.Body)
 
 	switch statusCode := resp.StatusCode; {
 	case statusCode == http.StatusOK:
@@ -316,7 +318,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 		// Infinitely retry 500s
 		util.Warnf("Config fetch failed. Status:" + resp.Status)
 	default:
-		err = fmt.Errorf("Unexpected response code: %d\n"+
+		err = fmt.Errorf("unexpected response code: %d\n"+
 			"Body: %s\n"+
 			"URL: %s\n"+
 			"Headers: %s\n"+

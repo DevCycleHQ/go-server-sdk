@@ -193,10 +193,14 @@ func TestClient_VariableLocal(t *testing.T) {
 			Key:   "test",
 			Type_: "Boolean",
 			Value: true,
+			Eval: api.EvalDetails{
+				Reason: api.EvaluationReasonSplit,
+			},
 		},
 		DefaultValue: true,
 		IsDefaulted:  false,
 	}
+
 	if !reflect.DeepEqual(expected, variable) {
 		fmt.Println("got", variable)
 		fmt.Println("expected", expected)
@@ -242,6 +246,9 @@ func TestClient_VariableLocal_UserWithCustomData(t *testing.T) {
 			Key:   "test",
 			Type_: "Boolean",
 			Value: true,
+			Eval: api.EvalDetails{
+				Reason: api.EvaluationReasonSplit,
+			},
 		},
 		DefaultValue: true,
 		IsDefaulted:  false,
@@ -381,7 +388,7 @@ func TestClient_ConfigUpdatedEvent(t *testing.T) {
 			return nil, err
 		}
 		if !strings.Contains(string(reqBody), api.EventType_SDKConfig) {
-			return nil, fmt.Errorf("Expected config updated event")
+			return nil, fmt.Errorf("expected config updated event")
 		}
 
 		return httpmock.NewStringResponse(201, `{}`), nil
@@ -567,7 +574,7 @@ func BenchmarkClient_VariableParallel(b *testing.B) {
 			opNanos.Add(duration.Nanoseconds())
 
 			if err != nil {
-				errors <- fmt.Errorf("Failed to retrieve variable: %v", err)
+				errors <- fmt.Errorf("failed to retrieve variable: %v", err)
 			}
 			if benchmarkEnableConfigUpdates && configCounter.Add(1)%10000 == 0 {
 				go func() {
@@ -576,7 +583,7 @@ func BenchmarkClient_VariableParallel(b *testing.B) {
 				}()
 			}
 			if variable.IsDefaulted {
-				errors <- fmt.Errorf("Expected variable to return a value")
+				errors <- fmt.Errorf("expected variable to return a value")
 			}
 		}
 	})

@@ -117,19 +117,19 @@ func NewClient(sdkKey string, options *Options) (*Client, error) {
 
 		err := c.setLBClient(sdkKey, options)
 		if err != nil {
-			return c, fmt.Errorf("Error setting up local bucketing: %w", err)
+			return c, fmt.Errorf("error setting up local bucketing: %w", err)
 		}
 
 		c.eventQueue, err = NewEventManager(options, c.localBucketing, c.cfg, sdkKey)
 
 		if err != nil {
-			return c, fmt.Errorf("Error initializing event queue: %w", err)
+			return c, fmt.Errorf("error initializing event queue: %w", err)
 		}
 
 		c.configManager, err = NewEnvironmentConfigManager(sdkKey, c.localBucketing, c.eventQueue, options, c.cfg)
 
 		if err != nil {
-			return nil, fmt.Errorf("Error initializing config manager: %w", err)
+			return nil, fmt.Errorf("error initializing config manager: %w", err)
 		}
 		if c.DevCycleOptions.ClientEventHandler != nil {
 			go func() {
@@ -288,7 +288,10 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 		return Variable{}, err
 	}
 
-	baseVar := BaseVariable{Key: key, Value: convertedDefaultValue, Type_: variableType}
+	baseVar := BaseVariable{Key: key, Value: convertedDefaultValue, Type_: variableType, Eval: api.EvalDetails{
+		Reason:  api.EvaluationReasonDefault,
+		Details: string(api.DefaultReasonError),
+	}}
 	variable := Variable{BaseVariable: baseVar, DefaultValue: convertedDefaultValue, IsDefaulted: true}
 
 	defer func() {
@@ -344,17 +347,25 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 		bucketedVariable, err := c.localBucketing.Variable(userdata, key, variableType)
 
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
+		// if we have a value from the bucketed config and its the same type as the default value or the default value is nil, we can use the value
 		if bucketedVariable.Value != nil && (sameTypeAsDefault || defaultValue == nil) {
 			variable.Type_ = bucketedVariable.Type_
 			variable.Value = bucketedVariable.Value
 			variable.IsDefaulted = false
+			variable.Eval = bucketedVariable.Eval
 		} else {
+			// if the value is not the same type as the default value, we need to return an error
 			if !sameTypeAsDefault && bucketedVariable.Value != nil {
 				util.Warnf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
 					reflect.TypeOf(bucketedVariable.Value).String(),
 				)
+				variable.Eval.Details = string(api.DefaultReasonInvalidVariableType)
+			} else {
+				// default the variable to the default value
+				variable.Eval.Details = bucketedVariable.Eval.Details
+				variable.Eval.Reason = api.EvaluationReasonDefault
 			}
 		}
 
@@ -391,7 +402,11 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 			if compareTypes(localVarReturnValue.Value, convertedDefaultValue) {
 				variable.Value = localVarReturnValue.Value
 				variable.IsDefaulted = false
+				variable.Eval.Reason = api.EvaluationReasonTargetingMatch
+				variable.Eval.Details = ""
 			} else {
+				variable.Eval.Reason = api.EvaluationReasonDefault
+				variable.Eval.Details = string(api.DefaultReasonVariableTypeMismatch)
 				util.Warnf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),
@@ -650,7 +665,7 @@ func (c *Client) performRequest(
 			return attempt <= 5, err
 		}
 		responseBody, err = io.ReadAll(httpResponse.Body)
-		httpResponse.Body.Close()
+		_ = httpResponse.Body.Close()
 
 		if err == nil && httpResponse.StatusCode >= 500 && attempt <= 5 {
 			err = errors.New("5xx error on request")

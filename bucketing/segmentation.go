@@ -198,15 +198,17 @@ func _checkBooleanFilter(b bool, filter *UserFilter) bool {
 	operator := filter.GetComparator()
 	values := filter.CompiledBoolVals
 
-	if operator == "contain" || operator == "=" {
+
+	switch operator {
+	case "contain", "=":
 		return contains(values, b)
-	} else if operator == "!contain" || operator == "!=" {
+	case "!contain", "!=":
 		return !contains(values, b)
-	} else if operator == "exist" {
+	case "exist":
 		return true
-	} else if operator == "!exist" {
+	case "!exist":
 		return false
-	} else {
+	default:
 		return false
 	}
 }
@@ -339,17 +341,18 @@ func _checkNumberFilter(num float64, filterNums []float64, operator string) bool
 			continue
 		}
 
-		if operator == "=" {
+		switch operator {
+		case "=":
 			someValue = num == filterNum
-		} else if operator == ">" {
+		case ">":
 			someValue = num > filterNum
-		} else if operator == ">=" {
+		case ">=":
 			someValue = num >= filterNum
-		} else if operator == "<" {
+		case "<":
 			someValue = num < filterNum
-		} else if operator == "<=" {
+		case "<=":
 			someValue = num <= filterNum
-		} else {
+		default:
 			continue
 		}
 
