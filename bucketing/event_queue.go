@@ -83,7 +83,13 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 					metaData := make(map[string]interface{})
 					evalMetadata := make(map[string]int64)
 					if _type == api.EventType_AggVariableDefaulted {
-						metaData["evalDetails"] = variation
+						if _, ok := evalMetadata[string(api.EvaluationReasonDefault)]; !ok {
+							evalMetadata[string(api.EvaluationReasonDefault)] = 1
+						}
+						evalMetadata[string(api.EvaluationReasonDefault)]++
+						metaData["eval"] = evalMetadata
+						metaData["_variation"] = api.EvaluationReasonDefault
+						metaData["defaultReason"] = api.EvaluationReasonDefault
 					} else {
 						metaData = map[string]interface{}{
 							"_variation": variation,
@@ -208,7 +214,7 @@ func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
 	}
 }
 
-func (eq *EventQueue) queueAggregateEventInternal(variableKey, featureId, variationId, eventType string, evalReason api.EvaluationReason, evalDetails string) error {
+func (eq *EventQueue) queueAggregateEventInternal(variableKey, featureId, variationId, eventType string, evalReason api.EvaluationReason) error {
 	if eq.options != nil && eq.options.IsEventLoggingDisabled(eventType) {
 		return nil
 	}
@@ -219,7 +225,7 @@ func (eq *EventQueue) queueAggregateEventInternal(variableKey, featureId, variat
 
 	eval := make(eventEval)
 	if eventType == api.EventType_AggVariableDefaulted {
-		eval[api.EvaluationReason(evalDetails)] = 1
+		eval[api.EvaluationReasonDefault] = 1
 	} else {
 		eval[evalReason] = 1
 	}
@@ -260,7 +266,7 @@ func (eq *EventQueue) QueueVariableEvaluatedEvent(variableKey, featureId, variat
 		return nil
 	}
 
-	return eq.queueAggregateEventInternal(variableKey, featureId, variationId, api.EventType_AggVariableEvaluated, evalReason, "")
+	return eq.queueAggregateEventInternal(variableKey, featureId, variationId, api.EventType_AggVariableEvaluated, evalReason)
 }
 
 func (eq *EventQueue) QueueVariableDefaultedEvent(variableKey string, defaultReason api.DefaultReason) error {
@@ -268,7 +274,7 @@ func (eq *EventQueue) QueueVariableDefaultedEvent(variableKey string, defaultRea
 		return nil
 	}
 
-	return eq.queueAggregateEventInternal(variableKey, "", "", api.EventType_AggVariableDefaulted, api.EvaluationReasonDefault, string(defaultReason))
+	return eq.queueAggregateEventInternal(variableKey, "", "", api.EventType_AggVariableDefaulted, api.EvaluationReasonDefault)
 }
 
 func (eq *EventQueue) FlushEventQueue(clientUUID, configEtag, rayId, lastModified string) (map[string]api.FlushPayload, error) {

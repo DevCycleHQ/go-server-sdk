@@ -11,9 +11,10 @@ jobs:
       labels: ubuntu-latest-4-core
     steps:
       - uses: DevCycleHQ/test-harness@main
-        env:
-          SDK_CAPABILITIES: '["cloud","edgeDB","clientCustomData","multithreading","defaultReason","etagReporting","lastModifiedHeader","sdkConfigEvent","clientUUID","v2Config", "evalReason", "cloudEvalReason", "eventsEvalReason"]'
         with:
           sdks-to-test: '["go"]'
-          sdk-github-sha: ${{github.event.pull_request.head.sha}}
+          sdk-github-sha: ${{github.event.pull_request.head.sha}} 
+          sdk-capabilities: '["cloud","edgeDB","clientCustomData","multithreading","defaultReason","etagReporting","lastModifiedHeader","sdkConfigEvent","clientUUID","v2Config", "evalReason", "cloudEvalReason", "eventsEvalReason"]'
+
+
 
