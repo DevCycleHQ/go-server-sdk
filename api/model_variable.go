@@ -15,6 +15,8 @@ type BaseVariable struct {
 	Type_ string `json:"type"`
 	// Variable value can be a string, number, boolean, or JSON
 	Value interface{} `json:"value"`
+
+	Eval EvalDetails `json:"eval"`
 }
 
 type Variable struct {
@@ -22,7 +24,6 @@ type Variable struct {
 
 	DefaultValue interface{} `json:"defaultValue"`
 	IsDefaulted  bool        `json:"isDefaulted"`
-	Eval         EvalDetails `json:"eval"`
 }
 
 type EvalDetails struct {

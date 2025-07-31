@@ -288,11 +288,11 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 		return Variable{}, err
 	}
 
-	baseVar := BaseVariable{Key: key, Value: convertedDefaultValue, Type_: variableType}
-	variable := Variable{BaseVariable: baseVar, DefaultValue: convertedDefaultValue, IsDefaulted: true, Eval: api.EvalDetails{
+	baseVar := BaseVariable{Key: key, Value: convertedDefaultValue, Type_: variableType, Eval: api.EvalDetails{
 		Reason:  api.EvaluationReasonDefault,
 		Details: string(api.DefaultReasonError),
 	}}
+	variable := Variable{BaseVariable: baseVar, DefaultValue: convertedDefaultValue, IsDefaulted: true}
 
 	defer func() {
 		if r := recover(); r != nil {

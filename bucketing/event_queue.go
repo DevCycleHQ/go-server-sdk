@@ -83,9 +83,6 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 					metaData := make(map[string]interface{})
 					evalMetadata := make(map[string]int64)
 					if _type == api.EventType_AggVariableDefaulted {
-						if _, ok := evalMetadata[string(api.EvaluationReasonDefault)]; !ok {
-							evalMetadata[string(api.EvaluationReasonDefault)] = 1
-						}
 						evalMetadata[string(api.EvaluationReasonDefault)]++
 						metaData["eval"] = evalMetadata
 						metaData["_variation"] = api.EvaluationReasonDefault
@@ -116,7 +113,9 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 						metaData["eval"] = evalMetadata
 					}
 					event.MetaData = metaData
-					aggregateEvents = append(aggregateEvents, event)
+					if event.Value > 0 {
+						aggregateEvents = append(aggregateEvents, event)
+					}
 				}
 			}
 		}

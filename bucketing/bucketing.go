@@ -246,6 +246,10 @@ func GenerateBucketedConfig(sdkKey string, user api.PopulatedUser, clientCustomD
 					Key:   variable.Key,
 					Type_: variable.Type,
 					Value: variationVar.Value,
+					Eval: api.EvalDetails{
+						Reason:  api.EvaluationReasonTargetingMatch,
+						Details: "",
+					},
 				},
 				Id: variable.Id,
 			}
