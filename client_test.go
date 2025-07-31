@@ -193,12 +193,12 @@ func TestClient_VariableLocal(t *testing.T) {
 			Key:   "test",
 			Type_: "Boolean",
 			Value: true,
+			Eval: api.EvalDetails{
+				Reason: api.EvaluationReasonSplit,
+			},
 		},
 		DefaultValue: true,
 		IsDefaulted:  false,
-		Eval: api.EvalDetails{
-			Reason: api.EvaluationReasonSplit,
-		},
 	}
 
 	if !reflect.DeepEqual(expected, variable) {
@@ -246,12 +246,12 @@ func TestClient_VariableLocal_UserWithCustomData(t *testing.T) {
 			Key:   "test",
 			Type_: "Boolean",
 			Value: true,
+			Eval: api.EvalDetails{
+				Reason: api.EvaluationReasonSplit,
+			},
 		},
 		DefaultValue: true,
 		IsDefaulted:  false,
-		Eval: api.EvalDetails{
-			Reason: api.EvaluationReasonSplit,
-		},
 	}
 	if !reflect.DeepEqual(expected, variable) {
 		fmt.Println("got", variable)
