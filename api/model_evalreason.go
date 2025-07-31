@@ -12,7 +12,9 @@ const (
 	DefaultReasonUserNotInRollout            DefaultReason = "User Not in Rollout"
 	DefaultReasonUserNotTargeted             DefaultReason = "User Not Targeted"
 	DefaultReasonInvalidVariableType         DefaultReason = "Invalid Variable Type"
+	DefaultReasonVariableTypeMismatch        DefaultReason = "Variable Type Mismatch"
 	DefaultReasonUnknown                     DefaultReason = "Unknown"
+	DefaultReasonError                       DefaultReason = "Error"
 	DefaultReasonNotDefaulted                DefaultReason = ""
 )
 

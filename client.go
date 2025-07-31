@@ -289,7 +289,10 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 	}
 
 	baseVar := BaseVariable{Key: key, Value: convertedDefaultValue, Type_: variableType}
-	variable := Variable{BaseVariable: baseVar, DefaultValue: convertedDefaultValue, IsDefaulted: true}
+	variable := Variable{BaseVariable: baseVar, DefaultValue: convertedDefaultValue, IsDefaulted: true, Eval: api.EvalDetails{
+		Reason:  api.EvaluationReasonDefault,
+		Details: string(api.DefaultReasonError),
+	}}
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -361,7 +364,7 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 				variable.Eval.Details = string(api.DefaultReasonInvalidVariableType)
 			} else {
 				// default the variable to the default value
-				variable.Eval.Details = string(api.DefaultReasonMissingConfig)
+				variable.Eval.Details = bucketedVariable.Eval.Details
 				variable.Eval.Reason = api.EvaluationReasonDefault
 			}
 		}
@@ -399,7 +402,11 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 			if compareTypes(localVarReturnValue.Value, convertedDefaultValue) {
 				variable.Value = localVarReturnValue.Value
 				variable.IsDefaulted = false
+				variable.Eval.Reason = api.EvaluationReasonTargetingMatch
+				variable.Eval.Details = ""
 			} else {
+				variable.Eval.Reason = api.EvaluationReasonDefault
+				variable.Eval.Details = string(api.DefaultReasonVariableTypeMismatch)
 				util.Warnf("Type mismatch for variable %s. Expected type %s, got %s",
 					key,
 					reflect.TypeOf(defaultValue).String(),

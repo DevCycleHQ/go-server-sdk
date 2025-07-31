@@ -89,7 +89,6 @@ func (agg *AggregateEventQueue) BuildBatchRecords(platformData *api.PlatformData
 						evalMetadata[string(api.EvaluationReasonDefault)]++
 						metaData["eval"] = evalMetadata
 						metaData["_variation"] = api.EvaluationReasonDefault
-						metaData["defaultReason"] = api.EvaluationReasonDefault
 					} else {
 						metaData = map[string]interface{}{
 							"_variation": variation,
