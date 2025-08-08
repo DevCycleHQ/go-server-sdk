@@ -289,19 +289,6 @@ func getProviderForConfig(t *testing.T, cloudBucketing bool) DevCycleProvider {
 	return client.OpenFeatureProvider()
 }
 
-func getProviderForCustomConfig(t *testing.T, config string, cloudBucketing bool) DevCycleProvider {
-	t.Helper()
-	sdkKey := generateTestSDKKey()
-	httpCustomConfigMock(sdkKey, 200, config, false)
-
-	client, err := NewClient(sdkKey, &Options{
-		EnableCloudBucketing: cloudBucketing,
-	})
-	require.NoError(t, err)
-
-	return client.OpenFeatureProvider()
-}
-
 func TestOFBooleanEvaluation_Default(t *testing.T) {
 
 	provider := getProviderForConfig(t, false)

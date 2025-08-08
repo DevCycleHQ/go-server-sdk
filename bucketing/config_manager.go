@@ -75,9 +75,3 @@ func HasConfig(sdkKey string) bool {
 	_, ok := internalConfigs[sdkKey]
 	return ok
 }
-
-func clearConfigs() {
-	configMutex.Lock()
-	defer configMutex.Unlock()
-	internalConfigs = make(map[string]*configBody)
-}

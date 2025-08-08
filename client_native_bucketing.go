@@ -2,7 +2,6 @@ package devcycle
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/devcyclehq/go-server-sdk/v2/util"
@@ -31,7 +30,6 @@ func (c *Client) setLBClient(sdkKey string, options *Options) error {
 type NativeLocalBucketing struct {
 	sdkKey       string
 	options      *Options
-	configMutex  sync.RWMutex
 	platformData *api.PlatformData
 	eventQueue   *bucketing.EventQueue
 	clientUUID   string

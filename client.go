@@ -320,7 +320,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 			hookError = c.evalHookRunner.RunBeforeHooks(hooks, hookContext)
 		}
 
-		metadata := EvaluationMetadata{}
+		var metadata EvaluationMetadata
 		variable, metadata, err = c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, variable)
 
 		hookContext.VariableDetails = variable
