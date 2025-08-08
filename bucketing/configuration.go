@@ -10,4 +10,3 @@ type NativeBucketingConfiguration struct {
 	DisableCustomEventLogging    bool          `json:"disableCustomEventLogging"`
 }
 
-var configuration = NativeBucketingConfiguration{}

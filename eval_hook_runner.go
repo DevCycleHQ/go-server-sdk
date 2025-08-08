@@ -64,14 +64,14 @@ func (r *EvalHookRunner) RunBeforeHooks(hooks []*EvalHook, context *HookContext)
 }
 
 // RunAfterHooks runs all after hooks in reverse order
-func (r *EvalHookRunner) RunAfterHooks(hooks []*EvalHook, context *HookContext, variable api.Variable) error {
+func (r *EvalHookRunner) RunAfterHooks(hooks []*EvalHook, context *HookContext, variable api.Variable, metadata VariableMetadata) error {
 	if context == nil {
 		return nil
 	}
 	for i := len(hooks) - 1; i >= 0; i-- {
 		hook := hooks[i]
 		if hook.After != nil {
-			if err := hook.After(context, &variable); err != nil {
+			if err := hook.After(context, &variable, &metadata); err != nil {
 				util.Errorf("After hook %d failed: %v", i, err)
 				return &AfterHookError{HookIndex: i, Err: err}
 			}
@@ -81,14 +81,14 @@ func (r *EvalHookRunner) RunAfterHooks(hooks []*EvalHook, context *HookContext, 
 }
 
 // RunOnFinallyHooks runs all onFinally hooks in reverse order
-func (r *EvalHookRunner) RunOnFinallyHooks(hooks []*EvalHook, context *HookContext, variable api.Variable) {
+func (r *EvalHookRunner) RunOnFinallyHooks(hooks []*EvalHook, context *HookContext, variable api.Variable, metadata VariableMetadata) {
 	if context == nil {
 		return
 	}
 	for i := len(hooks) - 1; i >= 0; i-- {
 		hook := hooks[i]
 		if hook.OnFinally != nil {
-			if err := hook.OnFinally(context, &variable); err != nil {
+			if err := hook.OnFinally(context, &variable, &metadata); err != nil {
 				util.Errorf("OnFinally hook %d failed: %v", i, err)
 			}
 		}

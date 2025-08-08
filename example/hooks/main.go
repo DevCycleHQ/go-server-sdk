@@ -36,7 +36,7 @@ func main() {
 		return nil
 	}
 
-	afterHook := func(context *devcycle.HookContext, variable *api.Variable) error {
+	afterHook := func(context *devcycle.HookContext, variable *api.Variable, metadata *devcycle.VariableMetadata) error {
 		fmt.Printf("After hook: Variable '%s' evaluated to %v (defaulted: %t)\n",
 			context.Key, context.VariableDetails.Value, context.VariableDetails.IsDefaulted)
 
@@ -51,13 +51,13 @@ func main() {
 		return nil
 	}
 
-	onFinallyHook := func(context *devcycle.HookContext, variable *api.Variable) error {
+	onFinallyHook := func(context *devcycle.HookContext, variable *api.Variable, metadata *devcycle.VariableMetadata) error {
 		fmt.Printf("OnFinally hook: Completed evaluation of variable '%s'\n", context.Key)
 
 		if context.Metadata != (ConfigMetadata{}) {
 			fmt.Printf("  Evaluated in project: %s\n", context.Metadata.Project.Key)
 			fmt.Printf("  Evaluated in environment: %s\n", context.Metadata.Environment.Key)
-		} else {
+		} else { 
 			fmt.Printf("  Config metadata not available (config not loaded)\n")
 		}
 
