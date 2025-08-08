@@ -96,7 +96,7 @@ func (n *NativeLocalBucketing) SetClientCustomData(customData map[string]interfa
 	return nil
 }
 
-func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableType string) (Variable, error) {
+func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableType string) (Variable, EvaluationMetadata, error) {
 
 	defaultVar := Variable{
 		BaseVariable: api.BaseVariable{
@@ -113,12 +113,17 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 	}
 	clientCustomData := bucketing.GetClientCustomData(n.sdkKey)
 	populatedUser := user.GetPopulatedUserWithTime(n.platformData, DEFAULT_USER_TIME)
-	resultVariableType, resultValue, evalReason, evalDetails, err := bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
+	resultVariableType, resultValue, featureId, evalReason, evalDetails, err := bucketing.VariableForUser(n.sdkKey, populatedUser, variableKey, variableType, n.eventQueue, clientCustomData)
+	metadata := EvaluationMetadata{}
 
 	if err != nil {
 		defaultVar.Eval.Details = evalDetails
 		defaultVar.Eval.Reason = evalReason
-		return defaultVar, nil
+		return defaultVar, metadata, nil
+	}
+
+	if featureId != "" {
+		metadata.FeatureId = featureId
 	}
 
 	return Variable{
@@ -132,7 +137,7 @@ func (n *NativeLocalBucketing) Variable(user User, variableKey string, variableT
 			},
 		},
 		IsDefaulted: false,
-	}, nil
+	}, metadata, nil
 }
 
 func (n *NativeLocalBucketing) Close() {

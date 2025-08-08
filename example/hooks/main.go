@@ -57,7 +57,7 @@ func main() {
 		if context.Metadata != (ConfigMetadata{}) {
 			fmt.Printf("  Evaluated in project: %s\n", context.Metadata.Project.Key)
 			fmt.Printf("  Evaluated in environment: %s\n", context.Metadata.Environment.Key)
-		} else {
+		} else { 
 			fmt.Printf("  Config metadata not available (config not loaded)\n")
 		}
 

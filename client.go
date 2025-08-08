@@ -64,7 +64,7 @@ type LocalBucketing interface {
 	InternalEventQueue
 	GenerateBucketedConfigForUser(user User) (ret *BucketedUserConfig, err error)
 	SetClientCustomData(map[string]interface{}) error
-	Variable(user User, key string, variableType string) (variable Variable, err error)
+	Variable(user User, key string, variableType string) (variable Variable, metadata EvaluationMetadata, err error)
 	Close()
 }
 
@@ -320,7 +320,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 			hookError = c.evalHookRunner.RunBeforeHooks(hooks, hookContext)
 		}
 
-		variable, err = c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, variable)
+		variable, _, err = c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, variable)
 
 		hookContext.VariableDetails = variable
 		if hookError == nil {
@@ -335,16 +335,17 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 			c.evalHookRunner.RunErrorHooks(hooks, hookContext, err)
 		}
 	} else {
-		return c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, variable)
+		variable, _, err := c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, variable)
+		return variable, err
 	}
 
 	return variable, nil
 }
 
-func (c *Client) evaluateVariable(userdata User, key string, variableType string, defaultValue interface{}, convertedDefaultValue interface{}, variable Variable) (Variable, error) {
+func (c *Client) evaluateVariable(userdata User, key string, variableType string, defaultValue interface{}, convertedDefaultValue interface{}, variable Variable) (Variable, EvaluationMetadata, error) {
 	// Perform variable evaluation
 	if c.IsLocalBucketing() {
-		bucketedVariable, err := c.localBucketing.Variable(userdata, key, variableType)
+		bucketedVariable, metadata, err := c.localBucketing.Variable(userdata, key, variableType)
 
 		sameTypeAsDefault := compareTypes(bucketedVariable.Value, convertedDefaultValue)
 		// if we have a value from the bucketed config and its the same type as the default value or the default value is nil, we can use the value
@@ -369,7 +370,7 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 			}
 		}
 
-		return variable, err
+		return variable, metadata, err
 	}
 
 	populatedUser := userdata.GetPopulatedUser(c.platformData)
@@ -389,10 +390,11 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 
 	// userdata params
 	postBody = &populatedUser
+	metadata := EvaluationMetadata{}
 
 	r, body, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
 	if err != nil {
-		return variable, err
+		return variable, metadata, err
 	}
 
 	if r.StatusCode < 300 {
@@ -414,7 +416,7 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 				)
 			}
 
-			return variable, err
+			return variable, metadata, err
 		}
 	}
 
@@ -423,10 +425,10 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 	err = decode(&v, body, r.Header.Get("Content-Type"))
 	if err != nil {
 		util.Warnf("Error decoding response body %s", err)
-		return variable, nil
+		return variable, metadata, nil
 	}
 	util.Warnf(v.Message)
-	return variable, nil
+	return variable, metadata, nil
 }
 
 func (c *Client) AllVariables(user User) (map[string]ReadOnlyVariable, error) {
