@@ -3,7 +3,6 @@ name: Run Test Harness
 on:
   - pull_request
 
-
 jobs:
   harness-tests:
     name: Harness Tests
@@ -13,8 +12,5 @@ jobs:
       - uses: DevCycleHQ/test-harness@main
         with:
           sdks-to-test: '["go"]'
-          sdk-github-sha: ${{github.event.pull_request.head.sha}} 
-          sdk-capabilities: '["cloud","edgeDB","clientCustomData","defaultReason","etagReporting","lastModifiedHeader","sdkConfigEvent","clientUUID","v2Config", "evalReason", "cloudEvalReason", "eventsEvalReason", "baseEvalReason", "multithreading"]'
-
-
-
+          sdk-github-sha: ${{github.event.pull_request.head.sha}}
+          sdk-capabilities: '["cloud","edgeDB","clientCustomData","defaultReason","etagReporting","lastModifiedHeader","sdkConfigEvent","clientUUID","v2Config", "evalReason", "cloudEvalReason", "eventsEvalReason", "multithreading"]'

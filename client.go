@@ -320,15 +320,16 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 			hookError = c.evalHookRunner.RunBeforeHooks(hooks, hookContext)
 		}
 
-		variable, _, err = c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, variable)
+		metadata := EvaluationMetadata{}
+		variable, metadata, err = c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, variable)
 
 		hookContext.VariableDetails = variable
 		if hookError == nil {
-			hookError = c.evalHookRunner.RunAfterHooks(hooks, hookContext, variable)
+			hookError = c.evalHookRunner.RunAfterHooks(hooks, hookContext, variable, metadata)
 		}
 
 		// Always run onFinally hooks
-		c.evalHookRunner.RunOnFinallyHooks(hooks, hookContext, variable)
+		c.evalHookRunner.RunOnFinallyHooks(hooks, hookContext, variable, metadata)
 		if hookError != nil {
 			c.evalHookRunner.RunErrorHooks(hooks, hookContext, hookError)
 		} else if err != nil {

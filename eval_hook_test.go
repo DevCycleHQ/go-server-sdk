@@ -61,7 +61,7 @@ func TestEvalHookRunner(t *testing.T) {
 		runner := NewEvalHookRunner([]*EvalHook{hook1, hook2})
 		context := &HookContext{Key: "test-key"}
 
-		err := runner.RunAfterHooks([]*EvalHook{hook1, hook2}, context, api.Variable{})
+		err := runner.RunAfterHooks([]*EvalHook{hook1, hook2}, context, api.Variable{}, EvaluationMetadata{})
 		assert.NoError(t, err)
 	})
 
@@ -86,7 +86,7 @@ func TestEvalHookRunner(t *testing.T) {
 		runner := NewEvalHookRunner([]*EvalHook{hook})
 		context := &HookContext{Key: "test-key"}
 
-		err := runner.RunAfterHooks([]*EvalHook{hook}, context, variable)
+		err := runner.RunAfterHooks([]*EvalHook{hook}, context, variable, EvaluationMetadata{})
 		require.Error(t, err)
 
 		afterHookError, ok := err.(*AfterHookError)
@@ -108,7 +108,7 @@ func TestEvalHookRunner(t *testing.T) {
 		runner := NewEvalHookRunner([]*EvalHook{hook})
 		context := &HookContext{Key: "test-key"}
 
-		runner.RunOnFinallyHooks([]*EvalHook{hook}, context, api.Variable{})
+		runner.RunOnFinallyHooks([]*EvalHook{hook}, context, api.Variable{}, EvaluationMetadata{})
 		assert.True(t, called)
 	})
 
@@ -172,11 +172,11 @@ func TestEvalHookRunner(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Run after hooks (should be in reverse order: 3, 4)
-		err = runner.RunAfterHooks([]*EvalHook{hook1, hook2}, context, api.Variable{})
+		err = runner.RunAfterHooks([]*EvalHook{hook1, hook2}, context, api.Variable{}, EvaluationMetadata{})
 		assert.NoError(t, err)
 
 		// Run onFinally hooks (should be in reverse order: 5, 6)
-		runner.RunOnFinallyHooks([]*EvalHook{hook1, hook2}, context, api.Variable{})
+		runner.RunOnFinallyHooks([]*EvalHook{hook1, hook2}, context, api.Variable{}, EvaluationMetadata{})
 
 		// Verify execution order: before hooks in order, after/onFinally hooks in reverse order
 		expectedOrder := []int{1, 2, 3, 4, 5, 6}
