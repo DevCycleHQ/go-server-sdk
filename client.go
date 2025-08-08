@@ -64,7 +64,7 @@ type LocalBucketing interface {
 	InternalEventQueue
 	GenerateBucketedConfigForUser(user User) (ret *BucketedUserConfig, err error)
 	SetClientCustomData(map[string]interface{}) error
-	Variable(user User, key string, variableType string) (variable Variable, metadata EvaluationMetadata, err error)
+	Variable(user User, key string, variableType string) (variable Variable, metadata VariableMetadata, err error)
 	Close()
 }
 
@@ -320,7 +320,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 			hookError = c.evalHookRunner.RunBeforeHooks(hooks, hookContext)
 		}
 
-		var metadata EvaluationMetadata
+		var metadata VariableMetadata
 		variable, metadata, err = c.evaluateVariable(userdata, key, variableType, defaultValue, convertedDefaultValue, variable)
 
 		hookContext.VariableDetails = variable
@@ -343,7 +343,7 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 	return variable, nil
 }
 
-func (c *Client) evaluateVariable(userdata User, key string, variableType string, defaultValue interface{}, convertedDefaultValue interface{}, variable Variable) (Variable, EvaluationMetadata, error) {
+func (c *Client) evaluateVariable(userdata User, key string, variableType string, defaultValue interface{}, convertedDefaultValue interface{}, variable Variable) (Variable, VariableMetadata, error) {
 	// Perform variable evaluation
 	if c.IsLocalBucketing() {
 		bucketedVariable, metadata, err := c.localBucketing.Variable(userdata, key, variableType)
@@ -391,7 +391,7 @@ func (c *Client) evaluateVariable(userdata User, key string, variableType string
 
 	// userdata params
 	postBody = &populatedUser
-	metadata := EvaluationMetadata{}
+	metadata := VariableMetadata{}
 
 	r, body, err := c.performRequest(path, httpMethod, postBody, headers, queryParams)
 	if err != nil {

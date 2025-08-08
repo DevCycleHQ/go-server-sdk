@@ -144,12 +144,12 @@ func TestConfigMetadata_AvailableInAllHooks(t *testing.T) {
 		return nil
 	}
 
-	afterHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+	afterHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 		afterMetadata = context.Metadata
 		return nil
 	}
 
-	finallyHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+	finallyHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 		finallyMetadata = context.Metadata
 		return nil
 	}
@@ -235,11 +235,11 @@ func TestConfigMetadata_AvailableInErrorHook(t *testing.T) {
 		return &BeforeHookError{HookIndex: 0, Err: fmt.Errorf("simulated before hook error")}
 	}
 
-	afterHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+	afterHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 		return nil
 	}
 
-	finallyHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+	finallyHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 		return nil
 	}
 

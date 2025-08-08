@@ -64,7 +64,7 @@ func (r *EvalHookRunner) RunBeforeHooks(hooks []*EvalHook, context *HookContext)
 }
 
 // RunAfterHooks runs all after hooks in reverse order
-func (r *EvalHookRunner) RunAfterHooks(hooks []*EvalHook, context *HookContext, variable api.Variable, metadata EvaluationMetadata) error {
+func (r *EvalHookRunner) RunAfterHooks(hooks []*EvalHook, context *HookContext, variable api.Variable, metadata VariableMetadata) error {
 	if context == nil {
 		return nil
 	}
@@ -81,7 +81,7 @@ func (r *EvalHookRunner) RunAfterHooks(hooks []*EvalHook, context *HookContext, 
 }
 
 // RunOnFinallyHooks runs all onFinally hooks in reverse order
-func (r *EvalHookRunner) RunOnFinallyHooks(hooks []*EvalHook, context *HookContext, variable api.Variable, metadata EvaluationMetadata) {
+func (r *EvalHookRunner) RunOnFinallyHooks(hooks []*EvalHook, context *HookContext, variable api.Variable, metadata VariableMetadata) {
 	if context == nil {
 		return
 	}

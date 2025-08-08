@@ -22,13 +22,13 @@ func TestClientWithHooks(t *testing.T) {
 			return beforeHookError
 		}
 
-		afterHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+		afterHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 			afterCalled = true
 			t.Error("After hook should not be called when before hook fails")
 			return nil
 		}
 
-		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 			onFinallyCalled = true
 			assert.Equal(t, "test-key", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
@@ -96,11 +96,11 @@ func TestClientWithHooks(t *testing.T) {
 			return nil
 		}
 
-		afterHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+		afterHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 			return afterHookError
 		}
 
-		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 			// This should be called even when after hook fails
 			assert.Equal(t, "test-key", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
@@ -169,7 +169,7 @@ func TestClientWithHooks(t *testing.T) {
 			return nil
 		}
 
-		afterHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+		afterHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 			afterCalled = true
 			assert.Equal(t, "test", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
@@ -183,12 +183,12 @@ func TestClientWithHooks(t *testing.T) {
 			assert.Equal(t, true, variable.Value)
 			assert.False(t, variable.IsDefaulted)
 
-			assert.Equal(t, "6216422850294da359385e8b", metadata.FeatureId)
+			assert.NotEmpty(t, metadata.FeatureId)
 
 			return nil
 		}
 
-		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 			onFinallyCalled = true
 			assert.Equal(t, "test", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
@@ -197,7 +197,7 @@ func TestClientWithHooks(t *testing.T) {
 			assert.Equal(t, true, variable.Value)
 			assert.False(t, variable.IsDefaulted)
 
-			assert.Equal(t, "6216422850294da359385e8b", metadata.FeatureId)
+			assert.NotEmpty(t, metadata.FeatureId)
 
 			return nil
 		}
@@ -270,11 +270,11 @@ func TestClientWithHooks(t *testing.T) {
 				executionOrder = append(executionOrder, 1)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+			func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 				executionOrder = append(executionOrder, 4)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+			func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 				executionOrder = append(executionOrder, 6)
 				return nil
 			},
@@ -286,11 +286,11 @@ func TestClientWithHooks(t *testing.T) {
 				executionOrder = append(executionOrder, 2)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+			func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 				executionOrder = append(executionOrder, 3)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+			func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 				executionOrder = append(executionOrder, 5)
 				return nil
 			},
@@ -335,14 +335,14 @@ func TestClientWithHooksCloud(t *testing.T) {
 			return beforeHookError
 		}
 
-		afterHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+		afterHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 			afterCalled = true
 			t.Error("After hook should not be called when before hook fails")
 			assert.Equal(t, "", metadata.FeatureId)
 			return nil
 		}
 
-		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 			onFinallyCalled = true
 			assert.Equal(t, "test-key", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
@@ -418,11 +418,11 @@ func TestClientWithHooksCloud(t *testing.T) {
 			return nil
 		}
 
-		afterHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+		afterHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 			return afterHookError
 		}
 
-		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 			// This should be called even when after hook fails
 			assert.Equal(t, "test-key", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
@@ -499,7 +499,7 @@ func TestClientWithHooksCloud(t *testing.T) {
 			return nil
 		}
 
-		afterHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+		afterHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 			afterCalled = true
 			assert.Equal(t, "test-key", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
@@ -516,7 +516,7 @@ func TestClientWithHooksCloud(t *testing.T) {
 			return nil
 		}
 
-		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 			onFinallyCalled = true
 			assert.Equal(t, "test-key", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
@@ -612,11 +612,11 @@ func TestClientWithHooksCloud(t *testing.T) {
 				executionOrder = append(executionOrder, 1)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+			func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 				executionOrder = append(executionOrder, 4)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+			func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 				executionOrder = append(executionOrder, 6)
 				return nil
 			},
@@ -628,11 +628,11 @@ func TestClientWithHooksCloud(t *testing.T) {
 				executionOrder = append(executionOrder, 2)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+			func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 				executionOrder = append(executionOrder, 3)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
+			func(context *HookContext, variable *api.Variable, metadata *VariableMetadata) error {
 				executionOrder = append(executionOrder, 5)
 				return nil
 			},

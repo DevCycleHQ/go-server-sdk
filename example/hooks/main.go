@@ -36,7 +36,7 @@ func main() {
 		return nil
 	}
 
-	afterHook := func(context *devcycle.HookContext, variable *api.Variable, metadata *devcycle.EvaluationMetadata) error {
+	afterHook := func(context *devcycle.HookContext, variable *api.Variable, metadata *devcycle.VariableMetadata) error {
 		fmt.Printf("After hook: Variable '%s' evaluated to %v (defaulted: %t)\n",
 			context.Key, context.VariableDetails.Value, context.VariableDetails.IsDefaulted)
 
@@ -51,7 +51,7 @@ func main() {
 		return nil
 	}
 
-	onFinallyHook := func(context *devcycle.HookContext, variable *api.Variable, metadata *devcycle.EvaluationMetadata) error {
+	onFinallyHook := func(context *devcycle.HookContext, variable *api.Variable, metadata *devcycle.VariableMetadata) error {
 		fmt.Printf("OnFinally hook: Completed evaluation of variable '%s'\n", context.Key)
 
 		if context.Metadata != (ConfigMetadata{}) {

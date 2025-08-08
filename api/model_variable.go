@@ -26,6 +26,10 @@ type Variable struct {
 	IsDefaulted  bool        `json:"isDefaulted"`
 }
 
+type VariableMetadata struct {
+	FeatureId string `json:"featureId,omitempty"`
+}
+
 type EvalDetails struct {
 	Reason   EvaluationReason `json:"reason"`
 	Details  string           `json:"details"`

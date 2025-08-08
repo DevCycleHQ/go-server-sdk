@@ -11,6 +11,7 @@ type ErrorResponse = api.ErrorResponse
 type BucketedUserConfig = api.BucketedUserConfig
 type BaseVariable = api.BaseVariable
 type Variable = api.Variable
+type VariableMetadata = api.VariableMetadata
 type ReadOnlyVariable = api.ReadOnlyVariable
 type User = api.User
 type UserDataAndEventsBody = api.UserDataAndEventsBody
