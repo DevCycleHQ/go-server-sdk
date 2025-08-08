@@ -22,13 +22,13 @@ func TestClientWithHooks(t *testing.T) {
 			return beforeHookError
 		}
 
-		afterHook := func(context *HookContext, variable *api.Variable) error {
+		afterHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 			afterCalled = true
 			t.Error("After hook should not be called when before hook fails")
 			return nil
 		}
 
-		onFinallyHook := func(context *HookContext, variable *api.Variable) error {
+		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 			onFinallyCalled = true
 			assert.Equal(t, "test-key", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
@@ -96,11 +96,11 @@ func TestClientWithHooks(t *testing.T) {
 			return nil
 		}
 
-		afterHook := func(context *HookContext, variable *api.Variable) error {
+		afterHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 			return afterHookError
 		}
 
-		onFinallyHook := func(context *HookContext, variable *api.Variable) error {
+		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 			// This should be called even when after hook fails
 			assert.Equal(t, "test-key", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
@@ -163,36 +163,42 @@ func TestClientWithHooks(t *testing.T) {
 
 		beforeHook := func(context *HookContext) error {
 			beforeCalled = true
-			assert.Equal(t, "test-key", context.Key)
+			assert.Equal(t, "test", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
-			assert.Equal(t, "default", context.DefaultValue)
+			assert.Equal(t, false, context.DefaultValue)
 			return nil
 		}
 
-		afterHook := func(context *HookContext, variable *api.Variable) error {
+		afterHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 			afterCalled = true
-			assert.Equal(t, "test-key", context.Key)
+			assert.Equal(t, "test", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
-			assert.Equal(t, "default", context.DefaultValue)
+			assert.Equal(t, false, context.DefaultValue)
 			// VariableDetails should be updated with the result
-			assert.Equal(t, "test-key", context.VariableDetails.Key)
-			assert.Equal(t, "default", context.VariableDetails.Value)
-			assert.True(t, context.VariableDetails.IsDefaulted)
+			assert.Equal(t, "test", context.VariableDetails.Key)
+			assert.Equal(t, true, context.VariableDetails.Value)
+			assert.False(t, context.VariableDetails.IsDefaulted)
 
-			assert.Equal(t, "test-key", variable.Key)
-			assert.Equal(t, "default", variable.Value)
-			assert.True(t, variable.IsDefaulted)
+			assert.Equal(t, "test", variable.Key)
+			assert.Equal(t, true, variable.Value)
+			assert.False(t, variable.IsDefaulted)
+
+			assert.Equal(t, "6216422850294da359385e8b", metadata.FeatureId)
+
 			return nil
 		}
 
-		onFinallyHook := func(context *HookContext, variable *api.Variable) error {
+		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 			onFinallyCalled = true
-			assert.Equal(t, "test-key", context.Key)
+			assert.Equal(t, "test", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
-			assert.Equal(t, "default", context.DefaultValue)
-			assert.Equal(t, "test-key", variable.Key)
-			assert.Equal(t, "default", variable.Value)
-			assert.True(t, variable.IsDefaulted)
+			assert.Equal(t, false, context.DefaultValue)
+			assert.Equal(t, "test", variable.Key)
+			assert.Equal(t, true, variable.Value)
+			assert.False(t, variable.IsDefaulted)
+
+			assert.Equal(t, "6216422850294da359385e8b", metadata.FeatureId)
+
 			return nil
 		}
 
@@ -212,18 +218,19 @@ func TestClientWithHooks(t *testing.T) {
 		}
 
 		client, err := NewClient(sdkKey, options)
+
 		require.NoError(t, err)
 
 		// Wait for client to initialize
 		time.Sleep(100 * time.Millisecond)
 
 		user := User{UserId: "test-user"}
-		variable, err := client.Variable(user, "test-key", "default")
+		variable, err := client.Variable(user, "test", false)
 
 		// Should return the variable result
-		assert.Equal(t, "test-key", variable.Key)
-		assert.Equal(t, "default", variable.Value)
-		assert.True(t, variable.IsDefaulted)
+		assert.Equal(t, "test", variable.Key)
+		assert.Equal(t, true, variable.Value)
+		assert.False(t, variable.IsDefaulted)
 		assert.NoError(t, err)
 
 		// All hooks should be called
@@ -263,11 +270,11 @@ func TestClientWithHooks(t *testing.T) {
 				executionOrder = append(executionOrder, 1)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable) error {
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 				executionOrder = append(executionOrder, 4)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable) error {
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 				executionOrder = append(executionOrder, 6)
 				return nil
 			},
@@ -279,11 +286,11 @@ func TestClientWithHooks(t *testing.T) {
 				executionOrder = append(executionOrder, 2)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable) error {
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 				executionOrder = append(executionOrder, 3)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable) error {
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 				executionOrder = append(executionOrder, 5)
 				return nil
 			},
@@ -328,13 +335,14 @@ func TestClientWithHooksCloud(t *testing.T) {
 			return beforeHookError
 		}
 
-		afterHook := func(context *HookContext, variable *api.Variable) error {
+		afterHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 			afterCalled = true
 			t.Error("After hook should not be called when before hook fails")
+			assert.Equal(t, "", metadata.FeatureId)
 			return nil
 		}
 
-		onFinallyHook := func(context *HookContext, variable *api.Variable) error {
+		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 			onFinallyCalled = true
 			assert.Equal(t, "test-key", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
@@ -342,6 +350,7 @@ func TestClientWithHooksCloud(t *testing.T) {
 			assert.Equal(t, "test-key", variable.Key)
 			assert.Equal(t, "default", variable.Value)
 			assert.True(t, variable.IsDefaulted)
+			assert.Equal(t, "", metadata.FeatureId)
 			// This should be called even when before hook fails
 			return nil
 		}
@@ -409,11 +418,11 @@ func TestClientWithHooksCloud(t *testing.T) {
 			return nil
 		}
 
-		afterHook := func(context *HookContext, variable *api.Variable) error {
+		afterHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 			return afterHookError
 		}
 
-		onFinallyHook := func(context *HookContext, variable *api.Variable) error {
+		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 			// This should be called even when after hook fails
 			assert.Equal(t, "test-key", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
@@ -421,6 +430,7 @@ func TestClientWithHooksCloud(t *testing.T) {
 			assert.Equal(t, "test-key", variable.Key)
 			assert.Equal(t, "default", variable.Value)
 			assert.True(t, variable.IsDefaulted)
+			assert.Equal(t, "", metadata.FeatureId)
 			onFinallyCalled = true
 			return nil
 		}
@@ -489,7 +499,7 @@ func TestClientWithHooksCloud(t *testing.T) {
 			return nil
 		}
 
-		afterHook := func(context *HookContext, variable *api.Variable) error {
+		afterHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 			afterCalled = true
 			assert.Equal(t, "test-key", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
@@ -502,10 +512,11 @@ func TestClientWithHooksCloud(t *testing.T) {
 			assert.Equal(t, "test-key", variable.Key)
 			assert.Equal(t, "newValue", variable.Value)
 			assert.False(t, variable.IsDefaulted)
+			assert.Equal(t, "", metadata.FeatureId)
 			return nil
 		}
 
-		onFinallyHook := func(context *HookContext, variable *api.Variable) error {
+		onFinallyHook := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 			onFinallyCalled = true
 			assert.Equal(t, "test-key", context.Key)
 			assert.Equal(t, "test-user", context.User.UserId)
@@ -513,6 +524,7 @@ func TestClientWithHooksCloud(t *testing.T) {
 			assert.Equal(t, "test-key", variable.Key)
 			assert.Equal(t, "newValue", variable.Value)
 			assert.False(t, variable.IsDefaulted)
+			assert.Equal(t, "", metadata.FeatureId)
 			return nil
 		}
 
@@ -600,11 +612,11 @@ func TestClientWithHooksCloud(t *testing.T) {
 				executionOrder = append(executionOrder, 1)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable) error {
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 				executionOrder = append(executionOrder, 4)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable) error {
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 				executionOrder = append(executionOrder, 6)
 				return nil
 			},
@@ -616,11 +628,11 @@ func TestClientWithHooksCloud(t *testing.T) {
 				executionOrder = append(executionOrder, 2)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable) error {
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 				executionOrder = append(executionOrder, 3)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable) error {
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 				executionOrder = append(executionOrder, 5)
 				return nil
 			},

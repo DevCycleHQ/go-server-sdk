@@ -49,12 +49,12 @@ func TestEvalHookRunner(t *testing.T) {
 	t.Run("RunAfterHooks - success", func(t *testing.T) {
 		hook1 := NewEvalHook(
 			nil,
-			func(context *HookContext, variable *api.Variable) error { return nil },
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error { return nil },
 			nil, nil,
 		)
 		hook2 := NewEvalHook(
 			nil,
-			func(context *HookContext, variable *api.Variable) error { return nil },
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error { return nil },
 			nil, nil,
 		)
 
@@ -69,7 +69,7 @@ func TestEvalHookRunner(t *testing.T) {
 		expectedError := errors.New("after hook error")
 		hook := NewEvalHook(
 			nil,
-			func(context *HookContext, variable *api.Variable) error { return expectedError },
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error { return expectedError },
 			nil, nil,
 		)
 
@@ -99,7 +99,7 @@ func TestEvalHookRunner(t *testing.T) {
 		called := false
 		hook := NewEvalHook(
 			nil, nil,
-			func(context *HookContext, variable *api.Variable) error {
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 				called = true
 				return nil
 			}, nil,
@@ -137,11 +137,11 @@ func TestEvalHookRunner(t *testing.T) {
 				executionOrder = append(executionOrder, 1)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable) error {
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 				executionOrder = append(executionOrder, 4)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable) error {
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 				executionOrder = append(executionOrder, 6)
 				return nil
 			},
@@ -153,11 +153,11 @@ func TestEvalHookRunner(t *testing.T) {
 				executionOrder = append(executionOrder, 2)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable) error {
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 				executionOrder = append(executionOrder, 3)
 				return nil
 			},
-			func(context *HookContext, variable *api.Variable) error {
+			func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 				executionOrder = append(executionOrder, 5)
 				return nil
 			},
@@ -218,11 +218,11 @@ func TestNewEvalHook(t *testing.T) {
 		beforeCalled = true
 		return nil
 	}
-	after := func(context *HookContext, variable *api.Variable) error {
+	after := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 		afterCalled = true
 		return nil
 	}
-	onFinally := func(context *HookContext, variable *api.Variable) error {
+	onFinally := func(context *HookContext, variable *api.Variable, metadata *EvaluationMetadata) error {
 		onFinallyCalled = true
 		return nil
 	}
@@ -247,11 +247,11 @@ func TestNewEvalHook(t *testing.T) {
 	assert.True(t, beforeCalled)
 
 	// Test that the after hook works
-	err = hook.After(context, &api.Variable{})
+	err = hook.After(context, &api.Variable{}, &EvaluationMetadata{})
 	assert.NoError(t, err)
 	assert.True(t, afterCalled)
 
-	err = hook.OnFinally(context, &api.Variable{})
+	err = hook.OnFinally(context, &api.Variable{}, &EvaluationMetadata{})
 	assert.NoError(t, err)
 	assert.True(t, onFinallyCalled)
 

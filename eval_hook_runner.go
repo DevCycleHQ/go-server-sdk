@@ -71,7 +71,7 @@ func (r *EvalHookRunner) RunAfterHooks(hooks []*EvalHook, context *HookContext, 
 	for i := len(hooks) - 1; i >= 0; i-- {
 		hook := hooks[i]
 		if hook.After != nil {
-			if err := hook.After(context, &variable); err != nil {
+			if err := hook.After(context, &variable, &metadata); err != nil {
 				util.Errorf("After hook %d failed: %v", i, err)
 				return &AfterHookError{HookIndex: i, Err: err}
 			}
@@ -88,7 +88,7 @@ func (r *EvalHookRunner) RunOnFinallyHooks(hooks []*EvalHook, context *HookConte
 	for i := len(hooks) - 1; i >= 0; i-- {
 		hook := hooks[i]
 		if hook.OnFinally != nil {
-			if err := hook.OnFinally(context, &variable); err != nil {
+			if err := hook.OnFinally(context, &variable, &metadata); err != nil {
 				util.Errorf("OnFinally hook %d failed: %v", i, err)
 			}
 		}
