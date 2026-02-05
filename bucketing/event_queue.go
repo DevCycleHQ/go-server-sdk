@@ -178,40 +178,6 @@ func NewEventQueue(sdkKey string, options *api.EventQueueOptions, platformData *
 	return eq, nil
 }
 
-func (eq *EventQueue) MergeAggEventQueueKeys(config *configBody) {
-	eq.queueAccess.Lock()
-	defer eq.queueAccess.Unlock()
-
-	if eq.aggEventQueue == nil {
-		eq.aggEventQueue = make(AggregateEventQueue)
-	}
-	for _, target := range []string{api.EventType_AggVariableEvaluated, api.EventType_VariableEvaluated} {
-		if _, ok := eq.aggEventQueue[target]; !ok {
-			eq.aggEventQueue[target] = make(VariableAggMap, len(config.Variables))
-		}
-		for _, variable := range config.Variables {
-			if _, ok := eq.aggEventQueue[target][variable.Key]; !ok {
-				eq.aggEventQueue[target][variable.Key] = make(FeatureAggMap, len(config.Features))
-			}
-			for _, feature := range config.Features {
-				if _, ok := eq.aggEventQueue[target][variable.Key][feature.Key]; !ok {
-					eq.aggEventQueue[target][variable.Key][feature.Key] = make(VariationAggMap, len(feature.Variations))
-				}
-				for _, variation := range feature.Variations {
-					if _, ok := eq.aggEventQueue[target][variable.Key][feature.Key][variation.Key]; !ok {
-						eq.aggEventQueue[target][variable.Key][feature.Key][variation.Key] = make(EvalReasonAggMap)
-					}
-					for _, reason := range allEvalReasons {
-						if _, ok := eq.aggEventQueue[target][variable.Key][feature.Key][variation.Key][reason]; !ok {
-							eq.aggEventQueue[target][variable.Key][feature.Key][variation.Key][reason] = 0
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
 func (eq *EventQueue) queueAggregateEventInternal(variableKey, featureId, variationId, eventType string, evalReason api.EvaluationReason) error {
 	if eq.options != nil && eq.options.IsEventLoggingDisabled(eventType) {
 		return nil
