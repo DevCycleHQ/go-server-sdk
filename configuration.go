@@ -73,11 +73,15 @@ func (o *Options) CheckDefaults() {
 		o.BucketingAPIURI = "https://bucketing-api.devcycle.com"
 	}
 
-	if o.EventFlushIntervalMS < time.Millisecond*500 || o.EventFlushIntervalMS > time.Minute*1 {
+	if o.EventFlushIntervalMS == 0 {
+		o.EventFlushIntervalMS = time.Second * 30
+	} else if o.EventFlushIntervalMS < time.Millisecond*500 || o.EventFlushIntervalMS > time.Minute*1 {
 		util.Warnf("EventFlushIntervalMS cannot be less than 500ms or longer than 1 minute. Defaulting to 30 seconds.")
 		o.EventFlushIntervalMS = time.Second * 30
 	}
-	if o.ConfigPollingIntervalMS < time.Second*1 {
+	if o.ConfigPollingIntervalMS == 0 {
+		o.ConfigPollingIntervalMS = time.Second * 10
+	} else if o.ConfigPollingIntervalMS < time.Second*1 {
 		util.Warnf("ConfigPollingIntervalMS cannot be less than 1 second. Defaulting to 10 seconds.")
 		o.ConfigPollingIntervalMS = time.Second * 10
 	}
