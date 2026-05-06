@@ -75,19 +75,19 @@ func (o *Options) CheckDefaults() {
 
 	if o.EventFlushIntervalMS == 0 {
 		o.EventFlushIntervalMS = time.Second * 30
-	} else if o.EventFlushIntervalMS < time.Millisecond*500 || o.EventFlushIntervalMS > time.Minute*1 {
+	} else if o.EventFlushIntervalMS < time.Millisecond*500 || o.EventFlushIntervalMS > time.Minute {
 		util.Warnf("EventFlushIntervalMS cannot be less than 500ms or longer than 1 minute. Defaulting to 30 seconds.")
 		o.EventFlushIntervalMS = time.Second * 30
 	}
 	if o.ConfigPollingIntervalMS == 0 {
 		o.ConfigPollingIntervalMS = time.Second * 10
-	} else if o.ConfigPollingIntervalMS < time.Second*1 {
+	} else if o.ConfigPollingIntervalMS < time.Second {
 		util.Warnf("ConfigPollingIntervalMS cannot be less than 1 second. Defaulting to 10 seconds.")
 		o.ConfigPollingIntervalMS = time.Second * 10
 	}
 
-	if o.AdvancedOptions.OverrideMaxSSEPolling != 0 && o.AdvancedOptions.OverrideMaxSSEPolling < time.Second*1 {
-		o.AdvancedOptions.OverrideMaxSSEPolling = time.Second * 1
+	if o.AdvancedOptions.OverrideMaxSSEPolling != 0 && o.AdvancedOptions.OverrideMaxSSEPolling < time.Second {
+		o.AdvancedOptions.OverrideMaxSSEPolling = time.Second
 	}
 
 	if o.RequestTimeout <= time.Second*5 {
