@@ -9,7 +9,7 @@ import (
 
 var (
 	globalLogger Logger = defaultLogger{}
-	globalLock   sync.RWMutex
+	globalLock   sync.Mutex
 )
 
 func SetLogger(log Logger) {
@@ -82,36 +82,21 @@ func (DiscardLogger) Errorf(_ string, _ ...any) error {
 }
 
 func Printf(format string, a ...any) {
-	globalLock.RLock()
-	l := globalLogger
-	globalLock.RUnlock()
-	l.Printf(format, a...)
+	globalLogger.Printf(format, a...)
 }
 
 func Infof(format string, a ...any) {
-	globalLock.RLock()
-	l := globalLogger
-	globalLock.RUnlock()
-	l.Infof(format, a...)
+	globalLogger.Infof(format, a...)
 }
 
 func Debugf(format string, a ...any) {
-	globalLock.RLock()
-	l := globalLogger
-	globalLock.RUnlock()
-	l.Debugf(format, a...)
+	globalLogger.Debugf(format, a...)
 }
 
 func Warnf(format string, a ...any) {
-	globalLock.RLock()
-	l := globalLogger
-	globalLock.RUnlock()
-	l.Warnf(format, a...)
+	globalLogger.Warnf(format, a...)
 }
 
 func Errorf(format string, a ...any) {
-	globalLock.RLock()
-	l := globalLogger
-	globalLock.RUnlock()
-	_ = l.Errorf(format, a...)
+	_ = globalLogger.Errorf(format, a...)
 }
