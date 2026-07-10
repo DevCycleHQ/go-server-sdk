@@ -47,7 +47,7 @@ func TestConfigMetadata_ExtractionAndStorage(t *testing.T) {
 
 	client, err := NewClient(sdkKey, options)
 	require.NoError(t, err)
-	defer client.Close()
+	defer client.Close() //nolint:errcheck
 
 	// Wait for config to load
 	time.Sleep(time.Millisecond * 500)
@@ -99,7 +99,7 @@ func TestConfigMetadata_CloudSDKReturnsNil(t *testing.T) {
 
 	client, err := NewClient(sdkKey, options)
 	require.NoError(t, err)
-	defer client.Close()
+	defer client.Close() //nolint:errcheck
 
 	// Test that metadata returns error for cloud SDK
 	_, err = client.GetMetadata()
@@ -170,7 +170,7 @@ func TestConfigMetadata_AvailableInAllHooks(t *testing.T) {
 
 	client, err := NewClient(sdkKey, options)
 	require.NoError(t, err)
-	defer client.Close()
+	defer client.Close() //nolint:errcheck
 
 	// Wait for config to load
 	time.Sleep(time.Millisecond * 500)
@@ -261,7 +261,7 @@ func TestConfigMetadata_AvailableInErrorHook(t *testing.T) {
 
 	client, err := NewClient(sdkKey, options)
 	require.NoError(t, err)
-	defer client.Close()
+	defer client.Close() //nolint:errcheck
 
 	// Wait for config to load
 	time.Sleep(time.Millisecond * 500)
@@ -302,7 +302,7 @@ func TestConfigMetadata_NullSafetyDuringInitialization(t *testing.T) {
 
 	client, err := NewClient(sdkKey, options)
 	require.NoError(t, err)
-	defer client.Close()
+	defer client.Close() //nolint:errcheck
 
 	// Wait a bit for the failed config load attempt
 	time.Sleep(time.Millisecond * 100)

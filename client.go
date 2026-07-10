@@ -661,7 +661,7 @@ func (c *Client) performRequest(
 
 		httpResponse, err = c.callAPI(r)
 		if httpResponse == nil && err == nil {
-			err = errors.New("Nil httpResponse")
+			err = errors.New("nil httpResponse")
 		}
 		if err != nil {
 			time.Sleep(time.Duration(exponentialBackoff(attempt)) * time.Millisecond) // wait with exponential backoff
