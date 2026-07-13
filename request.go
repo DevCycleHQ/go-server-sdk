@@ -53,7 +53,7 @@ func setBody(body interface{}, contentType string) (bodyBuf *bytes.Buffer, err e
 	}
 
 	if bodyBuf.Len() == 0 {
-		err = fmt.Errorf("invalid body type %s\n", contentType)
+		err = fmt.Errorf("invalid body type %s", contentType)
 		return nil, err
 	}
 	return bodyBuf, nil
@@ -65,7 +65,7 @@ func detectContentType(body interface{}) string {
 	kind := reflect.TypeOf(body).Kind()
 
 	switch kind {
-	case reflect.Struct, reflect.Map, reflect.Ptr:
+	case reflect.Struct, reflect.Map, reflect.Pointer:
 		contentType = "application/json; charset=utf-8"
 	case reflect.String:
 		contentType = "text/plain; charset=utf-8"

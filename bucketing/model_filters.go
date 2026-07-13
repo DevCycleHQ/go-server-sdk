@@ -165,7 +165,7 @@ func (u *UserFilter) compileValues() error {
 			if val, ok := value.(bool); ok {
 				boolValues = append(boolValues, val)
 			} else {
-				return fmt.Errorf("filter values must be all of the same type. Expected: bool, got: %T %#v\n", value, value)
+				return fmt.Errorf("filter values must be all of the same type. Expected: bool, got: %T %#v", value, value)
 			}
 		}
 		u.CompiledBoolVals = boolValues
@@ -175,7 +175,7 @@ func (u *UserFilter) compileValues() error {
 			if val, ok := value.(string); ok {
 				stringValues = append(stringValues, val)
 			} else {
-				return fmt.Errorf("filter values must be all of the same type. Expected: string, got: %T %#v\n", value, value)
+				return fmt.Errorf("filter values must be all of the same type. Expected: string, got: %T %#v", value, value)
 			}
 		}
 		u.CompiledStringVals = stringValues
@@ -185,12 +185,12 @@ func (u *UserFilter) compileValues() error {
 			if val, ok := value.(float64); ok {
 				numValues = append(numValues, val)
 			} else {
-				return fmt.Errorf("filter values must be all of the same type. Expected: number, got: %T %#v\n", value, value)
+				return fmt.Errorf("filter values must be all of the same type. Expected: number, got: %T %#v", value, value)
 			}
 		}
 		u.CompiledNumVals = numValues
 	default:
-		return fmt.Errorf("filter values must be of type bool, string, or float64. Got: %T %#v\n", firstValue, firstValue)
+		return fmt.Errorf("filter values must be of type bool, string, or float64. Got: %T %#v", firstValue, firstValue)
 	}
 
 	return nil

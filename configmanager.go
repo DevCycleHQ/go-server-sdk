@@ -318,11 +318,7 @@ func (e *EnvironmentConfigManager) fetchConfig(numRetriesRemaining int, minimumL
 		// Infinitely retry 500s
 		util.Warnf("Config fetch failed. Status:" + resp.Status)
 	default:
-		err = fmt.Errorf("unexpected response code: %d\n"+
-			"Body: %s\n"+
-			"URL: %s\n"+
-			"Headers: %s\n"+
-			"Could not download configuration. Using cached version if available %s\n",
+		err = fmt.Errorf("unexpected response code: %d\nBody: %s\nURL: %s\nHeaders: %s\nCould not download configuration. Using cached version if available %s",
 			resp.StatusCode, resp.Body, e.getConfigURL(), resp.Header, resp.Header.Get("ETag"))
 	}
 

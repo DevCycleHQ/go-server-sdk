@@ -92,7 +92,7 @@ func NewEventManager(options *Options, localBucketing InternalEventQueue, cfg *H
 
 func (e *EventManager) QueueEvent(user User, event Event) error {
 	if e.closed {
-		return fmt.Errorf("devcycle client was closed, no more events can be tracked.")
+		return fmt.Errorf("devcycle client was closed, no more events can be tracked")
 	}
 	queueSize, err := e.internalQueue.UserQueueLength()
 	if err != nil {

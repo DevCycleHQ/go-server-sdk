@@ -1,0 +1,17 @@
+version: "2"
+linters:
+  settings:
+    staticcheck:
+      checks:
+        - "all"
+        - "-ST1000" # package comments — pre-existing
+        - "-ST1003" # naming conventions — pre-existing public API names
+        - "-ST1011" # unit-specific suffixes in public API field names
+        - "-ST1016" # receiver name consistency — pre-existing
+        - "-ST1020" # exported method comment form — pre-existing
+        - "-ST1021" # exported type comment form — pre-existing
+        - "-ST1022" # exported var comment form — pre-existing
+        - "-QF1001" # De Morgan's law refactors — style suggestion
+        - "-QF1003" # tagged switch refactors — style suggestion
+        - "-QF1004" # strings.ReplaceAll — style suggestion
+        - "-QF1008" # embedded field selectors — style suggestion

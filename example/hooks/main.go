@@ -136,5 +136,5 @@ func main() {
 			missingVariable.Key, missingVariable.Value, missingVariable.Type_, missingVariable.IsDefaulted)
 	}
 
-	client.Close()
+	_ = client.Close()
 }
