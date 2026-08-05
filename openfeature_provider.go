@@ -60,18 +60,6 @@ func (p DevCycleProvider) Track(ctx context.Context, trackingEventName string, e
 	}
 }
 
-// Status exposes the status of the provider.
-// Note: as of go-sdk v1.16.0 (OpenFeature spec 0.8.0) providers are stateless and
-// Status() is no longer part of the openfeature.FeatureProvider interface, so the
-// OpenFeature SDK will not call this. It is retained for direct callers of
-// DevCycleProvider; the openfeature.State type and constants still exist.
-func (p DevCycleProvider) Status() openfeature.State {
-	if p.Client.closed() {
-		return openfeature.FatalState
-	}
-	return openfeature.ReadyState
-}
-
 // Shutdown define the shutdown operation of the provider
 func (p DevCycleProvider) Shutdown() {
 	_ = p.Client.Close()
