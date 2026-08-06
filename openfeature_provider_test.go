@@ -19,9 +19,9 @@ func TestOFDevCycleProvider_Metadata(t *testing.T) {
 
 func TestOFDevCycleProvider_Close(t *testing.T) {
 	provider := getProviderForConfig(t, false)
-	require.False(t, provider.internalFullClient.closed())
+	require.False(t, provider.Client.closed())
 	provider.Shutdown()
-	require.True(t, provider.internalFullClient.closed())
+	require.True(t, provider.Client.closed())
 }
 
 func TestOFDevCycleProvider_EventChannel(t *testing.T) {
