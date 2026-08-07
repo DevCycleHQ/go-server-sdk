@@ -60,14 +60,6 @@ func (p DevCycleProvider) Track(ctx context.Context, trackingEventName string, e
 	}
 }
 
-// Status expose the status of the provider
-func (p DevCycleProvider) Status() openfeature.State {
-	if p.Client.closed() {
-		return openfeature.FatalState
-	}
-	return openfeature.ReadyState
-}
-
 // Shutdown define the shutdown operation of the provider
 func (p DevCycleProvider) Shutdown() {
 	_ = p.Client.Close()
