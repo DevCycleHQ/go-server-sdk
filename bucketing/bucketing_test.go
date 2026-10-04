@@ -3,6 +3,7 @@ package bucketing
 import (
 	_ "embed"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -898,4 +899,37 @@ func TestBucketing_Deterministic_BooleanAlternateKeyRandomDistribution(t *testin
 	require.NoError(t, err)
 
 	require.Equal(t, bucketedUserConfig3.FeatureVariationMap["614ef8aa475928459060721f"], bucketedUserConfig4.FeatureVariationMap["614ef8aa475928459060721f"])
+}
+
+func TestRolloutLinearNonzeroStage(t *testing.T) {
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name                     string
+		initial, final, expected float64
+	}{
+		{"increasing", 0.1, 0.2, 0.11},
+		{"decreasing", 1, 0, 0.9},
+		{"zero start", 0, 1, 0.1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rollout := Rollout{Type: "gradual", StartPercentage: tt.initial, StartDate: start, Stages: []RolloutStage{{Type: "linear", Date: start.Add(240 * time.Hour), Percentage: tt.final}}}
+			got := getCurrentRolloutPercentage(rollout, start.Add(24*time.Hour))
+			if math.Abs(got-tt.expected) > 1e-9 {
+				t.Errorf("got %g, want %g", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestRolloutLinearBetweenNonzeroStages(t *testing.T) {
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	rollout := Rollout{Type: "gradual", StartPercentage: 0, StartDate: start, Stages: []RolloutStage{
+		{Type: "discrete", Date: start.Add(time.Hour), Percentage: 0.25},
+		{Type: "linear", Date: start.Add(11 * time.Hour), Percentage: 0.75},
+	}}
+	require.InDelta(t, 0.5, getCurrentRolloutPercentage(rollout, start.Add(6*time.Hour)), 1e-9)
+	require.InDelta(t, 0.75, getCurrentRolloutPercentage(rollout, start.Add(11*time.Hour)), 1e-9)
+	rollout.Stages[1].Type = "discrete"
+	require.InDelta(t, 0.25, getCurrentRolloutPercentage(rollout, start.Add(6*time.Hour)), 1e-9)
 }

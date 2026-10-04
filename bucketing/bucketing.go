@@ -131,7 +131,7 @@ func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64
 	if currentDatePercentage == 0 {
 		return 0
 	}
-	return (currentStage.Percentage + (nextStage.Percentage - currentStage.Percentage)) * currentDatePercentage
+	return currentStage.Percentage + (nextStage.Percentage-currentStage.Percentage)*currentDatePercentage
 }
 
 func isUserInRollout(rollout Rollout, boundedHash float64) bool {
