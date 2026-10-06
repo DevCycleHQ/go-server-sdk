@@ -446,6 +446,70 @@ func TestRollout_Gradual_WithStartDate_NoEnd_Future(t *testing.T) {
 	}
 }
 
+func TestGetCurrentRolloutPercentage_LinearFromNonZeroStart(t *testing.T) {
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	rollout := Rollout{
+		Type:            "gradual",
+		StartPercentage: 0.1,
+		StartDate:       startDate,
+		Stages: []RolloutStage{
+			{
+				Type:       "linear",
+				Date:       startDate.Add(time.Hour * 24 * 10),
+				Percentage: 0.2,
+			},
+		},
+	}
+
+	// 1 day into a 10 day window: 0.1 + (0.2 - 0.1) * 0.1
+	require.InDelta(t, 0.11, getCurrentRolloutPercentage(rollout, startDate.Add(time.Hour*24)), 1e-9)
+	// 5 days into a 10 day window: 0.1 + (0.2 - 0.1) * 0.5
+	require.InDelta(t, 0.15, getCurrentRolloutPercentage(rollout, startDate.Add(time.Hour*24*5)), 1e-9)
+}
+
+func TestGetCurrentRolloutPercentage_LinearRollback(t *testing.T) {
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	rollout := Rollout{
+		Type:            "gradual",
+		StartPercentage: 1,
+		StartDate:       startDate,
+		Stages: []RolloutStage{
+			{
+				Type:       "linear",
+				Date:       startDate.Add(time.Hour * 24 * 10),
+				Percentage: 0,
+			},
+		},
+	}
+
+	// 1 day into a 10 day window: 1 + (0 - 1) * 0.1
+	require.InDelta(t, 0.9, getCurrentRolloutPercentage(rollout, startDate.Add(time.Hour*24)), 1e-9)
+}
+
+func TestGetCurrentRolloutPercentage_LinearBetweenStages(t *testing.T) {
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	rollout := Rollout{
+		Type:            "stepped",
+		StartPercentage: 0,
+		StartDate:       startDate,
+		Stages: []RolloutStage{
+			{
+				Type:       "discrete",
+				Date:       startDate.Add(time.Hour * 24),
+				Percentage: 0.5,
+			},
+			{
+				Type:       "linear",
+				Date:       startDate.Add(time.Hour * 24 * 5),
+				Percentage: 1,
+			},
+		},
+	}
+
+	// 1 day into the 4 day window between stages: 0.5 + (1 - 0.5) * 0.25
+	require.InDelta(t, 0.625, getCurrentRolloutPercentage(rollout, startDate.Add(time.Hour*24*2)), 1e-9)
+}
+
 func TestRollout_Schedule_Valid(t *testing.T) {
 	rollout := Rollout{
 		Type:      "schedule",
