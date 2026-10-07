@@ -128,10 +128,7 @@ func getCurrentRolloutPercentage(rollout Rollout, currentDate time.Time) float64
 
 	currentDatePercentage := float64(currentDateTime.Sub(currentStage.Date).Milliseconds()) /
 		float64(nextStage.Date.Sub(currentStage.Date).Milliseconds())
-	if currentDatePercentage == 0 {
-		return 0
-	}
-	return (currentStage.Percentage + (nextStage.Percentage - currentStage.Percentage)) * currentDatePercentage
+	return currentStage.Percentage + (nextStage.Percentage-currentStage.Percentage)*currentDatePercentage
 }
 
 func isUserInRollout(rollout Rollout, boundedHash float64) bool {
