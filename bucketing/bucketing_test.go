@@ -510,6 +510,45 @@ func TestGetCurrentRolloutPercentage_LinearBetweenStages(t *testing.T) {
 	require.InDelta(t, 0.625, getCurrentRolloutPercentage(rollout, startDate.Add(time.Hour*24*2)), 1e-9)
 }
 
+func TestGetCurrentRolloutPercentage_LinearAtStageStart(t *testing.T) {
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	gradual := Rollout{
+		Type:            "gradual",
+		StartPercentage: 0.25,
+		StartDate:       startDate,
+		Stages: []RolloutStage{
+			{
+				Type:       "linear",
+				Date:       startDate.Add(time.Hour * 24),
+				Percentage: 1,
+			},
+		},
+	}
+	// Less than 1ms after the rollout start, progress truncates to 0
+	require.InDelta(t, 0.25, getCurrentRolloutPercentage(gradual, startDate.Add(time.Microsecond*500)), 1e-9)
+
+	stageDate := startDate.Add(time.Hour * 24)
+	stepped := Rollout{
+		Type:            "stepped",
+		StartPercentage: 0,
+		StartDate:       startDate,
+		Stages: []RolloutStage{
+			{
+				Type:       "discrete",
+				Date:       stageDate,
+				Percentage: 0.5,
+			},
+			{
+				Type:       "linear",
+				Date:       stageDate.Add(time.Hour * 24),
+				Percentage: 1,
+			},
+		},
+	}
+	// Less than 1ms after a stage, progress truncates to 0
+	require.InDelta(t, 0.5, getCurrentRolloutPercentage(stepped, stageDate.Add(time.Microsecond*500)), 1e-9)
+}
+
 func TestRollout_Schedule_Valid(t *testing.T) {
 	rollout := Rollout{
 		Type:      "schedule",
