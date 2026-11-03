@@ -3,6 +3,7 @@ package bucketing
 import (
 	"testing"
 
+	"github.com/devcyclehq/go-server-sdk/v2/api"
 	"github.com/stretchr/testify/require"
 )
 
@@ -73,6 +74,51 @@ func TestCheckCustomData(t *testing.T) {
 		result2 := checkCustomData(testFilter, nil, test.data)
 		if result2 != test.expected {
 			t.Errorf("Test %s (clientCustomData variation) failed. Expected %t, got %t", test.name, test.expected, result)
+		}
+	}
+}
+
+func TestCustomDataFilterMatchesCombinedCustomData(t *testing.T) {
+	tests := []struct {
+		name              string
+		customData        map[string]interface{}
+		privateCustomData map[string]interface{}
+		clientCustomData  map[string]interface{}
+	}{
+		{"no data", nil, nil, nil},
+		{"custom data only", map[string]interface{}{"key": "value"}, nil, nil},
+		{"private custom data only", nil, map[string]interface{}{"key": "value"}, nil},
+		{"private custom data takes precedence", map[string]interface{}{"key": "other"}, map[string]interface{}{"key": "value"}, nil},
+		{"private nil takes precedence", map[string]interface{}{"key": "value"}, map[string]interface{}{"key": nil}, nil},
+		{"custom nil hides client data", map[string]interface{}{"key": nil}, nil, map[string]interface{}{"key": "value"}},
+		{"client data when the key is missing", map[string]interface{}{"other": "x"}, nil, map[string]interface{}{"key": "value"}},
+	}
+	for _, comparator := range []string{ComparatorEqual, ComparatorNotEqual, ComparatorExist, ComparatorNotExist} {
+		filter := &CustomDataFilter{
+			UserFilter: &UserFilter{
+				filter: filter{
+					Type:       "user",
+					SubType:    "customData",
+					Comparator: comparator,
+				},
+				Values: []interface{}{"value"},
+			},
+			DataKey:     "key",
+			DataKeyType: "String",
+		}
+		require.NoError(t, filter.Initialize())
+
+		for _, test := range tests {
+			t.Run(comparator+"/"+test.name, func(t *testing.T) {
+				user := api.User{
+					UserId:            "user",
+					CustomData:        test.customData,
+					PrivateCustomData: test.privateCustomData,
+				}.GetPopulatedUser(&api.PlatformData{})
+
+				want := checkCustomData(filter, user.CombinedCustomData(), test.clientCustomData)
+				require.Equal(t, want, filter.Evaluate(nil, user, test.clientCustomData))
+			})
 		}
 	}
 }

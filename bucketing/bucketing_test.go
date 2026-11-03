@@ -1002,3 +1002,17 @@ func TestBucketing_Deterministic_BooleanAlternateKeyRandomDistribution(t *testin
 
 	require.Equal(t, bucketedUserConfig3.FeatureVariationMap["614ef8aa475928459060721f"], bucketedUserConfig4.FeatureVariationMap["614ef8aa475928459060721f"])
 }
+
+func TestDetermineUserBucketingValueForTarget_PrivateCustomData(t *testing.T) {
+	user := api.User{
+		UserId:            "user",
+		CustomData:        map[string]interface{}{"key": "public", "other": float64(7)},
+		PrivateCustomData: map[string]interface{}{"key": "private"},
+	}.GetPopulatedUser(&api.PlatformData{})
+
+	require.Equal(t, "user", determineUserBucketingValueForTarget("", &user))
+	require.Equal(t, "user", determineUserBucketingValueForTarget("user_id", &user))
+	require.Equal(t, "private", determineUserBucketingValueForTarget("key", &user))
+	require.Equal(t, "7", determineUserBucketingValueForTarget("other", &user))
+	require.Equal(t, defaultBucketingValue, determineUserBucketingValueForTarget("missing", &user))
+}

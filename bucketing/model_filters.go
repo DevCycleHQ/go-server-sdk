@@ -203,7 +203,8 @@ type CustomDataFilter struct {
 }
 
 func (filter *CustomDataFilter) Evaluate(audiences map[string]NoIdAudience, user api.PopulatedUser, clientCustomData map[string]interface{}) bool {
-	return checkCustomData(filter, user.CombinedCustomData(), clientCustomData)
+	value, ok := user.CustomDataValue(filter.DataKey)
+	return checkCustomDataValue(filter, value, ok, clientCustomData)
 }
 
 func (f CustomDataFilter) Type() string {
