@@ -1,73 +1,29 @@
 name: Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      prerelease:
-        description: "Prerelease"
-        required: true
-        type: boolean
-      draft:
-        description: "Draft"
-        required: true
-        type: boolean
-      version-increment-type:
-          description: 'Which part of the version to increment:'
-          required: true
-          type: choice
-          options:
-            - major
-            - minor
-            - patch
-          default: 'patch'
+  push:
+    branches:
+      - main
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
-  release:
-    name: Version Bump and Release
+  release-please:
+    name: Release Please
     runs-on: ubuntu-latest
 
     steps:
-      # Check out the repo with credentials that can bypass branch protection, and fetch git history instead of just latest commit
-      - uses: actions/checkout@v7
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: release
         with:
-          token: ${{ secrets.AUTOMATION_USER_TOKEN }}
-          fetch-depth: 0
-
-      - uses: DevCycleHQ/release-action/prepare-release@v2.3.0
-        id: prepare-release
-        with:
-          github-token: ${{ secrets.AUTOMATION_USER_TOKEN }}
-          prerelease: ${{ github.event.inputs.prerelease }}
-          draft: ${{ github.event.inputs.draft }}
-          version-increment-type: ${{ github.event.inputs.version-increment-type }}
-
-      - name: Update version in code
-        run: |
-          sed -i "s/^const VERSION = \".*\"/const VERSION = \"${{steps.prepare-release.outputs.next-release-tag}}\"/" ./version.go
-
-      - name: Commit and push
-        run: |
-          git config --global user.email "foundation-admin@devcycle.com"
-          git config --global user.name "DevCycle Automation"
-          git add ./version.go
-          git commit -m "Release ${{steps.prepare-release.outputs.next-release-tag}}"
-          git push origin HEAD:main
-        if: inputs.draft != true
-
-      - uses: DevCycleHQ/release-action/create-release@v2.3.0
-        id: create-release
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ steps.prepare-release.outputs.next-release-tag }}
-          target: main
-          prerelease: ${{ github.event.inputs.prerelease }}
-          draft: ${{ github.event.inputs.draft }}
-          changelog: ${{ steps.prepare-release.outputs.changelog }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
 
       - name: Display link to release
+        if: ${{ steps.release.outputs.release_created }}
         run: |
-          echo "::notice title=Release ID::${{ steps.create-release.outputs.release-id }}"
-          echo "::notice title=Release URL::${{ steps.create-release.outputs.release-url }}"
+          echo "::notice title=Release Tag::${{ steps.release.outputs.tag_name }}"
+          echo "::notice title=Release URL::${{ steps.release.outputs.html_url }}"

@@ -1,3 +1,3 @@
 package devcycle
 
-const VERSION = "2.25.0"
+const VERSION = "2.25.0" // x-release-please-version
