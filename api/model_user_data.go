@@ -77,6 +77,16 @@ func (p *PopulatedUser) MergeClientCustomData(ccd map[string]interface{}) {
 	}
 }
 
+// CustomDataValue returns the value for key from the combined custom data,
+// without building the combined map. Private custom data takes precedence.
+func (p *PopulatedUser) CustomDataValue(key string) (interface{}, bool) {
+	if v, ok := p.PrivateCustomData[key]; ok {
+		return v, true
+	}
+	v, ok := p.CustomData[key]
+	return v, ok
+}
+
 func (p *PopulatedUser) CombinedCustomData() map[string]interface{} {
 	ret := make(map[string]interface{}, len(p.CustomData)+len(p.PrivateCustomData))
 	for k, v := range p.CustomData {

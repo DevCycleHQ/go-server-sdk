@@ -48,15 +48,22 @@ func filterFunctionsBySubtype(filter *UserFilter, user api.PopulatedUser, client
 }
 
 func checkCustomData(filter *CustomDataFilter, data map[string]interface{}, clientCustomData map[string]interface{}) bool {
+	value, ok := data[filter.DataKey]
+	return checkCustomDataValue(filter, value, ok, clientCustomData)
+}
+
+// checkCustomDataValue is checkCustomData for a value that the caller already
+// read from the user data. ok is false if the key is not in the user data.
+func checkCustomDataValue(filter *CustomDataFilter, value interface{}, ok bool, clientCustomData map[string]interface{}) bool {
 	operator := filter.GetComparator()
 	var dataValue interface{}
 
-	if _, ok := data[filter.DataKey]; !ok {
+	if !ok {
 		if v2, ok2 := clientCustomData[filter.DataKey]; ok2 {
 			dataValue = v2
 		}
 	} else {
-		dataValue = data[filter.DataKey]
+		dataValue = value
 	}
 	isNot64Bit := false
 	switch dataValue.(type) {

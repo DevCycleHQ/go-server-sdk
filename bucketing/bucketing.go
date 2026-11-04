@@ -50,12 +50,12 @@ func generateBoundedHash(input string, hashSeed uint32) float64 {
 	return float64(mh) / float64(maxHashValue)
 }
 
-func determineUserBucketingValueForTarget(targetBucketingKey, userId string, mergedCustomData map[string]interface{}) string {
+func determineUserBucketingValueForTarget(targetBucketingKey string, user *api.PopulatedUser) string {
 	if targetBucketingKey == "" || targetBucketingKey == "user_id" {
-		return userId
+		return user.UserId
 	}
 
-	if customDataValue, keyExists := mergedCustomData[targetBucketingKey]; keyExists {
+	if customDataValue, keyExists := user.CustomDataValue(targetBucketingKey); keyExists {
 		if customDataValue == nil {
 			return defaultBucketingValue
 		}
@@ -137,13 +137,12 @@ func isUserInRollout(rollout Rollout, boundedHash float64) bool {
 }
 
 func evaluateSegmentationForFeature(config *configBody, feature *ConfigFeature, user api.PopulatedUser, clientCustomData map[string]interface{}) (t *Target, isRollout bool) {
-	var mergedCustomData = user.CombinedCustomData()
 	for _, target := range feature.Configuration.Targets {
 		passthroughEnabled := !config.Project.Settings.DisablePassthroughRollouts
 		rolloutCriteriaMet := true
 		if target.Rollout != nil && passthroughEnabled {
 
-			var bucketingValue = determineUserBucketingValueForTarget(target.BucketingKey, user.UserId, mergedCustomData)
+			var bucketingValue = determineUserBucketingValueForTarget(target.BucketingKey, &user)
 
 			boundedHash := generateBoundedHashes(bucketingValue, target.Id)
 			rolloutHash := boundedHash.RolloutHash
@@ -169,8 +168,7 @@ func doesUserQualifyForFeature(config *configBody, feature *ConfigFeature, user 
 		return targetAndHashes{}, isRollout, ErrUserDoesNotQualifyForTargets
 	}
 
-	var mergedCustomData = user.CombinedCustomData()
-	var bucketingValue = determineUserBucketingValueForTarget(target.BucketingKey, user.UserId, mergedCustomData)
+	var bucketingValue = determineUserBucketingValueForTarget(target.BucketingKey, &user)
 
 	boundedHashes := generateBoundedHashes(bucketingValue, target.Id)
 	rolloutHash := boundedHashes.RolloutHash
