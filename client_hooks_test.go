@@ -673,3 +673,26 @@ func TestClientWithHooksCloud(t *testing.T) {
 		assert.Equal(t, expectedOrder, executionOrder)
 	})
 }
+
+func TestClientWithHooks_ReturnsEvaluationError(t *testing.T) {
+	var hookErr error
+	evalHook := NewEvalHook(nil, nil, nil, func(context *HookContext, evalError error) error {
+		hookErr = evalError
+		return nil
+	})
+
+	client, err := NewClient(generateTestSDKKey(), &Options{
+		EnableCloudBucketing: true,
+		EvalHooks:            []*EvalHook{evalHook},
+	})
+	require.NoError(t, err)
+
+	// A custom data value that cannot be JSON encoded makes the request fail
+	user := User{UserId: "test-user", CustomData: map[string]interface{}{"invalid": make(chan int)}}
+	variable, err := client.Variable(user, "test-key", "default")
+
+	assert.ErrorContains(t, err, "unsupported type")
+	assert.Equal(t, err, hookErr)
+	assert.Equal(t, "default", variable.Value)
+	assert.True(t, variable.IsDefaulted)
+}
