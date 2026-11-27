@@ -340,7 +340,8 @@ func (c *Client) Variable(userdata User, key string, defaultValue interface{}) (
 		return variable, err
 	}
 
-	return variable, nil
+	// Hook errors are only reported to the error hooks; evaluation errors are returned
+	return variable, err
 }
 
 func (c *Client) evaluateVariable(userdata User, key string, variableType string, defaultValue interface{}, convertedDefaultValue interface{}, variable Variable) (Variable, VariableMetadata, error) {
