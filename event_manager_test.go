@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -233,4 +234,47 @@ func TestEventManager_QueueEvent_100_Flush(t *testing.T) {
 		return httpmock.GetCallCountInfo()["POST https://events.devcycle.com/v1/events/batch"] >= 1
 	}, 1*time.Second, 100*time.Millisecond)
 
+}
+
+func TestEventManager_FlushEvents_RetriesAfterTransportError(t *testing.T) {
+	sdkKey, _ := httpConfigMock(200)
+
+	// Number of requests to the events API that carried the tracked event.
+	attempts := 0
+	httpEventsApiMockWithCallback(func(req *http.Request) (*http.Response, error) {
+		body, err := io.ReadAll(req.Body)
+		require.NoError(t, err)
+		if strings.Contains(string(body), "retriedevent") {
+			attempts++
+			if attempts == 1 {
+				// Simulate a transient transport failure (timeout, DNS, connection reset).
+				return nil, fmt.Errorf("connection reset by peer")
+			}
+		}
+		return httpmock.NewStringResponse(201, `{}`), nil
+	})
+
+	// Long flush interval so only the explicit FlushEvents calls below send events.
+	c, err := NewClient(sdkKey, &Options{EventFlushIntervalMS: time.Minute})
+	require.NoError(t, err)
+	defer func(c *Client) {
+		_ = c.Close()
+	}(c)
+	require.Eventually(t, func() bool {
+		return c.isInitialized && c.hasConfig()
+	}, 1*time.Second, 10*time.Millisecond)
+
+	_, err = c.Track(User{UserId: "j_test", DeviceModel: "testing"},
+		Event{Target: "retriedevent", Type_: "event"})
+	require.NoError(t, err)
+
+	// Flush until the tracked event has left the raw queue and hit the transport error.
+	require.Eventually(t, func() bool {
+		require.NoError(t, c.FlushEvents())
+		return attempts == 1
+	}, 1*time.Second, 10*time.Millisecond)
+
+	// The payload that hit the transport error must be sent again on the next flush.
+	require.NoError(t, c.FlushEvents())
+	require.Equal(t, 2, attempts)
 }
