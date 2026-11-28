@@ -203,8 +203,9 @@ func (e *EventManager) flushEventPayload(
 	resp, err = e.httpClient.Do(req)
 
 	if err != nil {
-		util.Errorf("Failed to make request to events api: %s", err)
-		e.reportPayloadFailure(payload, false, failures, retryableFailures)
+		// transport errors (timeout, DNS, connection reset) are transient, same as a 5xx: retry later.
+		util.Warnf("Failed to make request to events api, retrying later: %s", err)
+		e.reportPayloadFailure(payload, true, failures, retryableFailures)
 		return
 	}
 
